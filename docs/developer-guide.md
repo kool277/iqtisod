@@ -4,12 +4,13 @@ This guide explains how Moliya is built and how to continue it safely. Read the 
 
 ## Setup
 
-- Node.js 20.19+ or 22.12+ (CI uses 22). npm comes with it.
+- Node.js 22.12+ (`.nvmrc` pins the major version CI uses). npm comes with it.
 - `npm install`
 - `npm run dev` starts Vite on port 5173 with the cross-origin isolation headers.
-- `npm test` runs unit tests in Node (no browser needed).
-- `npx playwright install chromium` once, then `npm run test:e2e`. Playwright starts the dev server itself, or reuses one already running on port 5173 outside CI.
+- `npm run typecheck` runs `tsc --noEmit`. `npm test` runs unit tests in Node (no browser needed).
+- `npx playwright install chromium` once, then `npm run test:e2e` (against the dev server) or `npm run test:e2e:preview` (builds, then tests the production bundle on port 4173 with the Content Security Policy active, as CI does).
 - `npm run build` runs `tsc --noEmit` and then `vite build` into `dist/`. `npm run preview` serves `dist/`.
+- `npm run decrypt -- <file.moliya> --list` runs the standalone recovery tool.
 
 ## Architecture
 
@@ -29,30 +30,20 @@ flowchart TD
 
 ### Encryption
 
-Implemented in `src/crypto/crypto.service.ts`, orchestrated in `src/services/auth.service.ts`.
+Implemented in `src/crypto/crypto.service.ts`, orchestrated in `src/services/auth.service.ts`. The byte-level format is specified in [data-format.md](data-format.md).
 
 - **DEK (vault key)**: `generateDek()` creates a random, extractable AES-GCM-256 key. It exists only in memory while unlocked.
-- **KEK (personal key)**: `deriveKeyAndVerifier(password, salt)` runs PBKDF2-SHA-256 (200,000 iterations) over a 32-byte random salt and imports the 256 bits as a non-extractable AES-GCM key with `wrapKey`/`unwrapKey` usage. The same bits, hex-encoded, are stored as `users.password_hash` (a verifier). Login does **not** compare it. Login succeeds only if unwrapping and GCM decryption succeed.
+- **KEK (personal key)**: `deriveKeyAndVerifier(password, salt, kdf)` runs PBKDF2 with the wrap's own parameters and imports the 256 bits as a non-extractable AES-GCM key. New wraps use `CURRENT_KDF` (PBKDF2-SHA-256, 600,000 iterations, the OWASP 2023+ figure). `isKdfParams` accepts any hash in `KDF_HASHES` and iterations within `KDF_ITERATION_BOUNDS`, so every parameter set ever written still opens. The same bits, hex-encoded, are stored as `users.password_hash`. Login does **not** compare it; it succeeds only if unwrapping and GCM decryption succeed.
+- **Re-wrap on login**: when `kdfNeedsUpgrade(wrap.kdf)`, `unlockVault` wraps the same DEK with a fresh salt and `CURRENT_KDF`, verifies the new wrap, and writes `CREDENTIALS_UPGRADED`. The session is marked `needsSave` and saved immediately.
 - **Wraps**: `wrapDek` and `unwrapDek` use AES-GCM `wrapKey('raw')` with a fresh 12-byte IV.
 - **Snapshot**: `sqlite3_js_db_export` gives the database bytes, which are encrypted with `encryptDatabase` (fresh 12-byte IV per save).
-- The spec's functions `deriveKey`, `encryptDatabase`, and `decryptDatabase` exist with the requested signatures.
 
-### Storage record
+### Storage record and backups
 
-`src/db/storage.ts` keeps one record in IndexedDB database `moliya`, object store `vault`, key `primary`:
-
-```ts
-type VaultRecord = {
-  id: 'primary'
-  version: 1
-  kdf: { name: 'PBKDF2'; hash: 'SHA-256'; iterations: number }
-  wraps: { userId; email; salt; iv; wrappedDek }[]   // ArrayBuffers, one per person
-  payload: { iv; ciphertext }                        // the encrypted SQLite file
-  updatedAt: string
-}
-```
-
-The backup file (`src/services/backup.service.ts`) is the same record as JSON with `format: 'moliya-vault'`, `version: 1`, and base64 fields. Imports are rejected unless `kdf.iterations === 200000`.
+- `src/db/versions.ts` holds `SCHEMA_VERSION`, `RECORD_VERSION`, and `BACKUP_VERSION`.
+- `src/db/envelope.ts` is the only place that reads or writes record and backup layouts. `decodeStoredRecord` and `parseBackupJson` accept every released version (1 and 2), validate lengths and KDF bounds, and throw `FormatTooNewError` for anything newer. `toBackupJson` writes the current version; `storedToBackupJson` re-emits an archived version 1 record as the exact version 1 backup.
+- `src/db/storage.ts` is the IndexedDB layer. `writeVault(record, { expectedStamp, archive })` does a compare-and-swap on `updatedAt` and, when asked, stores the replaced record under `archive:<time>:<reason>` in the same transaction (at most `MAX_ARCHIVES`).
+- `src/services/backup.service.ts` builds file names and text, records `last_backup_at`, and computes the stale-backup reminder (`BACKUP_STALE_DAYS`).
 
 ### SQLite
 
@@ -65,16 +56,24 @@ The backup file (`src/services/backup.service.ts`) is the same record as JSON wi
 
 The database is always in memory on the main thread. OPFS is deliberately not used, because it would store plaintext on disk. Vite emits `sqlite3-worker1` and `sqlite3-opfs-async-proxy` assets from the package even though they are unused.
 
-Schema: `src/db/schema.sql` (roles, groups, users, categories, transactions, audit_logs, settings). Seed data: `src/db/seed.ts`. Settings keys: `currency`, `vault_name`.
+Schema: built only by migrations in `src/db/migrations/` (`0001-baseline.sql`, `0002-exact-money.ts`, listed in `index.ts`). `migrate(db, { appVersion })` runs on create, unlock, and therefore import. Seed data: `src/db/seed.ts`. Settings keys: `currency`, `vault_name`, `vault_created_at`, `last_backup_at`.
+
+Money is stored as `transactions.amount_minor` (integer minor units, ISO 4217 exponent from the `currencies` table). `src/lib/money.ts` is the only place that converts: `parseAmount(text, currency)` accepts `.` or `,` as the decimal separator and spaces as grouping, and rejects extra decimals (`AMOUNT_PRECISION`) or amounts over `MAX_AMOUNT_MINOR`. Display uses `formatMoney(minor, …)`, inputs use `minorToDecimal`, charts use `toMajor`. Percentages use `percentOf` (exact, half-even). Never add amounts of different currencies.
+
+The audit log is append-only and hash-chained (`src/db/audit-chain.ts`). `writeAudit` must run inside the same transaction as the change; `auditIntegrity` re-verifies the chain for the Audit page.
 
 ### Session and saving
 
-`src/context/VaultContext.tsx` owns the unlocked `OpenVault` (`db`, `dek`, `wraps`, `user`, `currency`, `vaultName`) in a ref so it never re-renders or leaks into React state.
+`src/context/VaultContext.tsx` owns the unlocked `OpenVault` (`db`, `dek`, `wraps`, `user`, `currency`, `vaultName`, `createdAt`, `lastBackupAt`) in a ref so it never re-renders or leaks into React state.
 
 - `query(fn)` runs a synchronous read.
 - `run(fn, { dirty: true })` runs a write, refreshes the user snapshot, bumps `revision`, and schedules a save.
 - Saves are serialized through a promise chain. They are triggered 800 ms after the last change, every 5 seconds while dirty, on `pagehide` and `visibilitychange` to hidden, before lock, and before export. Unload saves are best effort, because browsers may kill the page before IndexedDB finishes.
-- Status flows: `checking` → `setup` or `locked` → `ready`. `error` means IndexedDB could not be read.
+- Every save is a compare-and-swap against the `updatedAt` the session loaded. A mismatch (another tab, an import, an old cached build) sets save state `conflict` and stops autosave instead of overwriting.
+- Unlock takes the Web Lock `moliya-vault-session` (`src/lib/session-lock.ts`); a second tab gets `VAULT_IN_USE`. Lock releases it.
+- If unlock migrated the schema or upgraded a record, the first save stores the untouched original as an `upgrade` archive in the same IndexedDB transaction.
+- After unlock or setup the app calls `navigator.storage.persist()` (`src/lib/persistence.ts`) so the browser does not evict the vault under storage pressure or, in Safari, after 7 days without a visit.
+- Status flows: `checking` → `setup` or `locked` → `ready`. `error` means the stored record could not be read; `bootError` holds the error code (`FORMAT_TOO_NEW`, `RECORD_INVALID`, or a raw message).
 
 Components read data with `useMemo(() => query(...), [query, revision, ...])`, so any write re-renders the lists.
 
@@ -95,42 +94,51 @@ Every service function checks `canUser` and, for non-admins, restricts to `user.
 | `group.service.ts` | List, create, delete groups |
 | `finance.service.ts` | Categories, transaction CRUD, validation, dashboard aggregation |
 | `settings.service.ts` | Vault name and currency (`updateVaultSettings`, also updates `vault.vaultName` and `vault.currency`), category create, update, and delete. Gated by `MANAGE_SETTINGS` |
-| `audit.service.ts` | `writeAudit` (call inside the same transaction as the change) and `listAudit` |
-| `backup.service.ts` | Record to and from backup JSON, `noteExport` |
+| `audit.service.ts` | `writeAudit` (call inside the same transaction as the change), `listAudit`, `auditIntegrity` |
+| `backup.service.ts` | Backup file text and names, `noteExport`, `backupReminder` |
+| `export.service.ts` | Plaintext CSV and SQLite exports (gated by `EXPORT_VAULT`, audited) |
 
 Errors are `AppError` subclasses with a string code (`src/domain/errors.ts`). `src/lib/errors.ts` maps codes to translated messages. Add a case there when you add a code.
 
 ### UI
 
-- Routing: `HashRouter` in `src/App.tsx`. `/setup`, `/login`, and `/app/*` are guarded by vault status.
-- `AppShell.tsx`: navigation filtered by permission, top bar with the sidebar collapse toggle, and `PeriodProvider` (the shared period for dashboard and ledger). The collapsed state is `data-sidebar` on `app-shell`; desktop shrinks the nav to a 76px icon rail, mobile hides the nav row.
+- Routing: `HashRouter` in `src/App.tsx`. `/setup`, `/login`, and `/app/*` are guarded by vault status. Every page under `/app` is loaded with `React.lazy`, the dashboard loads Chart.js lazily, and `src/db/sqlite.ts` imports sqlite-wasm on first use, so the first screen only needs React.
+- Versioning: `tools/build-info.ts` injects `__APP_VERSION__`, `__BUILD_COMMIT__`, and `__BUILD_DATE__` (read through `src/lib/version.ts`) and the build writes `version.json`. `UpdateBanner` polls it in production and offers a reload (locking first) when a new build is deployed. The version shows in the sidebar, on the sign-in screens, and in Settings → About.
+- `AppShell.tsx`: navigation filtered by permission, top bar with the sidebar collapse toggle, and `PeriodProvider` (the shared period for dashboard and ledger). The collapsed state is `data-sidebar` on `app-shell`; desktop shrinks the nav to a 65px icon rail, mobile hides the nav row.
 - Pages: `Dashboard.tsx`, `Timeline.tsx` (ledger and form), `AdminPages.tsx` (users, groups, audit, backup), `SettingsPage.tsx` (vault name, currency, categories), and `AuthScreens.tsx` (setup, login).
 - Long values: grid and flex children that hold text need `min-w-0`, or they refuse to shrink and overflow. KPI figures use a container query (`@container` on the card, `clamp(…, 9cqi, …)` on the value) so they scale with the card, not the viewport. `formatMoney` drops the fraction for whole amounts.
 - Charts: `Charts.tsx` registers only the Chart.js pieces that are used, and picks colors from the resolved theme.
-- Styling: Tailwind 4 with design tokens in `src/index.css` (`paper`, `card`, `ink`, `muted`, `line`, `pine`, `clay`, `brass`, `brass-soft`, `on-pine`). Dark mode is the `.dark` class on `<html>`, set by `ThemeContext`.
+- Styling: Tailwind 4 with design tokens in `src/index.css` (`paper`, `card`, `ink`, `muted`, `line`, `pine`, `clay`, `brass`, `brass-soft`, `on-pine`, `pine-ink`, `clay-ink`). `pine`/`clay` are dark green/red fills in both themes; use `text-pine-ink`/`text-clay-ink` for green/red text (lighter in dark mode for AA contrast). Dark mode is the `.dark` class on `<html>`, set by `ThemeContext`.
 - i18n: `src/i18n/en.ts` is the source of truth. `Messages = typeof en`, so TypeScript forces `ru`, `uz-Latn`, and `uz-Cyrl` to have the same keys. `t('section.key')` is type-checked.
 - Local storage keys: `moliya.locale`, `moliya.theme`, and `moliya.sidebar` (`collapsed` or `expanded`).
 
 ## Project layout
 
 ```text
-.github/workflows/deploy.yml   CI and GitHub Pages deploy
-index.html                     loads coi-serviceworker.js before the app
+.github/workflows/             ci.yml (checks), deploy.yml (main → Pages), release.yml (tags), codeql.yml
+.github/dependabot.yml         weekly npm and Actions updates
+index.html                     loads coi-config.js and coi-serviceworker.js before the app
 public/coi-serviceworker.js    vendored v0.1.7 (MIT), not bundled
 src/
   App.tsx, main.tsx, index.css
   components/                  pages and UI pieces
   context/                     Vault, I18n, Theme, Period providers
   crypto/                      Web Crypto wrappers, byte helpers
-  db/                          schema, seed, SQLite wrapper, IndexedDB record
+  db/                          versions, envelope, IndexedDB, migrations, audit chain, SQLite wrapper, seed
   domain/                      shared types and error classes
   i18n/                        en, ru, uz-Latn, uz-Cyrl dictionaries
-  lib/                         dates, money formatting, error messages
+  lib/                         money, dates, version, updates, persistence, session lock, sha256, errors
   rbac/                        permissions
   services/                    business logic
 tests/
-  unit/                        Vitest: crypto, rbac, i18n, dates, full vault flow
-  e2e/                         Playwright: setup, roles, records, theme, backup
+  fixtures/backups/            golden backups from every release (immutable, SHA-256 pinned)
+  support/                     fixture helpers shared by tests
+  unit/                        Vitest
+  e2e/                         Playwright
+tools/
+  build-info.ts                version, commit, and build date for the bundle
+  fixtures/<version>/          generators that produced each fixture set
+  moliya-decrypt.mjs           dependency-free recovery CLI
 ```
 
 ## Conventions
@@ -176,41 +184,29 @@ Then call it from the UI with `run((vault) => renameGroup(vault, id, name), { di
 
 ### Change the schema
 
-There is **no migration system yet**. `applySchema` runs only in `createVault`, so existing vaults keep their old tables. Permission changes for the built-in roles are handled by `syncRolePermissions`, but before changing the schema or adding roles, add migrations that run on unlock, for example with `PRAGMA user_version`:
-
-```ts
-const MIGRATIONS: ((db: SqlDatabase) => void)[] = [
-  () => {}, // version 1: initial schema
-  (db) => db.exec('ALTER TABLE groups ADD COLUMN color TEXT'),
-]
-
-export function migrate(db: SqlDatabase): boolean {
-  const current = Number(db.queryValue('PRAGMA user_version') ?? 0) || 1
-  if (current >= MIGRATIONS.length) return false
-  db.withTransaction(() => {
-    for (let version = current; version < MIGRATIONS.length; version += 1) MIGRATIONS[version](db)
-  })
-  db.exec(`PRAGMA user_version = ${MIGRATIONS.length}`)
-  return true
-}
-```
-
-Call it in `unlockVault` after `openBytes`, set `user_version` in `createVault`, and mark the vault dirty when a migration ran. Old backups then upgrade on first unlock.
+1. Add `src/db/migrations/000N-short-name.ts` (or `.sql` imported with `?raw`) and append `{ version: N, name, up }` to `MIGRATIONS`. Never edit a released migration.
+2. Bump `SCHEMA_VERSION` in `src/db/versions.ts`. `assertMigrationsMatchSchemaVersion` and the migrations test fail if they disagree.
+3. Each migration runs in its own transaction with foreign keys off, followed by `PRAGMA foreign_key_check`, `user_version`, and a `schema_migrations` row. Throw to abort: that migration rolls back, the stored encrypted record is never touched (migrations run on the in-memory copy), and the user sees `MIGRATION_FAILED`. `PRAGMA quick_check` runs after the last step.
+4. Prefer `CHECK` constraints over `STRICT` tables so older SQLite tools can still read exported files.
+5. Add tests in `tests/unit/migrations.test.ts` against the previous version's fixtures, then follow [Changing a format](data-format.md#changing-a-format) for the release fixture.
 
 ### Change the storage or backup format
 
-Bump `version` in `VaultRecord` and `BackupFile`, keep reading version 1, and add a unit test that opens a version 1 fixture.
+Bump `RECORD_VERSION` or `BACKUP_VERSION`, add a new branch in `src/db/envelope.ts` while keeping every existing one, rename or add a field that older builds will fail on rather than misread, update [data-format.md](data-format.md), and add a fixture from the release.
 
 ## Tests
 
 - **Unit** (`tests/unit`, Node environment, real `crypto.subtle`, the Node build of sqlite-wasm through `resolve.conditions`):
-  - `crypto.service.test.ts`: parameters, key properties, deterministic verifier, AES-GCM roundtrip, tamper rejection, and DEK wrapping with right and wrong passwords.
-  - `rbac.test.ts`: the permission matrix, including `canUser(user, 'DELETE_TRANSACTION')`.
-  - `i18n.test.ts`: key parity across the four locales.
-  - `dates.test.ts`: period presets.
-  - `vault.test.ts`: create, record, dashboard totals, add viewer, wrong password, backup roundtrip, viewer scoping, and forbidden write.
-  - `settings.test.ts`: vault name and currency surviving seal and unlock, category add, rename, and delete guards, non-admin refusal, and permission sync for an older vault.
-- **End to end** (`tests/e2e/vault.spec.ts`, Chromium): first-run setup, adding records, dashboard values and charts, language switch, theme switch, settings and categories, the persisted sidebar toggle, admin creating a Manager and a Viewer, the viewer being read-only, and export then import into a fresh browser context.
+  - `fixtures.test.ts`: every golden backup in `tests/fixtures/backups` opens for every person with exact records, totals, and an intact audit chain; survives upgrade, re-seal, and a new backup; and 1.0.0's IndexedDB record re-exports byte for byte. Fails if a fixture changes or a format version has no fixture.
+  - `migrations.test.ts`: 1.0.0 detection, float-to-minor conversion, identical schema for upgraded and new databases, append-only audit log, full rollback of a failing migration, refusal of newer schemas.
+  - `envelope.test.ts`: version 1 and 2 records and backups, KDF bounds, tamper cases, newer-format refusal.
+  - `money.test.ts`: parsing, legacy conversion, formatting, percentages.
+  - `archival.test.ts`: SHA-256 against Node, audit tamper detection, CSV and SQLite exports, update detection.
+  - `decrypt-cli.test.ts`: the recovery CLI against every fixture.
+  - `crypto.service.test.ts`, `rbac.test.ts`, `i18n.test.ts`, `dates.test.ts`, `vault.test.ts`, `settings.test.ts`: primitives, permissions, locale parity, periods, the full vault flow, and settings.
+- **End to end** (Chromium):
+  - `vault.spec.ts`: setup, records, dashboard and charts, language and theme, settings and categories, sidebar, roles, and backup export and import.
+  - `upgrade.spec.ts`: a real 1.0.0 IndexedDB record upgraded in the browser (records, totals, stored format, archive download), a 1.0.0 backup import, refusal of a newer or damaged record, the single-session lock, and no CSP violations in preview mode.
 
 Each Playwright test gets a fresh browser context, so IndexedDB starts empty. The warning "localStorage is not available" during unit tests comes from Node and is harmless.
 
@@ -218,15 +214,13 @@ Each Playwright test gets a fresh browser context, so IndexedDB starts empty. Th
 
 Roughly in priority order:
 
-1. **Schema migrations** (see above). Needed before any schema change or new role.
-2. **Vault key rotation.** On user removal, password reset, or on demand: generate a new DEK, re-encrypt, and re-wrap for the remaining users. Today a removed person with an old copy can still decrypt new copies.
-3. **UI for existing services**: change a user's role or group (`updateUser` exists), rename groups, and let people change their own password.
-4. **Cryptographic group isolation**, if groups must be hidden from each other. This needs per-group keys or separate vaults.
-5. **Bundle size** (about 750 KB minified): lazy-load Chart.js and the admin pages. Consider loading sqlite-wasm after the login form renders.
-6. **Receipts in the database.** Images are stored as data URLs inside SQLite, and the whole database is re-encrypted on every save. Consider a separate encrypted IndexedDB store for attachments.
-7. **Exchange rates** or per-currency totals on the dashboard.
-8. **CSV export** of the decrypted ledger for spreadsheets.
-9. **A separate `IMPORT_VAULT` check.** The permission exists, but the backup page is gated by `EXPORT_VAULT` only.
-10. **Content Security Policy.** Add a `<meta http-equiv="Content-Security-Policy">` once inline scripts in `index.html` are moved to files.
-11. **Offline support**: a caching service worker that coexists with `coi-serviceworker`.
-12. **Multi-device sync.** Out of scope for a serverless design today. Any future sync must merge, not overwrite.
+1. **Vault key rotation.** On user removal, password reset, or on demand: generate a new DEK, re-encrypt, and re-wrap for the remaining users. Today a removed person with an old copy can still decrypt new copies.
+2. **Separate the password verifier from the KEK.** `users.password_hash` equals the KEK bits. Derive the verifier with HKDF (or drop it, since login never compares it) in a future schema migration.
+3. **Soft delete and corrections.** Records are hard-deleted; the audit log keeps the full snapshot. Accounting-style reversing entries or a `deleted_at` column would make history visible in the ledger itself.
+4. **UI for existing services**: change a user's role or group (`updateUser` exists), rename groups, and let people change their own password.
+5. **Cryptographic group isolation**, if groups must be hidden from each other. This needs per-group keys or separate vaults.
+6. **Receipts outside the database.** Images are stored as data URLs inside SQLite, and the whole database is re-encrypted on every save.
+7. **Exchange rates**, if mixed-currency totals are ever needed. Store the rate and its date with each conversion; never convert silently.
+8. **A separate `IMPORT_VAULT` check.** The permission exists, but the backup page is gated by `EXPORT_VAULT` only.
+9. **Offline support**: a caching service worker that coexists with `coi-serviceworker`.
+10. **Multi-device sync.** Out of scope for a serverless design today. Any future sync must merge, not overwrite.

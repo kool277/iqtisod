@@ -25,15 +25,19 @@ It suits a household tracking a shared budget, a small business or community gro
 - Dashboard with net balance, total income, total expenses, savings rate, and four charts: monthly income against expenses, expenses by category, spending over time, and spending by group or by person.
 - Admin settings page for the vault name, vault currency, and income and expense categories in all four languages.
 - Collapsible sidebar that remembers its state.
-- Audit log of every change.
-- Encrypted backup file (`.moliya`) for moving a vault to another browser or keeping a safe copy.
+- Exact money: amounts are stored as whole minor units (cents, tiyin) and never rounded, with per-currency subtotals for records outside the vault currency.
+- Tamper-evident audit log of every change, with before and after values.
+- Encrypted backup file (`.moliya`) for moving a vault to another browser or keeping a safe copy, with a reminder when the last backup is older than 7 days.
+- Unencrypted CSV and SQLite exports for spreadsheets, accountants, and long-term archiving.
+- Versioned data formats: every vault and backup made by any release keeps opening in every later release, and a standalone tool opens backups without the website.
+- In-app version display and a prompt to reload when a new version is deployed.
 - Day, night, and system themes. Language and theme choices are remembered.
 
 ## How it works
 
 ```mermaid
 flowchart LR
-  password[UserPassword] --> kdf["PBKDF2 200k"]
+  password[UserPassword] --> kdf["PBKDF2 600k"]
   kdf --> kek[UserKey]
   kek -->|unwrap| dek[VaultKey]
   dek -->|decrypt| db[SQLiteInMemory]
@@ -42,15 +46,21 @@ flowchart LR
 ```
 
 1. A random 256-bit **vault key** encrypts the whole SQLite database.
-2. Each person's password is stretched with PBKDF2 (SHA-256, 200,000 iterations, 32-byte salt) into a **personal key**, which wraps a copy of the vault key. Adding a person adds one more wrapped copy.
+2. Each person's password is stretched with PBKDF2 (SHA-256, 600,000 iterations, 32-byte salt) into a **personal key**, which wraps a copy of the vault key. Adding a person adds one more wrapped copy. Wraps made by 1.0.0 (200,000 iterations) still open and are strengthened at the person's next sign-in.
 3. Signing in unwraps the vault key and decrypts the database into memory. Nothing readable is written to disk.
 4. Changes are re-encrypted and saved to the browser's IndexedDB within about a second of each edit, every 5 seconds while changes are pending, and when the tab is hidden or the vault is locked.
 
 Refreshing or closing the tab locks the vault. Signing in again is required.
 
+## Versions and data longevity
+
+Moliya uses [Semantic Versioning](https://semver.org/); see the [changelog](CHANGELOG.md). The database schema, the stored browser record, and the backup file each carry their own format version, independent of the app version, and every backup records the app version that made it.
+
+Every release must open every vault and backup ever produced, for at least ten years. Upgrades run automatically on first sign-in, one step at a time, inside transactions, and keep the original copy in the browser. Real backups from each release are kept in `tests/fixtures/backups/` and must open, with exact totals, in every build. The formats are specified in [docs/data-format.md](docs/data-format.md), and `npm run decrypt` opens any backup with Node.js alone.
+
 ## Quick start
 
-Requirements: Node.js 20.19 or newer (22 LTS recommended) and npm.
+Requirements: Node.js 22.12 or newer and npm.
 
 ```bash
 npm install
@@ -64,15 +74,20 @@ Open the address Vite prints (usually `http://localhost:5173`), create a vault, 
 | `npm run dev` | Start the development server |
 | `npm run build` | Type-check and build static files into `dist/` |
 | `npm run preview` | Serve the built `dist/` locally |
-| `npm test` | Run unit tests (Vitest) |
-| `npm run test:e2e` | Run browser tests (Playwright). Run `npx playwright install chromium` once first |
+| `npm run typecheck` | Type-check only |
+| `npm test` | Run unit tests, including every golden backup (Vitest) |
+| `npm run test:e2e` | Run browser tests (Playwright) against the dev server. Run `npx playwright install chromium` once first |
+| `npm run test:e2e:preview` | Build, then run the browser tests against the production bundle, as CI does |
+| `npm run decrypt -- <file> --list` | Open a backup without the website (see the [admin guide](docs/admin-guide.md#opening-a-backup-without-the-website)) |
 
 ## Documentation
 
 - [User guide](docs/user-guide.md) is for Managers and Viewers who record and review money.
 - [Admin guide](docs/admin-guide.md) covers setting up a vault, settings and categories, people, groups, backups, and recovery.
 - [Developer guide](docs/developer-guide.md) covers architecture, code layout, conventions, and how to extend the app.
-- [DevOps guide](docs/devops-guide.md) covers building, CI, GitHub Pages, other hosts, and operational risks.
+- [DevOps guide](docs/devops-guide.md) covers building, CI, releases, GitHub Pages, other hosts, and operational risks.
+- [Data format](docs/data-format.md) specifies every stored format and the rules that keep old data readable.
+- [Changelog](CHANGELOG.md) lists what changed in each release.
 
 ## Security in one paragraph
 
@@ -80,8 +95,8 @@ Data is protected by encryption at rest and by passwords. It is **not** protecte
 
 ## Tech stack
 
-React 19, TypeScript, Vite, Tailwind CSS 4, Chart.js, Lucide icons, `@sqlite.org/sqlite-wasm`, the Web Crypto API, Vitest, Playwright, and GitHub Actions.
+React 19, TypeScript, Vite, Tailwind CSS 4, Chart.js, Lucide icons, `@sqlite.org/sqlite-wasm`, the Web Crypto API, Vitest, Playwright, GitHub Actions, CodeQL, and Dependabot.
 
 ## Status
 
-Version 1.0.0. The core features work and are covered by unit and browser tests. Known gaps and suggested next steps are listed in the [developer guide](docs/developer-guide.md#known-gaps-and-next-steps).
+Version 1.1.0, in production since 1.0.0. The core features work and are covered by unit tests, browser tests, and golden backups from every release. Known gaps and suggested next steps are listed in the [developer guide](docs/developer-guide.md#known-gaps-and-next-steps).

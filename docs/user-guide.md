@@ -44,7 +44,7 @@ Both the dashboard and the ledger use the same period buttons, and your choice c
 1. Open **Transactions** and choose **Add record**.
 2. Fill in the form:
    - **Type**: Income or Expense. The category list changes to match.
-   - **Amount**: a number above zero. Decimals are rounded to two places.
+   - **Amount**: a number above zero, with up to two decimals (for example `1250`, `1250.5`, or `1 250,50`). A dot or a comma both work as the decimal mark, and spaces between thousands are ignored. Moliya stores the exact amount and never rounds it; if you type more decimals than the currency has, it asks you to fix the amount instead of guessing.
    - **Category**: for example Salary, Food, or Transport.
    - **Date**: defaults to today.
    - **Currency**: defaults to the vault currency. See the note on currencies below.
@@ -59,7 +59,7 @@ To narrow the list, use the **All / Income / Expense** filter next to **Add reco
 
 ### A note on currencies
 
-Each vault has one main currency, chosen when it was created and changeable by an Admin. Totals and charts only count records in that currency. A record in another currency is still saved and listed, marked "Other currency — not included in totals". Moliya does not convert between currencies.
+Each vault has one main currency, chosen when it was created and changeable by an Admin. Totals and charts only count records in that currency. A record in another currency is still saved and listed, marked "Other currency — not included in totals". The dashboard lists those records separately under **Other currencies (not in totals)**, with income and expenses per currency, so nothing is hidden. Moliya does not convert between currencies.
 
 ## Reading the dashboard
 
@@ -67,7 +67,9 @@ The four figures at the top cover the selected period:
 
 - **Net balance**: income minus expenses.
 - **Total income** and **Total expenses**.
-- **Savings rate**: the share of income left after expenses. It shows 0% when there is no income in the period, and it can be negative if you spent more than you earned.
+- **Savings rate**: the share of income left after expenses, rounded to one decimal. It shows 0% when there is no income in the period, and it can be negative if you spent more than you earned.
+
+All totals are calculated exactly, to the cent (or tiyin), in the vault currency.
 
 The charts below them:
 
@@ -85,8 +87,17 @@ You never need to press a save button for the vault itself. The status next to t
 - **Saved**: everything is encrypted and stored.
 - **Unsaved** or **Encrypting…**: a change is being stored. This normally takes about a second.
 - **Could not save**: the browser refused to store data, for example because the disk is full or storage is blocked. Keep the tab open and tell your admin.
+- **Not saved: changed elsewhere**: the vault was changed in another tab or window. Moliya stops saving here rather than overwrite that change. Lock, unlock again, and redo your last change.
+
+The vault can be unlocked in only one tab at a time. If you see "already unlocked in another tab or window", switch to that tab or lock it there first.
 
 Choose **Lock** when you step away. Locking, refreshing, or closing the tab removes the decrypted data from memory, and the next person must sign in.
+
+## Updates and version
+
+When a new version of Moliya is published, a bar appears at the top: **A new version of Moliya is available.** Choose **Reload** when convenient. Your work is saved and the vault is locked first, so sign in again afterwards. The first sign-in after an update may take a few seconds longer while Moliya upgrades the data or strengthens your password protection. This happens once.
+
+The version you are using is shown at the bottom of the menu and on the sign-in screen. Mention it when you report a problem.
 
 ## Language and theme
 
