@@ -1,0 +1,80 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  color-scheme: light;
+  --app-paper: #f3eee4;
+  --app-card: #fffaf3;
+  --app-ink: #1d1a15;
+  --app-muted: #6f675c;
+  --app-line: #e4d9c8;
+  --app-pine: #0f6e56;
+  --app-on-pine: #f4fffb;
+  --app-clay: #9d3b34;
+  --app-brass: #8d5b2a;
+  --app-brass-soft: #f4e7d4;
+  --app-font-sans: "Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif;
+  --app-font-display: "Iowan Old Style", Palatino, "Palatino Linotype", Georgia, serif;
+}
+
+.dark {
+  color-scheme: dark;
+  --app-paper: #121613;
+  --app-card: #1c231e;
+  --app-ink: #f3efe6;
+  --app-muted: #b7ad9f;
+  --app-line: #313a33;
+  --app-pine: #8ee0c4;
+  --app-on-pine: #10211b;
+  --app-clay: #f0b0a8;
+  --app-brass: #e2b56a;
+  --app-brass-soft: #3a3224;
+}
+
+@theme inline {
+  --color-paper: var(--app-paper);
+  --color-card: var(--app-card);
+  --color-ink: var(--app-ink);
+  --color-muted: var(--app-muted);
+  --color-line: var(--app-line);
+  --color-pine: var(--app-pine);
+  --color-on-pine: var(--app-on-pine);
+  --color-clay: var(--app-clay);
+  --color-brass: var(--app-brass);
+  --color-brass-soft: var(--app-brass-soft);
+  --font-sans: var(--app-font-sans);
+  --font-display: var(--app-font-display);
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(1100px 480px at 8% -10%, color-mix(in srgb, var(--app-brass) 22%, transparent), transparent 55%),
+    radial-gradient(800px 420px at 100% 0%, color-mix(in srgb, var(--app-pine) 18%, transparent), transparent 50%),
+    var(--app-paper);
+  color: var(--app-ink);
+  font-family: var(--app-font-sans);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--app-pine) 35%, transparent);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}

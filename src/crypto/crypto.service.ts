@@ -1,0 +1,111 @@
+import { bytesToHex, copyToBuffer } from './encoding'
+
+export const PBKDF2_ITERATIONS = 200_000
+export const SALT_BYTES = 32
+export const IV_BYTES = 12
+
+export type CipherPayload = {
+  cipherText: ArrayBuffer
+  iv: Uint8Array
+}
+
+export function randomBytes(length: number): Uint8Array {
+  const bytes = new Uint8Array(length)
+  crypto.getRandomValues(bytes)
+  return bytes
+}
+
+async function importPassphrase(passphrase: string): Promise<CryptoKey> {
+  return crypto.subtle.importKey('raw', new TextEncoder().encode(passphrase), 'PBKDF2', false, ['deriveBits'])
+}
+
+async function deriveRaw(passphrase: string, salt: Uint8Array): Promise<Uint8Array> {
+  const material = await importPassphrase(passphrase)
+  const bits = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      salt: copyToBuffer(salt),
+      iterations: PBKDF2_ITERATIONS,
+      hash: 'SHA-256',
+    },
+    material,
+    256,
+  )
+  return new Uint8Array(bits)
+}
+
+async function importAesKey(raw: Uint8Array, usages: KeyUsage[]): Promise<CryptoKey> {
+  return crypto.subtle.importKey('raw', copyToBuffer(raw), { name: 'AES-GCM', length: 256 }, false, usages)
+}
+
+export async function deriveKeyAndVerifier(
+  passphrase: string,
+  salt: Uint8Array,
+): Promise<{ key: CryptoKey; verifier: string }> {
+  const raw = await deriveRaw(passphrase, salt)
+  try {
+    const verifier = bytesToHex(raw)
+    const key = await importAesKey(raw, ['wrapKey', 'unwrapKey'])
+    return { key, verifier }
+  } finally {
+    raw.fill(0)
+  }
+}
+
+export async function deriveKey(passphrase: string, salt: Uint8Array): Promise<CryptoKey> {
+  const { key } = await deriveKeyAndVerifier(passphrase, salt)
+  return key
+}
+
+export async function passwordVerifier(passphrase: string, salt: Uint8Array): Promise<string> {
+  const { verifier } = await deriveKeyAndVerifier(passphrase, salt)
+  return verifier
+}
+
+export async function generateDek(): Promise<CryptoKey> {
+  return crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt'])
+}
+
+export async function encryptDatabase(data: Uint8Array, key: CryptoKey): Promise<CipherPayload> {
+  const iv = randomBytes(IV_BYTES)
+  const cipherText = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv: copyToBuffer(iv) },
+    key,
+    copyToBuffer(data),
+  )
+  return { cipherText, iv }
+}
+
+export async function decryptDatabase(
+  cipherText: ArrayBuffer,
+  key: CryptoKey,
+  iv: Uint8Array,
+): Promise<Uint8Array> {
+  const plain = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: copyToBuffer(iv) },
+    key,
+    cipherText,
+  )
+  return new Uint8Array(plain)
+}
+
+export async function wrapDek(dek: CryptoKey, kek: CryptoKey): Promise<CipherPayload> {
+  const iv = randomBytes(IV_BYTES)
+  const cipherText = await crypto.subtle.wrapKey('raw', dek, kek, {
+    name: 'AES-GCM',
+    iv: copyToBuffer(iv),
+  })
+  return { cipherText, iv }
+}
+
+export async function unwrapDek(wrapped: ArrayBuffer, kek: CryptoKey, iv: Uint8Array): Promise<CryptoKey> {
+  return crypto.subtle.unwrapKey(
+    'raw',
+    wrapped,
+    kek,
+    { name: 'AES-GCM', iv: copyToBuffer(iv) },
+    { name: 'AES-GCM', length: 256 },
+    true,
+    ['encrypt', 'decrypt'],
+  )
+}
