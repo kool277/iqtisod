@@ -142,6 +142,16 @@ export const en = {
     removeBlocked: 'This group still has people or records.',
     name: 'Group name',
   },
+  groupSummary: {
+    income: 'Income',
+    expense: 'Expenses',
+    net: 'Net',
+    empty: 'No transactions in this period.',
+    transactions: 'Transactions',
+    lastActivity: 'Last activity',
+    total: 'All groups',
+    perCurrency: 'Each currency is shown on its own line. Amounts in different currencies are never added together.',
+  },
   audit: {
     title: 'Audit log',
     empty: 'No activity yet.',

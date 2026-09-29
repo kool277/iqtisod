@@ -1,6 +1,6 @@
 import { ArrowDown, ArrowUp, Equal } from 'lucide-react'
 import { useI18n } from '../../context/I18nContext'
-import type { CurrencySummary, SummaryTotals } from '../../domain/group-summary'
+import type { CurrencySummary, GroupSummaryReport, SummaryTotals } from '../../domain/group-summary'
 import { formatIsoDate, intlLocale } from '../../lib/money'
 import { formatMinorExact, minorToPlainDecimal } from '../../lib/money-exact'
 
@@ -71,6 +71,13 @@ export function SummaryFigures({ totals, testId = 'group-summary' }: { totals: S
       </p>
     </div>
   )
+}
+
+/** One group's figures, or nothing while the report is unavailable. */
+export function GroupRowSummary({ report, groupId }: { report: GroupSummaryReport | null; groupId: number }) {
+  const summary = report?.groups.find((item) => item.groupId === groupId)
+  if (!summary) return null
+  return <SummaryFigures totals={summary} />
 }
 
 /** The strip above the group list: everything the viewer may see, per currency. */

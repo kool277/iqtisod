@@ -15,7 +15,7 @@ import { auditIntegrity, listAudit } from '../services/audit.service'
 import { ExportPanel } from './ExportPanel'
 import { createGroup, deleteGroup, listGroups } from '../services/group.service'
 import { PeriodPicker } from './PeriodPicker'
-import { GroupSummaryTotals, SummaryFigures } from './groups/GroupSummary'
+import { GroupRowSummary, GroupSummaryTotals } from './groups/GroupSummary'
 import { useGroupSummaries } from './groups/useGroupSummaries'
 
 function Forbidden() {
@@ -78,29 +78,24 @@ export function GroupsPage() {
           </Button>
         </form>
       ) : null}
-      {summaries ? <GroupSummaryTotals totals={summaries.total} /> : null}
+      {summaries && groups.length > 0 ? <GroupSummaryTotals totals={summaries.total} /> : null}
       {groups.length === 0 ? <p className="text-muted">{t('groups.empty')}</p> : null}
       <ul className="grid gap-3">
-        {groups.map((group) => {
-          const summary = summaries?.groups.find((item) => item.groupId === group.id)
-          return (
-            <li key={group.id} data-testid="group-row" data-group={group.name} className="grid gap-3 rounded-3xl border border-line bg-card px-4 py-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="min-w-0 break-words font-medium">{group.name}</p>
-                {canManage ? (
-                  <Button variant="danger" onClick={() => void onDelete(group.id)}>
-                    {t('groups.remove')}
-                  </Button>
-                ) : null}
-              </div>
-              {summary ? (
-                <div className="border-t border-line pt-3">
-                  <SummaryFigures totals={summary} />
-                </div>
+        {groups.map((group) => (
+          <li key={group.id} data-testid="group-row" data-group={group.name} className="grid gap-3 rounded-3xl border border-line bg-card px-4 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="min-w-0 break-words font-medium">{group.name}</p>
+              {canManage ? (
+                <Button variant="danger" onClick={() => void onDelete(group.id)}>
+                  {t('groups.remove')}
+                </Button>
               ) : null}
-            </li>
-          )
-        })}
+            </div>
+            <div className="border-t border-line pt-3">
+              <GroupRowSummary report={summaries} groupId={group.id} />
+            </div>
+          </li>
+        ))}
       </ul>
     </div>
   )

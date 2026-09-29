@@ -39,7 +39,7 @@ const links: {
   { to: '/app/transactions', testId: 'nav-transactions', label: 'nav.transactions', icon: BookOpen, permission: Permission.READ_TRANSACTIONS },
   { to: '/app/safes', testId: 'nav-safes', label: 'nav.safes', icon: Vault },
   { to: '/app/users', testId: 'nav-users', label: 'nav.users', icon: Users, permission: Permission.MANAGE_USERS },
-  { to: '/app/groups', testId: 'nav-groups', label: 'nav.groups', icon: Layers, permission: Permission.MANAGE_GROUPS },
+  { to: '/app/groups', testId: 'nav-groups', label: 'nav.groups', icon: Layers, permission: Permission.READ_DASHBOARD },
   { to: '/app/audit', testId: 'nav-audit', label: 'nav.audit', icon: ScrollText, permission: Permission.READ_AUDIT },
   { to: '/app/backup', testId: 'nav-backup', label: 'nav.backup', icon: Archive, permission: Permission.EXPORT_VAULT },
   { to: '/app/settings', testId: 'nav-settings', label: 'nav.settings', icon: Settings, permission: Permission.MANAGE_SETTINGS },
