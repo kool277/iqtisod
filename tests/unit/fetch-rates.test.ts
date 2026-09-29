@@ -104,7 +104,7 @@ describe('buildSnapshot', () => {
 })
 
 describe('fetch-rates CLI', () => {
-  const cli = (args: string[]) => run(process.execPath, [CLI, ...args, '--now', NOW.toISOString()])
+  const cli = (args: string[]) => run(process.execPath, ['--experimental-strip-types', CLI, ...args, '--now', NOW.toISOString()])
 
   it('writes latest, history, and the raw archive, then reports unchanged on a rerun', async () => {
     const out = join(work, 'data')
@@ -130,6 +130,6 @@ describe('fetch-rates CLI', () => {
   })
 
   it('prints usage without --out', async () => {
-    await expect(run(process.execPath, [CLI])).rejects.toMatchObject({ code: 2 })
+    await expect(run(process.execPath, ['--experimental-strip-types', CLI])).rejects.toMatchObject({ code: 2 })
   })
 })
