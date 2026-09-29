@@ -1,5 +1,5 @@
-import { Archive, ChevronLeft, CreditCard, Lock, LockKeyhole, Repeat, Search, Settings2, StickyNote } from 'lucide-react'
-import { useMemo, useState, type FormEvent } from 'react'
+import { Archive, ChevronLeft, CreditCard, Lock, LockKeyhole, Repeat, Settings2, Star, StickyNote } from 'lucide-react'
+import { useCallback, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useI18n } from '../../context/I18nContext'
 import { useSafes } from '../../context/SafeContext'
@@ -26,11 +26,14 @@ import {
 import { Button, Field, Panel, controlClass } from '../ui'
 import { ItemDetail } from './ItemDetail'
 import { ItemForm } from './ItemForm'
-import { ItemLine } from './ItemBits'
+import { ItemBadge, KIND_ICONS, itemSubtitle } from './ItemBits'
+import { DataTable, type Column, type Selection } from '../table/DataTable'
+import { expiryStatus } from '../../domain/cards'
+import { formatMoney, formatWhen } from '../../lib/money'
 import { SafeForm } from './SafeForm'
 import { SafesGate } from './SafesGate'
 import { SafesNav } from './SafesHome'
-import { Dialog, ErrorNotice, PageHeader, PasswordInput, ReauthDialog, SafeGlyph, Success, Warning, secureInputProps, todayIso, useSafeQuery } from './shared'
+import { Dialog, ErrorNotice, PageHeader, PasswordInput, ReauthDialog, SafeGlyph, Success, Warning, todayIso, useSafeQuery } from './shared'
 
 type Filter = 'ALL' | ItemKind | 'FAVORITES'
 
@@ -87,7 +90,6 @@ function SafeContents() {
   const navigate = useNavigate()
   const { withKeyring, keyring } = useSafes()
   const [filter, setFilter] = useState<Filter>('ALL')
-  const [search, setSearch] = useState('')
   const [adding, setAdding] = useState<ItemKind | null>(null)
   const [editing, setEditing] = useState<SecureItem | null>(null)
   const [settings, setSettings] = useState(false)
@@ -109,16 +111,39 @@ function SafeContents() {
     [safeId],
   )
 
-  const items = data?.items ?? []
-  const needle = search.trim().toLocaleLowerCase()
+  const items = useMemo(() => data?.items ?? [], [data])
   const shown = useMemo(
     () =>
       items.filter((item) => {
         if (filter === 'FAVORITES' && !item.favorite) return false
-        if (filter !== 'ALL' && filter !== 'FAVORITES' && item.kind !== filter) return false
-        return !needle || item.title.toLocaleLowerCase().includes(needle)
+        return filter === 'ALL' || filter === 'FAVORITES' || item.kind === filter
       }),
-    [items, filter, needle],
+    [items, filter],
+  )
+  const onOpenRef = useRef<(id: string) => void>(() => undefined)
+  const openItem = useCallback((id: string) => onOpenRef.current(id), [])
+  const columns = useItemColumns(today, openItem)
+  const selection = useMemo<Selection>(
+    () => ({
+      picked,
+      toggle: (key) =>
+        setPicked((current) => {
+          const next = new Set(current)
+          if (next.has(key)) next.delete(key)
+          else next.add(key)
+          return next
+        }),
+      set: (keys, on) =>
+        setPicked((current) => {
+          const next = new Set(current)
+          for (const key of keys) {
+            if (on) next.add(key)
+            else next.delete(key)
+          }
+          return next
+        }),
+    }),
+    [picked],
   )
 
   if (error) return <ErrorNotice error={error} />
@@ -156,12 +181,7 @@ function SafeContents() {
     setParams(next, { replace: true })
     setEditing(null)
   }
-  const togglePick = (id: string) => {
-    const next = new Set(picked)
-    if (next.has(id)) next.delete(id)
-    else next.add(id)
-    setPicked(next)
-  }
+  onOpenRef.current = (id) => (selecting ? selection.toggle(id) : selectItem(id))
 
   const filters: { id: Filter; label: string }[] = [
     { id: 'ALL', label: t('common.all') },
@@ -240,49 +260,6 @@ function SafeContents() {
         <OpenSafeForm safeId={safeId} />
       ) : (
         <>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex flex-wrap gap-1.5" role="group" aria-label={t('common.type')}>
-              {filters.map((entry) => (
-                <button
-                  key={entry.id}
-                  type="button"
-                  aria-pressed={filter === entry.id}
-                  data-testid={`filter-${entry.id.toLowerCase()}`}
-                  className={`rounded-full border px-3 py-1.5 text-sm ${filter === entry.id ? 'border-pine-ink bg-pine text-on-pine' : 'border-line bg-card text-muted hover:text-ink'}`}
-                  onClick={() => setFilter(entry.id)}
-                >
-                  {entry.label}
-                </button>
-              ))}
-            </div>
-            <label className="relative ml-auto min-w-0 basis-56">
-              <span className="sr-only">{t('safes.searchSafe')}</span>
-              <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" aria-hidden="true" />
-              <input
-                {...secureInputProps}
-                type="search"
-                placeholder={t('safes.searchSafe')}
-                className={`${controlClass} py-2 pl-9`}
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-              />
-            </label>
-            {!readOnly && items.length > 0 ? (
-              <Button
-                variant={selecting ? 'primary' : 'quiet'}
-                className="py-2"
-                aria-pressed={selecting}
-                data-testid="select-mode"
-                onClick={() => {
-                  setSelecting(!selecting)
-                  setPicked(new Set())
-                }}
-              >
-                {t('safes.select')}
-              </Button>
-            ) : null}
-          </div>
-
           {selecting && picked.size > 0 ? (
             <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-card px-3 py-2" data-testid="bulk-bar">
               <span className="mr-auto text-sm tabular-nums">
@@ -320,27 +297,51 @@ function SafeContents() {
                   <p className="font-medium">{t('safes.empty')}</p>
                   {!readOnly ? <p className="text-sm text-muted">{t('safes.emptyHint')}</p> : null}
                 </Panel>
-              ) : shown.length === 0 ? (
-                <p className="text-sm text-muted">{t('safes.noResults')}</p>
               ) : (
-                shown.map((item) =>
-                  selecting ? (
-                    <label key={item.id} className="flex min-w-0 cursor-pointer items-center gap-3">
-                      <input
-                        type="checkbox"
-                        className="size-4 shrink-0 accent-[var(--app-pine)]"
-                        checked={picked.has(item.id)}
-                        onChange={() => togglePick(item.id)}
-                        data-testid="item-pick"
-                      />
-                      <span className="min-w-0 flex-1">
-                        <ItemLine item={item} today={today} selected={picked.has(item.id)} onOpen={() => togglePick(item.id)} />
-                      </span>
-                    </label>
-                  ) : (
-                    <ItemLine key={item.id} item={item} today={today} selected={item.id === selectedId} onOpen={() => selectItem(item.id)} />
-                  ),
-                )
+                <DataTable
+                  id="safe-items"
+                  label={t('safes.items')}
+                  rows={shown}
+                  columns={columns}
+                  rowKey={(item) => item.id}
+                  secure
+                  searchLabel={t('safes.searchSafe')}
+                  selectedKey={selecting ? null : selectedId}
+                  selection={selecting ? selection : undefined}
+                  empty={t('safes.noResults')}
+                  toolbar={
+                    <>
+                      <div className="flex flex-wrap gap-1.5" role="group" aria-label={t('common.type')}>
+                        {filters.map((entry) => (
+                          <button
+                            key={entry.id}
+                            type="button"
+                            aria-pressed={filter === entry.id}
+                            data-testid={`filter-${entry.id.toLowerCase()}`}
+                            className={`rounded-full border px-3 py-1.5 text-sm ${filter === entry.id ? 'border-pine-ink bg-pine text-on-pine' : 'border-line bg-card text-muted hover:text-ink'}`}
+                            onClick={() => setFilter(entry.id)}
+                          >
+                            {entry.label}
+                          </button>
+                        ))}
+                      </div>
+                      {!readOnly ? (
+                        <Button
+                          variant={selecting ? 'primary' : 'quiet'}
+                          className="ml-auto py-1.5"
+                          aria-pressed={selecting}
+                          data-testid="select-mode"
+                          onClick={() => {
+                            setSelecting(!selecting)
+                            setPicked(new Set())
+                          }}
+                        >
+                          {t('safes.select')}
+                        </Button>
+                      ) : null}
+                    </>
+                  }
+                />
               )}
             </div>
             {selected ? (
@@ -420,6 +421,123 @@ function SafeContents() {
       {settings ? <SafeSettings safe={safe} others={data.safes.filter((entry) => entry.id !== safeId)} onClose={() => setSettings(false)} /> : null}
     </div>
   )
+}
+
+function useItemColumns(today: string, open: (id: string) => void): Column<SecureItem>[] {
+  const { t, locale } = useI18n()
+  return useMemo<Column<SecureItem>[]>(() => {
+    const kind = (item: SecureItem) => t(`safes.kinds.${item.kind}`)
+    const details = (item: SecureItem) => itemSubtitle(item, t, locale, today)
+    const status = (item: SecureItem): string => {
+      if (item.kind === 'CARD') return expiryStatus(item.expMonth, item.expYear, today)
+      if (item.kind === 'SUBSCRIPTION') return item.status
+      return ''
+    }
+    const statusText = (value: string) => {
+      if (value === 'EXPIRED') return t('safes.card.expired')
+      if (value === 'SOON') return t('safes.card.expiresSoon')
+      if (value === 'OK') return t('table.active')
+      if (value === 'ACTIVE' || value === 'PAUSED' || value === 'CANCELLED') return t(`safes.sub.statuses.${value}`)
+      return '—'
+    }
+    const price = (item: SecureItem) => (item.kind === 'SUBSCRIPTION' ? { minor: item.amountMinor, currency: item.currency } : null)
+    return [
+      {
+        id: 'title',
+        header: t('table.col.title'),
+        hideable: false,
+        cell: (item) => {
+          const Icon = KIND_ICONS[item.kind]
+          return (
+            <button
+              type="button"
+              data-testid="safe-item"
+              data-kind={item.kind}
+              onClick={() => open(item.id)}
+              className="flex min-w-0 items-center gap-2.5 rounded-lg text-left hover:text-pine-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine-ink/40"
+            >
+              <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-paper text-muted" aria-hidden="true">
+                <Icon size={15} />
+              </span>
+              <span className="min-w-0 break-words font-medium">{item.title}</span>
+              {item.favorite ? <Star size={12} className="shrink-0 fill-brass text-brass" aria-label={t('safes.favorites')} /> : null}
+            </button>
+          )
+        },
+        sort: { type: 'text', value: (item) => item.title },
+        search: (item) => item.title,
+      },
+      {
+        id: 'kind',
+        header: t('table.col.kind'),
+        cell: kind,
+        sort: { type: 'text', value: kind },
+        search: kind,
+        filter: {
+          kind: 'select',
+          value: (item) => item.kind,
+          options: (['CARD', 'SUBSCRIPTION', 'NOTE'] as const).map((value) => ({ value, label: t(`safes.kinds.${value}`) })),
+        },
+      },
+      {
+        id: 'details',
+        header: t('table.col.details'),
+        cell: (item) => <span className="text-muted">{details(item)}</span>,
+        search: details,
+      },
+      {
+        id: 'status',
+        header: t('table.col.status'),
+        cell: (item) =>
+          item.kind === 'CARD' ? <ItemBadge item={item} today={today} /> : item.kind === 'SUBSCRIPTION' ? statusText(item.status) : null,
+        sort: { type: 'text', value: (item) => statusText(status(item)) },
+        filter: {
+          kind: 'select',
+          value: status,
+          options: ['OK', 'SOON', 'EXPIRED', 'ACTIVE', 'PAUSED', 'CANCELLED'].map((value) => ({ value, label: statusText(value) })),
+        },
+      },
+      {
+        id: 'amount',
+        header: t('common.amount'),
+        align: 'end',
+        cell: (item) => (item.kind === 'SUBSCRIPTION' ? <span className="whitespace-nowrap">{formatMoney(item.amountMinor, item.currency, locale)}</span> : '—'),
+        sort: { type: 'money', value: price },
+        filter: { kind: 'money', value: price },
+      },
+      {
+        id: 'favorite',
+        header: t('table.col.favorite'),
+        hidden: true,
+        cell: (item) => (item.favorite ? t('table.yes') : t('table.no')),
+        sort: { type: 'number', value: (item) => (item.favorite ? 1 : 0) },
+        filter: {
+          kind: 'select',
+          value: (item) => (item.favorite ? 'yes' : 'no'),
+          options: [
+            { value: 'yes', label: t('table.yes') },
+            { value: 'no', label: t('table.no') },
+          ],
+        },
+      },
+      {
+        id: 'updated',
+        header: t('table.col.updated'),
+        hidden: true,
+        cell: (item) => <span className="whitespace-nowrap tabular-nums">{formatWhen(item.updatedAt, locale)}</span>,
+        sort: { type: 'date', value: (item) => item.updatedAt },
+        filter: { kind: 'date', value: (item) => item.updatedAt },
+      },
+      {
+        id: 'created',
+        header: t('table.col.created'),
+        hidden: true,
+        cell: (item) => <span className="whitespace-nowrap tabular-nums">{formatWhen(item.createdAt, locale)}</span>,
+        sort: { type: 'date', value: (item) => item.createdAt },
+        filter: { kind: 'date', value: (item) => item.createdAt },
+      },
+    ]
+  }, [locale, open, t, today])
 }
 
 function BulkDialog({
