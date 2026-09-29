@@ -149,7 +149,7 @@ You never need to press a save button for the vault itself. The status next to t
 
 The vault can be unlocked in only one tab at a time. If you see "already unlocked in another tab or window", switch to that tab or lock it there first.
 
-Choose **Lock** when you step away. Locking, refreshing, or closing the tab removes the decrypted data from memory, and the next person must sign in. Jaybi also locks the vault by itself after 15 minutes without activity; you can change this under **Account → Lock automatically**.
+Choose **Lock** when you step away. Locking, refreshing, or closing the tab removes the decrypted data from memory, and the next person must sign in. Jaybi also locks the vault by itself after 15 minutes without activity; you can change this under **Account → Lock automatically**. When that happens, the sign-in screen says "The vault was locked after a period of inactivity." Your private safes lock with the vault.
 
 If a bar says **The vault is close to its size limit. Remove large receipts to make room.**, tell your admin. Receipts take most of the space, and once the vault is full no new receipts can be added.
 
@@ -199,7 +199,7 @@ If you lose both your authenticator and your recovery codes, ask your admin to t
 
 ### Lock automatically
 
-Choose how long the vault stays open without activity: **5 minutes**, **15 minutes** (the default), **30 minutes**, or **1 hour**. The setting belongs to this browser, not to your account. Moving the mouse, typing, scrolling, or touching the screen counts as activity. If the tab was in the background longer than the chosen time, the vault locks as soon as you return to it.
+Choose how long the vault stays open without activity: **5 minutes**, **15 minutes** (the default), **30 minutes**, or **1 hour**. The setting belongs to this browser, not to your account. Clicking, typing, scrolling, or touching the screen anywhere in Jaybi counts as activity, including inside your safes. If the tab was in the background longer than the chosen time, the vault locks as soon as you return to it. Your private safes have no timer of their own: they lock when the vault does.
 
 ### Other settings on this page
 
@@ -235,12 +235,12 @@ Anyone who has your recovery code and your current password can open your safes,
 
 Signing in to the vault does not open your safes. Choose **Open safes** and enter your password again. After opening, Jaybi shows when your safes were **previously opened**; if you do not recognise that time, someone else may have used your password.
 
-Your safes lock again:
+Once open, your safes stay open while you work, including while you switch to another tab or window. They lock again:
 
 - when you choose **Lock safes**;
-- after 5 minutes without activity (you can choose 1, 5, 15, or 30 minutes in **Account**);
-- when the tab is hidden for more than a minute;
-- when the vault locks.
+- when the vault locks: when you choose **Lock**, refresh or close the tab, or after the time under **Account → Lock automatically** without activity (15 minutes unless you changed it).
+
+Before 1.3.1 safes also locked after 5 minutes of their own and when the tab was hidden for a minute. They no longer do.
 
 ### Safes
 

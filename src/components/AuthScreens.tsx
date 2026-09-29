@@ -195,7 +195,7 @@ export function SetupPage() {
 
 export function LoginPage() {
   const { t } = useI18n()
-  const { status, login, guardWait } = useVault()
+  const { status, login, guardWait, lockReason } = useVault()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -237,6 +237,11 @@ export function LoginPage() {
       <h2 className="mt-2 font-display text-4xl">{t('login.title')}</h2>
       <p className="mt-2 text-sm text-muted">{t('login.subtitle')}</p>
       <form className="mt-6 grid gap-4" onSubmit={(event) => void onSubmit(event)}>
+        {lockReason === 'idle' && !error ? (
+          <p role="status" data-testid="idle-locked" className="rounded-xl bg-brass-soft px-3 py-2 text-sm">
+            {t('login.idleLocked')}
+          </p>
+        ) : null}
         {error ? <Notice>{error}</Notice> : null}
         <ThrottleNotice remaining={countdown.remaining} />
         <Field label={t('login.email')}>
