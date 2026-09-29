@@ -1,12 +1,15 @@
 import { jsPDF } from 'jspdf'
 import { autoTable, type RowInput, type UserOptions } from 'jspdf-autotable'
 import { htmlLang, loadExportMessages, translate, type Locale, type MessageKey } from '../../i18n'
+import { registerTableCatalog } from '../../i18n/table'
 import { formatIsoDate, formatMoney, formatWhen, intlLocale } from '../../lib/money'
 import type { CategoryNames, CurrencyTotals, ExportDataset } from './dataset'
 import { PDF_ROW_LIMIT } from './options'
 import type { PdfFonts } from './pdf-fonts'
 import type { ViewExportRequest } from './view'
 import { isViewMoney, type ViewCell, type ViewKind } from './view-cells'
+
+registerTableCatalog()
 
 const FONT = 'NotoSans'
 const MARGIN = 40

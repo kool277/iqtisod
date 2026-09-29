@@ -1,5 +1,6 @@
 import { en, type CoreMessages, type Messages } from './en'
 import type { ExportMessages } from './export/en'
+import type { TableMessages } from './table/en'
 import { ru } from './ru'
 import { uzCyrl } from './uz-Cyrl'
 import { uzLatn } from './uz-Latn'
@@ -54,6 +55,17 @@ export function hasExportMessages(locale: Locale): boolean {
   return exportCatalogs[locale] !== undefined
 }
 
+let tableCatalogs: Record<Locale, TableMessages> | null = null
+
+/** The `table.*` strings ship with the table chunk, which registers them before any table renders. */
+export function registerTableMessages(messages: Record<Locale, TableMessages>): void {
+  tableCatalogs ??= messages
+}
+
+export function hasTableMessages(): boolean {
+  return tableCatalogs !== null
+}
+
 export function isLocale(value: unknown): value is Locale {
   return typeof value === 'string' && (LOCALES as readonly string[]).includes(value)
 }
@@ -72,8 +84,9 @@ export function detectLocale(): Locale {
 
 export function translate(locale: Locale, key: MessageKey): string {
   const [head, ...rest] = key.split('.')
-  const parts = head === 'export' ? rest : [head, ...rest]
-  let current: unknown = head === 'export' ? exportCatalogs[locale] : catalogs[locale]
+  const lazy = head === 'export' || head === 'table'
+  const parts = lazy ? rest : [head, ...rest]
+  let current: unknown = head === 'export' ? exportCatalogs[locale] : head === 'table' ? tableCatalogs?.[locale] : catalogs[locale]
   for (const part of parts) {
     if (typeof current !== 'object' || current === null || !(part in current)) return key
     current = (current as Record<string, unknown>)[part]
@@ -92,10 +105,15 @@ export function flattenMessages(tree: unknown, prefix = ''): Record<string, stri
   return result
 }
 
-/** `export` is missing until `loadExportMessages(locale)` has resolved. */
+/** `export` is missing until `loadExportMessages(locale)` has resolved, and `table` until the table chunk has loaded. */
 export function catalogFor(locale: Locale): Messages {
   const exportMessages = exportCatalogs[locale]
-  return (exportMessages ? { ...catalogs[locale], export: exportMessages } : catalogs[locale]) as Messages
+  const tableMessages = tableCatalogs?.[locale]
+  return {
+    ...catalogs[locale],
+    ...(exportMessages ? { export: exportMessages } : {}),
+    ...(tableMessages ? { table: tableMessages } : {}),
+  } as Messages
 }
 
 export function htmlLang(locale: Locale): string {

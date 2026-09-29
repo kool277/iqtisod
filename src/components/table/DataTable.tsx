@@ -2,6 +2,7 @@ import { ArrowDown, ArrowUp, ArrowUpDown, ChevronFirst, ChevronLast, ChevronLeft
 import { Fragment, useCallback, useMemo, useState, type ReactNode } from 'react'
 import { useI18n } from '../../context/I18nContext'
 import { useVault } from '../../context/VaultContext'
+import { registerTableCatalog } from '../../i18n/table'
 import { textForError } from '../../lib/errors'
 import { intlLocale } from '../../lib/money'
 import { canExportView, type ViewTable } from '../../services/view-access'
@@ -16,6 +17,8 @@ import { PAGE_SIZES, isPageSize, type PageSize } from './prefs'
 import { useTableState } from './useTableState'
 
 export type { Column, EditSpec } from './columns'
+
+registerTableCatalog()
 
 type DataAttributes = Record<`data-${string}`, string | undefined>
 
