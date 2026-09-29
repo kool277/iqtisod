@@ -576,6 +576,8 @@ export const uzLatn: Messages = {
     sameDevice: 'Kodlar faqat shu seyf saqlangan brauzerda ishlaydi.',
   },
   invites: {
+    resetSafesWarn:
+      'U kodni kiritganda yangi parolni oʻzi tanlaydi. Uning shaxsiy seyflari oldingi paroli yoki tiklash kodi kiritilmaguncha qulflangan qoladi. Siz ularni ocha ham, tiklay ham olmaysiz. Agar uning tiklash kodi boʻlmasa va oldingi parolini unutsa, seyflari butunlay yoʻqoladi.',
     title: 'Odam taklif qilish',
     intro: 'Bir martalik kod yarating. U kodni pochtasi bilan kiritib, oʻz parolini tanlaydi — parolni faqat uning oʻzi biladi.',
     email: 'Uning pochtasi',

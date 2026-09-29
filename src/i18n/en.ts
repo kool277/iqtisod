@@ -574,6 +574,8 @@ export const en = {
     sameDevice: 'Codes work only in the browser where this vault is stored.',
   },
   invites: {
+    resetSafesWarn:
+      'They choose a new password themselves when they use the code. Their private safes stay locked until they enter their previous password or their recovery code. You cannot open or recover them. If they have no recovery code and forget their previous password, their safes are lost for good.',
     title: 'Invite someone',
     intro: 'Create a one-time code. They enter it with their email and choose their own password, so only they know it.',
     email: 'Their email',

@@ -96,7 +96,7 @@ Choose **Issue reset code**. The code is shown once, as for invites. The person 
 
 **Set a temporary password instead** (in the same form) is the advanced option: enter a **New password** and choose **Save**. The old password stops working when the change is saved, any open reset code for the person is ended, their sign-in check is turned off, and at their next sign-in they must replace the temporary password. Give it privately.
 
-The form always warns about private safes, whether or not the person has any, so the warning does not tell you whether they use them. The warning starts "They must choose a new password at their next sign-in"; with a reset code they choose it when they use the code instead. What the warning means in both cases:
+The form always warns about private safes, whether or not the person has any, so the warning does not tell you whether they use them. With a reset code the warning says they choose the new password themselves when they use the code; with a temporary password it says they must choose one at their next sign-in. What the warning means in both cases:
 
 - Their safes stay locked. They open only with the password the person chose before the reset, or their recovery code, together with their new password. Moliya never opens safes with a password an Admin set.
 - You cannot open or recover their safes.

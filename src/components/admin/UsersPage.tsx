@@ -336,7 +336,7 @@ function PersonRow({
       {mode === 'reset' ? (
         <form className="mt-3 grid gap-3" onSubmit={onIssue}>
           <p role="note" data-testid="reset-safes-warn" className="rounded-2xl border border-brass/50 bg-brass-soft px-3 py-2 text-sm">
-            {t('users.resetSafesWarn')}
+            {t('invites.resetSafesWarn')}
           </p>
           <div className="flex flex-wrap items-end gap-3">
             <div className="w-full sm:w-56">
