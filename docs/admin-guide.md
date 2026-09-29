@@ -15,7 +15,7 @@ This guide is for the person who owns a Moliya vault. Admins can do everything i
 2. Fill in:
    - **Vault name**: shown in the top bar. It also becomes the name of the first group.
    - **Admin email**: your sign-in name. It is stored in lowercase.
-   - **Master password** (twice): at least 8 characters. Use a long passphrase. This is your admin password.
+   - **Master password** (twice): at least 12 characters, not a common password, and not built from your email or the vault name. Use a long passphrase of a few unrelated words. This is your admin password, and it is the only thing that protects backups against guessing.
    - **Currency**: USD, UZS, EUR, or RUB. Totals are calculated in this currency only. You can change it later under **Settings**.
 3. Choose **Create encrypted vault**. You are signed in and taken to the dashboard.
 
@@ -30,8 +30,8 @@ Your admin account does not belong to any group, so you see every group's record
 | Manage people and groups | Yes | No | No |
 | Vault settings and categories | Yes | No | No |
 | Audit log | Yes | No | No |
-| Export and import backups | Yes | No | No |
-| Own private safes, change own password (Account) | Yes | Yes | Yes |
+| Export backups, replace the vault with a backup | Yes | No | No |
+| Own private safes, own password, own sign-in check (Account) | Yes | Yes | Yes |
 | See or open anyone else's private safes | No | No | No |
 
 Managers and Viewers must belong to exactly one group. An Admin can optionally be placed in a group, but still sees everything.
@@ -47,33 +47,72 @@ Groups cannot be renamed from the app yet.
 
 ## People
 
-Open **Users**.
+Open **Users** (the page is titled **People**).
 
-### Adding a person
+### Inviting a person
 
-1. Enter their **email** and a starting **password** (at least 8 characters).
-2. Choose a **role** and a **group**.
-3. Choose **Add user**.
+An invite is a one-time code. The person enters it with their email and chooses their own password, so you never know it.
 
-Give the person the app address, their email, and the password through a private channel. At their first sign-in Moliya makes them choose a new password that only they know, and every page leads to **Account** until they do. After that they change it themselves under **Account → Change password**.
+1. Under **Invite someone**, enter **Their email**.
+2. Choose how long the code works under **Code works for**: 15 minutes, 1 hour, 24 hours (the default), 3 days, or 7 days. Shorter is safer.
+3. Choose a **role**, and a **group** for Managers and Viewers. You can invite another Admin; Admins need no group.
+4. Choose **Create invite code**.
+
+Moliya shows the code once, with the time it stops working. **Copy code** copies the code; **Copy link** copies a link that opens the join page with their email and the code filled in. Moliya clears the clipboard after 60 seconds where the browser allows it. Choose **Done** when you have passed it on. The code is not stored anywhere in readable form, so it cannot be shown again. If it is lost, revoke it and create a new one.
+
+Give the code in person, or over a channel you trust (not a group chat, not a public email thread). The person then follows [Joining with a code](user-guide.md#joining-with-a-code): on **Unlock vault** they choose **Have a one-time code? Join the vault**.
+
+**A code works only in the browser where the vault is stored.** There is no server: the code opens the vault that is in this browser's storage, nowhere else. If the person opens the app on their own phone or computer, they see an empty setup screen and the code does nothing there. Either they join on this device, in this browser, or you [move a copy](#moving-to-another-device) of the vault to their device first; a backup made while the code is open contains it.
+
+Things to know:
+
+- **Backups made before the code is used contain it.** Moliya shows this warning with every code: "Backups made before the code is used also contain it. Anyone with such a backup and the code can join until it expires. Revoke the code if it was shared by mistake." Expiry and revocation are checked by the app on the device that holds the copy. Someone with an old backup, the code, and a computer clock set back could still open that old copy after the code expired. Use short validity, and do not hand out backups while codes are open.
+- **One open code per email.** Creating another code for the same email is refused until you revoke the first. At most 20 invites can be open at once.
+- **The device clock matters.** Codes use this device's clock. If it is more than 5 minutes behind the latest time the vault has seen, creating and using codes is refused with "This device’s clock is behind…". Correct the date and time.
+- **Failed attempts are limited.** Wrong codes count like wrong passwords (see [Security limits](#security-limits-to-know)).
+
+### Open codes
+
+**Open codes** lists every invite and reset code that has not been used, revoked, or cleaned up yet, with the email, **Invite** (with role and group) or **Password reset**, and when it **Expires**. Codes past their time show **Expired**. Expired codes are ended and removed the next time anyone signs in, and the audit log shows "Code expired".
+
+Choose **Revoke** to end a code at once, for example if it was sent to the wrong person. Revoking does not undo **Stop their current password from working now**; see below.
+
+### Adding a person with a temporary password
+
+**Advanced: set a temporary password instead** opens the old way of adding people: enter their **Email**, a **Password**, a role and a group, and choose **Add user**. The password must follow the same rules as any other (at least 12 characters, not common). Give it privately. At their first sign-in Moliya makes them choose a new password that only they know, and every page leads to **Account** until they do.
+
+Prefer an invite. With a temporary password you know their password until they change it, and a backup made in between opens with it. Adding someone this way ends any open invite for the same email.
+
+After joining, people change their password themselves under **Account → Change password**.
 
 ### Resetting a password
 
-Choose **Reset password** on the person's row, enter a temporary password, and choose **Save**. The old password stops working for this browser's vault as soon as the change is saved. At their next sign-in the person must replace the temporary password with their own.
+Choose **Issue reset code** on the person's row. The same form shows a warning about private safes, a **Code works for** choice (24 hours by default), and a box, ticked by default:
 
-The dialog always warns about private safes, whether or not the person has any, so the warning does not tell you whether they use them. What it means:
+- **Stop their current password from working now**: choose this if someone else may know the password. The old password stops working as soon as the change is saved, and the person cannot sign in at all until they use the code. If the code expires or you revoke it, they stay locked out until you issue a new code or set a temporary password.
+- Untick it if the person simply forgot their password. The old password keeps working until the code is used.
+
+Choose **Issue reset code**. The code is shown once, as for invites. The person uses it with **Have a reset code?** on **Unlock vault** and chooses a new password; see [Resetting your password with a code](user-guide.md#resetting-your-password-with-a-code). Using the code also turns off their sign-in check. Issuing a new reset code for the same person replaces the open one they had; the audit log shows the old one as revoked.
+
+**Set a temporary password instead** (in the same form) is the advanced option: enter a **New password** and choose **Save**. The old password stops working when the change is saved, any open reset code for the person is ended, their sign-in check is turned off, and at their next sign-in they must replace the temporary password. Give it privately.
+
+The form always warns about private safes, whether or not the person has any, so the warning does not tell you whether they use them. The warning starts "They must choose a new password at their next sign-in"; with a reset code they choose it when they use the code instead. What the warning means in both cases:
 
 - Their safes stay locked. They open only with the password the person chose before the reset, or their recovery code, together with their new password. Moliya never opens safes with a password an Admin set.
 - You cannot open or recover their safes.
 - If they have no recovery code and have forgotten their previous password, their safes are lost for good. They can then reset their safes and start again with empty ones.
 
-Give the temporary password privately, and tell the person not to type it as their "previous password".
+If you set a temporary password, tell the person not to type it as their "previous password".
 
 You cannot reset your own password from **Users**. Use **Account → Change password**, which needs your current password and also moves your own safes to the new one. If you have forgotten your password, another Admin must reset it.
 
+### Turning off someone's sign-in check
+
+People who turned on the [sign-in check](user-guide.md#sign-in-check) show **Sign-in check on** next to their role. If they lose both their authenticator app and their recovery codes, choose **Turn off sign-in check** on their row and confirm. They can then sign in with their password alone and set it up again. Do this only after you have confirmed who is asking. You cannot turn off your own check here; use **Account**, which asks for your password.
+
 ### Removing a person
 
-Choose **Remove** and confirm. The dialog always warns that removing a person also permanently destroys their private safes; nobody can recover them afterwards. Removal is blocked in three cases:
+Choose **Remove** and confirm. The dialog always warns that removing a person also permanently destroys their private safes; nobody can recover them afterwards. Any open reset code for them ends too. Removal is blocked in three cases:
 
 - The person still has records. Delete or reassign those records first.
 - The person is the last Admin.
@@ -87,7 +126,7 @@ Private safes are described for users in the [user guide](user-guide.md#private-
 
 | You can | You cannot |
 | --- | --- |
-| Reset a person's password (their safes stay locked until they open them with their previous password or recovery code) | Open, list, or read anyone else's safes, including names, item types, and dates |
+| Issue a reset code or set a temporary password (their safes stay locked until they open them with their previous password or recovery code) | Open, list, or read anyone else's safes, including names, item types, and dates |
 | Remove a person, which destroys their safes | Recover a person's safes for them |
 | Back up and import the vault; safes travel inside it, still encrypted | Export safes in plain form; the unencrypted exports and the recovery tool leave them out |
 
@@ -124,7 +163,26 @@ Categories are listed separately for income and expenses.
 
 ## Audit log
 
-**Audit log** shows the latest 200 actions with time, who did it, and what happened: vault created, settings changed, categories added, edited, or removed, users added, updated, removed, or password reset, people changing their own password, groups added or removed, records added, updated, or deleted, backups and unencrypted exports downloaded, data format upgrades, and password protection upgrades. Record changes keep the values before and after the change. The log lives inside the encrypted vault, so it is included in backups. Nothing about private safes is written to it: each person's safe activity is kept in their own encrypted activity list, which only they can read.
+**Audit log** shows the latest 200 actions with time, who did it, and what happened: vault created, settings changed, categories added, edited, or removed, users added, updated, removed, or password reset, people changing their own password, groups added or removed, records added, updated, or deleted, backups and unencrypted exports downloaded, data format upgrades, and password protection upgrades. Record changes keep the values before and after the change.
+
+From 1.3.0 it also shows:
+
+| Entry | When |
+| --- | --- |
+| Invite code created | You created an invite. Shows the email, role, group, and expiry, never the code |
+| Invite code revoked | An invite was revoked, or ended because you added the same person with a temporary password |
+| Invite accepted | Someone joined with an invite code |
+| Reset code issued | You issued a reset code, and whether the old password was stopped |
+| Reset code revoked | A reset code was revoked, replaced by a newer one, or ended by a temporary password |
+| Password reset with code | Someone set a new password with a reset code |
+| Code expired | An invite or reset code passed its time unused. Written at the next sign-in, with no person attached |
+| Vault replaced by a backup | An Admin replaced the vault. Written into the old vault, which is kept as **Before import** |
+| Failed sign-in attempts seen | Someone signed in after failed attempts for their email in this browser, with the count |
+| Sign-in check turned on / Sign-in check turned off | A person turned their own sign-in check on or off |
+| Sign-in check removed | An Admin turned off someone's sign-in check, or a password reset turned it off |
+| Sign-in recovery code used | Someone signed in with a sign-in recovery code |
+
+No code, password, or authenticator secret is ever written to the log. The log lives inside the encrypted vault, so it is included in backups. Nothing about private safes is written to it: each person's safe activity is kept in their own encrypted activity list, which only they can read.
 
 Entries cannot be edited or deleted from the app. Each entry also contains a fingerprint of the one before it, so **Integrity** at the top of the page shows **Intact** only if no entry was changed or removed, even by someone editing a decrypted copy of the database with other tools. If it ever shows **Broken**, restore from a backup you trust and find out who had access to the passwords.
 
@@ -146,19 +204,30 @@ Export on a schedule that matches how much you would hate to retype: weekly for 
 
 ### Import
 
-Importing **replaces** the vault in the current browser. It does not merge.
+Importing **replaces** the vault in the current browser. It does not merge. There are two ways, and neither is one click.
 
-- **On a new browser or device**: open the app, and on the **Create your vault** screen use **Import a backup instead**. Choose the file, check the version and date it shows, choose **Replace vault**, then sign in with any account from the backup.
-- **Replacing an existing vault**: sign in as Admin, open **Backup**, choose the file under **Import backup**, check the version and export date it shows, and confirm **Replace vault**. You are signed out and can sign in with any account that exists in the backup.
+- **On a new browser or device** (no vault yet): open the app, and on the **Create your vault** screen, under **Import a backup instead**, choose the file, then **Replace vault**. Sign in with any account from the backup. This works only while the browser has no vault; otherwise Moliya says "A vault already exists in this browser. Sign in and replace it from the Backup page."
+- **Replacing an existing vault**: sign in as Admin and open **Backup**. Under **Replace this vault with a backup**, choose the file and check the version and export date it shows. Enter **Your password**, and type the vault name under **Type the vault name to confirm** (capital letters and spaces at the ends do not matter). Choose **Replace vault**. Moliya saves pending changes, writes "Vault replaced by a backup" into the current vault's audit log, keeps the current vault as **Before import**, and signs you out. Sign in with any account that exists in the backup.
 
-Backups from any earlier version can be imported. A backup made by a newer version is refused until the page is reloaded with the newer version. Only files up to 20 MB are accepted.
+Only Admins can replace a vault. Backups from any earlier version can be imported. A backup made by a newer version is refused until the page is reloaded with the newer version. The largest file accepted is 72 MB, and Moliya refuses files that are malformed or larger than a vault can be.
+
+Only import backups you made yourself or got from someone you trust. A backup is a whole vault: whoever made it chose its people and passwords. Moliya checks the file's structure and the database inside it when you sign in, and refuses anything it did not create.
+
+### Size limits
+
+A vault can hold about 48 MB of data. Nearly all of it is receipts; records alone take very little.
+
+- Each receipt can be up to 1.5 MB and must be a PNG, JPEG, WebP, or GIF image. Other types, including SVG, are refused. Receipts added before 1.3.0 are kept as they are.
+- When the vault passes about 36 MB, everyone sees "The vault is close to its size limit. Remove large receipts to make room." At 48 MB, new receipts are refused with "The vault is full." Records without receipts can still be added.
+- Names are limited to 80 characters, emails to 254, and notes to 2,000.
+- A vault holds at most 256 people.
 
 ### Earlier copies in this browser
 
 Moliya keeps up to three earlier copies of the vault in the browser:
 
 - **Before upgrade**: when a new version changes the data format, the vault exactly as the previous version stored it.
-- **Before import**: the vault that an import replaced.
+- **Before import**: the vault that an import replaced, including the "Vault replaced by a backup" audit entry.
 
 Each copy shows when it was taken and which version saved it. **Download** turns it into a normal backup file you can import (in this or an older version) or keep.
 
@@ -166,8 +235,8 @@ Each copy shows when it was taken and which version saved it. **Download** turns
 
 Under **Unencrypted export**, Admins can download:
 
-- **Download records (CSV)**: every record, one row each, for Excel, LibreOffice, or an accountant. Amounts are exact decimals with their currency.
-- **Download database (SQLite)**: the whole ledger as a standard SQLite file that any SQLite tool can open. Password information and all private safe data are removed from it.
+- **Download records (CSV)**: every record, one row each, for Excel, LibreOffice, or an accountant. Amounts are exact decimals with their currency. Text that a spreadsheet could run as a formula (starting with `=`, `+`, `-`, `@`, a tab, or their full-width forms) gets a leading apostrophe.
+- **Download database (SQLite)**: the whole ledger as a standard SQLite file that any SQLite tool can open. Password information, all private safe data, sign-in check data, and code checks are removed from it.
 
 These files are **not encrypted**. Anyone who gets them can read every record. Each download is written to the audit log. Use them for archiving (both formats are recommended for long-term preservation) and for moving data to other tools, and keep them on an encrypted drive.
 
@@ -178,6 +247,8 @@ These files are **not encrypted**. Anyone who gets them can read every record. E
 3. Sign in and check the dashboard figures.
 4. Decide which device is now the "real" one. Two copies of a vault do not sync. Changes made on one never appear on the other, and importing overwrites.
 
+The same applies when someone should use the vault on their own device: an invite code only works in a browser that holds the vault. Create the invite, then make the backup (it now contains the code), import it on their device, and let them join there. Remember that the vault on your device and theirs are then separate.
+
 ### Opening a backup without the website
 
 If the website is ever unavailable, a developer (or anyone with Node.js 22.12 or newer) can open a backup with the recovery tool included in the project:
@@ -187,7 +258,9 @@ npm run decrypt -- moliya-backup-2026-09-29.moliya --list
 MOLIYA_PASSWORD='…' npm run decrypt -- moliya-backup-2026-09-29.moliya --email you@example.com --out ledger.sqlite
 ```
 
-It asks for the password if `MOLIYA_PASSWORD` is not set, and writes a normal SQLite file. It works for backups from every version. On Node.js 22.13 or newer it removes password information and private safe rows from the output; `--keep-keys` keeps them, with the safes still encrypted for their owners. The tool cannot open private safes.
+It asks for the password if `MOLIYA_PASSWORD` is not set, and writes a normal SQLite file. It works for backups from every version. On Node.js 22.13 or newer it removes password information, private safe rows, sign-in check data, and code checks from the output; `--keep-keys` keeps them, with the safes still encrypted for their owners. The tool cannot open private safes. It does not ask for the sign-in check: a password is enough, which is why the sign-in check adds no protection to backups. `--list` also lists the codes that were open when the backup was made (kind and email only); the tool never opens a vault with a code.
+
+Use the tool from 1.3.0 or newer for vaults saved by 1.3.0. Older copies of the tool open them but leave the sign-in check data and code checks in the output.
 
 ## Updates
 
@@ -203,11 +276,31 @@ Versions 1.0.0 and 1.1.0 stored, for every person, a value in the database that 
 - Until a person signs in with 1.2.0 once, a copied value still opens their copy of the vault key. Ask everyone to sign in soon after the upgrade.
 - Moliya 1.1.0 cannot open a vault or backup saved by 1.2.0; it refuses it as made by a newer version. Keep the **Before upgrade** copy if you might need to go back.
 
+### Upgrading to 1.3.0
+
+1.3.0 adds invite and reset codes, the sign-in check, and stricter checks. The first unlock upgrades the database to schema 4, which adds the tables for codes and the sign-in check. This is automatic, recorded as a data format upgrade, and the previous vault is kept as **Before upgrade**.
+
+- **No going back without a copy.** Moliya 1.2.0 and older refuse a vault or backup saved by 1.3.0 as made by a newer version. Download a backup before upgrading, and keep the **Before upgrade** copy until you are sure.
+- **Existing passwords keep working.** New passwords need at least 12 characters and must not be common. People whose password does not meet the new rules see "Your password is shorter or more common than Moliya now allows. Please choose a new one." after signing in. Ask them to change it, starting with Admins: the password is the only protection a backup has.
+- **Adding people.** **Users** now leads with **Invite someone**. The temporary-password way is under **Advanced: set a temporary password instead**, and **Reset password** became **Issue reset code**, with **Set a temporary password instead** inside it.
+- **Replacing the vault** now needs your password and the vault name, and importing from the setup screen works only in a browser with no vault.
+- **Automatic lock** is still 15 minutes by default; each browser can choose 5, 15, 30, or 60 minutes under **Account → Lock automatically**.
+- **Large receipts.** New receipts must be images of up to 1.5 MB, and the vault is capped at about 48 MB. Existing receipts are kept.
+- **Recovery tool.** Use the 1.3.0 recovery tool for vaults and backups saved by 1.3.0. Older copies of the tool still open them, but leave sign-in check data and code checks in their output.
+- **Hosting.** Until Moliya moves to its own web address, do not publish any other GitHub Pages site under the same account. Every Pages site of the account shares one web address, and any of them could read or delete the vault. See the [DevOps guide](devops-guide.md#origin-and-storage-isolation).
+
 ## Recovery scenarios
 
 | Situation | What to do |
 | --- | --- |
-| A Manager or Viewer forgot their password | Reset it from **Users**. They choose a new password at next sign-in, then open their private safes with their previous password or recovery code |
+| A Manager or Viewer forgot their password | **Issue reset code** from **Users** and give them the code. They choose a new password with it, then open their private safes with their previous password or recovery code |
+| Someone else may know a person's password | **Issue reset code** with **Stop their current password from working now** ticked. Their old password stops working at once. Old backups still open with it |
+| A reset or invite code was sent to the wrong person, or lost | **Revoke** it under **Open codes**, then create a new one. If backups were made while it was open, treat those backups as opened by that code until it expires |
+| The code "has expired" or the person waited too long | Create a new code. Expired codes are removed at the next sign-in |
+| "This device’s clock is behind" when creating or using a code | Correct the device's date and time, then try again |
+| The person joined on the wrong device, or sees "There is no vault in this browser yet" | Codes work only where the vault is stored. Have them join on this device and browser, or move a backup to their device first |
+| Someone lost their authenticator app and their sign-in recovery codes | Confirm who they are, then **Turn off sign-in check** on their row. They can set it up again |
+| "Too many attempts. Try again in" with a countdown | Wait. The wait doubles with each wrong try, up to 15 minutes. If you did not cause it, someone is guessing at this device: check the "Failed sign-in attempts seen" entries in the audit log |
 | Someone cannot open their private safes after a reset, and has neither their previous password nor their recovery code | Nobody can open those safes. They can use **Account → Reset private safes** to destroy them and start again |
 | You forgot your admin password, and another Admin exists | Ask them to reset yours |
 | You want to change your own admin password | **Account → Change password**. **Users** does not allow resetting your own |
@@ -216,10 +309,12 @@ Versions 1.0.0 and 1.1.0 stored, for every person, a value in the database that 
 | All passwords are lost | The data cannot be recovered, even from a backup |
 | The site moved to a new address (new domain) | The old address's vault is not visible at the new one. Export at the old address, then import at the new one |
 | "This vault was saved by a newer version of Moliya" | Reload the page. If it persists, the site was rolled back: import a backup or an earlier copy made by this version, or wait for the newer version to return |
-| "The vault stored in this browser is damaged" | Import your latest backup. Nothing else was changed |
+| "The vault stored in this browser is damaged" (on opening the app, or when signing in) | Nothing else was changed, but nobody can sign in to replace it, and the setup screen only appears when the browser has no vault. Make sure you have a good backup. Then clear this site's data in the browser settings (this also deletes the earlier copies), reload, and import the backup from the setup screen. The same applies if a vault you just imported shows this message |
 | "Not saved: changed elsewhere" | The vault was changed in another tab, window, or by an import. Lock and unlock to load the latest data, then redo the last change |
 | "Already unlocked in another tab or window" | Lock it in the other tab, or close that tab |
 | An update went wrong | Download an earlier copy from **Backup**, or import a backup made before the update |
+| You replaced the vault with the wrong backup | Sign in as an Admin of the imported backup, download the **Before import** copy from **Backup**, and replace the vault with it |
+| "Moliya does not run inside another page" | Someone embedded the app in another website. Open it in its own tab from the address you trust |
 
 ## Security limits to know
 
@@ -229,19 +324,26 @@ Moliya protects data at rest well. It is important to understand what it does **
 2. **Removing someone or resetting a password does not change the vault key.** A removed person who kept an old backup file, or an old copy of the browser storage, could still open that copy with their old password. If they also get a newer copy, they could decrypt it too. After removing someone you do not trust, the only full protection today is to start a new vault. Rotating the vault key is on the developers' list; the **Change encryption key** option in private safes only re-encrypts one safe.
 3. **Old backups keep old passwords.** A backup opens with the passwords that were valid when it was exported.
 4. **Emails are visible.** Email addresses are stored unencrypted next to the encrypted data, in the browser and in backup files, so that Moliya knows whose key to try. Amounts, notes, and everything else are encrypted.
-5. **Backup files can be guessed offline.** Someone who steals a backup can try passwords on their own computer. PBKDF2 (600,000 rounds) slows each guess, but a short or common password will still fall. Use long, unique passwords, especially for Admin accounts. Older backups keep the protection they were made with (200,000 rounds before 1.1.0).
+5. **Backup files can be guessed offline.** Someone who steals a backup, or copies the browser's storage, can try passwords on their own computer. PBKDF2 (600,000 rounds) slows each guess, but a short or common password will still fall. Use long, unique passwords, especially for Admin accounts. Older backups keep the protection they were made with (200,000 rounds before 1.1.0).
 6. **Unencrypted exports are plain data.** CSV and SQLite exports are readable by anyone who has the file.
 7. **The browser is the security boundary.** Malware on the device, a malicious browser extension, or another website served from the same address could read the vault while it is unlocked, or delete the stored copy, and could capture passwords typed to open private safes. See the [DevOps guide](devops-guide.md#origin-and-storage-isolation) about hosting on a dedicated address.
 8. **Backups from before 1.2.0 hold key material.** They contain a value per person that opens that person's key to the vault (see [Upgrading to 1.2.0](#upgrading-to-120)). Replace them after upgrading.
 9. **Private safes hide contents, not their existence.** Anyone with the decrypted database can count each person's safes and items and see when they changed. Deletions and rollbacks of safe rows are not detected.
+10. **The attempt limit only slows guessing in the app.** After five wrong passwords or codes for an email, Moliya makes the next try wait, doubling up to 15 minutes. It protects against someone trying passwords at this device. It does not protect a copied vault or backup, and someone with the browser's developer tools can clear it. Only a strong password stops offline guessing.
+11. **The sign-in check is not encryption.** Moliya says so next to it: "This adds a second step to signing in to the app. It does not add encryption: anyone with a copy of the vault and your password can still open it with the recovery tool." It helps when a password leaks and someone tries it in the app. It does nothing for backups.
+12. **Code expiry is enforced by the app, not by encryption.** A backup made while a code was open, together with that code, opens the vault on a device with its clock set back, even after the code expired or was revoked in your vault. Keep validity short, revoke codes that went astray, and avoid handing out backups while codes are open.
+13. **Codes and temporary passwords do not change the vault key.** Like point 2: whoever held a code or a temporary password can open copies made while it was valid.
 
 ## Checklist for a new vault
 
 - [ ] Create the vault with a long master password.
 - [ ] Add a second Admin account and keep its password somewhere safe, such as a password manager.
 - [ ] Check the vault currency and adjust categories under **Settings**.
-- [ ] Create groups, then add Managers and Viewers. Each of them chooses their own password at first sign-in.
+- [ ] Create groups, then invite Managers and Viewers with one-time codes on the device that holds the vault. Use short validity, and revoke codes that are not used.
 - [ ] Tell people who use private safes to create a recovery code.
+- [ ] Suggest the sign-in check to Admins, and remind them it does not protect backups.
+- [ ] Choose **Account → Lock automatically** on shared devices (5 minutes is a good choice).
 - [ ] Export a first backup and store it off the device.
 - [ ] Schedule regular backups, and act on the backup reminder.
 - [ ] Check **Storage in this browser** on the Backup page. On iPhone or iPad, add the app to the Home Screen.
+- [ ] Look at **Open codes** and the audit log now and then for codes you did not expect and for "Failed sign-in attempts seen".

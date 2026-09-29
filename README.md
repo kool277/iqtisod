@@ -53,7 +53,7 @@ flowchart LR
 4. Changes are re-encrypted and saved to the browser's IndexedDB within about a second of each edit, every 5 seconds while changes are pending, and when the tab is hidden or the vault is locked.
 5. Private safes are encrypted a second time inside the database. A separate PBKDF2 run over the owner's password (or their recovery code) unlocks a **personal key**, which unlocks one key per safe. Nobody else's password or key opens them.
 
-Refreshing or closing the tab locks the vault, and so does 15 minutes without activity. Signing in again is required.
+Refreshing or closing the tab locks the vault, and so does a period without activity (15 minutes unless changed to 5, 30, or 60 in Account). Signing in again is required.
 
 ## Versions and data longevity
 

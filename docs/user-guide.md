@@ -4,9 +4,24 @@ This guide is for people who use a Moliya vault day to day: **Managers**, who re
 
 ## Before you start
 
-Your admin gives you three things: the address of the app, your email, and a starting password. The first time you sign in, Moliya asks you to replace the starting password with one that only you know (see [Your account](#your-account)). Moliya has no "forgot password" link. If you forget your password, ask your admin to reset it, but read [After an admin resets your password](#after-an-admin-resets-your-password) first if you use private safes.
+Your admin gives you the address of the app, your email, and usually a **one-time code**. You use the code once to [join the vault](#joining-with-a-code) and choose your own password, so nobody else ever knows it. Some admins give a starting password instead; then Moliya asks you to replace it the first time you sign in (see [Your account](#your-account)).
+
+Moliya has no "forgot password" link. If you forget your password, ask your admin for a reset code, but read [After an admin resets your password](#after-an-admin-resets-your-password) first if you use private safes.
 
 The vault lives inside one browser on one device. If your admin set it up on a shared computer, use that computer and that browser. Opening the app on your own phone will show an empty setup screen, because that browser has no vault yet. Your admin can move a copy there with a backup file.
+
+## Joining with a code
+
+A code has seven groups of four letters and digits, like `XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX`. It works once, for your email only, and only until the time your admin chose (24 hours unless they picked another time).
+
+1. Open the app in the browser where the vault is stored. On **Unlock vault**, choose **Have a one-time code? Join the vault**. If your admin sent you a link, opening it fills in your email and the code for you.
+2. Check **Your email**, and type or paste the **One-time code**. Capital or small letters, spaces, and dashes do not matter; the letter O counts as zero, and I and L count as one.
+3. Enter a password under **Choose a password** and again under **Confirm password**. See [Choosing a password](#choosing-a-password).
+4. Choose **Join vault**. You are signed in.
+
+A code works only in the browser where the vault is stored, because that is where the vault is. If Moliya says "There is no vault in this browser yet", you are on the wrong device or browser. Open the app where your admin set it up, or first choose **Import a backup** if your admin gave you a backup file.
+
+If Moliya says the code has expired or does not match, ask your admin for a new one. Keep the code private until you have used it: anyone with the code and your email can join as you while it is open.
 
 ## Signing in
 
@@ -14,6 +29,30 @@ The vault lives inside one browser on one device. If your admin set it up on a s
 2. Enter your email and password, then choose **Unlock**.
 
 Unlocking takes a moment, because your password is deliberately stretched to make guessing slow. If you see "Email or password is incorrect", check both. The message is the same for either mistake on purpose.
+
+After five wrong tries for the same email, Moliya shows **Too many attempts. Try again in** with a countdown, and the wait doubles with each further mistake, up to 15 minutes. Codes and the sign-in check are limited the same way. Wait for the countdown to finish; refreshing the page does not shorten it. After you sign in, Moliya tells you how many failed attempts there were for your account in this browser since your last sign-in. If you did not make them, change your password.
+
+This limit slows down someone guessing at this screen. It does not protect a copy of the vault or a backup: someone with a copy can guess without any limit, and only a long, uncommon password stops them.
+
+### The second step
+
+If you turned on the [sign-in check](#sign-in-check), Moliya asks for a second step after your password: "Enter the 6-digit code from your authenticator app, or one of your recovery codes." Type the code into **Code** and choose **Continue**. Each code works once. If you wait more than 5 minutes, or choose **Cancel**, you go back to **Unlock vault**.
+
+If you sign in with a recovery code, a bar shows **You used a recovery code. Codes left:** with the number. When few are left, turn the sign-in check off and on again in **Account** to get new ones.
+
+### If Moliya shows "For your safety, Moliya does not run inside another page."
+
+Moliya refuses to run inside another website's page, because that page could trick you into clicking or typing. Choose **Open Moliya in its own tab**, and check that the address is the one your admin gave you.
+
+### Resetting your password with a code
+
+If your admin gives you a reset code:
+
+1. On **Unlock vault**, choose **Have a reset code?** (or open the link your admin sent).
+2. Enter **Your email**, the **One-time code**, and your new password twice.
+3. Choose **Set new password**. You are signed in with the new password.
+
+Like an invite code, a reset code works once, only until it expires, and only in the browser where the vault is stored. Your old password stops working when you use the code, and sooner if your admin chose to stop it at once. Setting a new password this way also turns off your [sign-in check](#sign-in-check); turn it on again in **Account** if you use it. If you use private safes, read [After an admin resets your password](#after-an-admin-resets-your-password).
 
 ## Finding your way around
 
@@ -50,7 +89,7 @@ Both the dashboard and the ledger use the same period buttons, and your choice c
    - **Currency**: defaults to the vault currency. See the note on currencies below.
    - **Group**: only shown if you can see more than one group.
    - **Notes**: optional, up to 2,000 characters.
-   - **Receipt**: optional photo, up to 1.5 MB. Use **View receipt** to check it, or **Remove receipt** to drop it.
+   - **Receipt**: optional PNG, JPEG, WebP, or GIF image, up to 1.5 MB. Other file types, including SVG, are refused. Use **View receipt** to check it, or **Remove receipt** to drop it.
 3. Choose **Save**.
 
 To change a record, choose **Edit** on it, adjust the fields, and choose **Update record**. To delete, choose **Delete**, then confirm. Deleting cannot be undone, but it is recorded in the admin's audit log.
@@ -91,7 +130,9 @@ You never need to press a save button for the vault itself. The status next to t
 
 The vault can be unlocked in only one tab at a time. If you see "already unlocked in another tab or window", switch to that tab or lock it there first.
 
-Choose **Lock** when you step away. Locking, refreshing, or closing the tab removes the decrypted data from memory, and the next person must sign in. Moliya also locks the vault by itself after 15 minutes without activity.
+Choose **Lock** when you step away. Locking, refreshing, or closing the tab removes the decrypted data from memory, and the next person must sign in. Moliya also locks the vault by itself after 15 minutes without activity; you can change this under **Account → Lock automatically**.
+
+If a bar says **The vault is close to its size limit. Remove large receipts to make room.**, tell your admin. Receipts take most of the space, and once the vault is full no new receipts can be added.
 
 ## Your account
 
@@ -99,11 +140,49 @@ Open **Account** in the menu. Everyone has this page, whatever their role.
 
 ### Changing your password
 
-Enter your **current password**, then the **new password** twice (at least 8 characters, and different from the current one), and choose **Change password**. If you have set up private safes, they move to the new password at the same time.
+Enter your **current password**, then the **new password** twice (different from the current one; see [Choosing a password](#choosing-a-password)), and choose **Change password**. If you have set up private safes, and if you use the sign-in check, they move to the new password at the same time.
 
-If your admin created your account or reset your password, the password was chosen by them. Moliya then asks you to choose a new one before you can use anything else: every page leads back to **Account** until you do.
+If your admin gave you a starting or temporary password, the password was chosen by them. Moliya then asks you to choose a new one before you can use anything else: every page leads back to **Account** until you do.
+
+If a bar says **Your password is shorter or more common than Moliya now allows. Please choose a new one.**, your password still works, but it would not be accepted today. Choose **Change password** and pick a better one.
+
+### Choosing a password
+
+Moliya shows the hint "At least 12 characters. A few unrelated words work well." A new password must:
+
+- be 12 to 256 characters long;
+- not be a commonly used password, even with digits or symbols added before or after it (Moliya checks a built-in list, without sending anything anywhere);
+- not be mostly your email or the vault name;
+- not use three or fewer different characters, repeat a short pattern, or follow a run of keys such as `qwertyuiop` or `1234567890`.
+
+Four or five unrelated words, with spaces if you like, are easy to remember and hard to guess. Do not reuse a password from another site. Your password is what protects copies of the vault and backups; nothing else does.
+
+### Sign-in check
+
+The sign-in check asks for a 6-digit code from an authenticator app (such as Google Authenticator, Microsoft Authenticator, Aegis, or 1Password) after your password. It is optional. Moliya shows this note next to it:
+
+> This adds a second step to signing in to the app. It does not add encryption: anyone with a copy of the vault and your password can still open it with the recovery tool.
+
+So it helps if someone learns your password and tries it in this browser. It does not replace a strong password.
+
+To turn it on:
+
+1. Choose **Set up sign-in check**.
+2. Scan the QR code with your authenticator app, or type the **Setup key** into it (**Copy key** copies it; the clipboard is cleared after 60 seconds).
+3. Enter the current **Code from the app** and **Your password**, then choose **Confirm and turn on**.
+4. Moliya shows 10 **Recovery codes**. Each works once in place of an app code if you lose your phone. Choose **Download codes** or write them down, keep them away from this device, and choose **I have saved these codes**. They are not shown again.
+
+To turn it off, choose **Turn off sign-in check** and enter your password. To get new recovery codes, turn it off and on again; the old codes then stop working, and you must add the new setup key to your app.
+
+If you lose both your authenticator and your recovery codes, ask your admin to turn off the sign-in check for you. Resetting your password with a reset code also turns it off.
+
+### Lock automatically
+
+Choose how long the vault stays open without activity: **5 minutes**, **15 minutes** (the default), **30 minutes**, or **1 hour**. The setting belongs to this browser, not to your account. Moving the mouse, typing, scrolling, or touching the screen counts as activity. If the tab was in the background longer than the chosen time, the vault locks as soon as you return to it.
 
 ### Other settings on this page
+
+The sign-in check and **Lock automatically** are hidden until you have replaced a starting or temporary password.
 
 - **Private safes**: how long before your safes lock, how long shown values stay visible, and how long copied values stay in the clipboard. Open your safes first to change these.
 - **Recovery code**: create one, or replace the one you have.
@@ -201,9 +280,9 @@ Deleted data is also overwritten in the database, but copies stay in older backu
 
 If your admin resets your password:
 
-1. Sign in with the temporary password they give you. Moliya asks you to choose a new password in **Account**.
+1. Use the reset code they give you to [set a new password](#resetting-your-password-with-a-code). If they gave you a temporary password instead, sign in with it; Moliya asks you to choose a new password in **Account**.
 2. Open **Private safes**. Moliya says your password changed since you last opened your safes.
-3. Enter the **previous password**: the one you chose yourself before the reset, not the temporary one from the admin. Or choose **Use recovery code instead** and enter your code. Also enter your current password.
+3. Enter the **previous password**: the one you chose yourself before the reset, not a temporary one from the admin. Or choose **Use recovery code instead** and enter your code. Also enter your current password.
 4. Your safes open, and from now on your current password opens them. If you used the recovery code, create a new one.
 
 Never type the temporary password from your admin as your previous password. Your safes are never unlocked with a password that someone else chose; that is what keeps them private from the admin.
@@ -225,5 +304,6 @@ Pick a language from the language menu: Oʻzbekcha, Ўзбекча, Русски
 - Lock the vault before leaving a shared device.
 - Do not clear this site's browsing data. Doing so deletes the vault from this browser. Only a backup can bring it back.
 - Use a password that is long and not used anywhere else.
+- Use a one-time code soon after you get it, and tell your admin if someone else may have seen it before you used it.
 - If you use private safes, create a recovery code and keep it offline.
 - Lock your safes when you are done with them, even if you keep the vault open.

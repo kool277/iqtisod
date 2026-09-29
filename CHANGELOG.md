@@ -6,6 +6,56 @@ Data formats are versioned separately from the app. Each release lists the forma
 
 ## [Unreleased]
 
+Reads backup and record versions 1–2 and schema versions 1–4. Writes backup 2, record 2, schema 4. Vaults and backups made by 1.0.0, 1.1.0, and 1.2.0 upgrade automatically on first sign-in, and the original stored copy is kept in the browser. Moliya 1.1.0 and 1.2.0 refuse a schema 4 vault or backup with "made by a newer version" and leave it untouched. The 1.2.0 recovery tool still decrypts schema 4 backups but does not remove the new sign-in check and code data from its output.
+
+### Added
+
+- Invite codes. Admins create a one-time code for an email, role, and group under **Invite someone**, valid for 15 minutes, 1 hour, 24 hours (default), 3 days, or 7 days. The person enters it with their email on the new join page and chooses their own password, so the Admin never knows it. Codes carry 135 random bits with a check symbol (seven groups of four), are shown once with **Copy code** and **Copy link** (clipboard cleared after 60 seconds), and are stored only as a key-derived verifier and a wrapped copy of the vault key. One open code per email, at most 20 open invites. Codes work only in the browser where the vault is stored, which the join page and the admin guide explain.
+- Reset codes: **Issue reset code** replaces the Admin-set temporary password as the default. Optionally, **Stop their current password from working now** removes the person's key at once. Using the code sets the new password and turns off the person's sign-in check. The temporary password stays available as an advanced option.
+- **Open codes** list with **Revoke**. Expired codes are ended at the next sign-in and logged as "Code expired". Creating or using a code is refused if the device clock is more than 5 minutes behind the latest time the vault has seen.
+- Optional sign-in check per person: a 6-digit authenticator code (RFC 6238, SHA-1, 30-second steps, each step usable once) after the password, with a locally drawn QR code and 10 single-use recovery codes. The secret is encrypted under a key derived from the person's password and re-sealed when the password changes. Admins can turn it off for someone who lost both their app and their codes. The app says plainly that it adds a second step to signing in, not encryption.
+- Attempt limits for sign-in, codes, and the sign-in check: 5 free failures per email and 20 per kind in the browser, then a wait that doubles from 30 seconds to 15 minutes, with a countdown. After signing in, people see how many failed attempts there were for their account in that browser.
+- **Lock automatically** in Account: 5, 15 (default), 30, or 60 minutes, per browser.
+- **Replace this vault with a backup** on the Backup page, which needs the import permission, the Admin's password, and the vault name typed out.
+- Size limits: a 48 MiB database budget enforced when adding receipts, with a warning at 36 MiB, and caps for names, emails, and notes.
+- Audit entries: "Invite code created", "Invite code revoked", "Invite accepted", "Code expired", "Reset code issued", "Reset code revoked", "Password reset with code", "Vault replaced by a backup", "Failed sign-in attempts seen", "Sign-in check turned on", "Sign-in check turned off", "Sign-in check removed", and "Sign-in recovery code used". No code, password, or secret is ever logged.
+- Schema version 4: tables `access_grants` and `user_totp`, and the `clock_high_water` setting. Envelopes gain an optional `grants[]` list of code wraps.
+- `SECURITY.md` with supported versions, how to report a vulnerability privately, and a threat model summary. A threat model section in the developer guide.
+- Golden backup `v4/access-household` made by 1.3.0: a Manager who joined by invite with the sign-in check and recovery codes, a Viewer reset with a stop-old reset code after a first code was revoked, and an expired invite that is swept on open.
+- Translations for all new text in Oʻzbekcha (Latin and Cyrillic), Russian, and English.
+
+### Changed
+
+- New passwords need 12 to 256 characters, must not be common (a built-in list, even with digits or symbols added), repetitive, a keyboard run, or built from the email or vault name. Existing passwords keep working; people whose password falls short see a banner asking them to change it. (Audit 2)
+- Importing a backup on the setup screen works only when the browser has no vault. Replacing an existing vault checks `IMPORT_VAULT`, asks for the password and the vault name, writes "Vault replaced by a backup" into the old vault, and keeps it as **Before import**. (Audit 5)
+- The import cap rises from 20 MiB to 72 MiB to match the database budget, so every vault the app allows can be imported again. (Audit 6)
+- Receipts must be PNG, JPEG, WebP, or GIF with a matching file signature. SVG is refused. Existing receipts are kept. (Audit 11)
+- Group names and the setup vault name are limited to 80 characters. (Audit 10)
+- A vault holds at most 256 people. Adding a person, creating an invite, and accepting one are refused once the people and open invites would exceed what a backup can hold.
+- Adding a person with a temporary password ends any open invite for that email. Removing a person ends their codes.
+- The unencrypted SQLite export and `npm run decrypt` (unless `--keep-keys` is given) remove sign-in check rows and code verifiers. `npm run decrypt --list` shows pending codes by kind and email.
+- CI installs with `npm ci --ignore-scripts` and runs `npm audit signatures`. Dependabot waits 7 days before proposing a release. `CODEOWNERS` requires the owner's review for key handling, storage, auth, grants, users, the sign-in check, limits, what the browser loads, fixtures, the lock file, and CI.
+
+### Security
+
+- Attempt limits slow down password, code, and sign-in check guessing in the app. They do not protect a copied vault or backup against offline guessing; only a strong password does. (Audit 3)
+- The main vault now locks after a period without activity. (Audit 4)
+- The stricter Content Security Policy: `default-src 'none'`, `style-src 'self'` without `'unsafe-inline'`, no `blob:`, `base-uri 'none'`, `frame-src` and `child-src 'none'`, `upgrade-insecure-requests`, and Trusted Types with a `default` policy that allows only the isolation service worker's URL. The charset, `referrer: no-referrer`, and the policy are the first tags in `<head>`. (Audit 15)
+- Moliya refuses to run inside a frame and offers a link to open it in its own tab. The isolation service worker does not register when framed. (Audit 16)
+- Every decrypted database is hardened (defensive mode, `trusted_schema` off, `cell_size_check`, 8 MiB value limit, `ATTACH` disabled) and must match the schema the app's own migrations create before it is used. `PRAGMA quick_check` runs on every open. (Audit 13)
+- Envelope and backup readers enforce caps: 1–256 wraps, at most 64 code wraps, salts of 16–64 bytes, ciphertext up to 64 MiB, KDF iterations up to 2,000,000 in the app, JSON size, depth, and prototype keys. (Audit 14)
+- Sign-in with an unknown email, and a code for an unknown email, spend the same key-derivation time as a real attempt, and verifiers are compared in constant time. (Audit 8)
+- The CSV formula guard also catches leading whitespace and full-width `=`, `+`, `-`, and `@`. (Audit 12)
+- The devops guide now covers a dedicated custom domain (verified for the account, optionally behind Cloudflare with full security headers) and advises keeping no other GitHub Pages sites on the account until then, because they share the vault's origin. (Audit 1)
+- `SECURITY.md` and private vulnerability reporting. (Audit 18)
+
+### Fixed
+
+- The email check took quadratic time on long input. Emails are limited to 254 characters and checked with a linear pattern. (Audit 7)
+- A temporary-password reset could match another key with the same email; wraps are now matched by person only. (Audit 9)
+- Downloads could be cancelled in some browsers because the file's temporary URL was revoked at once; it is now revoked after 60 seconds. (Audit 19)
+- Reading an amount with a very long run of zeros took quadratic time. Trailing zeros are now trimmed in one pass.
+
 ## [1.2.0] - 2026-09-29
 
 Reads backup and record versions 1–2 and schema versions 1–3. Writes backup 2, record 2, schema 3. Vaults and backups made by 1.0.0 and 1.1.0 upgrade automatically on first sign-in, and the original stored copy is kept in the browser. Moliya 1.1.0 refuses a schema 3 vault or backup with "made by a newer version" and leaves it untouched.
