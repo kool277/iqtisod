@@ -6,6 +6,28 @@ Data formats are versioned separately from the app. Each release lists the forma
 
 ## [Unreleased]
 
+### Added
+
+- **Export data** on the Backup page (Admins only): CSV, JSON, JSON Lines, Excel workbook, PDF report, and SQLite database, for all data or a selected period, all groups or one group, with the audit log and receipt images as options.
+- Encrypted outputs: AES-256 ZIP (default; opens in 7-Zip, WinZip, WinRAR, Keka) and SQLCipher 4 database (opens in DB Browser for SQLite and `sqlcipher`), with a password generator and strength meter. Unencrypted exports need an explicit confirmation.
+- `DATA_EXPORTED` audit entry with formats and scope (never content or passwords).
+- JSON Schemas for the `moliya-export` format version 1 in `docs/schemas/`.
+
+### Changed
+
+- CSV formula protection now also covers line feeds, leading spaces, and the full-width `＝＋－＠` characters. CSV gains `category_id`, `group_id`, and `user_id` columns at the end.
+- The SQLite export copies an allowlist of tables into a fresh file instead of copying the whole vault.
+- Downloads keep their object URL for 60 seconds, so large files finish in Safari and Firefox.
+
+### Security
+
+- Private safes, password hashes, and other secrets are never exported; new tables are excluded until explicitly allowed.
+- Export passwords need at least 14 characters and cannot be the sign-in password.
+
+### Data formats
+
+- Reads and writes the same vault, backup, and schema versions as before. New: export format version 1 (write-only).
+
 ## [1.1.0] - 2026-09-29
 
 Reads backup, record, and schema versions 1 and 2. Writes version 2 of each. Vaults and backups made by 1.0.0 upgrade automatically on first sign-in, and the original stored copy is kept in the browser.

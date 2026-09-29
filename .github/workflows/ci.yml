@@ -36,6 +36,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install export interop tools
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends sqlcipher 7zip
+
       - name: Typecheck
         run: npm run typecheck
 

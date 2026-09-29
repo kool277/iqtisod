@@ -93,7 +93,7 @@ Categories are listed separately for income and expenses.
 
 ## Audit log
 
-**Audit log** shows the latest 200 actions with time, who did it, and what happened: vault created, settings changed, categories added, edited, or removed, users added, updated, removed, or password reset, groups added or removed, records added, updated, or deleted, backups and unencrypted exports downloaded, data format upgrades, and password protection upgrades. Record changes keep the values before and after the change. The log lives inside the encrypted vault, so it is included in backups.
+**Audit log** shows the latest 200 actions with time, who did it, and what happened: vault created, settings changed, categories added, edited, or removed, users added, updated, removed, or password reset, groups added or removed, records added, updated, or deleted, backups downloaded, data exported (older entries say "Unencrypted export"), data format upgrades, and password protection upgrades. Record changes keep the values before and after the change. The log lives inside the encrypted vault, so it is included in backups.
 
 Entries cannot be edited or deleted from the app. Each entry also contains a fingerprint of the one before it, so **Integrity** at the top of the page shows **Intact** only if no entry was changed or removed, even by someone editing a decrypted copy of the database with other tools. If it ever shows **Broken**, restore from a backup you trust and find out who had access to the passwords.
 
@@ -131,14 +131,24 @@ Moliya keeps up to three earlier copies of the vault in the browser:
 
 Each copy shows when it was taken and which version saved it. **Download** turns it into a normal backup file you can import (in this or an older version) or keep.
 
-### Unencrypted export
+### Export data
 
-Under **Unencrypted export**, Admins can download:
+**Export data** on the Backup page gives your records to other apps: an accountant's spreadsheet, a PDF for a meeting, or a database for analysis. Only Admins can export. Exports are one-way; to move or restore the vault, use the encrypted backup instead.
 
-- **Download records (CSV)**: every record, one row each, for Excel, LibreOffice, or an accountant. Amounts are exact decimals with their currency.
-- **Download database (SQLite)**: the whole ledger as a standard SQLite file that any SQLite tool can open. Password information is removed from it.
+1. **Formats**: tick any of CSV, JSON, JSON Lines, Excel workbook, PDF report, and SQLite database. If your Excel is set to Russian or Uzbek, choose the Excel workbook rather than CSV so numbers come out right.
+2. **Period**: all data, or a selected period (the picker works like the dashboard's, without changing the dashboard).
+3. **Group**: all groups or one group.
+4. **Include audit log**: only with all groups, because the log mentions records from every group.
+5. **Include receipt images**: off by default, because files get large.
+6. **Protection**:
+   - **Encrypted ZIP (AES-256)**, the default. Open it with [7-Zip](https://www.7-zip.org/) (Windows), [Keka](https://www.keka.io/) (macOS), WinZip, or WinRAR. The built-in Windows and macOS archive tools **cannot** open it and will say the archive is damaged or ask for a password they cannot use. File names inside the archive are visible without the password; the contents are not.
+   - **Encrypted SQLite database (SQLCipher 4)**. Stronger password protection, database only. Open it in [DB Browser for SQLite](https://sqlitebrowser.org/): choose **Open Database**, enter the password, and pick **SQLCipher 4 defaults**. With the command-line tool: `sqlcipher file.sqlite`, then `PRAGMA key = 'your export password';`.
+   - **No encryption**. You must tick "I understand this file is not encrypted". Anyone who gets the file can read every record.
+7. **Export password**: at least 14 characters using Latin letters, digits, and symbols, and not your sign-in password. **Generate** makes a strong one; **Copy** puts it on the clipboard. The app does not keep the password. If you lose it, nobody can open the file.
 
-These files are **not encrypted**. Anyone who gets them can read every record. Each download is written to the audit log. Use them for archiving (both formats are recommended for long-term preservation) and for moving data to other tools, and keep them on an encrypted drive.
+Press **Export**. Progress is shown below the form, and **Cancel** stops it. The file name contains the vault name and the date, even for encrypted files. Each export is written to the audit log as **Data exported**, with the formats and scope but never the content or password.
+
+The PDF lists at most 10,000 records; use CSV or Excel for more. Private safes, passwords, and sign-in secrets are never included in any export. Details of every format are in the [data format specification](data-format.md#exports).
 
 ### Moving to another device
 
@@ -189,7 +199,7 @@ Moliya protects data at rest well. It is important to understand what it does **
 3. **Old backups keep old passwords.** A backup opens with the passwords that were valid when it was exported.
 4. **Emails are visible.** Email addresses are stored unencrypted next to the encrypted data, in the browser and in backup files, so that Moliya knows whose key to try. Amounts, notes, and everything else are encrypted.
 5. **Backup files can be guessed offline.** Someone who steals a backup can try passwords on their own computer. PBKDF2 (600,000 rounds) slows each guess, but a short or common password will still fall. Use long, unique passwords, especially for Admin accounts. Older backups keep the protection they were made with (200,000 rounds before 1.1.0).
-6. **Unencrypted exports are plain data.** CSV and SQLite exports are readable by anyone who has the file.
+6. **Exports leave the vault's protection.** An unencrypted export is readable by anyone who has the file. An encrypted ZIP is only as strong as its password, because the ZIP format guesses passwords quickly; use a generated one. Once someone opens an export, the data is theirs.
 7. **The browser is the security boundary.** Malware on the device, a malicious browser extension, or another website served from the same address could read the vault while it is unlocked, or delete the stored copy. See the [DevOps guide](devops-guide.md#origin-and-storage-isolation) about hosting on a dedicated address.
 
 ## Checklist for a new vault

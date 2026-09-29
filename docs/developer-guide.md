@@ -96,9 +96,38 @@ Every service function checks `canUser` and, for non-admins, restricts to `user.
 | `settings.service.ts` | Vault name and currency (`updateVaultSettings`, also updates `vault.vaultName` and `vault.currency`), category create, update, and delete. Gated by `MANAGE_SETTINGS` |
 | `audit.service.ts` | `writeAudit` (call inside the same transaction as the change), `listAudit`, `auditIntegrity` |
 | `backup.service.ts` | Backup file text and names, `noteExport`, `backupReminder` |
-| `export.service.ts` | Plaintext CSV and SQLite exports (gated by `EXPORT_VAULT`, audited) |
+| `export/` | Data exports (see [Exports](#exports) below) |
 
 Errors are `AppError` subclasses with a string code (`src/domain/errors.ts`). `src/lib/errors.ts` maps codes to translated messages. Add a case there when you add a code.
+
+### Exports
+
+`src/services/export/` is loaded only when an Admin presses **Export** (`import('../services/export')` in `ExportPanel.tsx`), and the heavy format modules are imported again lazily inside it, so none of it is in the initial bundle.
+
+| File | Responsibility |
+| --- | --- |
+| `index.ts` | `runExport(vault, request, { signal, onProgress })` → `{ blob, fileName, mime }`. Validates, checks permission and password reuse, writes `DATA_EXPORTED`, builds each format from a snapshot, packs the ZIP or SQLCipher file |
+| `options.ts` | Request types, validation, `vaultSlug` / `exportFileName`, MIME types, `PDF_ROW_LIMIT` |
+| `dataset.ts` | `resolveExportScope` (RBAC: allowing Managers later only needs `EXPORT_VAULT` in their role), scoped queries with keyset paging (1,000 rows per page, yielding to the browser between pages), `BigInt` totals |
+| `csv.ts`, `json.ts`, `xlsx.ts`, `pdf.ts` + `pdf-fonts.ts` | One module per format. Everything is built as `Blob` parts |
+| `sqlite.ts` | Allowlist attach-and-copy builder. **Any new table is excluded until you add it to `EXPORT_COLUMNS` and `exportTables`**; never add secrets or safe tables |
+| `sqlcipher.ts` | SQLCipher 4 page encryption with Web Crypto; takes an injectable random source for deterministic tests |
+| `zip.ts` | zip.js AES-256 writer, `useWebWorkers: false` so it runs under the CSP |
+| `password.ts`, `readme.ts` | Export password rules, strength estimate, generator, sign-in password reuse check; the ZIP `README.txt` |
+
+Libraries: `jspdf` + `jspdf-autotable`, `write-excel-file`, `@zip.js/zip.js` (`index-native.js`). They are split into the `export-pdf`, `export-xlsx`, and `export-zip` chunks in `vite.config.ts`. jsPDF's optional `html2canvas`, `canvg`, and `dompurify` imports (only used by `.html()` and SVG) are aliased to `src/lib/empty-module.ts`, so they are never bundled and cannot hit `eval`-like paths under the CSP.
+
+Budget: the initial JavaScript may grow by at most 2 KB; each export chunk at most 160 KB gzip; no chunk over the 600 KB warning.
+
+The PDF font is a subset of Noto Sans (OFL-1.1, `src/assets/fonts/OFL.txt`) covering Latin, Latin Extended-A, spacing modifier letters (the Uzbek ʻ U+02BB and ʼ U+02BC), Cyrillic with Cyrillic Supplement, general punctuation (including U+202F used by `Intl` number formatting), currency symbols, № and −. To regenerate it:
+
+```sh
+pyftsubset NotoSans-Regular.ttf --output-file=src/assets/fonts/NotoSans-Regular.subset.ttf \
+  --unicodes="U+0020-007E,U+00A0-00FF,U+0100-017F,U+02B0-02FF,U+0400-052F,U+2000-206F,U+20A0-20CF,U+2116,U+2212" \
+  --layout-features='*' --no-hinting
+```
+
+Repeat for `NotoSans-Bold.ttf`.
 
 ### UI
 
@@ -201,11 +230,13 @@ Bump `RECORD_VERSION` or `BACKUP_VERSION`, add a new branch in `src/db/envelope.
   - `migrations.test.ts`: 1.0.0 detection, float-to-minor conversion, identical schema for upgraded and new databases, append-only audit log, full rollback of a failing migration, refusal of newer schemas.
   - `envelope.test.ts`: version 1 and 2 records and backups, KDF bounds, tamper cases, newer-format refusal.
   - `money.test.ts`: parsing, legacy conversion, formatting, percentages.
-  - `archival.test.ts`: SHA-256 against Node, audit tamper detection, CSV and SQLite exports, update detection.
+  - `archival.test.ts`: SHA-256 against Node, audit tamper detection, update detection.
+  - `export-formats.test.ts`, `export-crypto.test.ts`, `export-rules.test.ts`: every export format read back (CSV parse, JSON and JSON Lines against the published schemas and a golden snapshot in `tests/fixtures/exports/v1`, XLSX via `read-excel-file` in two time zones, PDF text via `unpdf`), the secrets and safes sentinel test, AES ZIP and SQLCipher 4 (a deterministic file with a committed SHA-256, opened with `better-sqlite3-multiple-ciphers`), scope and RBAC, password and file-name rules. The `sqlcipher` and `7z`/`7zz` interop checks run only when those programs are installed.
   - `decrypt-cli.test.ts`: the recovery CLI against every fixture.
   - `crypto.service.test.ts`, `rbac.test.ts`, `i18n.test.ts`, `dates.test.ts`, `vault.test.ts`, `settings.test.ts`: primitives, permissions, locale parity, periods, the full vault flow, and settings.
 - **End to end** (Chromium):
   - `vault.spec.ts`: setup, records, dashboard and charts, language and theme, settings and categories, sidebar, roles, and backup export and import.
+  - `export.spec.ts`: an Admin downloads every format (encrypted and plain) and each file is parsed on the Node side; plain export needs the confirmation; export libraries are not requested before the first export; a Manager cannot reach exports; the audit log shows "Data exported".
   - `upgrade.spec.ts`: a real 1.0.0 IndexedDB record upgraded in the browser (records, totals, stored format, archive download), a 1.0.0 backup import, refusal of a newer or damaged record, the single-session lock, and no CSP violations in preview mode.
 
 Each Playwright test gets a fresh browser context, so IndexedDB starts empty. The warning "localStorage is not available" during unit tests comes from Node and is harmless.

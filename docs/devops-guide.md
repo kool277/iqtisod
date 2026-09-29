@@ -59,6 +59,8 @@ All actions are pinned to full commit SHAs with the release tag in a comment. De
 | `release.yml` | Tag `vX.Y.Z` | Runs `ci.yml`, checks the tag equals `package.json`'s version, packages `moliya-X.Y.Z.zip` and `SHA256SUMS`, attests build provenance, and creates a GitHub release with the notes from `CHANGELOG.md` |
 | `codeql.yml` | Push and pull request to `main`, weekly | CodeQL `security-extended` for JavaScript and TypeScript |
 
+The `verify` job installs `sqlcipher` and `7zip` with apt so the export interop tests can open the encrypted SQLite and ZIP outputs with independent tools. Locally those tests are skipped when the programs are missing (`brew install sqlcipher sevenzip` enables them). The unit tests also use the native `better-sqlite3-multiple-ciphers` module, which ships prebuilt binaries for Linux, macOS, and Windows on the Node version in `.nvmrc`.
+
 The deploy only publishes the exact files CI tested. A failing check stops it, and the last good version stays online. Deploys never cancel each other half-way (`concurrency: pages`, `cancel-in-progress: false`).
 
 ### One-time GitHub settings
