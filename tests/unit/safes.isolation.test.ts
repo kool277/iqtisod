@@ -1,6 +1,6 @@
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { derivePbkdf2Bits, verifierFromBits } from '../../src/crypto/crypto.service'
-import { base64ToBytes } from '../../src/crypto/encoding'
+import { base64ToBytes, copyToBuffer } from '../../src/crypto/encoding'
 import { DecryptError, PERSONAL_KEY_USAGES, aad, derivePersonalKek, unwrapWithAad } from '../../src/crypto/safe-crypto'
 import type { VaultRecord } from '../../src/db/envelope'
 import { AppError } from '../../src/domain/errors'
@@ -93,10 +93,10 @@ describe('private safes are owner-only', () => {
 
     const hash = String(admin.db.queryValue('SELECT password_hash FROM users WHERE id = ?', [managerId]))
     expect(hash).toMatch(/^[0-9a-f]{64}$/)
-    const hashBytes = new Uint8Array(Buffer.from(hash, 'hex'))
+    const hashBytes = copyToBuffer(new Uint8Array(Buffer.from(hash, 'hex')))
     const direct = await crypto.subtle.importKey('raw', hashBytes, 'AES-GCM', false, ['unwrapKey'])
     const hkdf = await crypto.subtle.deriveKey(
-      { name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(0), info: utf8('moliya/personal-kek/v1') },
+      { name: 'HKDF', hash: 'SHA-256', salt: new ArrayBuffer(0), info: copyToBuffer(utf8('moliya/personal-kek/v1')) },
       await crypto.subtle.importKey('raw', hashBytes, 'HKDF', false, ['deriveKey']),
       { name: 'AES-GCM', length: 256 },
       false,

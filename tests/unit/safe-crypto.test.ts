@@ -21,7 +21,7 @@ import {
   wrapWithAad,
   type Sealed,
 } from '../../src/crypto/safe-crypto'
-import { base64ToBytes, bytesToBase64 } from '../../src/crypto/encoding'
+import { base64ToBytes, bytesToBase64, copyToBuffer } from '../../src/crypto/encoding'
 import { ValidationError } from '../../src/domain/errors'
 
 function flip(base64: string, index: number): string {
@@ -102,7 +102,7 @@ describe('safe crypto', () => {
     expect(verifier).toMatch(/^[0-9a-f]{64}$/)
     expect(verifier).not.toBe(Buffer.from(raw).toString('hex'))
     for (const material of [raw, new Uint8Array(Buffer.from(verifier, 'hex'))]) {
-      const direct = await crypto.subtle.importKey('raw', material, 'AES-GCM', false, ['unwrapKey'])
+      const direct = await crypto.subtle.importKey('raw', copyToBuffer(material), 'AES-GCM', false, ['unwrapKey'])
       await expect(unwrapWithAad(wrapped, direct, data, { extractable: false, usages: SAFE_KEY_USAGES })).rejects.toBeInstanceOf(DecryptError)
     }
   })

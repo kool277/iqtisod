@@ -1,5 +1,5 @@
 import type { VaultRecord } from '../../src/db/envelope'
-import type { SecureItemInput } from '../../src/domain/safes'
+import type { CardFields, NoteFields, SubscriptionFields } from '../../src/domain/safes'
 import type { OpenVault } from '../../src/domain/types'
 import { changeOwnPassword } from '../../src/services/account.service'
 import { createVault, sealVault, unlockVault } from '../../src/services/auth.service'
@@ -10,7 +10,7 @@ export const ADMIN = { email: 'admin@example.com', password: 'admin-password-1' 
 export const MANAGER = { email: 'manager@example.com', initial: 'set-by-admin-1', password: 'manager-own-pass-1' }
 
 export const CARD_NUMBER = '4111111111111111'
-export const CARD: SecureItemInput = {
+export const CARD: CardFields & { title: string } = {
   kind: 'CARD',
   title: 'Family Visa',
   cardholder: 'Aziza Karimova',
@@ -22,7 +22,7 @@ export const CARD: SecureItemInput = {
   bank: 'Kapitalbank',
   notes: '',
 }
-export const SUBSCRIPTION: SecureItemInput = {
+export const SUBSCRIPTION: SubscriptionFields & { title: string } = {
   kind: 'SUBSCRIPTION',
   title: 'Netflix',
   url: 'https://www.netflix.com/',
@@ -39,7 +39,7 @@ export const SUBSCRIPTION: SecureItemInput = {
   notes: '',
 }
 export const NOTE_BODY = 'Safe deposit box 42 at the Chilonzor branch'
-export const NOTE: SecureItemInput = { kind: 'NOTE', title: 'Deposit box', body: NOTE_BODY }
+export const NOTE: NoteFields & { title: string } = { kind: 'NOTE', title: 'Deposit box', body: NOTE_BODY }
 export const SAFE_NAME = 'Family gold'
 
 const opened: OpenVault[] = []
