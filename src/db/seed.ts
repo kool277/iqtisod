@@ -38,6 +38,12 @@ export function seedRoles(db: SqlDatabase): void {
   }
 }
 
+export function syncRolePermissions(db: SqlDatabase): void {
+  for (const role of ROLES) {
+    db.exec('UPDATE roles SET permissions = ? WHERE name = ?', [JSON.stringify(permissionsForRole(role)), role])
+  }
+}
+
 export function seedCategories(db: SqlDatabase): void {
   for (const category of CATEGORIES) {
     db.exec(

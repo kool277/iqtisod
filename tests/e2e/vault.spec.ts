@@ -19,6 +19,15 @@ async function addRecord(page: Page, type: 'INCOME' | 'EXPENSE', amount: string)
   await expect(page.locator(`[data-testid="tx-row"][data-amount="${amount}"]`)).toBeVisible()
 }
 
+async function expectHeaderHeight(page: Page) {
+  const header = page.getByTestId('app-shell').locator('header')
+  await expect(header).toBeVisible()
+  const box = await header.boundingBox()
+  expect(box?.height).toBe(40)
+  const overflow = await header.evaluate((node) => node.scrollWidth - node.clientWidth)
+  expect(overflow).toBeLessThanOrEqual(0)
+}
+
 test('sets up a vault, records money, and switches theme', async ({ page }) => {
   await createVault(page)
   await addRecord(page, 'INCOME', '1000')
@@ -41,6 +50,54 @@ test('sets up a vault, records money, and switches theme', async ({ page }) => {
   await expect(page.locator('html')).toHaveClass(/dark/)
   await page.getByTestId('theme-light').click()
   await expect(page.locator('html')).not.toHaveClass(/dark/)
+})
+
+test('admin changes vault settings, adds a category, and collapses the sidebar', async ({ page }) => {
+  await createVault(page)
+  await page.getByTestId('nav-settings').click()
+  await page.getByTestId('settings-name').fill('Family budget')
+  await page.getByTestId('settings-currency').selectOption('UZS')
+  await page.getByTestId('settings-save').click()
+  await expect(page.getByTestId('app-shell').locator('header')).toContainText('Family budget')
+  await expectHeaderHeight(page)
+
+  await page.getByTestId('category-type').selectOption('EXPENSE')
+  await page.getByTestId('category-en').fill('Pets')
+  await page.getByTestId('category-save').click()
+  await expect(page.getByTestId('category-row').filter({ hasText: 'Pets' })).toBeVisible()
+
+  await page.getByTestId('nav-transactions').click()
+  await page.getByTestId('add-transaction').click()
+  await page.getByTestId('tx-type').selectOption('EXPENSE')
+  await expect(page.getByTestId('tx-category').locator('option', { hasText: 'Pets' })).toHaveCount(1)
+  await page.keyboard.press('Escape')
+  await expectHeaderHeight(page)
+
+  const shell = page.getByTestId('app-shell')
+  await page.getByTestId('sidebar-toggle').click()
+  await expect(shell).toHaveAttribute('data-sidebar', 'collapsed')
+  await expect(page.getByTestId('sidebar-toggle')).toHaveAttribute('aria-expanded', 'false')
+  await expectHeaderHeight(page)
+  await expect(page.getByTestId('save-state')).toHaveText('Saved', { timeout: 30_000 })
+  await page.reload()
+  await expect(page.getByTestId('login-email')).toBeVisible({ timeout: 30_000 })
+  await page.getByTestId('login-email').fill('admin@example.com')
+  await page.getByTestId('login-password').fill('correct-horse')
+  await page.getByTestId('login-submit').click()
+  await expect(shell).toHaveAttribute('data-sidebar', 'collapsed', { timeout: 30_000 })
+  await expect(shell.locator('header')).toContainText('Family budget')
+  await page.getByTestId('sidebar-toggle').click()
+  await expect(shell).toHaveAttribute('data-sidebar', 'expanded')
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expectHeaderHeight(page)
+  await page.getByTestId('nav-audit').click()
+  await expectHeaderHeight(page)
+  await page.getByTestId('language-select').selectOption('uz-Cyrl')
+  await expectHeaderHeight(page)
+  await page.getByTestId('sidebar-toggle').click()
+  await expect(shell).toHaveAttribute('data-sidebar', 'collapsed')
+  await expectHeaderHeight(page)
 })
 
 test('admin creates a manager and a viewer, and the viewer stays read-only', async ({ page }) => {

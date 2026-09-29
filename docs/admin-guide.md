@@ -1,6 +1,6 @@
 # Admin guide
 
-This guide is for the person who owns a Moliya vault. Admins can do everything in the [user guide](user-guide.md) and can also manage people, groups, the audit log, and backups.
+This guide is for the person who owns a Moliya vault. Admins can do everything in the [user guide](user-guide.md) and can also manage people, groups, vault settings and categories, the audit log, and backups.
 
 ## Key ideas
 
@@ -15,7 +15,7 @@ This guide is for the person who owns a Moliya vault. Admins can do everything i
    - **Vault name**: shown in the top bar. It also becomes the name of the first group.
    - **Admin email**: your sign-in name. It is stored in lowercase.
    - **Master password** (twice): at least 8 characters. Use a long passphrase. This is your admin password.
-   - **Currency**: USD, UZS, EUR, or RUB. Totals are calculated in this currency only, and it cannot be changed later from the app.
+   - **Currency**: USD, UZS, EUR, or RUB. Totals are calculated in this currency only. You can change it later under **Settings**.
 3. Choose **Create encrypted vault**. You are signed in and taken to the dashboard.
 
 Your admin account does not belong to any group, so you see every group's records.
@@ -27,6 +27,7 @@ Your admin account does not belong to any group, so you see every group's record
 | View dashboard and ledger | All groups | Own group | Own group |
 | Add, edit, delete records | All groups | Own group | No |
 | Manage people and groups | Yes | No | No |
+| Vault settings and categories | Yes | No | No |
 | Audit log | Yes | No | No |
 | Export and import backups | Yes | No | No |
 
@@ -67,9 +68,28 @@ Choose **Remove** and confirm. Removal is blocked in three cases:
 
 Changing someone's role or group after creation is not available from the screen yet. For now, remove the person and add them again with the new role (possible only if they have no records), or ask a developer to expose the existing `updateUser` service.
 
+## Settings
+
+Open **Settings**. Only Admins see this page.
+
+### General
+
+- **Vault name**: shown in the top bar for everyone. Up to 80 characters. Renaming the vault does not rename the first group.
+- **Vault currency**: the currency used for totals and charts. Changing it does not convert existing records. Records in the old currency stay in the ledger, marked "Other currency", and stop counting towards totals. Change the currency before people start recording, or be ready to re-enter records.
+
+Choose **Save settings**. The top bar updates immediately, and the change is encrypted and saved like any other edit.
+
+### Categories
+
+Categories are listed separately for income and expenses.
+
+- **Add a category**: choose Income or Expense, type the English name, and optionally the Oʻzbekcha (Latin and Cyrillic) and Russian names. A blank translation shows the English name. Names can be up to 60 characters.
+- **Edit**: fixes a name or adds missing translations. A category cannot switch between income and expense. Records keep pointing to the same category, so they show the new name everywhere.
+- **Remove**: only possible when no records use the category, and at least one other category of the same type remains. Otherwise, edit it instead.
+
 ## Audit log
 
-**Audit log** shows the latest 200 actions with time, who did it, and what happened: vault created, users added, updated, removed, or password reset, groups added or removed, records added, updated, or deleted, and backups exported. The log lives inside the encrypted vault, so it is included in backups.
+**Audit log** shows the latest 200 actions with time, who did it, and what happened: vault created, settings changed, categories added, edited, or removed, users added, updated, removed, or password reset, groups added or removed, records added, updated, or deleted, and backups exported. The log lives inside the encrypted vault, so it is included in backups.
 
 ## Backups
 
@@ -123,6 +143,7 @@ Moliya protects data at rest well. It is important to understand what it does **
 
 - [ ] Create the vault with a long master password.
 - [ ] Add a second Admin account and keep its password somewhere safe, such as a password manager.
+- [ ] Check the vault currency and adjust categories under **Settings**.
 - [ ] Create groups, then add Managers and Viewers.
 - [ ] Export a first backup and store it off the device.
 - [ ] Schedule regular backups.

@@ -15,10 +15,12 @@ export function intlLocale(locale: Locale): string {
 
 export function formatMoney(amount: number, currency: string, locale: Locale): string {
   const tag = intlLocale(locale)
+  const fraction = Number.isInteger(amount) ? 0 : 2
   try {
     return new Intl.NumberFormat(tag, {
       style: 'currency',
       currency,
+      minimumFractionDigits: fraction,
       maximumFractionDigits: 2,
     }).format(amount)
   } catch {

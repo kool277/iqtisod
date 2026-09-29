@@ -128,8 +128,8 @@ export function UsersPage() {
         {people.map((person) => (
           <li key={person.id} className="rounded-3xl border border-line bg-card px-4 py-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="font-medium">{person.email}</p>
+              <div className="min-w-0">
+                <p className="break-all font-medium">{person.email}</p>
                 <p className="text-sm text-muted">
                   {roleLabel(person.roleName, t)}
                   {person.groupName ? ` · ${person.groupName}` : ''}
@@ -217,8 +217,8 @@ export function GroupsPage() {
       {groups.length === 0 ? <p className="text-muted">{t('groups.empty')}</p> : null}
       <ul className="grid gap-3">
         {groups.map((group) => (
-          <li key={group.id} className="flex items-center justify-between rounded-3xl border border-line bg-card px-4 py-4">
-            <p className="font-medium">{group.name}</p>
+          <li key={group.id} className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-line bg-card px-4 py-4">
+            <p className="min-w-0 break-words font-medium">{group.name}</p>
             <Button variant="danger" onClick={() => void onDelete(group.id)}>
               {t('groups.remove')}
             </Button>

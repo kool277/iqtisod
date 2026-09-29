@@ -9,6 +9,7 @@ export const Permission = {
   EXPORT_VAULT: 'EXPORT_VAULT',
   IMPORT_VAULT: 'IMPORT_VAULT',
   READ_AUDIT: 'READ_AUDIT',
+  MANAGE_SETTINGS: 'MANAGE_SETTINGS',
 } as const
 
 export type PermissionName = (typeof Permission)[keyof typeof Permission]

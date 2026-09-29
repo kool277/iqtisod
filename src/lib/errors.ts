@@ -31,6 +31,10 @@ export function errorText(code: string, t: (key: MessageKey) => string): string 
       return t('users.cannotRemoveSelf')
     case 'GROUP_IN_USE':
       return t('groups.removeBlocked')
+    case 'CATEGORY_IN_USE':
+      return t('settings.inUse')
+    case 'LAST_CATEGORY':
+      return t('settings.lastCategory')
     default:
       return t('errors.generic')
   }

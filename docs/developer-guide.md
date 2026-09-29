@@ -82,7 +82,7 @@ Components read data with `useMemo(() => query(...), [query, revision, ...])`, s
 
 `src/rbac/index.ts` defines `Permission`, `permissionsForRole(role)`, and `canUser(user, permission)`.
 
-Permissions are copied into the `roles` table as JSON **when a vault is created**, and `loadUser` reads them from the database. Changing `permissionsForRole` therefore affects only new vaults unless you add a migration.
+Permissions are stored in the `roles` table as JSON, and `loadUser` reads them from the database. `syncRolePermissions` (`src/db/seed.ts`) rewrites that JSON from `permissionsForRole` on every unlock, before `loadUser`, so changes to the matrix reach existing vaults and backups without a migration. It only updates the three built-in roles; adding a new role still needs a migration.
 
 Every service function checks `canUser` and, for non-admins, restricts to `user.groupId`. UI hiding (`AppShell` navigation, buttons in `Timeline`) is a convenience, not the guard.
 
@@ -94,6 +94,7 @@ Every service function checks `canUser` and, for non-admins, restricts to `user.
 | `user.service.ts` | List, create, reset password, update, delete users. Keeps `vault.wraps` in sync |
 | `group.service.ts` | List, create, delete groups |
 | `finance.service.ts` | Categories, transaction CRUD, validation, dashboard aggregation |
+| `settings.service.ts` | Vault name and currency (`updateVaultSettings`, also updates `vault.vaultName` and `vault.currency`), category create, update, and delete. Gated by `MANAGE_SETTINGS` |
 | `audit.service.ts` | `writeAudit` (call inside the same transaction as the change) and `listAudit` |
 | `backup.service.ts` | Record to and from backup JSON, `noteExport` |
 
@@ -102,12 +103,13 @@ Errors are `AppError` subclasses with a string code (`src/domain/errors.ts`). `s
 ### UI
 
 - Routing: `HashRouter` in `src/App.tsx`. `/setup`, `/login`, and `/app/*` are guarded by vault status.
-- `AppShell.tsx`: navigation filtered by permission, top bar, and `PeriodProvider` (the shared period for dashboard and ledger).
-- Pages: `Dashboard.tsx`, `Timeline.tsx` (ledger and form), `AdminPages.tsx` (users, groups, audit, backup), and `AuthScreens.tsx` (setup, login).
+- `AppShell.tsx`: navigation filtered by permission, top bar with the sidebar collapse toggle, and `PeriodProvider` (the shared period for dashboard and ledger). The collapsed state is `data-sidebar` on `app-shell`; desktop shrinks the nav to a 76px icon rail, mobile hides the nav row.
+- Pages: `Dashboard.tsx`, `Timeline.tsx` (ledger and form), `AdminPages.tsx` (users, groups, audit, backup), `SettingsPage.tsx` (vault name, currency, categories), and `AuthScreens.tsx` (setup, login).
+- Long values: grid and flex children that hold text need `min-w-0`, or they refuse to shrink and overflow. KPI figures use a container query (`@container` on the card, `clamp(…, 9cqi, …)` on the value) so they scale with the card, not the viewport. `formatMoney` drops the fraction for whole amounts.
 - Charts: `Charts.tsx` registers only the Chart.js pieces that are used, and picks colors from the resolved theme.
 - Styling: Tailwind 4 with design tokens in `src/index.css` (`paper`, `card`, `ink`, `muted`, `line`, `pine`, `clay`, `brass`, `brass-soft`, `on-pine`). Dark mode is the `.dark` class on `<html>`, set by `ThemeContext`.
 - i18n: `src/i18n/en.ts` is the source of truth. `Messages = typeof en`, so TypeScript forces `ru`, `uz-Latn`, and `uz-Cyrl` to have the same keys. `t('section.key')` is type-checked.
-- Local storage keys: `moliya.locale` and `moliya.theme`.
+- Local storage keys: `moliya.locale`, `moliya.theme`, and `moliya.sidebar` (`collapsed` or `expanded`).
 
 ## Project layout
 
@@ -174,7 +176,7 @@ Then call it from the UI with `run((vault) => renameGroup(vault, id, name), { di
 
 ### Change the schema
 
-There is **no migration system yet**. `applySchema` runs only in `createVault`, so existing vaults keep their old tables. Before changing the schema or role permissions, add migrations that run on unlock, for example with `PRAGMA user_version`:
+There is **no migration system yet**. `applySchema` runs only in `createVault`, so existing vaults keep their old tables. Permission changes for the built-in roles are handled by `syncRolePermissions`, but before changing the schema or adding roles, add migrations that run on unlock, for example with `PRAGMA user_version`:
 
 ```ts
 const MIGRATIONS: ((db: SqlDatabase) => void)[] = [
@@ -207,7 +209,8 @@ Bump `version` in `VaultRecord` and `BackupFile`, keep reading version 1, and ad
   - `i18n.test.ts`: key parity across the four locales.
   - `dates.test.ts`: period presets.
   - `vault.test.ts`: create, record, dashboard totals, add viewer, wrong password, backup roundtrip, viewer scoping, and forbidden write.
-- **End to end** (`tests/e2e/vault.spec.ts`, Chromium): first-run setup, adding records, dashboard values and charts, language switch, theme switch, admin creating a Manager and a Viewer, the viewer being read-only, and export then import into a fresh browser context.
+  - `settings.test.ts`: vault name and currency surviving seal and unlock, category add, rename, and delete guards, non-admin refusal, and permission sync for an older vault.
+- **End to end** (`tests/e2e/vault.spec.ts`, Chromium): first-run setup, adding records, dashboard values and charts, language switch, theme switch, settings and categories, the persisted sidebar toggle, admin creating a Manager and a Viewer, the viewer being read-only, and export then import into a fresh browser context.
 
 Each Playwright test gets a fresh browser context, so IndexedDB starts empty. The warning "localStorage is not available" during unit tests comes from Node and is harmless.
 
@@ -215,9 +218,9 @@ Each Playwright test gets a fresh browser context, so IndexedDB starts empty. Th
 
 Roughly in priority order:
 
-1. **Schema migrations** (see above). Needed before any schema or permission change.
+1. **Schema migrations** (see above). Needed before any schema change or new role.
 2. **Vault key rotation.** On user removal, password reset, or on demand: generate a new DEK, re-encrypt, and re-wrap for the remaining users. Today a removed person with an old copy can still decrypt new copies.
-3. **UI for existing services and settings**: change a user's role or group (`updateUser` exists), rename groups, manage categories, change vault name and currency, and let people change their own password.
+3. **UI for existing services**: change a user's role or group (`updateUser` exists), rename groups, and let people change their own password.
 4. **Cryptographic group isolation**, if groups must be hidden from each other. This needs per-group keys or separate vaults.
 5. **Bundle size** (about 750 KB minified): lazy-load Chart.js and the admin pages. Consider loading sqlite-wasm after the login form renders.
 6. **Receipts in the database.** Images are stored as data URLs inside SQLite, and the whole database is re-encrypted on every save. Consider a separate encrypted IndexedDB store for attachments.

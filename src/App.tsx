@@ -4,6 +4,7 @@ import { AuditPage, BackupPage, GroupsPage, UsersPage } from './components/Admin
 import { AppShell } from './components/AppShell'
 import { BootError, LoginPage, SetupPage, Splash } from './components/AuthScreens'
 import { Dashboard } from './components/Dashboard'
+import { SettingsPage } from './components/SettingsPage'
 import { Timeline } from './components/Timeline'
 import { I18nProvider } from './context/I18nContext'
 import { ThemeProvider } from './context/ThemeContext'
@@ -43,6 +44,7 @@ function AppRoutes() {
         <Route path="groups" element={<GroupsPage />} />
         <Route path="audit" element={<AuditPage />} />
         <Route path="backup" element={<BackupPage />} />
+        <Route path="settings" element={<SettingsPage />} />
       </Route>
       <Route path="*" element={<HomeRedirect />} />
     </Routes>

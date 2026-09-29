@@ -89,6 +89,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       if (!vault) throw new Error('LOCKED')
       const result = await fn(vault)
       setUser(snapshotUser(vault.user))
+      setCurrency(vault.currency)
+      setVaultName(vault.vaultName)
       if (options?.dirty) markDirty()
       return result
     },

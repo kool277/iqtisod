@@ -26,6 +26,8 @@ The menu on the left (along the top on a phone) shows only what your role allows
 
 You only see records that belong to your group. The top bar shows the vault name, the save status, the language and theme switches, and the **Lock** button.
 
+The button at the far left of the top bar collapses the menu. On a computer the menu shrinks to icons, and pointing at an icon shows its name. On a phone the menu row is hidden. Choose the button again to bring the menu back. Moliya remembers your choice in this browser.
+
 ## Choosing a period
 
 Both the dashboard and the ledger use the same period buttons, and your choice carries over between them:
@@ -57,7 +59,7 @@ To narrow the list, use the **All / Income / Expense** filter next to **Add reco
 
 ### A note on currencies
 
-Each vault has one main currency, chosen when it was created. Totals and charts only count records in that currency. A record in another currency is still saved and listed, marked "Other currency — not included in totals". Moliya does not convert between currencies.
+Each vault has one main currency, chosen when it was created and changeable by an Admin. Totals and charts only count records in that currency. A record in another currency is still saved and listed, marked "Other currency — not included in totals". Moliya does not convert between currencies.
 
 ## Reading the dashboard
 

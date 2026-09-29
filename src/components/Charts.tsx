@@ -35,10 +35,15 @@ export function FinanceCharts({ data }: { data: DashboardData }) {
   const expense = resolved === 'dark' ? '#f0b0a8' : '#9d3b34'
   const labels = data.months.map((month) => monthLabel(month, locale))
   const hasFlow = data.incomeByMonth.some((value) => value > 0) || data.expenseByMonth.some((value) => value > 0)
-  const legend = { labels: { color: ink } }
+  const compact = new Intl.NumberFormat(intlLocale(locale), { notation: 'compact', maximumFractionDigits: 1 })
+  const legend = { labels: { color: ink, boxWidth: 12 } }
   const scales = {
-    x: { ticks: { color: ink }, grid: { color: grid } },
-    y: { ticks: { color: ink }, grid: { color: grid }, beginAtZero: true },
+    x: { ticks: { color: ink, maxRotation: 0, autoSkip: true }, grid: { color: grid } },
+    y: {
+      ticks: { color: ink, callback: (value: number | string) => compact.format(Number(value)) },
+      grid: { color: grid },
+      beginAtZero: true,
+    },
   }
 
   return (
@@ -116,9 +121,9 @@ export function FinanceCharts({ data }: { data: DashboardData }) {
 
 function ChartCard({ title, testId, children }: { title: string; testId: string; children: ReactNode }) {
   return (
-    <section data-testid={testId} className="rounded-3xl border border-line bg-card p-5" aria-label={title}>
-      <h2 className="mb-4 font-display text-2xl">{title}</h2>
-      <div className="h-64">{children}</div>
+    <section data-testid={testId} className="min-w-0 rounded-3xl border border-line bg-card p-5" aria-label={title}>
+      <h2 className="mb-4 break-words font-display text-2xl">{title}</h2>
+      <div className="relative h-64 min-w-0">{children}</div>
     </section>
   )
 }

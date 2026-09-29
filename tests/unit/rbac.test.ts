@@ -11,6 +11,7 @@ describe('canUser', () => {
     expect(canUser(user('Admin'), Permission.MANAGE_USERS)).toBe(true)
     expect(canUser(user('Admin'), Permission.EXPORT_VAULT)).toBe(true)
     expect(canUser(user('Admin'), Permission.READ_AUDIT)).toBe(true)
+    expect(canUser(user('Admin'), Permission.MANAGE_SETTINGS)).toBe(true)
   })
 
   it('lets a manager change records in their group and nothing else', () => {
@@ -22,6 +23,7 @@ describe('canUser', () => {
     expect(canUser(user('Manager'), Permission.MANAGE_GROUPS)).toBe(false)
     expect(canUser(user('Manager'), Permission.EXPORT_VAULT)).toBe(false)
     expect(canUser(user('Manager'), Permission.READ_AUDIT)).toBe(false)
+    expect(canUser(user('Manager'), Permission.MANAGE_SETTINGS)).toBe(false)
   })
 
   it('limits a viewer to reading the dashboard and transactions', () => {

@@ -23,6 +23,8 @@ It suits a household tracking a shared budget, a small business or community gro
 - Income and expense records with category, date, currency, notes, and an optional receipt photo.
 - Timeline filters for today, this week, this month, last month, year to date, or a custom range.
 - Dashboard with net balance, total income, total expenses, savings rate, and four charts: monthly income against expenses, expenses by category, spending over time, and spending by group or by person.
+- Admin settings page for the vault name, vault currency, and income and expense categories in all four languages.
+- Collapsible sidebar that remembers its state.
 - Audit log of every change.
 - Encrypted backup file (`.moliya`) for moving a vault to another browser or keeping a safe copy.
 - Day, night, and system themes. Language and theme choices are remembered.
@@ -68,7 +70,7 @@ Open the address Vite prints (usually `http://localhost:5173`), create a vault, 
 ## Documentation
 
 - [User guide](docs/user-guide.md) is for Managers and Viewers who record and review money.
-- [Admin guide](docs/admin-guide.md) covers setting up a vault, people, groups, backups, and recovery.
+- [Admin guide](docs/admin-guide.md) covers setting up a vault, settings and categories, people, groups, backups, and recovery.
 - [Developer guide](docs/developer-guide.md) covers architecture, code layout, conventions, and how to extend the app.
 - [DevOps guide](docs/devops-guide.md) covers building, CI, GitHub Pages, other hosts, and operational risks.
 

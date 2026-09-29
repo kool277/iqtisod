@@ -11,7 +11,7 @@ import {
   wrapDek,
 } from '../crypto/crypto.service'
 import { applySchema } from '../db/schema'
-import { seedCategories, seedRoles } from '../db/seed'
+import { seedCategories, seedRoles, syncRolePermissions } from '../db/seed'
 import { getSetting, setSetting } from '../db/settings'
 import { SqlDatabase } from '../db/sqlite'
 import { recordFromSession, wrapsFromRecord, type VaultRecord } from '../db/storage'
@@ -151,6 +151,7 @@ export async function unlockVault(record: VaultRecord, email: string, password: 
     const dek = await unwrapDek(wrap.wrappedDek, kek, wrap.iv)
     const plain = await decryptDatabase(record.payload.ciphertext, dek, new Uint8Array(record.payload.iv))
     const db = await SqlDatabase.openBytes(plain)
+    syncRolePermissions(db)
     const user = loadUser(db, normalized)
     if (!user) {
       db.close()

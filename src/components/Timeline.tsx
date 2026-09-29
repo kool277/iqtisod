@@ -61,7 +61,7 @@ export function Timeline() {
   return (
     <div className="grid gap-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
+        <div className="min-w-0">
           <h1 className="font-display text-4xl">{t('timeline.title')}</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -102,20 +102,20 @@ export function Timeline() {
           {entries.map((entry) => (
             <li key={entry.id} data-testid="tx-row" data-amount={String(entry.amount)} className="rounded-3xl border border-line bg-card px-4 py-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
+                <div className="min-w-0 flex-1 basis-56">
                   <p className="text-xs uppercase tracking-[0.14em] text-muted">{t(entry.type === 'INCOME' ? 'tx.income' : 'tx.expense')}</p>
-                  <p className="mt-1 font-display text-2xl">{categoryLabel(entry, locale)}</p>
-                  <p className="text-sm text-muted">
+                  <p className="mt-1 break-words font-display text-2xl">{categoryLabel(entry, locale)}</p>
+                  <p className="break-words text-sm text-muted">
                     {formatIsoDate(entry.date, locale)} · {entry.groupName}
                   </p>
-                  {entry.notes ? <p className="mt-2 max-w-xl text-sm">{entry.notes}</p> : null}
+                  {entry.notes ? <p className="mt-2 max-w-xl whitespace-pre-line break-words text-sm">{entry.notes}</p> : null}
                   {entry.currency !== currency ? <p className="mt-2 text-xs text-brass">{t('tx.otherCurrency')}</p> : null}
                 </div>
-                <div className="text-right">
-                  <p className={`font-display text-3xl tabular-nums ${entry.type === 'INCOME' ? 'text-pine' : 'text-clay'}`}>
+                <div className="min-w-0 max-w-full text-right">
+                  <p className={`font-display text-2xl tabular-nums [overflow-wrap:anywhere] sm:text-3xl ${entry.type === 'INCOME' ? 'text-pine' : 'text-clay'}`}>
                     {formatMoney(entry.amount, entry.currency, locale)}
                   </p>
-                  <div className="mt-3 flex justify-end gap-2">
+                  <div className="mt-3 flex flex-wrap justify-end gap-2">
                     {canEdit ? (
                       <Button variant="quiet" onClick={() => setComposer(entry)}>
                         {t('common.edit')}
