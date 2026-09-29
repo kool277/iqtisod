@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Moliya are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+All notable changes to Jaybi (called Moliya up to 1.2.0) are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Data formats are versioned separately from the app. Each release lists the formats it reads and writes; the full specification is in [docs/data-format.md](docs/data-format.md).
 
@@ -10,6 +10,8 @@ Reads backup and record versions 1–2 and schema versions 1–4. Writes backup 
 
 ### Added
 
+- The app is renamed **Jaybi** (Жайби in Uzbek Cyrillic, Джайби in Russian), with the Arabic-script mark جيبي in the sidebar, on the sign-in screens, and in the collapsed sidebar. Only names shown to people change: format ids, storage and database names, local storage keys, the `.moliya` backup extension and file names, key-derivation labels, fixtures, and the recovery tool keep the name `moliya`, so every existing vault and backup keeps opening. New authenticator set-ups show "Jaybi"; existing entries named "Moliya" keep working. Release assets are now `jaybi-X.Y.Z.zip`.
+- The app moves from `kool277.github.io/iqtisod` to its own domain, [jaybi.uz](https://jaybi.uz) (`www.jaybi.uz` redirects there). `public/CNAME` carries the domain, and the deploy publishes it only once the domain is set in the repository settings, so this release reaches users at the old address first. At the old address a notice on every screen asks people to download an encrypted backup and import it at jaybi.uz, with a one-click download for Admins. At jaybi.uz an empty browser's setup screen points people coming from the old address to the backup import. The devops guide has the DNS records and the cut-over order.
 - Invite codes. Admins create a one-time code for an email, role, and group under **Invite someone**, valid for 15 minutes, 1 hour, 24 hours (default), 3 days, or 7 days. The person enters it with their email on the new join page and chooses their own password, so the Admin never knows it. Codes carry 135 random bits with a check symbol (seven groups of four), are shown once with **Copy code** and **Copy link** (clipboard cleared after 60 seconds), and are stored only as a key-derived verifier and a wrapped copy of the vault key. One open code per email, at most 20 open invites. Codes work only in the browser where the vault is stored, which the join page and the admin guide explain.
 - Reset codes: **Issue reset code** replaces the Admin-set temporary password as the default. Optionally, **Stop their current password from working now** removes the person's key at once. Using the code sets the new password and turns off the person's sign-in check. The temporary password stays available as an advanced option.
 - **Open codes** list with **Revoke**. Expired codes are ended at the next sign-in and logged as "Code expired". Creating or using a code is refused if the device clock is more than 5 minutes behind the latest time the vault has seen.
@@ -41,7 +43,7 @@ Reads backup and record versions 1–2 and schema versions 1–4. Writes backup 
 - Attempt limits slow down password, code, and sign-in check guessing in the app. They do not protect a copied vault or backup against offline guessing; only a strong password does. (Audit 3)
 - The main vault now locks after a period without activity. (Audit 4)
 - The stricter Content Security Policy: `default-src 'none'`, `style-src 'self'` without `'unsafe-inline'`, no `blob:`, `base-uri 'none'`, `frame-src` and `child-src 'none'`, `upgrade-insecure-requests`, and Trusted Types with a `default` policy that allows only the isolation service worker's URL. The charset, `referrer: no-referrer`, and the policy are the first tags in `<head>`. (Audit 15)
-- Moliya refuses to run inside a frame and offers a link to open it in its own tab. The isolation service worker does not register when framed. (Audit 16)
+- The app refuses to run inside a frame and offers a link to open it in its own tab. The isolation service worker does not register when framed. (Audit 16)
 - Every decrypted database is hardened (defensive mode, `trusted_schema` off, `cell_size_check`, 8 MiB value limit, `ATTACH` disabled) and must match the schema the app's own migrations create before it is used. `PRAGMA quick_check` runs on every open. (Audit 13)
 - Envelope and backup readers enforce caps: 1–256 wraps, at most 64 code wraps, salts of 16–64 bytes, ciphertext up to 64 MiB, KDF iterations up to 2,000,000 in the app, JSON size, depth, and prototype keys. (Audit 14)
 - Sign-in with an unknown email, and a code for an unknown email, spend the same key-derivation time as a real attempt, and verifiers are compared in constant time. (Audit 8)

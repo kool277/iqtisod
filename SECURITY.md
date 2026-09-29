@@ -1,6 +1,6 @@
 # Security policy
 
-Moliya is a private finance vault that runs entirely in the browser. There is no server and no account system: the data is an encrypted SQLite database stored in the browser, and the website only serves static files. This file explains which versions get fixes, how to report a problem, and what is in scope.
+Jaybi (called Moliya before 1.3.0) is a private finance vault that runs entirely in the browser. It is served at [jaybi.uz](https://jaybi.uz). There is no server and no account system: the data is an encrypted SQLite database stored in the browser, and the website only serves static files. This file explains which versions get fixes, how to report a problem, and what is in scope.
 
 ## Supported versions
 
@@ -17,7 +17,7 @@ Report privately through GitHub: [open a security advisory](https://github.com/k
 
 Please include:
 
-- the Moliya version (shown at the bottom of the menu, on the sign-in screen, and in Settings → About) and the browser and operating system;
+- the Jaybi version (shown at the bottom of the menu, on the sign-in screen, and in Settings → About) and the browser and operating system;
 - what an attacker needs (for example: a copy of a backup, another page on the same origin, a crafted backup file, access to an unlocked device);
 - steps to reproduce, and a proof of concept if you have one;
 - what you think the impact is;
@@ -59,7 +59,7 @@ The full model is in the [developer guide](docs/developer-guide.md#threat-model)
 - **Protected**: data at rest. The database is encrypted with AES-256-GCM under a random vault key. Each person's password is stretched with PBKDF2-SHA-256 (600,000 iterations) into a key that wraps a copy of the vault key. Private safes are encrypted a second time with keys only their owner can derive.
 - **Offline guessing**: anyone with a copied backup or browser storage can guess passwords without limit. Only a strong password protects them. The in-app attempt limits and the optional sign-in check (an authenticator code) apply only inside the app; they add no encryption.
 - **One-time codes**: invite and reset codes carry 135 random bits. Their expiry and single use are enforced by the app, so a backup made while a code was open, plus that code, opens that backup.
-- **Same origin**: every page on the same origin can read and delete the stored vault. Moliya should be hosted on its own origin; see the [DevOps guide](docs/devops-guide.md#origin-and-storage-isolation).
+- **Same origin**: every page on the same origin can read and delete the stored vault. From 1.3.0 the app moves to its own origin, `jaybi.uz`; see the [DevOps guide](docs/devops-guide.md#origin-and-storage-isolation).
 - **Hostile backups**: imported files are size-capped, parsed defensively, and opened in a hardened SQLite that must match the app's own schema.
 - **Scripts in the page**: a strict Content Security Policy with Trusted Types, no third-party scripts, and a frame guard. Script running in the page could still read an unlocked vault.
 - **Known limits**: roles are enforced by the app, not by encryption; the vault key does not rotate when a person is removed or a password is reset; email addresses are stored unencrypted. See the [admin guide](docs/admin-guide.md#security-limits-to-know).

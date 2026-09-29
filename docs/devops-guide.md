@@ -1,6 +1,6 @@
 # DevOps guide
 
-Moliya is a static single-page app. The server only serves files. User data never reaches it, so there is no database to run, no secrets to manage, and nothing to back up on the server side. The operational work is building, releasing, deploying, keeping the website address stable, and making sure every release still opens every vault and backup ever made.
+Jaybi is a static single-page app. The server only serves files. User data never reaches it, so there is no database to run, no secrets to manage, and nothing to back up on the server side. The operational work is building, releasing, deploying, keeping the website address stable, and making sure every release still opens every vault and backup ever made.
 
 ## Build
 
@@ -48,7 +48,7 @@ require-trusted-types-for 'script'; trusted-types default
 - `'wasm-unsafe-eval'` is needed to compile SQLite. There is no inline exception for scripts or styles. Style properties that React and Chart.js set from JavaScript are allowed; `<style>` blocks and `style="…"` attributes in HTML are not.
 - `data:` images are stored receipts. Receipts must be PNG, JPEG, WebP, or GIF; SVG is refused on upload.
 - **Trusted Types.** `require-trusted-types-for 'script'` makes the browser refuse strings passed to HTML and script sinks (`innerHTML`, `eval`-like calls, script URLs) unless a policy approves them. `public/coi-config.js` creates the only policy, `default`, which implements just `createScriptURL` and approves only the URL of `coi-serviceworker.js`. React never needs it. Adding code or a library that writes HTML strings breaks the production build's end-to-end tests rather than opening a hole.
-- **Framing.** A `<meta>` policy cannot set `frame-ancestors`, `report-uri`, or `sandbox`. So `coi-config.js` records whether the page is inside a frame, and `src/main.tsx` then shows only "For your safety, Moliya does not run inside another page." with a link to open Moliya in its own tab. The app, the vault, and the service worker never start in a frame. If the host can send headers, also send the policy as a header with `frame-ancestors 'none'` added (see [Security headers](#security-headers)).
+- **Framing.** A `<meta>` policy cannot set `frame-ancestors`, `report-uri`, or `sandbox`. So `coi-config.js` records whether the page is inside a frame, and `src/main.tsx` then shows only "For your safety, Jaybi does not run inside another page." with a link to open Jaybi in its own tab. The app, the vault, and the service worker never start in a frame. If the host can send headers, also send the policy as a header with `frame-ancestors 'none'` added (see [Security headers](#security-headers)).
 - The development server has no policy, so Vite's hot reload works. `npm run test:e2e:preview` (and CI) run the browser tests against the production build and fail on any policy or Trusted Types violation.
 
 ## Continuous integration and deployment (GitHub Pages)
@@ -58,8 +58,8 @@ All actions are pinned to full commit SHAs with the release tag in a comment. De
 | Workflow | Trigger | What it does |
 | --- | --- | --- |
 | `ci.yml` | Pull requests, pushes to branches other than `main`, called by the other workflows | `npm ci --ignore-scripts`, `npm audit signatures` (registry signatures and provenance), typecheck, unit tests, `npm audit --omit=dev --audit-level=high` (plus an advisory full `npm audit`), build (uploads `dist` as an artifact), Playwright against the production preview, dependency review on pull requests |
-| `deploy.yml` | Push to `main`, manual | Runs `ci.yml`, then publishes the tested `dist` artifact to `gh-pages` in the `production` environment |
-| `release.yml` | Tag `vX.Y.Z` | Runs `ci.yml`, checks the tag equals `package.json`'s version, packages `moliya-X.Y.Z.zip` and `SHA256SUMS`, attests build provenance, and creates a GitHub release with the notes from `CHANGELOG.md` |
+| `deploy.yml` | Push to `main`, manual | Runs `ci.yml`, then publishes the tested `dist` artifact to `gh-pages` in the `production` environment, with `CNAME` only once the custom domain is set (see [Custom domain jaybi.uz](#custom-domain-jaybiuz)) |
+| `release.yml` | Tag `vX.Y.Z` | Runs `ci.yml`, checks the tag equals `package.json`'s version, packages `jaybi-X.Y.Z.zip` (releases up to 1.2.0 are named `moliya-X.Y.Z.zip`) and `SHA256SUMS`, attests build provenance, and creates a GitHub release with the notes from `CHANGELOG.md` |
 | `codeql.yml` | Push and pull request to `main`, weekly | CodeQL `security-extended` for JavaScript and TypeScript |
 
 The deploy only publishes the exact files CI tested. A failing check stops it, and the last good version stays online. Deploys never cancel each other half-way (`concurrency: pages`, `cancel-in-progress: false`).
@@ -79,25 +79,84 @@ The repository is `kool277/iqtisod`. These settings cannot be committed and must
 
 A local `iqtisod/` directory, if present, is a nested git clone rather than project code. `.gitignore` excludes it; do not add it back to the index, because a gitlink without `.gitmodules` breaks `actions/checkout`.
 
-### Custom domain
+### Custom domain jaybi.uz
 
-A dedicated domain (a subdomain such as `moliya.example.com` is simplest) gives Moliya its own origin; see [Origin and storage isolation](#origin-and-storage-isolation). Read that section before switching: users' vaults do not follow them to a new address.
+Production moves from the old address `https://kool277.github.io/iqtisod/` to `https://jaybi.uz`, which gives the app an origin of its own (see [Origin and storage isolation](#origin-and-storage-isolation)). `www.jaybi.uz` redirects to `jaybi.uz`: GitHub does this by itself when both names point at GitHub Pages and the custom domain is the apex. A custom domain on the `kool277/iqtisod` repository moves only this project; other Pages sites of the account keep their `github.io` addresses.
 
-1. **Verify the domain for the account first**, so nobody else can point it at their own Pages site: in your GitHub profile's **Settings → Pages → Verified domains**, choose **Add a domain**, create the `TXT` record GitHub shows (`_github-pages-challenge-kool277.example.com`), and choose **Verify**. Keep the record in DNS.
-2. **DNS**: create a `CNAME` record from `moliya.example.com` to `kool277.github.io`. (An apex domain needs GitHub's `A` and `AAAA` records instead; a subdomain avoids that.) Do not use wildcard records.
-3. **Repository**: in `kool277/iqtisod` **Settings → Pages → Custom domain**, enter `moliya.example.com` and save. Also add `cname: moliya.example.com` under `with:` in the publish step of `deploy.yml`. The deploy replaces the whole `gh-pages` branch (`keep_files: false`), so without this line the next deploy deletes the `CNAME` file and the domain stops working.
-4. **HTTPS**: wait until GitHub has issued the certificate (the Pages settings say so; it can take up to an hour), then tick **Enforce HTTPS**.
-5. **Update the environment URL** in `deploy.yml` (`environment.url`) and any links in the docs.
-6. **Optional: Cloudflare in front**, to send real security headers (GitHub Pages cannot):
-   1. Add the domain to Cloudflare and keep the `CNAME` record **DNS only** until step 4 above is done, because GitHub's certificate check needs to reach GitHub directly.
-   2. Switch the record to **Proxied**.
-   3. **SSL/TLS → Overview**: set the mode to **Full (strict)**. Never use Flexible: it would fetch the site from GitHub over plain HTTP. Turn on **Always Use HTTPS**.
-   4. Add the headers from [Security headers](#security-headers) as a Transform Rule.
-   5. Leave off every feature that injects scripts or rewrites pages: Rocket Loader, Email Address Obfuscation, automatic Web Analytics injection, Zaraz, and HTML minification. The policy and Trusted Types block injected scripts, and the app may break.
-   6. Do not add a "Cache Everything" rule for `index.html` or `version.json`, so releases are picked up.
+**Users' vaults do not follow.** IndexedDB is per origin. Once the custom domain is set, GitHub answers `https://kool277.github.io/iqtisod/` with a `301` redirect to `https://jaybi.uz`, so nobody can open the old origin in a browser any more, and the vaults stored there become unreachable (they are not deleted). That is why the cut-over order below matters. From 1.3.0 the app helps: at `kool277.github.io` it shows a moving notice on the setup, sign-in, and app screens ("Jaybi is moving to jaybi.uz. Download an encrypted backup now, then open jaybi.uz and import it."), and admins get a one-click backup download. At `jaybi.uz`, the setup screen of an empty browser points people coming from the old address to the backup import.
 
-   If GitHub later reports a certificate problem for the domain, switch the record to **DNS only** until GitHub has renewed it, then back to **Proxied**.
-7. **Move the data.** Keep the old address online. Ask every Admin to download a backup at the old address and import it at the new one, and check it there before anyone makes changes. Vaults at the old address stay where they are; nothing moves on its own.
+**How the domain is deployed.** `public/CNAME` contains `jaybi.uz`, and Vite copies it to `dist/CNAME`. When Pages publishes from a branch, a `CNAME` file on `gh-pages` *is* the custom domain setting, so publishing it too early would switch the site over at once. The step **Keep CNAME only once the custom domain is set** in `deploy.yml` therefore reads `CNAME` from `gh-pages` before publishing:
+
+| `CNAME` on `gh-pages` | What the deploy does |
+| --- | --- |
+| None (the domain is not set yet) | Removes `dist/CNAME` and publishes; the site stays at the old address. The log shows a notice. |
+| `jaybi.uz` (an owner saved the domain in Settings, which commits the file) | Publishes `dist/CNAME`, so `keep_files: false` never deletes the domain. |
+| Anything else, or the API call fails | Fails the deploy; the last good version stays online. |
+
+Do not also set the action's `cname:` input: the domain has exactly one source, `public/CNAME`. Any other workflow that publishes to `gh-pages` must leave the root `CNAME` alone (with `peaceiris/actions-gh-pages`, a `destination_dir` limits `keep_files: false` to that folder). The `production` environment URL follows the live address automatically.
+
+#### Safe cut-over order
+
+1. **Deploy this version at the old address first.** Merge 1.3.0 to `main`. The deploy log says "No custom domain on gh-pages yet". Visitors at `kool277.github.io/iqtisod/` now see the moving notice.
+2. **Let users back up.** Announce the move and a date, and give every Admin time (at least two weeks is reasonable) to download a backup there. Each Admin should also import it at `jaybi.uz` as soon as it works (step 7) and check it before anyone makes changes there.
+3. **Verify the domain for the account.** On GitHub, open your profile **Settings → Pages → Verified domains → Add a domain**, enter `jaybi.uz`, and add the `TXT` record it shows at the registrar (step 4): name `_github-pages-challenge-kool277`, value as shown. Choose **Verify**, and keep the record in DNS for good. A verified domain cannot be claimed by anyone else's Pages site, which is what makes it safe to point DNS at GitHub before the repository uses the domain. (GitHub's docs otherwise say to add the domain to the repository first; doing that before DNS works here would redirect every visitor to the registrar's parking page.)
+4. **DNS at the registrar.** At ahost.uz open **My domains → jaybi.uz → DNS manager**. Do not use the **Domain redirect** tab: GitHub serves the site and does the `www` redirect itself.
+   - Delete the existing `A` record `@` → `185.196.212.52` (ahost's parking server) and every other `A`, `AAAA`, `ALIAS`, `ANAME`, or URL/redirect record for `@` and for `www`.
+   - Add these records (no wildcard records, ever):
+
+   | Type | Name | Value |
+   | --- | --- | --- |
+   | `A` | `@` | `185.199.108.153` |
+   | `A` | `@` | `185.199.109.153` |
+   | `A` | `@` | `185.199.110.153` |
+   | `A` | `@` | `185.199.111.153` |
+   | `AAAA` | `@` | `2606:50c0:8000::153` |
+   | `AAAA` | `@` | `2606:50c0:8001::153` |
+   | `AAAA` | `@` | `2606:50c0:8002::153` |
+   | `AAAA` | `@` | `2606:50c0:8003::153` |
+   | `CNAME` | `www` | `kool277.github.io.` (the account's Pages host only, no repository path) |
+   | `TXT` | `_github-pages-challenge-kool277` | the value from step 3 |
+
+   These are GitHub's published Pages addresses (checked against [Managing a custom domain](https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/managing-a-custom-domain-for-your-github-pages-site) in September 2026; check again before changing DNS). If you add a `CAA` record, it must allow `letsencrypt.org`, or GitHub cannot issue the certificate.
+5. **Wait for DNS**, then check from a terminal:
+
+   ```bash
+   dig jaybi.uz +short          # exactly the four 185.199.108-111.153 addresses
+   dig jaybi.uz AAAA +short     # the four 2606:50c0:800x::153 addresses
+   dig www.jaybi.uz +short      # kool277.github.io. followed by Pages addresses
+   dig TXT _github-pages-challenge-kool277.jaybi.uz +short
+   ```
+
+   Nothing else, and in particular not `185.196.212.52`, may appear. Changes can take up to 24 hours to reach every resolver.
+6. **Set the custom domain.** In `kool277/iqtisod` **Settings → Pages → Custom domain**, enter `jaybi.uz` and choose **Save**. GitHub commits `CNAME` to `gh-pages`, runs its DNS check, and requests a certificate (up to an hour, sometimes longer). When the page says the certificate is ready, tick **Enforce HTTPS**. From this moment the old address redirects to `jaybi.uz`.
+7. **Check the result:**
+
+   ```bash
+   curl -I https://jaybi.uz                      # 200, server: GitHub.com
+   curl -I https://www.jaybi.uz                  # 301, location: https://jaybi.uz/
+   curl -I http://jaybi.uz                       # 301 to https:// once HTTPS is enforced
+   curl -I https://kool277.github.io/iqtisod/    # 301, location: https://jaybi.uz/
+   ```
+
+   Open `https://jaybi.uz`, expect one automatic reload on the first visit (the isolation service worker), import a backup in a private window, and check the version in Settings → About.
+8. **Run Deploy GitHub Pages once by hand** (Actions tab, **Run workflow**) and check that its log says "Custom domain jaybi.uz is set; publishing CNAME", so later deploys cannot drop the domain.
+
+If someone missed the move, their vault is still in their browser under the old origin. The only way back to it is to remove the custom domain in Settings for a while, which also takes `jaybi.uz` offline for everyone; the next deploy then publishes without `CNAME` again. Prefer a generous announcement period instead.
+
+The cross-origin isolation headers keep working unchanged: `coi-serviceworker.js` is served from `jaybi.uz` like the rest of the app. Nothing in the app refers to the old host except the moving notice, which appears only when `location.hostname` is `kool277.github.io`.
+
+#### Optional: Cloudflare in front
+
+GitHub Pages cannot send security headers. Cloudflare can, later, without changing the app:
+
+1. Move the domain's nameservers from ahost.uz to Cloudflare and recreate the records from step 4 as **DNS only** until GitHub has issued the certificate, because GitHub's certificate check needs to reach GitHub directly.
+2. Switch the `A`, `AAAA`, and `www` records to **Proxied**.
+3. **SSL/TLS → Overview**: set the mode to **Full (strict)**. Never use Flexible: it would fetch the site from GitHub over plain HTTP. Turn on **Always Use HTTPS**.
+4. Add the headers from [Security headers](#security-headers) as a Transform Rule.
+5. Leave off every feature that injects scripts or rewrites pages: Rocket Loader, Email Address Obfuscation, automatic Web Analytics injection, Zaraz, and HTML minification. The policy and Trusted Types block injected scripts, and the app may break.
+6. Do not add a "Cache Everything" rule for `index.html` or `version.json`, so releases are picked up.
+
+If GitHub later reports a certificate problem for the domain, switch the records to **DNS only** until GitHub has renewed it, then back to **Proxied**.
 
 ## Security headers
 
@@ -117,7 +176,7 @@ Keep the header policy identical to the `<meta>` policy apart from `frame-ancest
 
 **Cloudflare Transform Rule** (**Rules → Transform Rules → Modify Response Header → Create rule**):
 
-- When: custom filter expression `(http.host eq "moliya.example.com")`.
+- When: custom filter expression `(http.host eq "jaybi.uz")`.
 - Then: one **Set static** operation per header:
 
 ```text
@@ -132,11 +191,11 @@ X-Frame-Options              DENY
 
 **`_headers` file** (Cloudflare Pages and Netlify): see [Other hosts](#other-hosts).
 
-Check the result with `curl -sI https://moliya.example.com/ | grep -iE 'content-security|cross-origin|x-content|referrer|permissions|x-frame'`, then open the app and look for policy errors in the browser console.
+Check the result with `curl -sI https://jaybi.uz/ | grep -iE 'content-security|cross-origin|x-content|referrer|permissions|x-frame'`, then open the app and look for policy errors in the browser console.
 
 ## Versioning and releases
 
-Moliya follows [Semantic Versioning](https://semver.org/). The app version lives in `package.json` and appears in the sidebar, on the sign-in screens, in Settings → About, in `version.json`, and inside every backup and stored record. Data formats have their own version numbers, specified in [data-format.md](data-format.md); an app release does not always change them.
+Jaybi follows [Semantic Versioning](https://semver.org/). The app version lives in `package.json` and appears in the sidebar, on the sign-in screens, in Settings → About, in `version.json`, and inside every backup and stored record. Data formats have their own version numbers, specified in [data-format.md](data-format.md); an app release does not always change them.
 
 | Change | Version bump |
 | --- | --- |
@@ -155,18 +214,18 @@ Moliya follows [Semantic Versioning](https://semver.org/). The app version lives
 7. Tag the merge commit and push the tag:
 
    ```bash
-   git tag -a vX.Y.Z -m "Moliya X.Y.Z"
+   git tag -a vX.Y.Z -m "Jaybi X.Y.Z"
    git push origin vX.Y.Z
    ```
 
    `release.yml` builds the release assets. Keep the zip: it is the exact build that can open the data of that version offline.
 
-Running apps notice the new `version.json` within 30 minutes, or when the tab becomes visible again, and show "A new version of Moliya is available". Reload locks the vault first, so unsaved work is saved.
+Running apps notice the new `version.json` within 30 minutes, or when the tab becomes visible again, and show "A new version of Jaybi is available". Reload locks the vault first, so unsaved work is saved.
 
 ### Rollback
 
 - Code: `git revert` the bad commit on `main` and push; the normal pipeline redeploys. In an emergency, re-run **Deploy GitHub Pages** for the last good commit from the Actions tab, or reset `gh-pages` to its previous commit.
-- **Data after a format change.** If a release upgraded users' vaults (for example 1.0.0 → 1.1.0, 1.1.0 → 1.2.0 with schema 3, or 1.2.0 → 1.3.0 with schema 4), rolling the code back does not roll the data back. An older build refuses a newer record with the message "This vault was saved by a newer version of Moliya" instead of damaging it. It shows only that message: it cannot sign anyone in, open the Backup page, or import over the stored vault. Users are not stuck, but they need the newer build to get their data out first:
+- **Data after a format change.** If a release upgraded users' vaults (for example 1.0.0 → 1.1.0, 1.1.0 → 1.2.0 with schema 3, or 1.2.0 → 1.3.0 with schema 4), rolling the code back does not roll the data back. An older build refuses a newer record with the message "This vault was saved by a newer version of Moliya" (the app's name before 1.3.0; later builds say Jaybi) instead of damaging it. It shows only that message: it cannot sign anyone in, open the Backup page, or import over the stored vault. Users are not stuck, but they need the newer build to get their data out first:
   - each upgraded browser keeps the original record as an archive (Backup page → Earlier copies in this browser → **Before upgrade**). Download it with the newer build before rolling back. The older build imports it on its setup screen once the site's data has been cleared (which also deletes the stored vault and its archives). Anything done in the newer release, such as private safes created in 1.2.0 or people who joined with a 1.3.0 invite, is not in it;
   - backups taken before the upgrade still open in the older build;
   - `npm run decrypt` opens any version.
@@ -177,9 +236,9 @@ Running apps notice the new `version.json` within 30 minutes, or when the tab be
 
 This is the most important operational topic, because it decides whether users can reach their data.
 
-- **A vault belongs to an origin** (scheme, host, and port). IndexedDB is per origin. Moving from `kool277.github.io` to a custom domain, or changing a port, gives users an empty app. Their vault still exists at the old address. Announce a move ahead of time, and ask admins to export a backup at the old address and import it at the new one. Keep the old address online during the transition.
-- **Paths do not isolate.** `https://kool277.github.io/iqtisod/` shares its origin with every other GitHub Pages site of the account: the user site (a repository named `kool277.github.io`) and the project site of every other repository with Pages turned on. JavaScript on any of those pages can read the stored ciphertext and the plaintext emails, delete or replace the vault and its earlier copies, unregister the isolation service worker, and script open Moliya windows. A user site can also register a service worker for the whole origin, which would then control Moliya's pages. The data stays encrypted, but for real use, host Moliya on its **own origin**: a custom domain or subdomain that serves nothing else (see [Custom domain](#custom-domain)).
-- **Until then, keep no other Pages sites on `kool277`.** Do not create a user site or turn on Pages for any other repository of the account, and check **Settings → Pages** of existing repositories now and then. Also note that giving a user site a custom domain moves project sites without their own domain under it, which changes Moliya's origin and hides every vault.
+- **A vault belongs to an origin** (scheme, host, and port). IndexedDB is per origin. Moving from `kool277.github.io` to a custom domain, or changing a port, gives users an empty app. Their vault still exists at the old address. Announce a move ahead of time, and ask admins to export a backup at the old address and import it at the new one. On GitHub Pages the old address redirects as soon as the custom domain is set, so the backups must happen before that; see [Custom domain jaybi.uz](#custom-domain-jaybiuz) for the order.
+- **Paths do not isolate.** `https://kool277.github.io/iqtisod/` shares its origin with every other GitHub Pages site of the account: the user site (a repository named `kool277.github.io`) and the project site of every other repository with Pages turned on. JavaScript on any of those pages can read the stored ciphertext and the plaintext emails, delete or replace the vault and its earlier copies, unregister the isolation service worker, and script open app windows. A user site can also register a service worker for the whole origin, which would then control the app's pages. The data stays encrypted, but for real use, host the app on its **own origin**: a custom domain or subdomain that serves nothing else. That is `jaybi.uz` from 1.3.0 (see [Custom domain jaybi.uz](#custom-domain-jaybiuz)).
+- **Until the move, keep no other Pages sites on `kool277`.** Do not create a user site or turn on Pages for any other repository of the account, and check **Settings → Pages** of existing repositories now and then. Also note that giving a user site a custom domain moves project sites without their own domain under it, which would change the old address's origin and hide every vault stored there.
 - **Browsers may evict storage.** The app requests persistent storage after sign-in. Safari still deletes script-written data after 7 days without a visit for sites not added to the Home Screen. Backups are the real protection; the app reminds admins when the last backup is older than 7 days.
 - **Redeploying never touches user data.** Data lives only in users' browsers. Rolling back the code does not roll back or delete anyone's vault.
 
@@ -220,7 +279,7 @@ Cloudflare Pages uses the same `_headers` format.
 **Nginx**: a `location` that sets any `add_header` drops all headers set at the `server` level, so keep the security headers in one file and include it everywhere.
 
 ```nginx
-# /etc/nginx/snippets/moliya-headers.conf
+# /etc/nginx/snippets/jaybi-headers.conf
 add_header Content-Security-Policy "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; worker-src 'self'; manifest-src 'self'; frame-src 'none'; child-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; upgrade-insecure-requests; require-trusted-types-for 'script'; trusted-types default; frame-ancestors 'none'" always;
 add_header Cross-Origin-Opener-Policy same-origin always;
 add_header Cross-Origin-Embedder-Policy require-corp always;
@@ -233,18 +292,18 @@ add_header X-Frame-Options DENY always;
 ```nginx
 server {
   listen 443 ssl;
-  server_name moliya.example.com;
-  root /var/www/moliya;
+  server_name jaybi.example.com;
+  root /var/www/jaybi;
 
-  include snippets/moliya-headers.conf;
+  include snippets/jaybi-headers.conf;
 
   location /assets/ {
-    include snippets/moliya-headers.conf;
+    include snippets/jaybi-headers.conf;
     add_header Cache-Control "public, max-age=31536000, immutable";
   }
 
   location ~ ^/(index\.html|version\.json|coi-serviceworker\.js|coi-config\.js)$ {
-    include snippets/moliya-headers.conf;
+    include snippets/jaybi-headers.conf;
     add_header Cache-Control "no-cache";
   }
 }

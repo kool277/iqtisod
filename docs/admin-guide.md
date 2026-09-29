@@ -1,6 +1,6 @@
 # Admin guide
 
-This guide is for the person who owns a Moliya vault. Admins can do everything in the [user guide](user-guide.md) and can also manage people, groups, vault settings and categories, the audit log, and backups.
+This guide is for the person who owns a Jaybi vault. Admins can do everything in the [user guide](user-guide.md) and can also manage people, groups, vault settings and categories, the audit log, and backups.
 
 ## Key ideas
 
@@ -58,7 +58,7 @@ An invite is a one-time code. The person enters it with their email and chooses 
 3. Choose a **role**, and a **group** for Managers and Viewers. You can invite another Admin; Admins need no group.
 4. Choose **Create invite code**.
 
-Moliya shows the code once, with the time it stops working. **Copy code** copies the code; **Copy link** copies a link that opens the join page with their email and the code filled in. Moliya clears the clipboard after 60 seconds where the browser allows it. Choose **Done** when you have passed it on. The code is not stored anywhere in readable form, so it cannot be shown again. If it is lost, revoke it and create a new one.
+Jaybi shows the code once, with the time it stops working. **Copy code** copies the code; **Copy link** copies a link that opens the join page with their email and the code filled in. Jaybi clears the clipboard after 60 seconds where the browser allows it. Choose **Done** when you have passed it on. The code is not stored anywhere in readable form, so it cannot be shown again. If it is lost, revoke it and create a new one.
 
 Give the code in person, or over a channel you trust (not a group chat, not a public email thread). The person then follows [Joining with a code](user-guide.md#joining-with-a-code): on **Unlock vault** they choose **Have a one-time code? Join the vault**.
 
@@ -66,7 +66,7 @@ Give the code in person, or over a channel you trust (not a group chat, not a pu
 
 Things to know:
 
-- **Backups made before the code is used contain it.** Moliya shows this warning with every code: "Backups made before the code is used also contain it. Anyone with such a backup and the code can join until it expires. Revoke the code if it was shared by mistake." Expiry and revocation are checked by the app on the device that holds the copy. Someone with an old backup, the code, and a computer clock set back could still open that old copy after the code expired. Use short validity, and do not hand out backups while codes are open.
+- **Backups made before the code is used contain it.** Jaybi shows this warning with every code: "Backups made before the code is used also contain it. Anyone with such a backup and the code can join until it expires. Revoke the code if it was shared by mistake." Expiry and revocation are checked by the app on the device that holds the copy. Someone with an old backup, the code, and a computer clock set back could still open that old copy after the code expired. Use short validity, and do not hand out backups while codes are open.
 - **One open code per email.** Creating another code for the same email is refused until you revoke the first. At most 20 invites can be open at once.
 - **The device clock matters.** Codes use this device's clock. If it is more than 5 minutes behind the latest time the vault has seen, creating and using codes is refused with "This device’s clock is behind…". Correct the date and time.
 - **Failed attempts are limited.** Wrong codes count like wrong passwords (see [Security limits](#security-limits-to-know)).
@@ -79,7 +79,7 @@ Choose **Revoke** to end a code at once, for example if it was sent to the wrong
 
 ### Adding a person with a temporary password
 
-**Advanced: set a temporary password instead** opens the old way of adding people: enter their **Email**, a **Password**, a role and a group, and choose **Add user**. The password must follow the same rules as any other (at least 12 characters, not common). Give it privately. At their first sign-in Moliya makes them choose a new password that only they know, and every page leads to **Account** until they do.
+**Advanced: set a temporary password instead** opens the old way of adding people: enter their **Email**, a **Password**, a role and a group, and choose **Add user**. The password must follow the same rules as any other (at least 12 characters, not common). Give it privately. At their first sign-in Jaybi makes them choose a new password that only they know, and every page leads to **Account** until they do.
 
 Prefer an invite. With a temporary password you know their password until they change it, and a backup made in between opens with it. Adding someone this way ends any open invite for the same email.
 
@@ -98,7 +98,7 @@ Choose **Issue reset code**. The code is shown once, as for invites. The person 
 
 The form always warns about private safes, whether or not the person has any, so the warning does not tell you whether they use them. With a reset code the warning says they choose the new password themselves when they use the code; with a temporary password it says they must choose one at their next sign-in. What the warning means in both cases:
 
-- Their safes stay locked. They open only with the password the person chose before the reset, or their recovery code, together with their new password. Moliya never opens safes with a password an Admin set.
+- Their safes stay locked. They open only with the password the person chose before the reset, or their recovery code, together with their new password. Jaybi never opens safes with a password an Admin set.
 - You cannot open or recover their safes.
 - If they have no recovery code and have forgotten their previous password, their safes are lost for good. They can then reset their safes and start again with empty ones.
 
@@ -188,7 +188,7 @@ Entries cannot be edited or deleted from the app. Each entry also contains a fin
 
 ## Backups
 
-A backup is a single `.moliya` file. It stays encrypted. Any current password of the vault opens it. Every backup records which version of Moliya made it, and every future version will keep opening it (see [data-format.md](data-format.md)).
+A backup is a single `.moliya` file. It stays encrypted. Any current password of the vault opens it. Every backup records which version of Jaybi made it, and every future version will keep opening it (see [data-format.md](data-format.md)).
 
 ### Backup reminder and storage protection
 
@@ -198,7 +198,7 @@ A backup is a single `.moliya` file. It stays encrypted. Any current password of
 
 ### Export
 
-Open **Backup** and choose **Download backup**. Moliya saves pending changes first, then downloads `moliya-backup-YYYY-MM-DD.moliya`. Store it somewhere safe that is not the same device, such as an encrypted USB stick or a private cloud folder. Keep older backups too; a backup never expires.
+Open **Backup** and choose **Download backup**. Jaybi saves pending changes first, then downloads `moliya-backup-YYYY-MM-DD.moliya`. Backups keep the `.moliya` name and extension from before the app was renamed, so every version recognises them. Store it somewhere safe that is not the same device, such as an encrypted USB stick or a private cloud folder. Keep older backups too; a backup never expires.
 
 Export on a schedule that matches how much you would hate to retype: weekly for a household, daily for a busy shop.
 
@@ -206,12 +206,12 @@ Export on a schedule that matches how much you would hate to retype: weekly for 
 
 Importing **replaces** the vault in the current browser. It does not merge. There are two ways, and neither is one click.
 
-- **On a new browser or device** (no vault yet): open the app, and on the **Create your vault** screen, under **Import a backup instead**, choose the file, then **Replace vault**. Sign in with any account from the backup. This works only while the browser has no vault; otherwise Moliya says "A vault already exists in this browser. Sign in and replace it from the Backup page."
-- **Replacing an existing vault**: sign in as Admin and open **Backup**. Under **Replace this vault with a backup**, choose the file and check the version and export date it shows. Enter **Your password**, and type the vault name under **Type the vault name to confirm** (capital letters and spaces at the ends do not matter). Choose **Replace vault**. Moliya saves pending changes, writes "Vault replaced by a backup" into the current vault's audit log, keeps the current vault as **Before import**, and signs you out. Sign in with any account that exists in the backup.
+- **On a new browser or device** (no vault yet): open the app, and on the **Create your vault** screen, under **Import a backup instead**, choose the file, then **Replace vault**. Sign in with any account from the backup. This works only while the browser has no vault; otherwise Jaybi says "A vault already exists in this browser. Sign in and replace it from the Backup page."
+- **Replacing an existing vault**: sign in as Admin and open **Backup**. Under **Replace this vault with a backup**, choose the file and check the version and export date it shows. Enter **Your password**, and type the vault name under **Type the vault name to confirm** (capital letters and spaces at the ends do not matter). Choose **Replace vault**. Jaybi saves pending changes, writes "Vault replaced by a backup" into the current vault's audit log, keeps the current vault as **Before import**, and signs you out. Sign in with any account that exists in the backup.
 
-Only Admins can replace a vault. Backups from any earlier version can be imported. A backup made by a newer version is refused until the page is reloaded with the newer version. The largest file accepted is 72 MB, and Moliya refuses files that are malformed or larger than a vault can be.
+Only Admins can replace a vault. Backups from any earlier version can be imported. A backup made by a newer version is refused until the page is reloaded with the newer version. The largest file accepted is 72 MB, and Jaybi refuses files that are malformed or larger than a vault can be.
 
-Only import backups you made yourself or got from someone you trust. A backup is a whole vault: whoever made it chose its people and passwords. Moliya checks the file's structure and the database inside it when you sign in, and refuses anything it did not create.
+Only import backups you made yourself or got from someone you trust. A backup is a whole vault: whoever made it chose its people and passwords. Jaybi checks the file's structure and the database inside it when you sign in, and refuses anything it did not create.
 
 ### Size limits
 
@@ -224,7 +224,7 @@ A vault can hold about 48 MB of data. Nearly all of it is receipts; records alon
 
 ### Earlier copies in this browser
 
-Moliya keeps up to three earlier copies of the vault in the browser:
+Jaybi keeps up to three earlier copies of the vault in the browser:
 
 - **Before upgrade**: when a new version changes the data format, the vault exactly as the previous version stored it.
 - **Before import**: the vault that an import replaced, including the "Vault replaced by a backup" audit entry.
@@ -249,6 +249,17 @@ These files are **not encrypted**. Anyone who gets them can read every record. E
 
 The same applies when someone should use the vault on their own device: an invite code only works in a browser that holds the vault. Create the invite, then make the backup (it now contains the code), import it on their device, and let them join there. Remember that the vault on your device and theirs are then separate.
 
+### Moving to jaybi.uz
+
+Before 1.3.0 the app was called Moliya and lived at `https://kool277.github.io/iqtisod/`. From 1.3.0 it is called Jaybi and moves to `https://jaybi.uz`. A browser keeps each website's data separately, so **your vault does not move by itself**, and once the move is complete the old address forwards to `jaybi.uz` and the vault stored there can no longer be opened in the browser. Move it while the old address still works:
+
+1. At the old address, a bar says "Jaybi is moving to jaybi.uz. Download an encrypted backup now, then open jaybi.uz and import it." Sign in as an Admin and choose **Download backup now** in that bar (or **Backup → Download backup**). Do this on every browser or device that holds a vault.
+2. Open `https://jaybi.uz` in the same browser. It shows **Create your vault** with the hint "Coming from kool277.github.io/iqtisod? Import your backup here."
+3. Under **Import a backup instead**, choose the file and **Replace vault**, then sign in with your usual email and password. Check the records, then tell everyone the new address.
+4. Everyone else signs in at `jaybi.uz` with their usual password. Private safes, recovery codes, and the sign-in check move with the backup and keep working. Authenticator apps keep showing the entry under the old name "Moliya"; its codes still work. New set-ups appear as "Jaybi".
+
+Nothing about the data changes: backups are still `.moliya` files, old backups open in Jaybi, and the recovery tool is still `npm run decrypt`. If a device missed the move, ask whoever runs the site; see the [DevOps guide](devops-guide.md#custom-domain-jaybiuz).
+
 ### Opening a backup without the website
 
 If the website is ever unavailable, a developer (or anyone with Node.js 22.12 or newer) can open a backup with the recovery tool included in the project:
@@ -264,7 +275,7 @@ Use the tool from 1.3.0 or newer for vaults saved by 1.3.0. Older copies of the 
 
 ## Updates
 
-When a new version is published, a bar appears at the top: **A new version of Moliya is available.** Choose **Reload**. Moliya saves and locks the vault first, so nothing is lost. The first unlock after an update may upgrade the data format; this is automatic, recorded in the audit log, and the previous copy is kept under **Earlier copies in this browser**.
+When a new version is published, a bar appears at the top: **A new version of Jaybi is available.** Choose **Reload**. Jaybi saves and locks the vault first, so nothing is lost. The first unlock after an update may upgrade the data format; this is automatic, recorded in the audit log, and the previous copy is kept under **Earlier copies in this browser**.
 
 The first sign-in of each person after upgrading to 1.1.0 also strengthens their password protection (600,000 PBKDF2 rounds instead of 200,000). It takes a moment longer once and is recorded as "Password protection strengthened".
 
@@ -281,13 +292,13 @@ Versions 1.0.0 and 1.1.0 stored, for every person, a value in the database that 
 1.3.0 adds invite and reset codes, the sign-in check, and stricter checks. The first unlock upgrades the database to schema 4, which adds the tables for codes and the sign-in check. This is automatic, recorded as a data format upgrade, and the previous vault is kept as **Before upgrade**.
 
 - **No going back without a copy.** Moliya 1.2.0 and older refuse a vault or backup saved by 1.3.0 as made by a newer version. Download a backup before upgrading, and keep the **Before upgrade** copy until you are sure.
-- **Existing passwords keep working.** New passwords need at least 12 characters and must not be common. People whose password does not meet the new rules see "Your password is shorter or more common than Moliya now allows. Please choose a new one." after signing in. Ask them to change it, starting with Admins: the password is the only protection a backup has.
+- **Existing passwords keep working.** New passwords need at least 12 characters and must not be common. People whose password does not meet the new rules see "Your password is shorter or more common than Jaybi now allows. Please choose a new one." after signing in. Ask them to change it, starting with Admins: the password is the only protection a backup has.
 - **Adding people.** **Users** now leads with **Invite someone**. The temporary-password way is under **Advanced: set a temporary password instead**, and **Reset password** became **Issue reset code**, with **Set a temporary password instead** inside it.
 - **Replacing the vault** now needs your password and the vault name, and importing from the setup screen works only in a browser with no vault.
 - **Automatic lock** is still 15 minutes by default; each browser can choose 5, 15, 30, or 60 minutes under **Account → Lock automatically**.
 - **Large receipts.** New receipts must be images of up to 1.5 MB, and the vault is capped at about 48 MB. Existing receipts are kept.
 - **Recovery tool.** Use the 1.3.0 recovery tool for vaults and backups saved by 1.3.0. Older copies of the tool still open them, but leave sign-in check data and code checks in their output.
-- **Hosting.** Until Moliya moves to its own web address, do not publish any other GitHub Pages site under the same account. Every Pages site of the account shares one web address, and any of them could read or delete the vault. See the [DevOps guide](devops-guide.md#origin-and-storage-isolation).
+- **Hosting.** The app moves from `kool277.github.io/iqtisod` to its own address, `jaybi.uz`; see [Moving to jaybi.uz](#moving-to-jaybiuz). Until then, do not publish any other GitHub Pages site under the same account. Every Pages site of the account shares one web address, and any of them could read or delete the vault. See the [DevOps guide](devops-guide.md#origin-and-storage-isolation).
 
 ## Recovery scenarios
 
@@ -308,29 +319,29 @@ Versions 1.0.0 and 1.1.0 stored, for every person, a value in the database that 
 | Browser data was cleared, or the device was lost | Import your latest backup on a new browser |
 | All passwords are lost | The data cannot be recovered, even from a backup |
 | The site moved to a new address (new domain) | The old address's vault is not visible at the new one. Export at the old address, then import at the new one |
-| "This vault was saved by a newer version of Moliya" | Reload the page. If it persists, the site was rolled back: import a backup or an earlier copy made by this version, or wait for the newer version to return |
+| "This vault was saved by a newer version of Jaybi" (1.2.0 and older say "Moliya") | Reload the page. If it persists, the site was rolled back: import a backup or an earlier copy made by this version, or wait for the newer version to return |
 | "The vault stored in this browser is damaged" (on opening the app, or when signing in) | Nothing else was changed, but nobody can sign in to replace it, and the setup screen only appears when the browser has no vault. Make sure you have a good backup. Then clear this site's data in the browser settings (this also deletes the earlier copies), reload, and import the backup from the setup screen. The same applies if a vault you just imported shows this message |
 | "Not saved: changed elsewhere" | The vault was changed in another tab, window, or by an import. Lock and unlock to load the latest data, then redo the last change |
 | "Already unlocked in another tab or window" | Lock it in the other tab, or close that tab |
 | An update went wrong | Download an earlier copy from **Backup**, or import a backup made before the update |
 | You replaced the vault with the wrong backup | Sign in as an Admin of the imported backup, download the **Before import** copy from **Backup**, and replace the vault with it |
-| "Moliya does not run inside another page" | Someone embedded the app in another website. Open it in its own tab from the address you trust |
+| "Jaybi does not run inside another page" | Someone embedded the app in another website. Open it in its own tab from the address you trust |
 
 ## Security limits to know
 
-Moliya protects data at rest well. It is important to understand what it does **not** do:
+Jaybi protects data at rest well. It is important to understand what it does **not** do:
 
 1. **Roles are enforced by the app, not by encryption.** There is one vault key for everything. Anyone who has a valid password and a copy of the encrypted data could decrypt the entire database with technical tools, including other groups' records. Only give accounts to people you would trust with the whole ledger. Private safes are the exception: they are encrypted again with keys only their owner holds.
 2. **Removing someone or resetting a password does not change the vault key.** A removed person who kept an old backup file, or an old copy of the browser storage, could still open that copy with their old password. If they also get a newer copy, they could decrypt it too. After removing someone you do not trust, the only full protection today is to start a new vault. Rotating the vault key is on the developers' list; the **Change encryption key** option in private safes only re-encrypts one safe.
 3. **Old backups keep old passwords.** A backup opens with the passwords that were valid when it was exported.
-4. **Emails are visible.** Email addresses are stored unencrypted next to the encrypted data, in the browser and in backup files, so that Moliya knows whose key to try. Amounts, notes, and everything else are encrypted.
+4. **Emails are visible.** Email addresses are stored unencrypted next to the encrypted data, in the browser and in backup files, so that Jaybi knows whose key to try. Amounts, notes, and everything else are encrypted.
 5. **Backup files can be guessed offline.** Someone who steals a backup, or copies the browser's storage, can try passwords on their own computer. PBKDF2 (600,000 rounds) slows each guess, but a short or common password will still fall. Use long, unique passwords, especially for Admin accounts. Older backups keep the protection they were made with (200,000 rounds before 1.1.0).
 6. **Unencrypted exports are plain data.** CSV and SQLite exports are readable by anyone who has the file.
 7. **The browser is the security boundary.** Malware on the device, a malicious browser extension, or another website served from the same address could read the vault while it is unlocked, or delete the stored copy, and could capture passwords typed to open private safes. See the [DevOps guide](devops-guide.md#origin-and-storage-isolation) about hosting on a dedicated address.
 8. **Backups from before 1.2.0 hold key material.** They contain a value per person that opens that person's key to the vault (see [Upgrading to 1.2.0](#upgrading-to-120)). Replace them after upgrading.
 9. **Private safes hide contents, not their existence.** Anyone with the decrypted database can count each person's safes and items and see when they changed. Deletions and rollbacks of safe rows are not detected.
-10. **The attempt limit only slows guessing in the app.** After five wrong passwords or codes for an email, Moliya makes the next try wait, doubling up to 15 minutes. It protects against someone trying passwords at this device. It does not protect a copied vault or backup, and someone with the browser's developer tools can clear it. Only a strong password stops offline guessing.
-11. **The sign-in check is not encryption.** Moliya says so next to it: "This adds a second step to signing in to the app. It does not add encryption: anyone with a copy of the vault and your password can still open it with the recovery tool." It helps when a password leaks and someone tries it in the app. It does nothing for backups.
+10. **The attempt limit only slows guessing in the app.** After five wrong passwords or codes for an email, Jaybi makes the next try wait, doubling up to 15 minutes. It protects against someone trying passwords at this device. It does not protect a copied vault or backup, and someone with the browser's developer tools can clear it. Only a strong password stops offline guessing.
+11. **The sign-in check is not encryption.** Jaybi says so next to it: "This adds a second step to signing in to the app. It does not add encryption: anyone with a copy of the vault and your password can still open it with the recovery tool." It helps when a password leaks and someone tries it in the app. It does nothing for backups.
 12. **Code expiry is enforced by the app, not by encryption.** A backup made while a code was open, together with that code, opens the vault on a device with its clock set back, even after the code expired or was revoked in your vault. Keep validity short, revoke codes that went astray, and avoid handing out backups while codes are open.
 13. **Codes and temporary passwords do not change the vault key.** Like point 2: whoever held a code or a temporary password can open copies made while it was valid.
 

@@ -1,12 +1,16 @@
-# iqtisod
+# Jaybi
 
 Take control of your finances without handing them to anyone.
 
-iqtisod is the repository for **Moliya**, a private income and expense ledger for a person, a family, or a small team. It runs entirely in the browser. There is no server, no account to sign up for, and no analytics. The ledger is an SQLite database encrypted with AES-256-GCM and stored on your device. The website itself is only static files, so it can be hosted free on GitHub Pages.
+**Live at [https://jaybi.uz](https://jaybi.uz).**
+
+**Jaybi** (جيبي) is a private income and expense ledger for a person, a family, or a small team. It runs entirely in the browser. There is no server, no account to sign up for, and no analytics. The ledger is an SQLite database encrypted with AES-256-GCM and stored on your device. The website itself is only static files, so it can be hosted free on GitHub Pages. This repository is `kool277/iqtisod`.
+
+Jaybi was called Moliya up to version 1.2.0 and was served from `kool277.github.io/iqtisod`, its old address. Stored data keeps the old name on purpose: backups are still `.moliya` files, and every vault and backup made under either name keeps opening (see [docs/data-format.md](docs/data-format.md#names)). If your vault is still at the old address, download a backup there and import it at jaybi.uz; the [admin guide](docs/admin-guide.md#moving-to-jaybiuz) explains how.
 
 ## Why it exists
 
-Most budgeting apps ask you to trust a company with your bank-level details. Spreadsheets keep the data local, but they are easy to lose, hard to share safely, and have no access control. Moliya sits between the two:
+Most budgeting apps ask you to trust a company with your bank-level details. Spreadsheets keep the data local, but they are easy to lose, hard to share safely, and have no access control. Jaybi sits between the two:
 
 - **Private by default.** Records are encrypted before they are saved. The hosting provider only ever serves the app's code and never sees your numbers.
 - **Shared without a server.** Several people can use the same vault, each with their own password and role.
@@ -57,7 +61,7 @@ Refreshing or closing the tab locks the vault, and so does a period without acti
 
 ## Versions and data longevity
 
-Moliya uses [Semantic Versioning](https://semver.org/); see the [changelog](CHANGELOG.md). The database schema, the stored browser record, and the backup file each carry their own format version, independent of the app version, and every backup records the app version that made it.
+Jaybi uses [Semantic Versioning](https://semver.org/); see the [changelog](CHANGELOG.md). The database schema, the stored browser record, and the backup file each carry their own format version, independent of the app version, and every backup records the app version that made it.
 
 Every release must open every vault and backup ever produced, for at least ten years. Upgrades run automatically on first sign-in, one step at a time, inside transactions, and keep the original copy in the browser. Real backups from each release are kept in `tests/fixtures/backups/` and must open, with exact totals, in every build. The formats are specified in [docs/data-format.md](docs/data-format.md), and `npm run decrypt` opens any backup with Node.js alone.
 

@@ -1,12 +1,14 @@
 # User guide
 
-This guide is for people who use a Moliya vault day to day: **Managers**, who record income and expenses, and **Viewers**, who review them. Everyone, whatever their role, can keep their own [private safes](#private-safes). Admins can do everything here too. Their extra tasks are in the [admin guide](admin-guide.md).
+This guide is for people who use a Jaybi vault day to day: **Managers**, who record income and expenses, and **Viewers**, who review them. Everyone, whatever their role, can keep their own [private safes](#private-safes). Admins can do everything here too. Their extra tasks are in the [admin guide](admin-guide.md).
 
 ## Before you start
 
-Your admin gives you the address of the app, your email, and usually a **one-time code**. You use the code once to [join the vault](#joining-with-a-code) and choose your own password, so nobody else ever knows it. Some admins give a starting password instead; then Moliya asks you to replace it the first time you sign in (see [Your account](#your-account)).
+Your admin gives you the address of the app, your email, and usually a **one-time code**. You use the code once to [join the vault](#joining-with-a-code) and choose your own password, so nobody else ever knows it. Some admins give a starting password instead; then Jaybi asks you to replace it the first time you sign in (see [Your account](#your-account)).
 
-Moliya has no "forgot password" link. If you forget your password, ask your admin for a reset code, but read [After an admin resets your password](#after-an-admin-resets-your-password) first if you use private safes.
+Jaybi has no "forgot password" link. If you forget your password, ask your admin for a reset code, but read [After an admin resets your password](#after-an-admin-resets-your-password) first if you use private safes.
+
+Jaybi was called Moliya before version 1.3.0, and it moves from `kool277.github.io/iqtisod` to `https://jaybi.uz`. If your admin has moved the vault, use the new address with your usual email and password.
 
 The vault lives inside one browser on one device. If your admin set it up on a shared computer, use that computer and that browser. Opening the app on your own phone will show an empty setup screen, because that browser has no vault yet. Your admin can move a copy there with a backup file.
 
@@ -19,9 +21,9 @@ A code has seven groups of four letters and digits, like `XXXX-XXXX-XXXX-XXXX-XX
 3. Enter a password under **Choose a password** and again under **Confirm password**. See [Choosing a password](#choosing-a-password).
 4. Choose **Join vault**. You are signed in.
 
-A code works only in the browser where the vault is stored, because that is where the vault is. If Moliya says "There is no vault in this browser yet", you are on the wrong device or browser. Open the app where your admin set it up, or first choose **Import a backup** if your admin gave you a backup file.
+A code works only in the browser where the vault is stored, because that is where the vault is. If Jaybi says "There is no vault in this browser yet", you are on the wrong device or browser. Open the app where your admin set it up, or first choose **Import a backup** if your admin gave you a backup file.
 
-If Moliya says the code has expired or does not match, ask your admin for a new one. Keep the code private until you have used it: anyone with the code and your email can join as you while it is open.
+If Jaybi says the code has expired or does not match, ask your admin for a new one. Keep the code private until you have used it: anyone with the code and your email can join as you while it is open.
 
 ## Signing in
 
@@ -30,19 +32,19 @@ If Moliya says the code has expired or does not match, ask your admin for a new 
 
 Unlocking takes a moment, because your password is deliberately stretched to make guessing slow. If you see "Email or password is incorrect", check both. The message is the same for either mistake on purpose.
 
-After five wrong tries for the same email, Moliya shows **Too many attempts. Try again in** with a countdown, and the wait doubles with each further mistake, up to 15 minutes. Codes and the sign-in check are limited the same way. Wait for the countdown to finish; refreshing the page does not shorten it. After you sign in, Moliya tells you how many failed attempts there were for your account in this browser since your last sign-in. If you did not make them, change your password.
+After five wrong tries for the same email, Jaybi shows **Too many attempts. Try again in** with a countdown, and the wait doubles with each further mistake, up to 15 minutes. Codes and the sign-in check are limited the same way. Wait for the countdown to finish; refreshing the page does not shorten it. After you sign in, Jaybi tells you how many failed attempts there were for your account in this browser since your last sign-in. If you did not make them, change your password.
 
 This limit slows down someone guessing at this screen. It does not protect a copy of the vault or a backup: someone with a copy can guess without any limit, and only a long, uncommon password stops them.
 
 ### The second step
 
-If you turned on the [sign-in check](#sign-in-check), Moliya asks for a second step after your password: "Enter the 6-digit code from your authenticator app, or one of your recovery codes." Type the code into **Code** and choose **Continue**. Each code works once. If you wait more than 5 minutes, or choose **Cancel**, you go back to **Unlock vault**.
+If you turned on the [sign-in check](#sign-in-check), Jaybi asks for a second step after your password: "Enter the 6-digit code from your authenticator app, or one of your recovery codes." Type the code into **Code** and choose **Continue**. Each code works once. If you wait more than 5 minutes, or choose **Cancel**, you go back to **Unlock vault**.
 
 If you sign in with a recovery code, a bar shows **You used a recovery code. Codes left:** with the number. When few are left, turn the sign-in check off and on again in **Account** to get new ones.
 
-### If Moliya shows "For your safety, Moliya does not run inside another page."
+### If Jaybi shows "For your safety, Jaybi does not run inside another page."
 
-Moliya refuses to run inside another website's page, because that page could trick you into clicking or typing. Choose **Open Moliya in its own tab**, and check that the address is the one your admin gave you.
+Jaybi refuses to run inside another website's page, because that page could trick you into clicking or typing. Choose **Open Jaybi in its own tab**, and check that the address is the one your admin gave you.
 
 ### Resetting your password with a code
 
@@ -65,7 +67,7 @@ The menu on the left (along the top on a phone) shows only what your role allows
 
 You only see records that belong to your group. The top bar shows the vault name, the save status, the language and theme switches, and the **Lock** button.
 
-The button at the far left of the top bar collapses the menu. On a computer the menu shrinks to icons, and pointing at an icon shows its name. On a phone the menu row is hidden. Choose the button again to bring the menu back. Moliya remembers your choice in this browser.
+The button at the far left of the top bar collapses the menu. On a computer the menu shrinks to icons, and pointing at an icon shows its name. On a phone the menu row is hidden. Choose the button again to bring the menu back. Jaybi remembers your choice in this browser.
 
 ## Choosing a period
 
@@ -76,14 +78,14 @@ Both the dashboard and the ledger use the same period buttons, and your choice c
 - **This month** (the default)
 - **Last month**
 - **Year to date** (1 January to today)
-- **Custom**, which opens From and To date fields. If you enter them backwards, Moliya swaps them.
+- **Custom**, which opens From and To date fields. If you enter them backwards, Jaybi swaps them.
 
 ## Recording money (Managers)
 
 1. Open **Transactions** and choose **Add record**.
 2. Fill in the form:
    - **Type**: Income or Expense. The category list changes to match.
-   - **Amount**: a number above zero, with up to two decimals (for example `1250`, `1250.5`, or `1 250,50`). A dot or a comma both work as the decimal mark, and spaces between thousands are ignored. Moliya stores the exact amount and never rounds it; if you type more decimals than the currency has, it asks you to fix the amount instead of guessing.
+   - **Amount**: a number above zero, with up to two decimals (for example `1250`, `1250.5`, or `1 250,50`). A dot or a comma both work as the decimal mark, and spaces between thousands are ignored. Jaybi stores the exact amount and never rounds it; if you type more decimals than the currency has, it asks you to fix the amount instead of guessing.
    - **Category**: for example Salary, Food, or Transport.
    - **Date**: defaults to today.
    - **Currency**: defaults to the vault currency. See the note on currencies below.
@@ -98,7 +100,7 @@ To narrow the list, use the **All / Income / Expense** filter next to **Add reco
 
 ### A note on currencies
 
-Each vault has one main currency, chosen when it was created and changeable by an Admin. Totals and charts only count records in that currency. A record in another currency is still saved and listed, marked "Other currency — not included in totals". The dashboard lists those records separately under **Other currencies (not in totals)**, with income and expenses per currency, so nothing is hidden. Moliya does not convert between currencies.
+Each vault has one main currency, chosen when it was created and changeable by an Admin. Totals and charts only count records in that currency. A record in another currency is still saved and listed, marked "Other currency — not included in totals". The dashboard lists those records separately under **Other currencies (not in totals)**, with income and expenses per currency, so nothing is hidden. Jaybi does not convert between currencies.
 
 ## Reading the dashboard
 
@@ -126,11 +128,11 @@ You never need to press a save button for the vault itself. The status next to t
 - **Saved**: everything is encrypted and stored.
 - **Unsaved** or **Encrypting…**: a change is being stored. This normally takes about a second.
 - **Could not save**: the browser refused to store data, for example because the disk is full or storage is blocked. Keep the tab open and tell your admin.
-- **Not saved: changed elsewhere**: the vault was changed in another tab or window. Moliya stops saving here rather than overwrite that change. Lock, unlock again, and redo your last change.
+- **Not saved: changed elsewhere**: the vault was changed in another tab or window. Jaybi stops saving here rather than overwrite that change. Lock, unlock again, and redo your last change.
 
 The vault can be unlocked in only one tab at a time. If you see "already unlocked in another tab or window", switch to that tab or lock it there first.
 
-Choose **Lock** when you step away. Locking, refreshing, or closing the tab removes the decrypted data from memory, and the next person must sign in. Moliya also locks the vault by itself after 15 minutes without activity; you can change this under **Account → Lock automatically**.
+Choose **Lock** when you step away. Locking, refreshing, or closing the tab removes the decrypted data from memory, and the next person must sign in. Jaybi also locks the vault by itself after 15 minutes without activity; you can change this under **Account → Lock automatically**.
 
 If a bar says **The vault is close to its size limit. Remove large receipts to make room.**, tell your admin. Receipts take most of the space, and once the vault is full no new receipts can be added.
 
@@ -142,16 +144,16 @@ Open **Account** in the menu. Everyone has this page, whatever their role.
 
 Enter your **current password**, then the **new password** twice (different from the current one; see [Choosing a password](#choosing-a-password)), and choose **Change password**. If you have set up private safes, and if you use the sign-in check, they move to the new password at the same time.
 
-If your admin gave you a starting or temporary password, the password was chosen by them. Moliya then asks you to choose a new one before you can use anything else: every page leads back to **Account** until you do.
+If your admin gave you a starting or temporary password, the password was chosen by them. Jaybi then asks you to choose a new one before you can use anything else: every page leads back to **Account** until you do.
 
-If a bar says **Your password is shorter or more common than Moliya now allows. Please choose a new one.**, your password still works, but it would not be accepted today. Choose **Change password** and pick a better one.
+If a bar says **Your password is shorter or more common than Jaybi now allows. Please choose a new one.**, your password still works, but it would not be accepted today. Choose **Change password** and pick a better one.
 
 ### Choosing a password
 
-Moliya shows the hint "At least 12 characters. A few unrelated words work well." A new password must:
+Jaybi shows the hint "At least 12 characters. A few unrelated words work well." A new password must:
 
 - be 12 to 256 characters long;
-- not be a commonly used password, even with digits or symbols added before or after it (Moliya checks a built-in list, without sending anything anywhere);
+- not be a commonly used password, even with digits or symbols added before or after it (Jaybi checks a built-in list, without sending anything anywhere);
 - not be mostly your email or the vault name;
 - not use three or fewer different characters, repeat a short pattern, or follow a run of keys such as `qwertyuiop` or `1234567890`.
 
@@ -159,7 +161,7 @@ Four or five unrelated words, with spaces if you like, are easy to remember and 
 
 ### Sign-in check
 
-The sign-in check asks for a 6-digit code from an authenticator app (such as Google Authenticator, Microsoft Authenticator, Aegis, or 1Password) after your password. It is optional. Moliya shows this note next to it:
+The sign-in check asks for a 6-digit code from an authenticator app (such as Google Authenticator, Microsoft Authenticator, Aegis, or 1Password) after your password. It is optional. Jaybi shows this note next to it:
 
 > This adds a second step to signing in to the app. It does not add encryption: anyone with a copy of the vault and your password can still open it with the recovery tool.
 
@@ -170,7 +172,9 @@ To turn it on:
 1. Choose **Set up sign-in check**.
 2. Scan the QR code with your authenticator app, or type the **Setup key** into it (**Copy key** copies it; the clipboard is cleared after 60 seconds).
 3. Enter the current **Code from the app** and **Your password**, then choose **Confirm and turn on**.
-4. Moliya shows 10 **Recovery codes**. Each works once in place of an app code if you lose your phone. Choose **Download codes** or write them down, keep them away from this device, and choose **I have saved these codes**. They are not shown again.
+4. Jaybi shows 10 **Recovery codes**. Each works once in place of an app code if you lose your phone. Choose **Download codes** or write them down, keep them away from this device, and choose **I have saved these codes**. They are not shown again.
+
+If you set it up before 1.3.0, your authenticator app lists the entry as "Moliya". It keeps working; there is no need to set it up again.
 
 To turn it off, choose **Turn off sign-in check** and enter your password. To get new recovery codes, turn it off and on again; the old codes then stop working, and you must add the new setup key to your app.
 
@@ -212,7 +216,7 @@ Anyone who has your recovery code and your current password can open your safes,
 
 ### Opening and locking
 
-Signing in to the vault does not open your safes. Choose **Open safes** and enter your password again. After opening, Moliya shows when your safes were **previously opened**; if you do not recognise that time, someone else may have used your password.
+Signing in to the vault does not open your safes. Choose **Open safes** and enter your password again. After opening, Jaybi shows when your safes were **previously opened**; if you do not recognise that time, someone else may have used your password.
 
 Your safes lock again:
 
@@ -235,7 +239,7 @@ You can have up to 50 safes and 5,000 items (1,000 per safe), counting what is i
 
 ### Cards
 
-Choose **Add card** and fill in the cardholder name, the card number, the brand, the expiry month and year, the bank, and notes. Moliya detects the brand from the number; you can change it.
+Choose **Add card** and fill in the cardholder name, the card number, the brand, the expiry month and year, the bank, and notes. Jaybi detects the brand from the number; you can change it.
 
 - The number is checked with the usual check digit. For Visa, Mastercard, American Express, and Mir a failed check is an error. For UzCard, Humo, UnionPay, and Other it is only a warning, because some local cards do not follow the rule.
 - The **security code (CVV)** is optional and hidden behind **Add security code**. Banks advise against keeping it; leave it empty unless you really need it.
@@ -280,8 +284,8 @@ Deleted data is also overwritten in the database, but copies stay in older backu
 
 If your admin resets your password:
 
-1. Use the reset code they give you to [set a new password](#resetting-your-password-with-a-code). If they gave you a temporary password instead, sign in with it; Moliya asks you to choose a new password in **Account**.
-2. Open **Private safes**. Moliya says your password changed since you last opened your safes.
+1. Use the reset code they give you to [set a new password](#resetting-your-password-with-a-code). If they gave you a temporary password instead, sign in with it; Jaybi asks you to choose a new password in **Account**.
+2. Open **Private safes**. Jaybi says your password changed since you last opened your safes.
 3. Enter the **previous password**: the one you chose yourself before the reset, not a temporary one from the admin. Or choose **Use recovery code instead** and enter your code. Also enter your current password.
 4. Your safes open, and from now on your current password opens them. If you used the recovery code, create a new one.
 
@@ -291,7 +295,7 @@ If you remember neither your previous password nor your recovery code, nobody ca
 
 ## Updates and version
 
-When a new version of Moliya is published, a bar appears at the top: **A new version of Moliya is available.** Choose **Reload** when convenient. Your work is saved and the vault is locked first, so sign in again afterwards. The first sign-in after an update may take a few seconds longer while Moliya upgrades the data or strengthens your password protection. This happens once.
+When a new version of Jaybi is published, a bar appears at the top: **A new version of Jaybi is available.** Choose **Reload** when convenient. Your work is saved and the vault is locked first, so sign in again afterwards. The first sign-in after an update may take a few seconds longer while Jaybi upgrades the data or strengthens your password protection. This happens once.
 
 The version you are using is shown at the bottom of the menu and on the sign-in screen. Mention it when you report a problem.
 

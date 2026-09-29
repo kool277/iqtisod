@@ -1,10 +1,14 @@
 # Data format specification
 
-This document is the long-term contract for everything Moliya stores. It is written so that someone with only this file, a copy of a backup, and the password can recover the data in ten years, with or without the app. Code references are for maintainers; the formats themselves do not depend on them.
+This document is the long-term contract for everything Jaybi stores. It is written so that someone with only this file, a copy of a backup, and the password can recover the data in ten years, with or without the app. Code references are for maintainers; the formats themselves do not depend on them.
+
+## Names
+
+The product was renamed Jaybi in 1.3.0; the on-disk identifiers keep the historical 'moliya' name forever. That covers the format ids (`moliya-vault`), the IndexedDB database `moliya`, the Web Lock `moliya-vault-session`, local storage keys `moliya.*`, the `.moliya` file extension and the `moliya-backup-YYYY-MM-DD.moliya` and `moliya-archive-YYYY-MM-DD.moliya` file names, every HKDF `info` string and AAD label (`moliya/…`, `moliya.…`), the throttle hash prefix `moliya-throttle|`, the golden fixtures, and the recovery tool `tools/moliya-decrypt.mjs` with its `MOLIYA_PASSWORD` variable. Changing any of them would stop existing vaults and backups from opening. Only text shown to people uses the new name.
 
 ## The guarantee
 
-Every vault and backup written by any released version of Moliya, starting with 1.0.0, must open with the exact same records and totals in every later version, for at least ten years from the release that wrote it. The rules that enforce this are in [Compatibility rules](#compatibility-rules), and the tests that check it are described in [Golden fixtures](#golden-fixtures).
+Every vault and backup written by any released version of the app (named Moliya up to 1.2.0, Jaybi from 1.3.0), starting with 1.0.0, must open with the exact same records and totals in every later version, for at least ten years from the release that wrote it. The rules that enforce this are in [Compatibility rules](#compatibility-rules), and the tests that check it are described in [Golden fixtures](#golden-fixtures).
 
 ## Version matrix
 
@@ -513,7 +517,7 @@ Expiry, one-time use, and revocation are enforced by the app, not by cryptograph
 The optional sign-in check (1.3.0) asks for a time-based one-time password after the person's password has already opened the vault. It is an extra step in the app's sign-in flow, not an extra layer of encryption: the DEK and the database never depend on it, and anyone with a copy of the vault and the password can decrypt it without the check.
 
 - **Codes**: RFC 6238 TOTP with HMAC-SHA-1, 6 digits, 30-second steps counted from the Unix epoch, accepting the current step and one step either side. A step is accepted only if it is greater than `last_step`, which is then updated, so a code cannot be used twice.
-- **Secret**: 20 random bytes, given to the authenticator app as RFC 4648 base32 without padding inside `otpauth://totp/<label>?secret=…&issuer=Moliya&algorithm=SHA1&digits=6&period=30`, where the label is `Moliya:<email>`, URL-encoded. The QR code is drawn in the browser; nothing is sent anywhere.
+- **Secret**: 20 random bytes, given to the authenticator app as RFC 4648 base32 without padding inside `otpauth://totp/<label>?secret=…&issuer=Jaybi&algorithm=SHA1&digits=6&period=30`, where the label is `Jaybi:<email>`, URL-encoded. Up to 1.2.0 the issuer and label prefix were `Moliya`. The issuer is only a label in the authenticator app; it is not stored in the vault and does not affect the codes, so entries made with either name keep working. The QR code is drawn in the browser; nothing is sent anywhere.
 - **Encryption of the secret**: `kdf` (JSON, same bounds as wraps) and `kdf_salt` (32 bytes, base64) feed a separate PBKDF2 run over the person's password; HKDF-SHA-256 with `info = "moliya/totp-kek/v1"` and an empty salt turns the output into an AES-256-GCM key. `secret_iv` and `secret_ciphertext` hold `{"secret":"<base32>"}`, padded and encrypted exactly like safe payloads (see [Encryption and AAD](#encryption-and-aad)), with AAD `["moliya.totp",1,userId]`. Nobody else's password, and no Admin, can read it.
 - **Recovery codes**: 10 codes of 10 random bytes (80 bits) each, written as 16 Crockford base32 characters and shown as `XXXX-XXXX-XXXX-XXXX`, without a check symbol. Input is normalised like a one-time code. Each is stored as `hex(HMAC-SHA-256(key = recovery_salt, UTF-8("moliya/totp-recovery/v1|" + code)))`, where `recovery_salt` is 32 random bytes. Using a code removes its hash from `recovery_hashes` and writes `TOTP_RECOVERY_USED` with the number left.
 - **Lifecycle**: changing one's own password re-encrypts the secret under the new password with a new salt in the same transaction and sets `rewrapped_at`. The row is deleted when its owner turns the check off (with their password), when an Admin turns it off for them (`TOTP_CLEARED`), and when an Admin sets a temporary password or the person uses a reset code.
