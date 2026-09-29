@@ -129,6 +129,7 @@ test('never blocks the dashboard: error, retry, cached fallback, and offline sta
 
   await serveRates(page, { status: 503 })
   await page.getByTestId('nav-transactions').click()
+  await expect(page.getByTestId('fx-panel')).toHaveCount(0)
   await page.getByTestId('nav-dashboard').click()
   await expect(page.getByTestId('fx-notice')).toHaveAttribute('data-failure', 'unavailable')
   await expect(page.getByTestId('fx-pair')).toHaveCount(3)
