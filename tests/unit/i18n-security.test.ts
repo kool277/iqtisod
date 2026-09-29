@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { LOCALES, catalogFor, flattenMessages } from '../../src/i18n'
+import { LOCALES, catalogFor, flattenMessages, loadExportMessages } from '../../src/i18n'
+
+await Promise.all(LOCALES.map(loadExportMessages))
 
 const uzLatn = flattenMessages(catalogFor('uz-Latn'))
 

@@ -1,7 +1,6 @@
-import type { Messages } from './en'
-import { exportUzCyrl } from './export/uz-Cyrl'
+import type { CoreMessages } from './en'
 
-export const uzCyrl: Messages = {
+export const uzCyrl: CoreMessages = {
   app: {
     name: 'Жайби',
     tagline: 'Шу қурилмада қоладиган шахсий дафтар.',
@@ -759,5 +758,4 @@ export const uzCyrl: Messages = {
     TOTP_CLEARED: 'Кириш текшируви олиб ташланди',
     TOTP_RECOVERY_USED: 'Кириш учун тиклаш коди ишлатилди',
   },
-  export: exportUzCyrl,
 }

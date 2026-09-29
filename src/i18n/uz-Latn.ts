@@ -1,7 +1,6 @@
-import type { Messages } from './en'
-import { exportUzLatn } from './export/uz-Latn'
+import type { CoreMessages } from './en'
 
-export const uzLatn: Messages = {
+export const uzLatn: CoreMessages = {
   app: {
     name: 'Jaybi',
     tagline: 'Shu qurilmada qoladigan shaxsiy daftar.',
@@ -759,5 +758,4 @@ export const uzLatn: Messages = {
     TOTP_CLEARED: 'Kirish tekshiruvi olib tashlandi',
     TOTP_RECOVERY_USED: 'Kirish uchun tiklash kodi ishlatildi',
   },
-  export: exportUzLatn,
 }

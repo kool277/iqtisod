@@ -1,5 +1,5 @@
 import writeXlsxFile, { type Cell, type Row, type Sheet } from 'write-excel-file/universal'
-import { translate, type Locale, type MessageKey } from '../../i18n'
+import { loadExportMessages, translate, type Locale, type MessageKey } from '../../i18n'
 import { minorUnitOf } from '../../lib/money'
 import type { CategoryNames, ExportDataset } from './dataset'
 
@@ -46,6 +46,7 @@ function categoryName(names: CategoryNames, locale: Locale): string {
 }
 
 export async function buildXlsx(dataset: ExportDataset, locale: Locale, signal?: AbortSignal): Promise<Blob> {
+  await loadExportMessages(locale)
   const t = (key: MessageKey) => translate(locale, key)
   const used = new Set<string>()
   const { meta, summary } = dataset

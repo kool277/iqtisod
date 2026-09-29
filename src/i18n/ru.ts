@@ -1,7 +1,6 @@
-import type { Messages } from './en'
-import { exportRu } from './export/ru'
+import type { CoreMessages } from './en'
 
-export const ru: Messages = {
+export const ru: CoreMessages = {
   app: {
     name: 'Джайби',
     tagline: 'Личная книга учёта, которая остаётся на этом устройстве.',
@@ -759,5 +758,4 @@ export const ru: Messages = {
     TOTP_CLEARED: 'Проверка при входе снята',
     TOTP_RECOVERY_USED: 'Использован код восстановления для входа',
   },
-  export: exportRu,
 }

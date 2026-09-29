@@ -78,6 +78,8 @@ export default defineConfig({
           groups: [
             { name: 'react', test: /node_modules[\\/](react|react-dom|scheduler|react-router|react-router-dom)[\\/]/ },
             { name: 'charts', test: /node_modules[\\/](chart\.js|react-chartjs-2|@kurkle)[\\/]/ },
+            // jsPDF and write-excel-file share fflate; without its own group it lands in export-pdf and an Excel export downloads jsPDF.
+            { name: 'export-fflate', test: /node_modules[\\/]fflate[\\/]/, priority: 1 },
             { name: 'export-pdf', test: /node_modules[\\/](jspdf|jspdf-autotable|fast-png|iobuffer|pako|@babel[\\/]runtime)[\\/]/ },
             { name: 'export-xlsx', test: /node_modules[\\/]write-excel-file[\\/]/ },
             { name: 'export-zip', test: /node_modules[\\/]@zip\.js[\\/]/ },

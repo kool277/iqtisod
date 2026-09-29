@@ -1,4 +1,5 @@
-import { en, type Messages } from './en'
+import { en, type CoreMessages, type Messages } from './en'
+import type { ExportMessages } from './export/en'
 import { ru } from './ru'
 import { uzCyrl } from './uz-Cyrl'
 import { uzLatn } from './uz-Latn'
@@ -18,11 +19,39 @@ export type Locale = (typeof LOCALES)[number]
 
 export const LOCALE_KEY = 'moliya.locale'
 
-const catalogs: Record<Locale, Messages> = {
+const catalogs: Record<Locale, CoreMessages> = {
   en,
   ru,
   'uz-Latn': uzLatn,
   'uz-Cyrl': uzCyrl,
+}
+
+const exportLoaders: Record<Locale, () => Promise<ExportMessages>> = {
+  en: () => import('./export/en').then((module) => module.exportEn),
+  ru: () => import('./export/ru').then((module) => module.exportRu),
+  'uz-Latn': () => import('./export/uz-Latn').then((module) => module.exportUzLatn),
+  'uz-Cyrl': () => import('./export/uz-Cyrl').then((module) => module.exportUzCyrl),
+}
+
+const exportCatalogs: Partial<Record<Locale, ExportMessages>> = {}
+const exportLoads: Partial<Record<Locale, Promise<void>>> = {}
+
+/** The `export.*` strings stay out of the startup bundle; until this resolves they translate to their keys. */
+export function loadExportMessages(locale: Locale): Promise<void> {
+  exportLoads[locale] ??= exportLoaders[locale]().then(
+    (messages) => {
+      exportCatalogs[locale] = messages
+    },
+    (error: unknown) => {
+      delete exportLoads[locale]
+      throw error
+    },
+  )
+  return exportLoads[locale]
+}
+
+export function hasExportMessages(locale: Locale): boolean {
+  return exportCatalogs[locale] !== undefined
 }
 
 export function isLocale(value: unknown): value is Locale {
@@ -42,8 +71,9 @@ export function detectLocale(): Locale {
 }
 
 export function translate(locale: Locale, key: MessageKey): string {
-  const parts = key.split('.')
-  let current: unknown = catalogs[locale]
+  const [head, ...rest] = key.split('.')
+  const parts = head === 'export' ? rest : [head, ...rest]
+  let current: unknown = head === 'export' ? exportCatalogs[locale] : catalogs[locale]
   for (const part of parts) {
     if (typeof current !== 'object' || current === null || !(part in current)) return key
     current = (current as Record<string, unknown>)[part]
@@ -62,8 +92,10 @@ export function flattenMessages(tree: unknown, prefix = ''): Record<string, stri
   return result
 }
 
+/** `export` is missing until `loadExportMessages(locale)` has resolved. */
 export function catalogFor(locale: Locale): Messages {
-  return catalogs[locale]
+  const exportMessages = exportCatalogs[locale]
+  return (exportMessages ? { ...catalogs[locale], export: exportMessages } : catalogs[locale]) as Messages
 }
 
 export function htmlLang(locale: Locale): string {

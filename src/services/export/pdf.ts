@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf'
 import { autoTable, type RowInput, type UserOptions } from 'jspdf-autotable'
-import { htmlLang, translate, type Locale, type MessageKey } from '../../i18n'
+import { htmlLang, loadExportMessages, translate, type Locale, type MessageKey } from '../../i18n'
 import { formatIsoDate, formatMoney, formatWhen, intlLocale } from '../../lib/money'
 import type { CategoryNames, CurrencyTotals, ExportDataset } from './dataset'
 import { PDF_ROW_LIMIT } from './options'
@@ -30,6 +30,7 @@ function finalY(doc: jsPDF): number {
 
 export async function buildPdf(dataset: ExportDataset, options: PdfOptions): Promise<Blob> {
   const { locale } = options
+  await loadExportMessages(locale)
   const t = (key: MessageKey) => translate(locale, key)
   const money = (minor: number | bigint, currency: string) => formatMoney(Number(minor), currency, locale)
   const percent = new Intl.NumberFormat(intlLocale(locale), { style: 'percent', maximumFractionDigits: 1 })

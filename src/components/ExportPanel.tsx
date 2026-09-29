@@ -4,7 +4,7 @@ import { PeriodPicker } from './PeriodPicker'
 import { useI18n } from '../context/I18nContext'
 import { PeriodProvider, usePeriod } from '../context/PeriodContext'
 import { useVault } from '../context/VaultContext'
-import type { MessageKey } from '../i18n'
+import { hasExportMessages, loadExportMessages, type Locale, type MessageKey } from '../i18n'
 import { downloadFile } from '../lib/download'
 import { errorText, textForError } from '../lib/errors'
 import { Permission, canUser } from '../rbac'
@@ -36,6 +36,25 @@ const PROTECTION_OPTIONS: { value: Protection; label: MessageKey; help: MessageK
 ]
 
 export function ExportPanel() {
+  const { t, locale } = useI18n()
+  const [loaded, setLoaded] = useState<Locale | null>(() => (hasExportMessages(locale) ? locale : null))
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => {
+    let live = true
+    setFailed(false)
+    loadExportMessages(locale).then(
+      () => live && setLoaded(locale),
+      () => live && setFailed(true),
+    )
+    return () => {
+      live = false
+    }
+  }, [locale])
+
+  if (failed && loaded === null) return <Notice>{t('errors.generic')}</Notice>
+  // After a language switch the form stays mounted, so a running export is not aborted while the new strings load.
+  if (loaded === null) return <div role="status" aria-busy="true" className="min-h-40" />
   return (
     <PeriodProvider initialPreset="month">
       <ExportForm />

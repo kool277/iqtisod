@@ -64,7 +64,7 @@ Private safes are owner-only containers for cards, subscriptions, and notes, sto
 - **Recent authentication**: `confirmRecentAuth` re-derives the personal KEK and sets `keyring.lastAuthAt`; `assertRecentAuth` throws `REAUTH_REQUIRED` after `RECENT_AUTH_MS` (2 minutes). `purgeSafe`, `purgeItems`, `rotateSafeKey`, and `openSafe` without a password call it. `createRecoveryCode` and `resetSafes` take the password directly. The UI must also confirm recent authentication before revealing or copying a card number or CVV.
 - **Password changes**: `changeOwnPassword` (`src/services/account.service.ts`) verifies the current password, rewraps the DEK under the new one with a fresh salt, stores the verifier, clears `must_change_password`, sets `password_changed_at`, writes `PASSWORD_CHANGED`, and, through `preparePasswordRewrap`, rewraps the personal key in the same transaction when the current password opens it and the person was not in the must-change state. `resetUserPassword` and `createUser` set `must_change_password = 1` and `password_changed_at`; `resetUserPassword` refuses the caller's own id with `USE_ACCOUNT`. `deleteUser` deletes the person's `safe_events`, `secure_items`, `safes`, and `user_keys` explicitly in the same transaction (the `ON DELETE CASCADE` foreign keys are a backstop).
 - **Domain** (`src/domain/`): `safes.ts` holds the payload types, colours, icons, preference choices, event types, `SAFE_LIMITS`, `TRASH_DAYS`, `RECENT_AUTH_MS`, and `validateSafeInput`. `cards.ts` has Luhn, brand detection (longest prefix wins), `checkCardNumber` (strict Luhn for Visa, Mastercard, Amex, and Mir; a warning only for UzCard, Humo, UnionPay, and Other), masking, and `expiryStatus` (`SOON` within `EXPIRY_SOON_DAYS`, 60). `subscriptions.ts` has `nextRenewal` (month steps clamped to the month end), `monthlyMinor` and `yearlyMinor` (BigInt, half-even, custom cycles at 365.2425 days a year), `subscriptionSummary` (per-currency totals of active subscriptions and the next 30 days), and `validateSubscription`. `items.ts` dispatches validation by `kind`.
-- **Exports**: `exportPlainDatabase` and `tools/moliya-decrypt.mjs` (without `--keep-keys`) delete every row of the four safe tables. There is no plaintext export of safes.
+- **Exports**: the export SQLite builder (`src/services/export/sqlite.ts`) never copies the four safe tables, and `tools/moliya-decrypt.mjs` (without `--keep-keys`) deletes every row of them. No export format contains safes.
 - **Out of scope**: a compromised device or modified JavaScript, an Admin who resets a password and also plants a forged key (only secrets stored after the reset are exposed), metadata such as counts, size buckets, `deleted_at`, and write timing, and undetected deletion or rollback of rows. See [What the safe layer does not protect](data-format.md#what-the-safe-layer-does-not-protect) before changing anything in this area.
 
 ### Storage record and backups
@@ -183,7 +183,7 @@ KRW and ILS are converter currencies only (`FX_MINOR_UNITS`), not ledger currenc
 
 ### Exports
 
-`src/services/export/` is loaded only when an Admin presses **Export** (`import('../services/export')` in `ExportPanel.tsx`), and the heavy format modules are imported again lazily inside it, so none of it is in the initial bundle.
+`src/services/export/` is loaded only when an Admin presses **Export** (`import('../services/export')` in `ExportPanel.tsx`), and the heavy format modules are imported again lazily inside it, so none of it is in the initial bundle. The panel's strings (`src/i18n/export/<locale>.ts`) are also loaded on demand: `loadExportMessages(locale)` in `src/i18n/index.ts` runs when the panel mounts and at the start of `buildPdf` and `buildXlsx`. Until it resolves, `export.*` keys translate to themselves. The keys stay in the `Messages` type, so `t('export.…')` is still checked.
 
 | File | Responsibility |
 | --- | --- |
@@ -196,7 +196,7 @@ KRW and ILS are converter currencies only (`FX_MINOR_UNITS`), not ledger currenc
 | `zip.ts` | zip.js AES-256 writer, `useWebWorkers: false` so it runs under the CSP |
 | `password.ts`, `readme.ts` | Export password rules, strength estimate, generator, sign-in password reuse check; the ZIP `README.txt` |
 
-Libraries: `jspdf` + `jspdf-autotable`, `write-excel-file`, `@zip.js/zip.js` (`index-native.js`). They are split into the `export-pdf`, `export-xlsx`, and `export-zip` chunks in `vite.config.ts`. jsPDF's optional `html2canvas`, `canvg`, and `dompurify` imports (only used by `.html()` and SVG) are aliased to `src/lib/empty-module.ts`, so they are never bundled and cannot hit `eval`-like paths under the CSP.
+Libraries: `jspdf` + `jspdf-autotable`, `write-excel-file`, `@zip.js/zip.js` (`index-native.js`). They are split into the `export-pdf`, `export-xlsx`, and `export-zip` chunks in `vite.config.ts`, plus `export-fflate` for the compression library jsPDF and write-excel-file share, so an Excel export does not download jsPDF. jsPDF's optional `html2canvas`, `canvg`, and `dompurify` imports (only used by `.html()` and SVG) are aliased to `src/lib/empty-module.ts`, so they are never bundled and cannot hit `eval`-like paths under the CSP.
 
 Budget: the initial JavaScript may grow by at most 2 KB; each export chunk at most 160 KB gzip; no chunk over the 600 KB warning.
 

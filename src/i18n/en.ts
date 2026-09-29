@@ -1,4 +1,4 @@
-import { exportEn } from './export/en'
+import type { ExportMessages } from './export/en'
 
 export const en = {
   app: {
@@ -758,7 +758,8 @@ export const en = {
     TOTP_CLEARED: 'Sign-in check removed',
     TOTP_RECOVERY_USED: 'Sign-in recovery code used',
   },
-  export: exportEn,
 }
 
-export type Messages = typeof en
+/** Everything except the export strings, which load with the export panel. */
+export type CoreMessages = typeof en
+export type Messages = CoreMessages & { export: ExportMessages }
