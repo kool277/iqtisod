@@ -13,9 +13,12 @@ function loadBlocklist(): Promise<Set<string>> {
   return blocklist
 }
 
+/** Counts code points, so an emoji is one character, not two. */
 export function assertPasswordLength(password: string): void {
-  if (password.length < LIMITS.passwordMin) throw new ValidationError('PASSWORD_SHORT')
-  if (password.length > LIMITS.passwordMax) throw new ValidationError('PASSWORD_LONG')
+  if (password.length > LIMITS.passwordMax * 2) throw new ValidationError('PASSWORD_LONG')
+  const length = [...password].length
+  if (length < LIMITS.passwordMin) throw new ValidationError('PASSWORD_SHORT')
+  if (length > LIMITS.passwordMax) throw new ValidationError('PASSWORD_LONG')
 }
 
 function compact(text: string): string {

@@ -2,6 +2,7 @@ import { bytesToBase64 } from '../crypto/encoding'
 import { CURRENT_KDF, SALT_BYTES, deriveKeyAndVerifier, randomBytes, wrapDek } from '../crypto/crypto.service'
 import { ForbiddenError, ValidationError, isUniqueViolation } from '../domain/errors'
 import { isRoleName, type OpenVault, type RoleName, type UserWrap, type VaultUser } from '../domain/types'
+import { LIMITS } from '../lib/limits'
 import { assertNewPassword } from '../lib/password-policy'
 import { Permission, canUser } from '../rbac'
 import { assertEmail, normalizeEmail } from './auth.service'
@@ -92,6 +93,7 @@ export async function createUser(vault: OpenVault, input: NewUserInput): Promise
   const email = normalizeEmail(input.email)
   assertEmail(email)
   await assertNewPassword(input.password, { email, vaultName: vault.vaultName })
+  if (vault.wraps.length >= LIMITS.wraps) throw new ValidationError('MEMBER_LIMIT')
   const groupId = assertGroup(vault, input.groupId, input.roleName)
   const salt = randomBytes(SALT_BYTES)
   const { key, verifier } = await deriveKeyAndVerifier(input.password, salt, CURRENT_KDF)

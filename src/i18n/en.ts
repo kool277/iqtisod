@@ -680,6 +680,7 @@ export const en = {
     INVITE_EXPIRED: 'This code has expired. Ask your administrator for a new one.',
     CLOCK_BEHIND: 'This device’s clock is behind. Correct the date and time, then try again.',
     INVITE_LIMIT: 'Too many open codes. Revoke some first.',
+    MEMBER_LIMIT: 'This vault already has the maximum number of people (256).',
     GRANT_OPEN: 'There is already an open code for this email. Revoke it first.',
     THROTTLED: 'Too many attempts. Wait a moment and try again.',
     TOTP_INVALID: 'That code is not correct or was already used.',

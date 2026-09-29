@@ -106,6 +106,8 @@ export async function createInvite(
   if (open.some((grant) => grant.email === email)) throw new ValidationError('GRANT_OPEN')
   if (open.filter((grant) => grant.kind === 'INVITE').length >= LIMITS.openInvites) throw new ValidationError('INVITE_LIMIT')
   if (vault.grants.length >= LIMITS.grants) throw new ValidationError('INVITE_LIMIT')
+  // Each accepted invite adds a wrap, and the envelope decoder refuses more than LIMITS.wraps.
+  if (vault.wraps.length + open.filter((grant) => grant.kind === 'INVITE').length >= LIMITS.wraps) throw new ValidationError('MEMBER_LIMIT')
   const groupId = checkUserGroup(vault, input.groupId, input.roleName)
   const roleId = roleIdByName(vault, input.roleName)
   assertClock(vault.db, now)
@@ -242,6 +244,7 @@ export async function redeemGrant(record: VaultRecord, input: RedeemInput, now =
     const derived = await deriveKeyAndVerifier(input.password, salt, kdf)
     const wrapped = await wrapDek(dek, derived.key)
     const wraps = wrapsFromRecord(record)
+    if (row.kind === 'INVITE' && wraps.length >= LIMITS.wraps) throw new ValidationError('MEMBER_LIMIT')
     let userId: string
     if (row.kind === 'INVITE') {
       if (db.queryValue('SELECT 1 FROM users WHERE email = ?', [email]) != null) throw new ValidationError('DUPLICATE_EMAIL')

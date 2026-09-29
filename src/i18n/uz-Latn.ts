@@ -682,6 +682,7 @@ export const uzLatn: Messages = {
     INVITE_EXPIRED: 'Bu kodning muddati tugagan. Administratordan yangisini soʻrang.',
     CLOCK_BEHIND: 'Bu qurilmaning soati orqada. Sana va vaqtni toʻgʻrilab, qayta urinib koʻring.',
     INVITE_LIMIT: 'Faol kodlar juda koʻp. Avval ulardan baʼzilarini bekor qiling.',
+    MEMBER_LIMIT: 'Bu seyfda odamlar soni allaqachon eng koʻp miqdorga yetgan (256).',
     GRANT_OPEN: 'Bu pochta uchun faol kod allaqachon bor. Avval uni bekor qiling.',
     THROTTLED: 'Urinishlar juda koʻp. Biroz kutib, qayta urinib koʻring.',
     TOTP_INVALID: 'Kod notoʻgʻri yoki allaqachon ishlatilgan.',

@@ -61,9 +61,11 @@ export function createThrottle(options: { storage?: KeyValueStore | null; now?: 
   const storage = options.storage === undefined ? browserStorage() : options.storage
   const now = options.now ?? Date.now
   let memory: State = {}
+  // Once a write fails, storage no longer reflects new failures, so count in memory for this tab.
+  let persistent = storage !== null
 
   const load = (): State => {
-    if (!storage) return memory
+    if (!storage || !persistent) return memory
     try {
       const parsed = JSON.parse(storage.getItem(THROTTLE_KEY) ?? '{}') as unknown
       if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {}
@@ -82,11 +84,11 @@ export function createThrottle(options: { storage?: KeyValueStore | null; now?: 
       .sort(([, left], [, right]) => right.last - left.last)
       .slice(0, MAX_ENTRIES)
     memory = Object.fromEntries(kept)
-    if (!storage) return
+    if (!storage || !persistent) return
     try {
       storage.setItem(THROTTLE_KEY, JSON.stringify(memory))
     } catch {
-      // Private browsing or a full quota: the in-memory copy still throttles this tab.
+      persistent = false
     }
   }
 
