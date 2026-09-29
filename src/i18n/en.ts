@@ -1,3 +1,5 @@
+import { exportEn } from './export/en'
+
 export const en = {
   app: {
     name: 'Moliya',
@@ -161,6 +163,7 @@ export const en = {
       SCHEMA_MIGRATED: 'Data format upgraded',
       CREDENTIALS_UPGRADED: 'Password protection strengthened',
       PLAINTEXT_EXPORTED: 'Unencrypted export',
+      DATA_EXPORTED: 'Data exported',
     },
   },
   backup: {
@@ -274,6 +277,7 @@ export const en = {
     error: 'Could not save',
     conflict: 'Not saved: changed elsewhere',
   },
+  export: exportEn,
 }
 
 export type Messages = typeof en

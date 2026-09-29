@@ -1,4 +1,5 @@
 import type { Messages } from './en'
+import { exportRu } from './export/ru'
 
 export const ru: Messages = {
   app: {
@@ -163,6 +164,7 @@ export const ru: Messages = {
       SCHEMA_MIGRATED: 'Формат данных обновлён',
       CREDENTIALS_UPGRADED: 'Защита пароля усилена',
       PLAINTEXT_EXPORTED: 'Незашифрованный экспорт',
+      DATA_EXPORTED: 'Данные экспортированы',
     },
   },
   backup: {
@@ -276,4 +278,5 @@ export const ru: Messages = {
     error: 'Не удалось сохранить',
     conflict: 'Не сохранено: изменено в другом месте',
   },
+  export: exportRu,
 }

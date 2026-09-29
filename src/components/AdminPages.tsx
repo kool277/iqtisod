@@ -8,12 +8,11 @@ import { formatWhen } from '../lib/money'
 import type { MessageKey } from '../i18n'
 import { Permission, canUser } from '../rbac'
 import { listArchives, readArchive, type ArchiveEntry } from '../db/storage'
-import { toIsoDate } from '../lib/dates'
 import { downloadFile } from '../lib/download'
 import { persistenceState, type PersistenceState } from '../lib/persistence'
 import { archiveFileText, backupFileName, backupFileText, noteExport, parseBackup, type ParsedBackup } from '../services/backup.service'
 import { auditIntegrity, listAudit } from '../services/audit.service'
-import { exportPlainDatabase, exportTransactionsCsv } from '../services/export.service'
+import { ExportPanel } from './ExportPanel'
 import { createGroup, deleteGroup, listGroups } from '../services/group.service'
 import { createUser, deleteUser, listUsers, resetUserPassword } from '../services/user.service'
 
@@ -340,18 +339,6 @@ export function BackupPage() {
       downloadFile(archiveFileText(entry), backupFileName('archive', new Date(entry.archivedAt)), 'application/json')
     })
 
-  const onCsv = () =>
-    guarded(async () => {
-      const text = await run((vault) => exportTransactionsCsv(vault), { dirty: true })
-      downloadFile(text, `moliya-records-${toIsoDate(new Date())}.csv`, 'text/csv;charset=utf-8')
-    })
-
-  const onSqlite = () =>
-    guarded(async () => {
-      const bytes = await run((vault) => exportPlainDatabase(vault), { dirty: true })
-      downloadFile(bytes, `moliya-database-${toIsoDate(new Date())}.sqlite`, 'application/vnd.sqlite3')
-    })
-
   async function onFile(file: File | undefined) {
     setPending(null)
     setError(null)
@@ -417,6 +404,7 @@ export function BackupPage() {
           </>
         ) : null}
       </div>
+      <ExportPanel />
       <div className="rounded-3xl border border-line bg-card p-5">
         <h2 className="font-display text-2xl">{t('backup.archives')}</h2>
         <p className="mt-2 text-sm text-muted">{t('backup.archivesIntro')}</p>
@@ -437,18 +425,6 @@ export function BackupPage() {
             </li>
           ))}
         </ul>
-      </div>
-      <div className="rounded-3xl border border-clay/50 bg-card p-5">
-        <h2 className="font-display text-2xl">{t('backup.plainTitle')}</h2>
-        <p className="mt-2 text-sm text-clay-ink">{t('backup.plainWarn')}</p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Button variant="quiet" data-testid="export-csv" onClick={() => void onCsv()}>
-            {t('backup.exportCsv')}
-          </Button>
-          <Button variant="quiet" data-testid="export-sqlite" onClick={() => void onSqlite()}>
-            {t('backup.exportSqlite')}
-          </Button>
-        </div>
       </div>
     </div>
   )

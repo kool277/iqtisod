@@ -1,4 +1,5 @@
 import type { Messages } from './en'
+import { exportUzLatn } from './export/uz-Latn'
 
 export const uzLatn: Messages = {
   app: {
@@ -163,6 +164,7 @@ export const uzLatn: Messages = {
       SCHEMA_MIGRATED: 'Maʼlumotlar formati yangilandi',
       CREDENTIALS_UPGRADED: 'Parol himoyasi kuchaytirildi',
       PLAINTEXT_EXPORTED: 'Shifrlanmagan eksport',
+      DATA_EXPORTED: 'Maʼlumotlar eksport qilindi',
     },
   },
   backup: {
@@ -276,4 +278,5 @@ export const uzLatn: Messages = {
     error: 'Saqlab boʻlmadi',
     conflict: 'Saqlanmadi: boshqa joyda oʻzgartirilgan',
   },
+  export: exportUzLatn,
 }

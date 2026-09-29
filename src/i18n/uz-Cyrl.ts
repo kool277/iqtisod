@@ -1,4 +1,5 @@
 import type { Messages } from './en'
+import { exportUzCyrl } from './export/uz-Cyrl'
 
 export const uzCyrl: Messages = {
   app: {
@@ -163,6 +164,7 @@ export const uzCyrl: Messages = {
       SCHEMA_MIGRATED: 'Маълумотлар формати янгиланди',
       CREDENTIALS_UPGRADED: 'Парол ҳимояси кучайтирилди',
       PLAINTEXT_EXPORTED: 'Шифрланмаган экспорт',
+      DATA_EXPORTED: 'Маълумотлар экспорт қилинди',
     },
   },
   backup: {
@@ -276,4 +278,5 @@ export const uzCyrl: Messages = {
     error: 'Сақлаб бўлмади',
     conflict: 'Сақланмади: бошқа жойда ўзгартирилган',
   },
+  export: exportUzCyrl,
 }

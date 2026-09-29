@@ -14,8 +14,8 @@ type PeriodApi = {
 
 const PeriodContext = createContext<PeriodApi | null>(null)
 
-export function PeriodProvider({ children }: { children: ReactNode }) {
-  const [preset, setPreset] = useState<PeriodPreset>('month')
+export function PeriodProvider({ children, initialPreset = 'month' }: { children: ReactNode; initialPreset?: PeriodPreset }) {
+  const [preset, setPreset] = useState<PeriodPreset>(initialPreset)
   const [customStart, setCustomStart] = useState('')
   const [customEnd, setCustomEnd] = useState('')
   const range = useMemo(
