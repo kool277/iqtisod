@@ -14,6 +14,11 @@ const UsersPage = lazy(() => import('./components/AdminPages').then((module) => 
 const GroupsPage = lazy(() => import('./components/AdminPages').then((module) => ({ default: module.GroupsPage })))
 const AuditPage = lazy(() => import('./components/AdminPages').then((module) => ({ default: module.AuditPage })))
 const BackupPage = lazy(() => import('./components/AdminPages').then((module) => ({ default: module.BackupPage })))
+const SafesHome = lazy(() => import('./components/safes/SafesHome').then((module) => ({ default: module.SafesHome })))
+const SafeView = lazy(() => import('./components/safes/SafeView').then((module) => ({ default: module.SafeView })))
+const SafesTrash = lazy(() => import('./components/safes/SafesTrash').then((module) => ({ default: module.SafesTrash })))
+const SafesActivity = lazy(() => import('./components/safes/SafesActivity').then((module) => ({ default: module.SafesActivity })))
+const AccountPage = lazy(() => import('./components/AccountPage').then((module) => ({ default: module.AccountPage })))
 
 function Page({ children }: { children: ReactNode }) {
   return <Suspense fallback={<div role="status" aria-busy="true" className="min-h-40" />}>{children}</Suspense>
@@ -56,6 +61,11 @@ function AppRoutes() {
           <Route path="audit" element={<Page><AuditPage /></Page>} />
           <Route path="backup" element={<Page><BackupPage /></Page>} />
           <Route path="settings" element={<Page><SettingsPage /></Page>} />
+          <Route path="safes" element={<Page><SafesHome /></Page>} />
+          <Route path="safes/trash" element={<Page><SafesTrash /></Page>} />
+          <Route path="safes/activity" element={<Page><SafesActivity /></Page>} />
+          <Route path="safes/:safeId" element={<Page><SafeView /></Page>} />
+          <Route path="account" element={<Page><AccountPage /></Page>} />
         </Route>
         <Route path="*" element={<HomeRedirect />} />
       </Routes>

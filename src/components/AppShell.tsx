@@ -8,11 +8,14 @@ import {
   PanelLeftOpen,
   ScrollText,
   Settings,
+  UserRound,
   Users,
+  Vault,
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { Link, NavLink, Outlet } from 'react-router-dom'
+import { Link, Navigate, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { PeriodProvider } from '../context/PeriodContext'
+import { SafeProvider } from '../context/SafeContext'
 import { useI18n } from '../context/I18nContext'
 import { useVault } from '../context/VaultContext'
 import type { MessageKey } from '../i18n'
@@ -29,16 +32,20 @@ const links: {
   testId: string
   label: MessageKey
   icon: typeof Users
-  permission: (typeof Permission)[keyof typeof Permission]
+  permission?: (typeof Permission)[keyof typeof Permission]
 }[] = [
   { to: '/app', end: true, testId: 'nav-dashboard', label: 'nav.dashboard', icon: LayoutDashboard, permission: Permission.READ_DASHBOARD },
   { to: '/app/transactions', testId: 'nav-transactions', label: 'nav.transactions', icon: BookOpen, permission: Permission.READ_TRANSACTIONS },
+  { to: '/app/safes', testId: 'nav-safes', label: 'nav.safes', icon: Vault },
   { to: '/app/users', testId: 'nav-users', label: 'nav.users', icon: Users, permission: Permission.MANAGE_USERS },
   { to: '/app/groups', testId: 'nav-groups', label: 'nav.groups', icon: Layers, permission: Permission.MANAGE_GROUPS },
   { to: '/app/audit', testId: 'nav-audit', label: 'nav.audit', icon: ScrollText, permission: Permission.READ_AUDIT },
   { to: '/app/backup', testId: 'nav-backup', label: 'nav.backup', icon: Archive, permission: Permission.EXPORT_VAULT },
   { to: '/app/settings', testId: 'nav-settings', label: 'nav.settings', icon: Settings, permission: Permission.MANAGE_SETTINGS },
+  { to: '/app/account', testId: 'nav-account', label: 'nav.account', icon: UserRound },
 ]
+
+const ACCOUNT_PATH = '/app/account'
 
 export function AppShell() {
   const { t } = useI18n()
@@ -46,7 +53,10 @@ export function AppShell() {
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(SIDEBAR_KEY) === 'collapsed')
   const [reminderDismissed, setReminderDismissed] = useState(false)
   const reminder = useMemo(() => (user ? query((vault) => backupReminder(vault)) : null), [user, query, revision, lastBackupAt])
+  const location = useLocation()
   if (!user) return null
+  const forced = user.mustChangePassword
+  const visibleLinks = links.filter((link) => (forced ? link.to === ACCOUNT_PATH : !link.permission || canUser(user, link.permission)))
 
   const toggleSidebar = () => {
     const next = !collapsed
@@ -118,9 +128,7 @@ export function AppShell() {
           >
             {collapsed ? 'M' : 'Moliya'}
           </Link>
-          {links
-            .filter((link) => canUser(user, link.permission))
-            .map((link) => {
+          {visibleLinks.map((link) => {
               const Icon = link.icon
               const label = t(link.label)
               return (
@@ -148,7 +156,7 @@ export function AppShell() {
           </p>
         </nav>
         <main id="content" className="mx-auto w-full min-w-0 max-w-[1280px] px-4 py-6 md:col-start-2 md:px-8 md:py-8">
-          {reminder && !reminderDismissed ? (
+          {reminder && !reminderDismissed && !forced ? (
             <div role="status" data-testid="backup-reminder" data-kind={reminder} className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-brass/50 bg-brass-soft px-4 py-3 text-sm">
               <span className="min-w-0">{t(reminder === 'never' ? 'backup.reminderNever' : 'backup.reminderStale')}</span>
               <span className="flex shrink-0 gap-2">
@@ -161,7 +169,7 @@ export function AppShell() {
               </span>
             </div>
           ) : null}
-          <Outlet />
+          <SafeProvider>{forced && location.pathname !== ACCOUNT_PATH ? <Navigate to={ACCOUNT_PATH} replace /> : <Outlet />}</SafeProvider>
         </main>
       </div>
     </PeriodProvider>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { Button, Field, Notice, controlClass } from './ui'
 import { useI18n } from '../context/I18nContext'
 import { useVault } from '../context/VaultContext'
@@ -140,25 +141,52 @@ export function UsersPage() {
                   {person.groupName ? ` · ${person.groupName}` : ''}
                 </p>
               </div>
-              <div className="flex gap-2">
-                <Button variant="quiet" onClick={() => setResetId(person.id)}>
-                  {t('users.resetPassword')}
-                </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                {person.id === user?.id ? (
+                  <Link to="/app/account" className="text-sm text-pine-ink hover:underline" data-testid="user-use-account">
+                    {t('users.useAccount')}
+                  </Link>
+                ) : (
+                  <Button variant="quiet" onClick={() => setResetId(person.id)} data-testid="user-reset">
+                    {t('users.resetPassword')}
+                  </Button>
+                )}
                 <Button variant="danger" onClick={() => setPendingDelete(person.id)}>
                   {t('users.remove')}
                 </Button>
               </div>
             </div>
             {resetId === person.id ? (
-              <form className="mt-3 flex flex-wrap items-end gap-2" onSubmit={(event) => void onReset(event)}>
-                <Field label={t('users.newPassword')}>
-                  <input type="password" className={controlClass} value={nextPassword} onChange={(event) => setNextPassword(event.target.value)} required />
-                </Field>
-                <Button type="submit">{t('common.save')}</Button>
+              <form className="mt-3 space-y-3" onSubmit={(event) => void onReset(event)}>
+                <p role="note" data-testid="reset-safes-warn" className="rounded-2xl border border-brass/50 bg-brass-soft px-3 py-2 text-sm">
+                  {t('users.resetSafesWarn')}
+                </p>
+                <div className="flex flex-wrap items-end gap-2">
+                  <Field label={t('users.newPassword')}>
+                    <input
+                      type="password"
+                      autoComplete="new-password"
+                      data-testid="user-reset-password"
+                      className={controlClass}
+                      value={nextPassword}
+                      onChange={(event) => setNextPassword(event.target.value)}
+                      required
+                    />
+                  </Field>
+                  <Button type="submit" data-testid="user-reset-save">
+                    {t('common.save')}
+                  </Button>
+                  <Button variant="quiet" onClick={() => setResetId(null)}>
+                    {t('common.cancel')}
+                  </Button>
+                </div>
               </form>
             ) : null}
             {pendingDelete === person.id ? (
               <div className="mt-3 flex flex-wrap items-center gap-2">
+                <p className="w-full text-sm text-clay-ink" data-testid="remove-safes-warn">
+                  {t('users.removeSafesWarn')}
+                </p>
                 <p className="text-sm">{t('users.removeConfirm')}</p>
                 <Button variant="danger" onClick={() => void onDelete(person.id)}>
                   {t('users.remove')}

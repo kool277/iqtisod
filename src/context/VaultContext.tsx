@@ -30,6 +30,7 @@ type VaultApi = {
 }
 
 const VaultContext = createContext<VaultApi | null>(null)
+const VAULT_IDLE_MS = 15 * 60_000
 
 function snapshotUser(user: SessionUser): SessionUser {
   return { ...user, permissions: [...user.permissions] }
@@ -274,6 +275,23 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       document.removeEventListener('visibilitychange', onVisibility)
     }
   }, [status, enqueuePersist])
+
+  useEffect(() => {
+    if (status !== 'ready') return
+    let lastActivity = Date.now()
+    const touch = () => {
+      lastActivity = Date.now()
+    }
+    const events = ['pointerdown', 'keydown', 'wheel', 'touchstart'] as const
+    for (const name of events) window.addEventListener(name, touch, { passive: true })
+    const interval = window.setInterval(() => {
+      if (Date.now() - lastActivity >= VAULT_IDLE_MS) void lock()
+    }, 15_000)
+    return () => {
+      for (const name of events) window.removeEventListener(name, touch)
+      window.clearInterval(interval)
+    }
+  }, [status, lock])
 
   useEffect(() => {
     return () => {
