@@ -153,7 +153,7 @@ test('upgrades a vault stored by 1.0.0 in this browser without losing anything',
   await login(page, 'admin@golden.test', 'golden-admin-v1')
   await expect(page.getByTestId('save-state')).toHaveText('Saved', { timeout: 30_000 })
   const stored = await storedSummary(page)
-  expect(stored).toMatchObject({ version: 2, schemaVersion: 3, appVersion: packageVersion, hasBody: true, hasPayload: false })
+  expect(stored).toMatchObject({ version: 2, schemaVersion: 4, appVersion: packageVersion, hasBody: true, hasPayload: false })
   expect(stored.iterations).toEqual({ 'admin@golden.test': 600000, 'manager@golden.test': 200000, 'viewer@golden.test': 200000 })
   expect(stored.archives).toHaveLength(1)
   expect(stored.archives[0]).toMatchObject({ reason: 'upgrade', sourceVersion: 1 })
@@ -181,7 +181,7 @@ test('upgrades a vault stored by 1.0.0 in this browser without losing anything',
 
   await page.getByTestId('nav-settings').click()
   await expect(page.getByTestId('about-version')).toHaveText(packageVersion)
-  await expect(page.getByTestId('about-schema')).toHaveText('3')
+  await expect(page.getByTestId('about-schema')).toHaveText('4')
   await expect(page.getByTestId('app-version')).toHaveText(`v${packageVersion}`)
 
   await page.getByTestId('lock-vault').click()
@@ -212,7 +212,7 @@ test('imports a 1.0.0 backup file into a fresh browser', async ({ page }) => {
   await showRange(page, '2026-06-01', '2026-06-30')
   await expectKpis(page, { income: '12500000.75', expense: '350000.5', net: '12150000.25', savings: '97.2' })
   await expect(page.getByTestId('save-state')).toHaveText('Saved', { timeout: 30_000 })
-  expect((await storedSummary(page)).schemaVersion).toBe(3)
+  expect((await storedSummary(page)).schemaVersion).toBe(4)
 })
 
 test('refuses a vault written by a newer version and leaves it untouched', async ({ page }) => {

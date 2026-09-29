@@ -14,8 +14,8 @@ async function createVault(page: Page) {
   await page.goto('/')
   await page.getByTestId('setup-name').fill('Home')
   await page.getByTestId('setup-email').fill('admin@example.com')
-  await page.getByTestId('setup-password').fill('correct-horse')
-  await page.getByTestId('setup-confirm').fill('correct-horse')
+  await page.getByTestId('setup-password').fill('Correct horse lantern 7')
+  await page.getByTestId('setup-confirm').fill('Correct horse lantern 7')
   await page.getByTestId('setup-submit').click()
   await expect(page.getByTestId('kpi-net')).toBeVisible({ timeout: 30_000 })
 }
@@ -35,6 +35,7 @@ async function lockVault(page: Page) {
 
 async function createMember(page: Page, email: string, password: string, role: 'Manager' | 'Viewer') {
   await page.getByTestId('nav-users').click()
+  await page.getByTestId('advanced-temp-toggle').click()
   await page.getByTestId('user-email').fill(email)
   await page.getByTestId('user-password').fill(password)
   await page.getByTestId('user-role').selectOption(role)
@@ -53,7 +54,8 @@ async function changeOwnPassword(page: Page, current: string, next: string) {
 
 async function adminResets(page: Page, email: string, temporary: string) {
   await page.getByTestId('nav-users').click()
-  const row = page.locator('li', { hasText: email })
+  const row = page.getByTestId('person-row').filter({ hasText: email })
+  await row.getByTestId('user-issue-reset').click()
   await row.getByTestId('user-reset').click()
   await expect(row.getByTestId('reset-safes-warn')).toContainText('recovery code')
   await row.getByTestId('user-reset-password').fill(temporary)
@@ -145,7 +147,7 @@ test('keeps cards, subscriptions and notes in a private safe with masked secrets
   await page.setViewportSize({ width: 1440, height: 1000 })
   await createVault(page)
 
-  await setUpSafes(page, 'correct-horse', true)
+  await setUpSafes(page, 'Correct horse lantern 7', true)
   await expect(page.getByTestId('no-recovery-banner')).toHaveCount(0)
   await openFirstSafe(page)
 
@@ -242,7 +244,7 @@ test('keeps cards, subscriptions and notes in a private safe with masked secrets
   await page.getByTestId('safes-unlock-password').fill('wrong-password')
   await page.getByTestId('safes-unlock-submit').click()
   await expect(page.getByTestId('form-error')).toBeVisible({ timeout: 30_000 })
-  await page.getByTestId('safes-unlock-password').fill('correct-horse')
+  await page.getByTestId('safes-unlock-password').fill('Correct horse lantern 7')
   await page.getByTestId('safes-unlock-submit').click()
   await expect(page.getByTestId('safes-last-unlock')).toBeVisible({ timeout: 30_000 })
   await expect(page.getByTestId('upcoming-payment')).toHaveCount(1)
@@ -253,6 +255,7 @@ test('keeps cards, subscriptions and notes in a private safe with masked secrets
   await page.getByTestId('nav-users').click()
   await expect(page.getByTestId('user-use-account')).toBeVisible()
   await expect(page.getByTestId('user-reset')).toHaveCount(0)
+  await expect(page.getByTestId('user-issue-reset')).toHaveCount(0)
 
   const leaks = consoleText.filter((line) => [...SECRETS, `cvv ${CVV}`].some((secret) => line.includes(secret)))
   expect(leaks).toEqual([])
@@ -261,12 +264,12 @@ test('keeps cards, subscriptions and notes in a private safe with masked secrets
 
 test('a member without a recovery code gets their safes back with the previous password after an admin reset', async ({ page }) => {
   await createVault(page)
-  await createMember(page, 'manager@example.com', 'manager-temp-1', 'Manager')
+  await createMember(page, 'manager@example.com', 'Temp maple kettle 101', 'Manager')
   await lockVault(page)
 
-  await loginAs(page, 'manager@example.com', 'manager-temp-1')
-  await changeOwnPassword(page, 'manager-temp-1', 'manager-own-1')
-  await setUpSafes(page, 'manager-own-1', false)
+  await loginAs(page, 'manager@example.com', 'Temp maple kettle 101')
+  await changeOwnPassword(page, 'Temp maple kettle 101', 'Own orchard lantern 11')
+  await setUpSafes(page, 'Own orchard lantern 11', false)
   await expect(page.getByTestId('no-recovery-banner')).toBeVisible()
   await openFirstSafe(page)
   await addNote(page, 'Gym', 'Locker code 5591')
@@ -274,21 +277,21 @@ test('a member without a recovery code gets their safes back with the previous p
   await expect(page.getByTestId('recovery-status')).toHaveAttribute('data-state', 'none')
   await lockVault(page)
 
-  await loginAs(page, 'admin@example.com', 'correct-horse')
-  await adminResets(page, 'manager@example.com', 'manager-temp-2')
+  await loginAs(page, 'admin@example.com', 'Correct horse lantern 7')
+  await adminResets(page, 'manager@example.com', 'Temp maple kettle 202')
   await lockVault(page)
 
-  await loginAs(page, 'manager@example.com', 'manager-temp-2')
-  await changeOwnPassword(page, 'manager-temp-2', 'manager-own-2')
+  await loginAs(page, 'manager@example.com', 'Temp maple kettle 202')
+  await changeOwnPassword(page, 'Temp maple kettle 202', 'Own orchard lantern 22')
   await page.getByTestId('nav-safes').click()
   await expect(page.getByTestId('safes-stale')).toBeVisible()
   await expect(page.getByTestId('stale-no-recovery')).toBeVisible()
   await expect(page.getByTestId('stale-switch')).toHaveCount(0)
-  await page.getByTestId('stale-previous').fill('manager-temp-2')
-  await page.getByTestId('stale-current').fill('manager-own-2')
+  await page.getByTestId('stale-previous').fill('Temp maple kettle 202')
+  await page.getByTestId('stale-current').fill('Own orchard lantern 22')
   await page.getByTestId('stale-submit').click()
   await expect(page.getByTestId('form-error')).toBeVisible({ timeout: 30_000 })
-  await page.getByTestId('stale-previous').fill('manager-own-1')
+  await page.getByTestId('stale-previous').fill('Own orchard lantern 11')
   await page.getByTestId('stale-submit').click()
   await expect(page.getByTestId('form-success')).toBeVisible({ timeout: 30_000 })
   await openFirstSafe(page)
@@ -298,28 +301,28 @@ test('a member without a recovery code gets their safes back with the previous p
 
 test('a member with a recovery code gets their safes back with it after an admin reset', async ({ page }) => {
   await createVault(page)
-  await createMember(page, 'viewer@example.com', 'viewer-temp-1', 'Viewer')
+  await createMember(page, 'viewer@example.com', 'Temp birch window 101', 'Viewer')
   await lockVault(page)
 
-  await loginAs(page, 'viewer@example.com', 'viewer-temp-1')
-  await changeOwnPassword(page, 'viewer-temp-1', 'viewer-own-1')
-  const code = await setUpSafes(page, 'viewer-own-1', true)
+  await loginAs(page, 'viewer@example.com', 'Temp birch window 101')
+  await changeOwnPassword(page, 'Temp birch window 101', 'Own willow harbor 11')
+  const code = await setUpSafes(page, 'Own willow harbor 11', true)
   expect(code).toBeTruthy()
   await openFirstSafe(page)
   await addNote(page, 'Passport', 'AA 1234567')
   await lockVault(page)
 
-  await loginAs(page, 'admin@example.com', 'correct-horse')
-  await adminResets(page, 'viewer@example.com', 'viewer-temp-2')
+  await loginAs(page, 'admin@example.com', 'Correct horse lantern 7')
+  await adminResets(page, 'viewer@example.com', 'Temp birch window 202')
   await lockVault(page)
 
-  await loginAs(page, 'viewer@example.com', 'viewer-temp-2')
-  await changeOwnPassword(page, 'viewer-temp-2', 'viewer-own-2')
+  await loginAs(page, 'viewer@example.com', 'Temp birch window 202')
+  await changeOwnPassword(page, 'Temp birch window 202', 'Own willow harbor 22')
   await page.getByTestId('nav-safes').click()
   await expect(page.getByTestId('safes-stale')).toBeVisible()
   await page.getByTestId('stale-switch').click()
   await page.getByTestId('stale-recovery-code').fill(code!.toLowerCase())
-  await page.getByTestId('stale-current').fill('viewer-own-2')
+  await page.getByTestId('stale-current').fill('Own willow harbor 22')
   await page.getByTestId('stale-submit').click()
   await expect(page.getByTestId('form-success')).toBeVisible({ timeout: 30_000 })
   await openFirstSafe(page)
