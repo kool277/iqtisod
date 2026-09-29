@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
+  CURRENT_KDF,
   IV_BYTES,
-  PBKDF2_ITERATIONS,
+  KDF_ITERATION_BOUNDS,
+  LEGACY_KDF,
   SALT_BYTES,
   decryptDatabase,
   deriveKey,
@@ -9,15 +11,38 @@ import {
   generateDek,
   passwordVerifier,
   randomBytes,
+  isKdfParams,
+  kdfNeedsUpgrade,
   unwrapDek,
   wrapDek,
 } from '../../src/crypto/crypto.service'
 
 describe('crypto service', () => {
-  it('uses PBKDF2-SHA-256 with 200,000 iterations and a 32-byte salt', () => {
-    expect(PBKDF2_ITERATIONS).toBe(200_000)
+  it('wraps new keys with PBKDF2-SHA-256 at the OWASP 600,000 iterations and a 32-byte salt', () => {
+    expect(CURRENT_KDF).toEqual({ name: 'PBKDF2', hash: 'SHA-256', iterations: 600_000 })
+    expect(LEGACY_KDF).toEqual({ name: 'PBKDF2', hash: 'SHA-256', iterations: 200_000 })
     expect(SALT_BYTES).toBe(32)
     expect(IV_BYTES).toBe(12)
+  })
+
+  it('accepts every parameter set ever written and rejects out-of-bounds ones', () => {
+    expect(isKdfParams(LEGACY_KDF)).toBe(true)
+    expect(isKdfParams(CURRENT_KDF)).toBe(true)
+    expect(isKdfParams({ name: 'PBKDF2', hash: 'SHA-512', iterations: 1_000_000 })).toBe(true)
+    expect(isKdfParams({ name: 'PBKDF2', hash: 'SHA-256', iterations: KDF_ITERATION_BOUNDS.min - 1 })).toBe(false)
+    expect(isKdfParams({ name: 'PBKDF2', hash: 'SHA-256', iterations: KDF_ITERATION_BOUNDS.max + 1 })).toBe(false)
+    expect(isKdfParams({ name: 'PBKDF2', hash: 'MD5', iterations: 600_000 })).toBe(false)
+    expect(isKdfParams({ name: 'scrypt', hash: 'SHA-256', iterations: 600_000 })).toBe(false)
+    expect(isKdfParams({ name: 'PBKDF2', hash: 'SHA-256', iterations: 600_000.5 })).toBe(false)
+    expect(kdfNeedsUpgrade(LEGACY_KDF)).toBe(true)
+    expect(kdfNeedsUpgrade(CURRENT_KDF)).toBe(false)
+  })
+
+  it('derives different verifiers for different KDF parameters', async () => {
+    const salt = new Uint8Array(SALT_BYTES).fill(3)
+    const legacy = await passwordVerifier('vault-password', salt, LEGACY_KDF)
+    const current = await passwordVerifier('vault-password', salt, CURRENT_KDF)
+    expect(legacy).not.toBe(current)
   })
 
   it('derives a non-extractable 256-bit AES-GCM key', async () => {

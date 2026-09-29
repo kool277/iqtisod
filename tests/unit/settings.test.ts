@@ -67,7 +67,7 @@ describe('settings', () => {
 
     createTransaction(vault, {
       type: 'EXPENSE',
-      amount: 40,
+      amount: '40',
       currency: 'USD',
       categoryId: pets!.id,
       groupId: listGroups(vault)[0].id,

@@ -13,6 +13,13 @@
       "backupFormat": 1,
       "recordFormat": 1,
       "schemaVersion": 1
+    },
+    {
+      "path": "v2/ledger-v2",
+      "producedBy": "1.1.0",
+      "backupFormat": 2,
+      "recordFormat": 2,
+      "schemaVersion": 2
     }
   ]
 }

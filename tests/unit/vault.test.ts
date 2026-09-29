@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { PBKDF2_ITERATIONS } from '../../src/crypto/crypto.service'
+import { CURRENT_KDF } from '../../src/crypto/crypto.service'
 import { AuthError, ForbiddenError } from '../../src/domain/errors'
 import type { OpenVault } from '../../src/domain/types'
 import { permissionsForRole } from '../../src/rbac'
-import { backupToVault, parseBackup, vaultToBackup } from '../../src/services/backup.service'
+import { backupFileText, parseBackup } from '../../src/services/backup.service'
 import { createVault, sealVault, unlockVault } from '../../src/services/auth.service'
 import { createTransaction, listCategories, listTransactions, loadDashboard } from '../../src/services/finance.service'
 import { listGroups } from '../../src/services/group.service'
@@ -25,7 +25,8 @@ describe('vault', () => {
       currency: 'USD',
     })
     open.push(created.vault)
-    expect(created.record.kdf.iterations).toBe(PBKDF2_ITERATIONS)
+    expect(created.record.wraps[0].kdf).toEqual(CURRENT_KDF)
+    expect(created.record.appVersion).toBe(__APP_VERSION__)
     expect(created.vault.user.email).toBe('admin@example.com')
     expect(created.vault.user.permissions).toEqual(permissionsForRole('Admin'))
 
@@ -43,12 +44,12 @@ describe('vault', () => {
       notes: '',
       receiptData: null,
     }
-    createTransaction(created.vault, { ...base, type: 'INCOME', amount: 1000, categoryId: income!.id })
-    createTransaction(created.vault, { ...base, type: 'EXPENSE', amount: 250, categoryId: expense!.id })
+    createTransaction(created.vault, { ...base, type: 'INCOME', amount: '1000', categoryId: income!.id })
+    createTransaction(created.vault, { ...base, type: 'EXPENSE', amount: '250.50', categoryId: expense!.id })
     const dashboard = loadDashboard(created.vault, range, 'en')
-    expect(dashboard.income).toBe(1000)
-    expect(dashboard.expense).toBe(250)
-    expect(dashboard.net).toBe(750)
+    expect(dashboard.income).toBe(100_000)
+    expect(dashboard.expense).toBe(25_050)
+    expect(dashboard.net).toBe(74_950)
     expect(dashboard.savingsRate).toBe(75)
     expect(dashboard.categories[0]?.label).toBe('Food')
 
@@ -61,9 +62,9 @@ describe('vault', () => {
     const sealed = await sealVault(created.vault)
     await expect(unlockVault(sealed, 'admin@example.com', 'nope-nope')).rejects.toBeInstanceOf(AuthError)
 
-    const restored = await unlockVault(backupToVault(vaultToBackup(sealed)), 'admin@example.com', 'correct-horse')
+    const restored = await unlockVault(parseBackup(backupFileText(sealed)).record, 'admin@example.com', 'correct-horse')
     open.push(restored)
-    expect(loadDashboard(restored, range, 'uz-Latn').net).toBe(750)
+    expect(loadDashboard(restored, range, 'uz-Latn').net).toBe(74_950)
     expect(loadDashboard(restored, range, 'uz-Latn').categories[0]?.label).toBe('Oziq-ovqat')
 
     const viewer = await unlockVault(sealed, 'viewer@example.com', 'viewer-password')
@@ -71,7 +72,7 @@ describe('vault', () => {
     expect(viewer.user.permissions).toEqual(permissionsForRole('Viewer'))
     expect(listTransactions(viewer, range)).toHaveLength(2)
     expect(() =>
-      createTransaction(viewer, { ...base, type: 'EXPENSE', amount: 10, categoryId: expense!.id }),
+      createTransaction(viewer, { ...base, type: 'EXPENSE', amount: '10', categoryId: expense!.id }),
     ).toThrow(ForbiddenError)
     expect(() => parseBackup('{')).toThrow()
   })

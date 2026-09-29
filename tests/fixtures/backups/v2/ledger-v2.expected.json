@@ -1,0 +1,235 @@
+{
+  "description": "Produced by Moliya 1.1.0 services: vault record v2, backup v2, schema v2 (integer minor units, audit hash chain, PBKDF2 600k).",
+  "producedBy": {
+    "appVersion": "1.1.0",
+    "commit": "4f7ddabbe770"
+  },
+  "format": {
+    "backup": 2,
+    "record": 2,
+    "schema": 2
+  },
+  "vaultName": "Ledger Two",
+  "currency": "USD",
+  "users": [
+    {
+      "email": "admin@ledger.test",
+      "password": "ledger-admin-v2",
+      "role": "Admin",
+      "group": null
+    },
+    {
+      "email": "manager@ledger.test",
+      "password": "ledger-manager-v2",
+      "role": "Manager",
+      "group": "Ledger Two"
+    },
+    {
+      "email": "viewer@ledger.test",
+      "password": "Ledger viewer · вьюер · v2",
+      "role": "Viewer",
+      "group": "Ledger Two"
+    }
+  ],
+  "groups": [
+    "Ledger Two",
+    "Side Business"
+  ],
+  "customCategories": [
+    {
+      "type": "EXPENSE",
+      "nameEn": "Subscriptions",
+      "nameUzLatn": "Obunalar",
+      "nameUzCyrl": "Обуналар",
+      "nameRu": "Подписки"
+    }
+  ],
+  "categoryCount": 15,
+  "transactions": [
+    {
+      "id": "43f4a146-43ce-433a-bb75-13c29c5d22a5",
+      "type": "INCOME",
+      "amountMinor": 420000,
+      "currency": "USD",
+      "category": "Salary",
+      "group": "Ledger Two",
+      "date": "2026-10-01",
+      "notes": "October salary",
+      "hasReceipt": false,
+      "userEmail": "admin@ledger.test"
+    },
+    {
+      "id": "21f05c1d-7093-48d0-8f37-f9882b04f761",
+      "type": "EXPENSE",
+      "amountMinor": 10,
+      "currency": "USD",
+      "category": "Food",
+      "group": "Ledger Two",
+      "date": "2026-10-02",
+      "notes": null,
+      "hasReceipt": false,
+      "userEmail": "admin@ledger.test"
+    },
+    {
+      "id": "ba425adf-dca7-4c53-ae6d-ee41e4be7e63",
+      "type": "EXPENSE",
+      "amountMinor": 20,
+      "currency": "USD",
+      "category": "Food",
+      "group": "Ledger Two",
+      "date": "2026-10-02",
+      "notes": "comma decimal separator",
+      "hasReceipt": false,
+      "userEmail": "admin@ledger.test"
+    },
+    {
+      "id": "6a6f4ab7-f52d-4a76-931c-9fbf31a01e2c",
+      "type": "EXPENSE",
+      "amountMinor": 123456,
+      "currency": "USD",
+      "category": "Transport",
+      "group": "Side Business",
+      "date": "2026-10-15",
+      "notes": "Grouped digits\nsecond line",
+      "hasReceipt": false,
+      "userEmail": "admin@ledger.test"
+    },
+    {
+      "id": "110b74ba-928b-41cb-859f-172b5bb14006",
+      "type": "INCOME",
+      "amountMinor": 250000000,
+      "currency": "UZS",
+      "category": "Freelance",
+      "group": "Ledger Two",
+      "date": "2026-11-01",
+      "notes": "Oʻzbekcha izoh — Ўзбекча",
+      "hasReceipt": false,
+      "userEmail": "admin@ledger.test"
+    },
+    {
+      "id": "b74b7a4b-4447-4052-97a5-0dab72bce1fc",
+      "type": "EXPENSE",
+      "amountMinor": 9999,
+      "currency": "EUR",
+      "category": "Shopping",
+      "group": "Ledger Two",
+      "date": "2026-11-02",
+      "notes": null,
+      "hasReceipt": false,
+      "userEmail": "admin@ledger.test"
+    },
+    {
+      "id": "b410ee98-2530-4657-ba65-9b1d09dfc93e",
+      "type": "EXPENSE",
+      "amountMinor": 267,
+      "currency": "USD",
+      "category": "Health",
+      "group": "Ledger Two",
+      "date": "2026-11-03",
+      "notes": "with receipt",
+      "hasReceipt": true,
+      "userEmail": "admin@ledger.test"
+    },
+    {
+      "id": "60725c67-a556-4e04-a2be-c980b6da2a70",
+      "type": "EXPENSE",
+      "amountMinor": 1500,
+      "currency": "USD",
+      "category": "Subscriptions",
+      "group": "Ledger Two",
+      "date": "2026-12-02",
+      "notes": "@SUM(1+1) csv trap",
+      "hasReceipt": false,
+      "userEmail": "admin@ledger.test"
+    },
+    {
+      "id": "adb9be22-b265-41d1-867d-55eff22aa3b2",
+      "type": "INCOME",
+      "amountMinor": 1,
+      "currency": "USD",
+      "category": "Other income",
+      "group": "Ledger Two",
+      "date": "2026-12-01",
+      "notes": null,
+      "hasReceipt": false,
+      "userEmail": "admin@ledger.test"
+    },
+    {
+      "id": "9cd0b0e9-7440-42f6-adbc-5680af9becd3",
+      "type": "EXPENSE",
+      "amountMinor": 1050,
+      "currency": "USD",
+      "category": "Utilities",
+      "group": "Ledger Two",
+      "date": "2026-12-03",
+      "notes": "updated from 10 to 10.50",
+      "hasReceipt": false,
+      "userEmail": "admin@ledger.test"
+    },
+    {
+      "id": "6f7dd418-5f88-4e61-b779-ca9584a13092",
+      "type": "EXPENSE",
+      "amountMinor": 1234,
+      "currency": "USD",
+      "category": "Food",
+      "group": "Ledger Two",
+      "date": "2026-12-04",
+      "notes": "added by manager",
+      "hasReceipt": false,
+      "userEmail": "manager@ledger.test"
+    },
+    {
+      "id": "e9ab1cde-cd03-4010-a021-bc931cd3216c",
+      "type": "INCOME",
+      "amountMinor": 999999999999999,
+      "currency": "USD",
+      "category": "Investment",
+      "group": "Ledger Two",
+      "date": "2027-01-05",
+      "notes": "largest accepted amount",
+      "hasReceipt": false,
+      "userEmail": "admin@ledger.test"
+    }
+  ],
+  "totals": {
+    "range": {
+      "start": "2026-10-01",
+      "end": "2026-12-31"
+    },
+    "admin": {
+      "incomeMinor": 420001,
+      "expenseMinor": 127537,
+      "netMinor": 292464,
+      "savingsRate": 69.6
+    },
+    "manager": {
+      "incomeMinor": 420001,
+      "expenseMinor": 4081,
+      "netMinor": 415920,
+      "savingsRate": 99
+    }
+  },
+  "auditActions": [
+    "VAULT_CREATED",
+    "GROUP_CREATED",
+    "CATEGORY_CREATED",
+    "USER_CREATED",
+    "USER_CREATED",
+    "TRANSACTION_CREATED",
+    "TRANSACTION_CREATED",
+    "TRANSACTION_CREATED",
+    "TRANSACTION_CREATED",
+    "TRANSACTION_CREATED",
+    "TRANSACTION_CREATED",
+    "TRANSACTION_CREATED",
+    "TRANSACTION_CREATED",
+    "TRANSACTION_CREATED",
+    "TRANSACTION_CREATED",
+    "TRANSACTION_UPDATED",
+    "TRANSACTION_CREATED",
+    "TRANSACTION_DELETED",
+    "TRANSACTION_CREATED",
+    "TRANSACTION_CREATED",
+    "BACKUP_EXPORTED"
+  ]
+}
