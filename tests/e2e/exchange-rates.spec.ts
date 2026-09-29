@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { expect, test, type Page, type Route } from '@playwright/test'
 import { addDays, sealSnapshot, type FxSnapshot } from '../../src/domain/fx'
+import { watchViolations } from '../support/csp'
 
 const RECORDED = JSON.parse(readFileSync(new URL('../fixtures/fx/snapshot.json', import.meta.url), 'utf8')) as FxSnapshot
 
@@ -50,6 +51,7 @@ async function convert(page: Page, direction: string, amount: string) {
 }
 
 test('shows official rates for all six directions and converts exactly', async ({ page }) => {
+  const violations = await watchViolations(page)
   await serveRates(page, { body: snapshotAged(0) })
   await createVault(page)
 
@@ -106,6 +108,7 @@ test('shows official rates for all six directions and converts exactly', async (
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
   expect(overflow).toBeLessThanOrEqual(0)
   expect((await page.getByTestId('app-shell').locator('header').boundingBox())?.height).toBe(40)
+  expect(await violations()).toEqual([])
 })
 
 test('flags rates older than two business days as stale', async ({ page }) => {

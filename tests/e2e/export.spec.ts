@@ -7,13 +7,14 @@ import { expect, test, type Page } from '@playwright/test'
 import Database from 'better-sqlite3-multiple-ciphers'
 import readXlsxFile from 'read-excel-file/node'
 import { extractText, getDocumentProxy } from 'unpdf'
+import { watchViolations } from '../support/csp'
 
 configure({ useWebWorkers: false })
 
 const here = dirname(fileURLToPath(import.meta.url))
 const LEDGER = resolve(here, '../fixtures/backups/v2/ledger-v2.moliya')
 const FORMATS = ['csv', 'json', 'jsonl', 'xlsx', 'pdf', 'sqlite'] as const
-const LAZY = /jspdf|write-excel-file|@zip(\.|_+)js|export-(pdf|xlsx|zip)-|NotoSans|services\/export\/(?!options|password)/i
+const LAZY = /jspdf|write-excel-file|@zip(\.|_+)js|export-(pdf|xlsx|zip)-|fflate|NotoSans|services\/export\/(?!options|password)/i
 const NAME = (suffix: string) => new RegExp(`^jaybi-Ledger-Two-\\d{4}-\\d{2}-\\d{2}${suffix.replace(/\./g, '\\.')}$`)
 
 async function importLedger(page: Page, email: string, password: string) {
@@ -111,6 +112,7 @@ test('admin exports every format, encrypted and plain, and the files read back',
   const requests: string[] = []
   page.on('request', (request) => requests.push(request.url()))
   const lazy = () => requests.filter((url) => LAZY.test(url))
+  const violations = await watchViolations(page)
 
   await importLedger(page, 'admin@ledger.test', 'ledger-admin-v2')
   expect(lazy(), 'export code is not loaded at sign-in or on the dashboard').toEqual([])
@@ -130,6 +132,7 @@ test('admin exports every format, encrypted and plain, and the files read back',
     const file = await download(page)
     expect(file.name).toMatch(NAME(`.${format}`))
     await CHECKS[format](file.bytes)
+    if (format === 'xlsx') expect(lazy().some((url) => /jspdf|export-pdf-/.test(url)), 'an Excel export does not load jsPDF').toBe(false)
   }
   expect(lazy().some((url) => /jspdf|export-pdf-/.test(url))).toBe(true)
   expect(lazy().some((url) => /NotoSans/.test(url))).toBe(true)
@@ -172,6 +175,7 @@ test('admin exports every format, encrypted and plain, and the files read back',
 
   await page.getByTestId('nav-audit').click()
   await expect(page.getByRole('cell', { name: 'Data exported', exact: true })).toHaveCount(FORMATS.length + 2)
+  expect(await violations()).toEqual([])
 })
 
 test('a manager cannot reach exports', async ({ page }) => {
