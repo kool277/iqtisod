@@ -286,6 +286,8 @@ export const ru: CoreMessages = {
     title: 'Обзор',
     subtitle: 'Итоги считаются только в валюте сейфа.',
     otherCurrencies: 'Другие валюты (не входят в итоги)',
+    group: 'Группа на обзоре',
+    allGroups: 'Все группы',
   },
   fx: {
     title: 'Курсы валют',

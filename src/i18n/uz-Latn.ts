@@ -286,6 +286,8 @@ export const uzLatn: CoreMessages = {
     title: 'Umumiy koʻrinish',
     subtitle: 'Jami summalar faqat seyf valyutasida hisoblanadi.',
     otherCurrencies: 'Boshqa valyutalar (jamiga kirmaydi)',
+    group: 'Sharhda koʻrsatiladigan guruh',
+    allGroups: 'Barcha guruhlar',
   },
   fx: {
     title: 'Valyuta kurslari',

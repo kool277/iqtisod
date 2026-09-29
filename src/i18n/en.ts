@@ -286,6 +286,8 @@ export const en = {
     title: 'Overview',
     subtitle: 'Totals use the vault currency only.',
     otherCurrencies: 'Other currencies (not in totals)',
+    group: 'Group shown on the dashboard',
+    allGroups: 'All groups',
   },
   fx: {
     title: 'Exchange rates',

@@ -267,9 +267,18 @@ export function deleteTransaction(vault: OpenVault, id: string): void {
   })
 }
 
-export function loadDashboard(vault: OpenVault, range: DateRange, locale: LocaleName): DashboardData {
+/** Narrows the role scope to one group; a group outside the reader's own scope is refused, never silently widened. */
+export function dashboardScope(user: SessionUser, groupId: number | null): { sql: string; params: SqlValue[] } {
+  const base = scope(user)
+  if (groupId == null) return base
+  if (!Number.isSafeInteger(groupId) || groupId <= 0) throw new ValidationError('GROUP')
+  assertEntryAccess(user, groupId)
+  return { sql: `(${base.sql}) AND t.group_id = ?`, params: [...base.params, groupId] }
+}
+
+export function loadDashboard(vault: OpenVault, range: DateRange, locale: LocaleName, groupId: number | null = null): DashboardData {
   if (!canUser(vault.user, Permission.READ_DASHBOARD)) throw new ForbiddenError()
-  const group = scope(vault.user)
+  const group = dashboardScope(vault.user, groupId)
   const currency = vault.currency
   const totals = vault.db.queryOne(
     `SELECT
@@ -331,7 +340,7 @@ export function loadDashboard(vault: OpenVault, range: DateRange, locale: Locale
       [range.start, range.end, currency, ...group.params],
     )
     .map((row) => ({ date: String(row.date), total: Number(row.total) }))
-  const breakdownMode = vault.user.roleName === 'Admin' ? 'group' : 'user'
+  const breakdownMode = vault.user.roleName === 'Admin' && groupId == null ? 'group' : 'user'
   const breakdown =
     breakdownMode === 'group'
       ? vault.db.query(
