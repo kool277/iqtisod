@@ -18,7 +18,7 @@ Moliya is a static single-page app. The server only serves files. User data neve
 - `index.html` with the Content Security Policy `<meta>` tag (added only in production builds).
 - `version.json` with `version`, `commit`, and `builtAt`. Running apps poll it to detect a new deployment.
 - `coi-config.js` and `coi-serviceworker.js`.
-- `assets/` with hashed files. The first screen loads only the app entry (about 110 KB, 35 KB gzipped) and React (about 260 KB, 80 KB gzipped). Pages, Chart.js (about 180 KB), and SQLite (about 210 KB of JavaScript plus an 870 KB WebAssembly binary, about 400 KB gzipped) load on demand. Serve `.wasm` as `application/wasm`; GitHub Pages and most hosts do this already.
+- `assets/` with hashed files. The first screen loads only the app entry (about 115 KB in two files, 38 KB gzipped) and React (about 260 KB, 80 KB gzipped). Pages, Chart.js (about 180 KB), and SQLite (about 210 KB of JavaScript plus an 870 KB WebAssembly binary, about 400 KB gzipped) load on demand. Serve `.wasm` as `application/wasm`; GitHub Pages and most hosts do this already.
 
 `dist/` does not contain exchange rates. The deploy adds `rates/` from the `fx-data` branch (see [Exchange rates](#exchange-rates)); a release zip opened on its own shows the rates panel as unavailable unless `rates/` is copied next to `index.html`.
 
