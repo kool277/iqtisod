@@ -80,6 +80,20 @@ Both the dashboard and the ledger use the same period buttons, and your choice c
 - **Year to date** (1 January to today)
 - **Custom**, which opens From and To date fields. If you enter them backwards, Jaybi swaps them.
 
+## Working with tables
+
+Transactions, the private-safe lists, and the admin pages show their rows in tables that work the same way:
+
+- **Sort**: choose a column heading. Choose it again for the other direction, and a third time to go back to the original order. Hold Shift while choosing to sort by up to three columns; small numbers next to the headings show the order. Amounts sort exactly within each currency, and names sort in the order of your language. On a phone, use **Sort by** above the cards.
+- **Search this table**: type any part of what you see in the visible columns. Case, accents, apostrophes, and the alphabet do not matter, so `taksi` finds "Такси" and `ozbek` finds "Oʻzbek". Esc clears the search.
+- **Filters**: opens a box with one filter per column: text, a list to tick one or more values, a From–To date range, or a Min–Max amount. The button shows how many filters are on, and **Clear filters** turns them all off. Amount filters compare the exact amount; they do not convert currencies.
+- **Columns**: tick the columns to show, move them up or down, choose **Compact rows**, or **Reset layout**. Columns that identify a row, such as the date or amount, always stay.
+- **Rows** at the bottom: 10, 25, 50, 100, or all. The line next to it says which rows you see, for example "Showing 1–25 of 140 (filtered from 900)".
+
+Jaybi remembers the columns, their order, the sort, the row count, and compact rows for each table in this browser. It never stores what you searched for or filtered, and nothing from your private safes.
+
+Where you are allowed to change a record, a small pencil appears next to the value. Choose it, type the new value, and press Enter to save or Esc to cancel. If the value is not accepted, the reason shows under the field and nothing changes.
+
 ## Recording money (Managers)
 
 1. Open **Transactions** and choose **Add record**.
@@ -94,9 +108,9 @@ Both the dashboard and the ledger use the same period buttons, and your choice c
    - **Receipt**: optional PNG, JPEG, WebP, or GIF image, up to 1.5 MB. Other file types, including SVG, are refused. Use **View receipt** to check it, or **Remove receipt** to drop it.
 3. Choose **Save**.
 
-To change a record, choose **Edit** on it, adjust the fields, and choose **Update record**. To delete, choose **Delete**, then confirm. Deleting cannot be undone, but it is recorded in the admin's audit log.
+To change a record, choose **Edit** on it, adjust the fields, and choose **Update record**. For a quick fix, choose the pencil next to the date, category, group, amount, or notes and change just that value (see [Working with tables](#working-with-tables)). To delete, choose **Delete**, then confirm. To delete several records, tick them and choose **Delete selected**, then confirm. Deleting cannot be undone, but each deletion is recorded in the admin's audit log.
 
-To narrow the list, use the **All / Income / Expense** filter next to **Add record**.
+To narrow the list, use the period buttons and the **All / Income / Expense** filter above the table, or the table's search and filters. Hidden columns such as **Currency**, **Recorded by**, **Receipt**, **Created**, and **Updated** can be turned on under **Columns**.
 
 ### A note on currencies
 
@@ -104,7 +118,9 @@ Each vault has one main currency, chosen when it was created and changeable by a
 
 ## Reading the dashboard
 
-The four figures at the top cover the selected period:
+The list next to the period buttons picks the group: **All groups** or one group. It changes the four figures, the charts, and the list of other currencies, but not the exchange rates. You only see groups you belong to, so for most people the list has **All groups** and their own group, which show the same figures. Jaybi remembers the choice in this browser.
+
+The four figures at the top cover the selected period and group:
 
 - **Net balance**: income minus expenses.
 - **Total income** and **Total expenses**.
@@ -117,7 +133,7 @@ The charts below them:
 - **Income and expenses** compares each month in the period.
 - **Expenses by category** shows where the money went.
 - **Spending over time** shows daily expense totals.
-- **Who spent** shows expenses per person in your group. Admins see **Spending by group** instead.
+- **Who spent** shows expenses per person in your group. Admins see **Spending by group** instead, unless they picked one group.
 
 A chart shows "No figures in this range" when the period has no matching records.
 
@@ -286,6 +302,8 @@ Permanent deletes, changing a safe's encryption key, resetting your safes, and c
 ### Moving, copying, and favourites
 
 Select items to **Move to…** or **Copy to…** another safe. They are encrypted again with the other safe's key. Mark items you use often as favourites; **Favourites** filters them. **Search open safes** searches every open, non-archived safe.
+
+Inside a safe, items are listed in a table (see [Working with tables](#working-with-tables)) with the title, kind, details, status, and subscription amount; **Favourite**, **Updated**, and **Created** can be turned on under **Columns**. Search matches the title and the details shown in the list, such as the card brand, the last four digits, the price, or the next payment date, but never the full card number, the CVV, or the text of a note. Trash and Activity use the same tables. Safe tables have no export and no editing in place, and Jaybi never stores what you searched or filtered in them.
 
 ### Trash
 

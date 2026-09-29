@@ -6,6 +6,30 @@ Data formats are versioned separately from the app. Each release lists the forma
 
 ## [Unreleased]
 
+No data format changes: vaults, backups, the schema, and export format 1 stay as in 1.3.1. The new table export is a separate write-only file described under [Exports](docs/data-format.md#table-view-exports).
+
+### Added
+
+- **Group filter on the dashboard.** Next to the period buttons, **All groups** or one group narrows the four totals, the charts, and the per-currency list. The exchange-rate panel is not affected. Admins can pick any group; Managers and Viewers only see their own group, so the choice there is **All groups** or that group, which show the same figures. The choice is remembered in this browser (`moliya.dashboard.group`) and ignored if the group is removed or not yours. With one group chosen, Admins see **Who spent** instead of **Spending by group**.
+- **Tables with sorting, search, filters, and column choices** on Transactions, People, Open codes, Groups, Audit log, Categories, earlier copies on the Backup page, and the private-safe item, trash, and activity lists:
+  - Choose a column heading to sort (again for the other direction, a third time to clear); Shift-choose adds up to three sort columns. Amounts sort exactly and per currency, dates by date, and text in the order of the chosen language.
+  - **Search this table** looks at the visible columns and ignores case, accents, apostrophes, and script, so `taksi`, `Такси`, and `Taksi` find the same record, and `oʻzbek`, `ozbek`, and `ўзбек` match.
+  - **Filters** per column: text, one or more values, a date range, or a number or amount range. A badge shows how many are on; **Clear filters** removes them.
+  - **Columns** shows, hides, and reorders columns, switches to compact rows, and resets the layout. The layout, sort, and rows per page are remembered per table in this browser (`moliya.table.<id>`). Search text and filters are never stored.
+  - 10, 25, 50, 100, or all rows per page, with "Showing 1–25 of 140 (filtered from 900)".
+  - **Export** downloads exactly what the table shows (visible columns, filtered and sorted rows) as CSV, Excel, PDF, or JSON. Only Admins can export, and only from tables they can open. Each export is written to the audit log as **Data exported** with the table, columns, row counts, and period. The file is not encrypted, so you tick "I understand" first. Private safes cannot be exported.
+  - **Edit in place** on Transactions (date, category, group, amount, notes) and Categories (the four names): choose the pencil, then Enter saves and Esc cancels. Errors show under the field. The change goes through the same checks, permissions, and audit entry as the full form, which stays available under **Edit**.
+  - **Delete selected** on Transactions for people who can delete records, with a confirmation. Each deletion is audited on its own.
+  - On a phone, rows become cards with labels, and a **Sort by** menu replaces the headings.
+- The period buttons and the **All / Income / Expense** filter now sit in the ledger table's toolbar.
+
+### Changed
+
+- The audit log shows up to the latest 10,000 entries instead of 200, 100 per page by default.
+- Categories are one table with a Type column instead of two lists.
+- Search inside a private safe now also matches the card, subscription, or note details shown in the list (never card numbers beyond the last four, CVV, or note text), and ignores accents and script.
+- Playwright uses `E2E_PORT` when set, and the dev server fails instead of switching ports when the port is taken.
+
 ## [1.3.1] - 2026-09-29
 
 Reads backup and record versions 1–2 and schema versions 1–4. Writes backup 2, record 2, schema 4, and export format 1, the same as 1.3.0. No data format changes.

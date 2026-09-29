@@ -603,6 +603,17 @@ It opens in DB Browser for SQLite ("SQLCipher 4 defaults"), `sqlcipher` (`PRAGMA
 
 **Export passwords** (both encrypted outputs; enforced by the service): at least 14 printable ASCII characters, a strength estimate of at least "fair", and not the current user's sign-in password (checked by trying to unwrap the vault key with it). The built-in generator makes 6 groups of 4 characters from a 32-character alphabet (120 bits). Passwords are never stored or audited.
 
+### Table view exports
+
+The **Export** button above a table (`src/services/export/view.ts`) writes the rows and columns the table shows. It is write-only, like export format 1, and changes no vault, backup, schema, or export format version. Allowed tables and the permission each needs besides `EXPORT_VAULT` are in `VIEW_TABLES` (`src/services/view-access.ts`): `transactions` (`READ_TRANSACTIONS`), `users` and `grants` (`MANAGE_USERS`), `groups` (`MANAGE_GROUPS`), `audit` (`READ_AUDIT`), `categories` (`MANAGE_SETTINGS`), and `archives` (`EXPORT_VAULT`). Private safe tables cannot be exported. The service checks the permission, that the plain-file box was ticked, and every cell against its column kind (`text`, `number`, `money`, `date`, `when`, `boolean`; at most 100,000 rows) before it writes the `DATA_EXPORTED` audit entry with details `{ formats: [format], protection: "none", scope: { view, columns, filtered, from, to, groupId }, includesAudit, includesReceipts: false, counts: { rows, total } }`. The rows are never in the audit entry.
+
+Files are named `<app>-<vault>-<yyyy-mm-dd>-<table>.<ext>` and are never encrypted:
+
+- **CSV**: the same rules and formula protection as `transactions.csv`. The header is the visible column headings in the reader's language; a money column becomes two columns, the decimal amount and `<heading> · Currency`.
+- **JSON**: `{ "format": "jaybi-view", "version": 1, table, title, vault, exportedAt, exportedBy, filtered, totalRows, columns: [{ id, header, kind }], rows: [{ <column id>: value }] }`. Money is `{ amount, amountMinor, currency }`. `version` counts this document shape only.
+- **Excel**: one sheet with the same columns; dates are date cells, money is a number cell with its currency in the next column, and formula-like text is stored as text.
+- **PDF**: A4 (landscape above 5 columns) with the title, vault, who exported it, and when; at most 10,000 rows.
+
 ## Recovering data without the app
 
 `tools/moliya-decrypt.mjs` needs only Node.js 22 or newer (22.13+ to blank password material automatically):
