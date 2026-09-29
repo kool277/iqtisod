@@ -1,12 +1,12 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
 
 export const controlClass =
-  'w-full rounded-xl border border-line bg-card px-3 py-2.5 outline-none transition focus:border-pine focus:ring-2 focus:ring-pine/30'
+  'w-full rounded-xl border border-line bg-card px-3 py-2.5 outline-none transition focus:border-pine-ink focus:ring-2 focus:ring-pine-ink/30'
 
 const buttonStyles = {
   primary: 'bg-pine text-on-pine hover:opacity-90',
   quiet: 'border border-line bg-card hover:border-brass',
-  danger: 'border border-clay text-clay hover:bg-clay/10',
+  danger: 'border border-clay text-clay-ink hover:bg-clay/10',
   ghost: 'hover:bg-brass-soft',
 } as const
 
@@ -36,7 +36,7 @@ export function Field({ label, children }: { label: string; children: ReactNode 
 
 export function Notice({ children }: { children: ReactNode }) {
   return (
-    <p role="alert" data-testid="form-error" className="rounded-xl bg-clay/10 px-3 py-2 text-sm text-clay">
+    <p role="alert" data-testid="form-error" className="rounded-xl bg-clay/10 px-3 py-2 text-sm text-clay-ink">
       {children}
     </p>
   )

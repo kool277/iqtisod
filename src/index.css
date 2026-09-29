@@ -9,9 +9,11 @@
   --app-ink: #1d1a15;
   --app-muted: #6f675c;
   --app-line: #e4d9c8;
-  --app-pine: #0f6e56;
-  --app-on-pine: #f4fffb;
-  --app-clay: #9d3b34;
+  --app-pine: #166534;
+  --app-pine-ink: #166534;
+  --app-on-pine: #f0fdf4;
+  --app-clay: #991b1b;
+  --app-clay-ink: #991b1b;
   --app-brass: #8d5b2a;
   --app-brass-soft: #f4e7d4;
   --app-font-sans: "Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif;
@@ -25,9 +27,11 @@
   --app-ink: #f3efe6;
   --app-muted: #b7ad9f;
   --app-line: #313a33;
-  --app-pine: #8ee0c4;
-  --app-on-pine: #10211b;
-  --app-clay: #f0b0a8;
+  --app-pine: #166534;
+  --app-pine-ink: #16a34a;
+  --app-on-pine: #f0fdf4;
+  --app-clay: #991b1b;
+  --app-clay-ink: #f87171;
   --app-brass: #e2b56a;
   --app-brass-soft: #3a3224;
 }
@@ -39,8 +43,10 @@
   --color-muted: var(--app-muted);
   --color-line: var(--app-line);
   --color-pine: var(--app-pine);
+  --color-pine-ink: var(--app-pine-ink);
   --color-on-pine: var(--app-on-pine);
   --color-clay: var(--app-clay);
+  --color-clay-ink: var(--app-clay-ink);
   --color-brass: var(--app-brass);
   --color-brass-soft: var(--app-brass-soft);
   --font-sans: var(--app-font-sans);
@@ -76,5 +82,4 @@ input,
 select,
 textarea {
   font: inherit;
-  color: inherit;
 }
