@@ -1,6 +1,6 @@
 import type { SqlDatabase } from '../db/sqlite'
 import { ForbiddenError } from '../domain/errors'
-import type { AuditEntry, SessionUser } from '../domain/types'
+import type { AuditEntry, OpenVault } from '../domain/types'
 import { Permission, canUser } from '../rbac'
 
 export function writeAudit(
@@ -25,9 +25,9 @@ export function writeAudit(
   )
 }
 
-export function listAudit(db: SqlDatabase, user: SessionUser): AuditEntry[] {
-  if (!canUser(user, Permission.READ_AUDIT)) throw new ForbiddenError()
-  const rows = db.query(
+export function listAudit(vault: OpenVault): AuditEntry[] {
+  if (!canUser(vault.user, Permission.READ_AUDIT)) throw new ForbiddenError()
+  const rows = vault.db.query(
     `SELECT a.id, a.actor_id, u.email AS actor_email, a.action, a.entity_type, a.entity_id, a.details, a.created_at
      FROM audit_logs a
      LEFT JOIN users u ON u.id = a.actor_id

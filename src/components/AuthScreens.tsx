@@ -1,0 +1,197 @@
+import { useState, type FormEvent, type ReactNode } from 'react'
+import { Preferences } from './Preferences'
+import { Button, Field, Notice, controlClass } from './ui'
+import { useI18n } from '../context/I18nContext'
+import { useVault } from '../context/VaultContext'
+import { CURRENCIES } from '../domain/types'
+import { textForError } from '../lib/errors'
+import { parseBackup } from '../services/backup.service'
+
+export function Splash() {
+  return (
+    <div className="grid min-h-screen place-items-center">
+      <p className="font-display text-5xl">Moliya</p>
+    </div>
+  )
+}
+
+export function BootError({ message }: { message: string }) {
+  const { t } = useI18n()
+  return (
+    <div className="grid min-h-screen place-items-center p-6">
+      <div className="max-w-md text-center">
+        <h1 className="font-display text-4xl">Moliya</h1>
+        <p className="mt-4 text-clay">{t('errors.sqlite')}</p>
+        <p className="mt-2 text-sm text-muted">{message}</p>
+      </div>
+    </div>
+  )
+}
+
+function AuthFrame({ children }: { children: ReactNode }) {
+  const { t } = useI18n()
+  return (
+    <div className="grid min-h-screen lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
+      <section className="hidden flex-col justify-between bg-[#0d4f3e] p-12 text-[#f6f1e7] lg:flex">
+        <p className="font-display text-4xl">Moliya</p>
+        <div>
+          <h1 className="max-w-lg font-display text-6xl leading-[0.95]">{t('app.tagline')}</h1>
+        </div>
+        <p className="max-w-sm text-sm text-[#f6f1e7]/75">{t('app.localOnly')}</p>
+      </section>
+      <section className="flex flex-col">
+        <div className="flex justify-end p-4">
+          <Preferences />
+        </div>
+        <div className="flex flex-1 items-center justify-center px-6 pb-12">
+          <div className="w-full max-w-md">{children}</div>
+        </div>
+      </section>
+    </div>
+  )
+}
+
+export function SetupPage() {
+  const { t } = useI18n()
+  const { setup, importBackup } = useVault()
+  const [email, setEmail] = useState('')
+  const [displayName, setDisplayName] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [currency, setCurrency] = useState('USD')
+  const [error, setError] = useState<string | null>(null)
+  const [pending, setPending] = useState(false)
+  const [backup, setBackup] = useState<Awaited<ReturnType<typeof parseBackup>> | null>(null)
+
+  async function onSubmit(event: FormEvent) {
+    event.preventDefault()
+    if (password !== confirm) {
+      setError(t('setup.passwordMismatch'))
+      return
+    }
+    setPending(true)
+    setError(null)
+    try {
+      await setup({ email, password, displayName, currency })
+    } catch (caught) {
+      setError(textForError(caught, t))
+    } finally {
+      setPending(false)
+    }
+  }
+
+  async function onFile(file: File | undefined) {
+    setBackup(null)
+    setError(null)
+    if (!file) return
+    if (file.size > 20 * 1024 * 1024) {
+      setError(t('backup.invalid'))
+      return
+    }
+    try {
+      setBackup(parseBackup(await file.text()))
+    } catch (caught) {
+      setError(textForError(caught, t))
+    }
+  }
+
+  return (
+    <AuthFrame>
+      <p className="font-display text-4xl lg:hidden">Moliya</p>
+      <h2 className="mt-2 font-display text-4xl">{t('setup.title')}</h2>
+      <p className="mt-2 text-sm text-muted">{t('setup.subtitle')}</p>
+      <form className="mt-6 grid gap-4" onSubmit={(event) => void onSubmit(event)}>
+        {error ? <Notice>{error}</Notice> : null}
+        <Field label={t('setup.displayName')}>
+          <input data-testid="setup-name" className={controlClass} value={displayName} onChange={(event) => setDisplayName(event.target.value)} required />
+        </Field>
+        <Field label={t('setup.email')}>
+          <input data-testid="setup-email" type="email" autoComplete="username" className={controlClass} value={email} onChange={(event) => setEmail(event.target.value)} required />
+        </Field>
+        <Field label={t('setup.password')}>
+          <input data-testid="setup-password" type="password" autoComplete="new-password" className={controlClass} value={password} onChange={(event) => setPassword(event.target.value)} required />
+        </Field>
+        <Field label={t('setup.confirmPassword')}>
+          <input data-testid="setup-confirm" type="password" autoComplete="new-password" className={controlClass} value={confirm} onChange={(event) => setConfirm(event.target.value)} required />
+        </Field>
+        <Field label={t('setup.currency')}>
+          <select data-testid="setup-currency" className={controlClass} value={currency} onChange={(event) => setCurrency(event.target.value)}>
+            {CURRENCIES.map((item) => (
+              <option key={item} value={item}>
+                {item}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Button type="submit" data-testid="setup-submit" disabled={pending}>
+          {pending ? t('setup.working') : t('setup.submit')}
+        </Button>
+      </form>
+      <div className="mt-8 border-t border-line pt-6">
+        <h3 className="font-display text-2xl">{t('setup.import')}</h3>
+        <p className="mt-1 text-sm text-muted">{t('backup.importHelp')}</p>
+        <input
+          data-testid="import-file"
+          className="mt-3 block w-full text-sm"
+          type="file"
+          accept=".moliya,application/json"
+          onChange={(event) => void onFile(event.target.files?.[0])}
+        />
+        {backup ? (
+          <Button
+            className="mt-3"
+            variant="quiet"
+            data-testid="confirm-import"
+            onClick={() => {
+              void importBackup(backup).catch((caught) => setError(textForError(caught, t)))
+            }}
+          >
+            {t('backup.confirmImport')}
+          </Button>
+        ) : null}
+      </div>
+    </AuthFrame>
+  )
+}
+
+export function LoginPage() {
+  const { t } = useI18n()
+  const { login } = useVault()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [pending, setPending] = useState(false)
+
+  async function onSubmit(event: FormEvent) {
+    event.preventDefault()
+    setPending(true)
+    setError(null)
+    try {
+      await login(email, password)
+    } catch (caught) {
+      setError(textForError(caught, t))
+    } finally {
+      setPending(false)
+    }
+  }
+
+  return (
+    <AuthFrame>
+      <p className="font-display text-4xl lg:hidden">Moliya</p>
+      <h2 className="mt-2 font-display text-4xl">{t('login.title')}</h2>
+      <p className="mt-2 text-sm text-muted">{t('login.subtitle')}</p>
+      <form className="mt-6 grid gap-4" onSubmit={(event) => void onSubmit(event)}>
+        {error ? <Notice>{error}</Notice> : null}
+        <Field label={t('login.email')}>
+          <input data-testid="login-email" type="email" autoComplete="username" className={controlClass} value={email} onChange={(event) => setEmail(event.target.value)} required />
+        </Field>
+        <Field label={t('login.password')}>
+          <input data-testid="login-password" type="password" autoComplete="current-password" className={controlClass} value={password} onChange={(event) => setPassword(event.target.value)} required />
+        </Field>
+        <Button type="submit" data-testid="login-submit" disabled={pending}>
+          {pending ? t('login.working') : t('login.submit')}
+        </Button>
+      </form>
+    </AuthFrame>
+  )
+}
