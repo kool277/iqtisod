@@ -30,7 +30,7 @@ Your admin account does not belong to any group, so you see every group's record
 | Manage people and groups | Yes | No | No |
 | Vault settings and categories | Yes | No | No |
 | Audit log | Yes | No | No |
-| Export backups, replace the vault with a backup | Yes | No | No |
+| Download backups, export data, replace the vault with a backup | Yes | No | No |
 | Own private safes, own password, own sign-in check (Account) | Yes | Yes | Yes |
 | See or open anyone else's private safes | No | No | No |
 
@@ -244,7 +244,7 @@ Each copy shows when it was taken and which version saved it. **Download** turns
    - **Encrypted ZIP (AES-256)**, the default. Open it with [7-Zip](https://www.7-zip.org/) (Windows), [Keka](https://www.keka.io/) (macOS), WinZip, or WinRAR. The built-in Windows and macOS archive tools **cannot** open it and will say the archive is damaged or ask for a password they cannot use. File names inside the archive are visible without the password; the contents are not.
    - **Encrypted SQLite database (SQLCipher 4)**. Stronger password protection, database only. Open it in [DB Browser for SQLite](https://sqlitebrowser.org/): choose **Open Database**, enter the password, and pick **SQLCipher 4 defaults**. With the command-line tool: `sqlcipher file.sqlite`, then `PRAGMA key = 'your export password';`.
    - **No encryption**. You must tick "I understand this file is not encrypted". Anyone who gets the file can read every record.
-7. **Export password**: at least 14 characters using Latin letters, digits, and symbols, and not your sign-in password. **Generate** makes a strong one; **Copy** puts it on the clipboard. The app does not keep the password. If you lose it, nobody can open the file.
+7. **Export password**: at least 14 characters using Latin letters, digits, and symbols, not too easy to guess (the **Strength** meter must show at least **Fair**), and not your sign-in password. **Generate** makes a strong one; **Copy** puts it on the clipboard. The app does not keep the password. If you lose it, nobody can open the file.
 
 Press **Export**. Progress is shown below the form, and **Cancel** stops it. The file name contains the vault name and the date, even for encrypted files. Each export is written to the audit log as **Data exported**, with the formats and scope but never the content or password.
 
@@ -312,6 +312,13 @@ Versions 1.0.0 and 1.1.0 stored, for every person, a value in the database that 
 - **Large receipts.** New receipts must be images of up to 1.5 MB, and the vault is capped at about 48 MB. Existing receipts are kept.
 - **Recovery tool.** Use the 1.3.0 recovery tool for vaults and backups saved by 1.3.0. Older copies of the tool still open them, but leave sign-in check data and code checks in their output.
 - **Hosting.** With 1.3.0 the app moved from `kool277.github.io/iqtisod` to its own address, `jaybi.uz`, and the old address now forwards there. A vault stored at the old address has to be brought over with a backup; see [Moving to jaybi.uz](#moving-to-jaybiuz). The new address serves nothing but Jaybi, so no other website can read the stored vault (see the [DevOps guide](devops-guide.md#origin-and-storage-isolation)).
+
+### Upgrading to 1.3.1
+
+1.3.1 changes when private safes lock. It does not change any data format, and 1.3.0 still opens everything 1.3.1 saves.
+
+- Safes now stay open until the person chooses **Lock safes** or the vault locks: **Lock**, refreshing or closing the tab, signing out, or the vault's own **Account → Lock automatically** time (15 minutes unless changed). Switching to another tab no longer locks them.
+- The separate safes timer (5 minutes by default) and its choice under **Account → Private safes** are gone. On shared devices, choose a short **Lock automatically** time instead, because it now protects the safes too.
 
 ## Recovery scenarios
 

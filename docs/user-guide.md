@@ -205,7 +205,7 @@ Choose how long the vault stays open without activity: **5 minutes**, **15 minut
 
 The sign-in check and **Lock automatically** are hidden until you have replaced a starting or temporary password.
 
-- **Private safes**: how long before your safes lock, how long shown values stay visible, and how long copied values stay in the clipboard. Open your safes first to change these.
+- **Private safes**: how long shown values stay visible and how long copied values stay in the clipboard. Open your safes first to change these.
 - **Recovery code**: create one, or replace the one you have.
 - **Start over**: **Reset private safes**, described below.
 
@@ -278,7 +278,7 @@ Choose **Add note** for anything else, up to 10,000 characters. Notes are plain 
 
 Card numbers and security codes are hidden. **Show** and **Copy** ask for your password unless you entered it in the last 2 minutes.
 
-- A shown value hides again after 15 seconds (15, 30, or 60 in **Account**), or when you switch away.
+- A shown value hides again after 15 seconds (15, 30, or 60 in **Account**), or when you close the item or your safes lock. Switching to another tab does not hide it, so do not leave a shown value on screen.
 - A copied value is cleared from the clipboard after 30 seconds (10, 30, or 60 in **Account**), when your safes lock, and when you leave the page. Browsers do not always allow this, so paste it promptly and do not rely on it.
 
 Permanent deletes, changing a safe's encryption key, resetting your safes, and creating a recovery code also need your password within the last 2 minutes.
