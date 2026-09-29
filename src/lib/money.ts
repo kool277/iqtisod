@@ -27,12 +27,19 @@ export function roundHalfEven(numerator: bigint, denominator: bigint): bigint {
   return negative ? -quotient : quotient
 }
 
+// /0+$/ backtracks quadratically on long runs of zeros followed by another digit.
+function trimTrailingZeros(digits: string): string {
+  let end = digits.length
+  while (end > 0 && digits.charCodeAt(end - 1) === 48) end -= 1
+  return digits.slice(0, end)
+}
+
 export function parseAmount(text: string, currency: string): number {
   const exponent = minorUnitOf(currency)
   const compact = text.replace(/[\s\u00a0\u202f]/g, '')
   const match = /^(\d+)(?:[.,](\d+))?$/.exec(compact)
   if (!match) throw new ValidationError('AMOUNT')
-  const fraction = (match[2] ?? '').replace(/0+$/, '')
+  const fraction = trimTrailingZeros(match[2] ?? '')
   if (fraction.length > exponent) throw new ValidationError('AMOUNT_PRECISION')
   const minor = BigInt(match[1]) * 10n ** BigInt(exponent) + BigInt(fraction.padEnd(exponent, '0') || '0')
   if (minor <= 0n) throw new ValidationError('AMOUNT')
@@ -72,7 +79,7 @@ export function minorToFixed(minor: number, currency: string): string {
 export function minorToDecimal(minor: number, currency: string): string {
   const exponent = minorUnitOf(currency)
   const { sign, whole, fraction } = splitMinor(minor, exponent)
-  const trimmed = fraction.replace(/0+$/, '')
+  const trimmed = trimTrailingZeros(fraction)
   return trimmed ? `${sign}${whole}.${trimmed}` : `${sign}${whole}`
 }
 

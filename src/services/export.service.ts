@@ -29,7 +29,7 @@ function assertExport(vault: OpenVault): void {
 export function csvCell(value: SqlValue | boolean): string {
   if (value == null) return ''
   let text = typeof value === 'boolean' ? (value ? 'true' : 'false') : String(value)
-  if (typeof value === 'string' && /^[=+\-@\t\r]/.test(text)) text = `'${text}`
+  if (typeof value === 'string' && /^\s*[=+\-@\t\r\uFF1D\uFF0B\uFF0D\uFF20]/.test(text)) text = `'${text}`
   return /[",\r\n]/.test(text) || text !== text.trim() ? `"${text.replace(/"/g, '""')}"` : text
 }
 
@@ -79,7 +79,8 @@ export async function exportPlainDatabase(vault: OpenVault): Promise<Uint8Array>
   try {
     copy.exec("UPDATE users SET password_hash = '', salt = ''")
     copy.exec('DELETE FROM safe_events; DELETE FROM secure_items; DELETE FROM safes; DELETE FROM user_keys;')
-    copy.exec('VACUUM')
+    copy.exec("DELETE FROM user_totp; UPDATE access_grants SET code_verifier = '';")
+    copy.vacuum()
     return copy.export()
   } finally {
     copy.close()

@@ -1,5 +1,6 @@
 import type { MessageKey, Messages } from '../i18n'
 import { AppError } from '../domain/errors'
+import { en } from '../i18n/en'
 
 type SafeErrorKey = keyof Messages['safeErrors']
 
@@ -39,8 +40,15 @@ function isSafeErrorKey(code: string): code is SafeErrorKey {
   return (SAFE_ERROR_CODES as readonly string[]).includes(code)
 }
 
+type SecurityErrorKey = keyof Messages['securityErrors']
+
+function isSecurityErrorKey(code: string): code is SecurityErrorKey {
+  return Object.hasOwn(en.securityErrors, code)
+}
+
 export function errorText(code: string, t: (key: MessageKey) => string): string {
   if (isSafeErrorKey(code)) return t(`safeErrors.${code}`)
+  if (isSecurityErrorKey(code)) return t(`securityErrors.${code}`)
   switch (code) {
     case 'BAD_CREDENTIALS':
       return t('login.badCredentials')
@@ -83,6 +91,7 @@ export function errorText(code: string, t: (key: MessageKey) => string): string 
     case 'FORMAT_TOO_NEW':
       return t('errors.formatTooNew')
     case 'RECORD_INVALID':
+    case 'SCHEMA_UNKNOWN':
       return t('errors.recordInvalid')
     case 'VAULT_CONFLICT':
       return t('errors.conflict')

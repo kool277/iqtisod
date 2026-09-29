@@ -1,5 +1,6 @@
 import { ForbiddenError, ValidationError } from '../domain/errors'
 import type { Group, OpenVault } from '../domain/types'
+import { LIMITS } from '../lib/limits'
 import { Permission, canUser } from '../rbac'
 import { writeAudit } from './audit.service'
 
@@ -25,6 +26,7 @@ export function createGroup(vault: OpenVault, name: string): void {
   if (!canUser(vault.user, Permission.MANAGE_GROUPS)) throw new ForbiddenError()
   const trimmed = name.trim()
   if (!trimmed) throw new ValidationError('REQUIRED')
+  if (trimmed.length > LIMITS.nameChars) throw new ValidationError('TOO_LONG')
   vault.db.withTransaction(() => {
     vault.db.exec('INSERT INTO groups (name) VALUES (?)', [trimmed])
     const id = String(vault.db.queryValue('SELECT last_insert_rowid()') ?? '')

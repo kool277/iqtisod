@@ -10,7 +10,7 @@ export type KdfParams = {
 
 export const LEGACY_KDF: KdfParams = { name: 'PBKDF2', hash: 'SHA-256', iterations: 200_000 }
 export const CURRENT_KDF: KdfParams = { name: 'PBKDF2', hash: 'SHA-256', iterations: 600_000 }
-export const KDF_ITERATION_BOUNDS = { min: 100_000, max: 10_000_000 } as const
+export const KDF_ITERATION_BOUNDS = { min: 100_000, max: 2_000_000 } as const
 export const KDF_HASHES: readonly KdfHash[] = ['SHA-256', 'SHA-384', 'SHA-512']
 
 export const SALT_BYTES = 32

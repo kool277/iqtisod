@@ -11,12 +11,14 @@ import type {
   TransactionInput,
 } from '../domain/types'
 import { eachMonth, isIsoDate } from '../lib/dates'
+import { LIMITS } from '../lib/limits'
 import { parseAmount, percentOf } from '../lib/money'
+import { assertReceipt } from '../lib/receipt'
 import { Permission, canUser } from '../rbac'
 import { isCurrency } from '../domain/types'
 import { writeAudit } from './audit.service'
 
-export const MAX_RECEIPT_BYTES = Math.floor(1.5 * 1024 * 1024)
+export const MAX_RECEIPT_BYTES = LIMITS.receiptBytes
 
 type LocaleName = 'en' | 'uz-Latn' | 'uz-Cyrl' | 'ru'
 
@@ -95,7 +97,7 @@ function assertEntryAccess(user: SessionUser, groupId: number): void {
 
 type ValidEntry = Omit<TransactionInput, 'amount'> & { amountMinor: number; receiptData: string | null }
 
-function validateInput(vault: OpenVault, input: TransactionInput): ValidEntry {
+function validateInput(vault: OpenVault, input: TransactionInput, previousReceipt: string | null = null): ValidEntry {
   if (input.type !== 'INCOME' && input.type !== 'EXPENSE') throw new ValidationError('TYPE')
   if (!isCurrency(input.currency)) throw new ValidationError('CURRENCY')
   const amountMinor = parseAmount(String(input.amount), input.currency)
@@ -106,14 +108,12 @@ function validateInput(vault: OpenVault, input: TransactionInput): ValidEntry {
   if (group == null) throw new ValidationError('GROUP')
   assertEntryAccess(vault.user, input.groupId)
   const notes = input.notes.trim()
-  if (notes.length > 2000) throw new ValidationError('NOTES')
-  let receiptData = input.receiptData
-  if (receiptData) {
-    if (!receiptData.startsWith('data:image/') || receiptData.length > MAX_RECEIPT_BYTES * 1.4) {
-      throw new ValidationError('RECEIPT_SIZE')
-    }
-  } else {
-    receiptData = null
+  if (notes.length > LIMITS.notesChars) throw new ValidationError('NOTES')
+  const receiptData = input.receiptData || null
+  // An unchanged receipt was accepted by an earlier version; only new bytes are checked.
+  if (receiptData && receiptData !== previousReceipt) {
+    assertReceipt(receiptData)
+    if (vault.db.sizeBytes() + receiptData.length > LIMITS.databaseBudgetBytes) throw new ValidationError('VAULT_FULL')
   }
   return {
     type: input.type,
@@ -225,7 +225,8 @@ export function updateTransaction(vault: OpenVault, id: string, input: Transacti
   const existing = vault.db.queryOne(SNAPSHOT_SELECT, [id])
   if (!existing) throw new ValidationError('REQUIRED')
   assertEntryAccess(vault.user, Number(existing.group_id))
-  const entry = validateInput(vault, input)
+  const previousReceipt = vault.db.queryValue('SELECT receipt_data FROM transactions WHERE id = ?', [id])
+  const entry = validateInput(vault, input, previousReceipt == null ? null : String(previousReceipt))
   vault.db.withTransaction(() => {
     vault.db.exec(
       `UPDATE transactions

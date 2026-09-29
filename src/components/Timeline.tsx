@@ -9,6 +9,7 @@ import { CURRENCIES } from '../domain/types'
 import { textForError } from '../lib/errors'
 import { toIsoDate } from '../lib/dates'
 import { formatIsoDate, formatMoney, minorToDecimal } from '../lib/money'
+import { RECEIPT_ACCEPT, RECEIPT_TYPES } from '../lib/receipt'
 import { Permission, canUser } from '../rbac'
 import {
   MAX_RECEIPT_BYTES,
@@ -186,6 +187,10 @@ function TransactionForm({
       setError(t('tx.receiptTooLarge'))
       return
     }
+    if (!(RECEIPT_TYPES as readonly string[]).includes(file.type)) {
+      setError(t('securityErrors.RECEIPT_TYPE'))
+      return
+    }
     const dataUrl = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader()
       reader.onload = () => resolve(String(reader.result))
@@ -268,7 +273,7 @@ function TransactionForm({
           <textarea data-testid="tx-notes" className={controlClass} rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} />
         </Field>
         <Field label={t('tx.receipt')}>
-          <input data-testid="tx-receipt" type="file" accept="image/*" className="block w-full text-sm" onChange={(event) => void onFile(event.target.files?.[0])} />
+          <input data-testid="tx-receipt" type="file" accept={RECEIPT_ACCEPT} className="block w-full text-sm" onChange={(event) => void onFile(event.target.files?.[0])} />
           {receipt ? (
             <span className="mt-2 flex gap-2">
               <Button variant="quiet" onClick={() => setPreview(true)}>

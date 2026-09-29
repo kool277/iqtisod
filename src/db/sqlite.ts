@@ -1,6 +1,9 @@
 import type { Database, Sqlite3Static, SqlValue as WasmSqlValue } from '@sqlite.org/sqlite-wasm'
+import { LIMITS } from '../lib/limits'
 
 export type SqlValue = string | number | null
+
+const SQLITE_VALUE_LIMIT = LIMITS.sqliteValueBytes
 
 let modulePromise: Promise<Sqlite3Static> | null = null
 
@@ -40,8 +43,34 @@ export class SqlDatabase {
   }
 
   private configure(): void {
+    const { capi } = this.sqlite3
+    const pointer = this.db.pointer
+    if (pointer == null) throw new Error('SQLite handle is not open')
+    this.db.checkRc(capi.sqlite3_db_config(pointer, capi.SQLITE_DBCONFIG_DEFENSIVE, 1, 0))
+    this.db.checkRc(capi.sqlite3_db_config(pointer, capi.SQLITE_DBCONFIG_TRUSTED_SCHEMA, 0, 0))
+    capi.sqlite3_limit(pointer, capi.SQLITE_LIMIT_LENGTH, SQLITE_VALUE_LIMIT)
+    capi.sqlite3_limit(pointer, capi.SQLITE_LIMIT_ATTACHED, 0)
+    this.exec('PRAGMA trusted_schema = OFF')
+    this.exec('PRAGMA cell_size_check = ON')
     this.exec('PRAGMA foreign_keys = ON')
     this.exec('PRAGMA secure_delete = ON')
+  }
+
+  /** VACUUM attaches a scratch database internally, so it needs one attach slot while it runs. */
+  vacuum(): void {
+    const { capi } = this.sqlite3
+    const pointer = this.db.pointer
+    if (pointer == null) throw new Error('SQLite handle is not open')
+    capi.sqlite3_limit(pointer, capi.SQLITE_LIMIT_ATTACHED, 1)
+    try {
+      this.exec('VACUUM')
+    } finally {
+      capi.sqlite3_limit(pointer, capi.SQLITE_LIMIT_ATTACHED, 0)
+    }
+  }
+
+  sizeBytes(): number {
+    return Number(this.queryValue('PRAGMA page_count') ?? 0) * Number(this.queryValue('PRAGMA page_size') ?? 0)
   }
 
   static async openBytes(bytes: Uint8Array): Promise<SqlDatabase> {
