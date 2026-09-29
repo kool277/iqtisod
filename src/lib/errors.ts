@@ -35,6 +35,22 @@ export function errorText(code: string, t: (key: MessageKey) => string): string 
       return t('settings.inUse')
     case 'LAST_CATEGORY':
       return t('settings.lastCategory')
+    case 'AMOUNT_PRECISION':
+      return t('errors.amountPrecision')
+    case 'AMOUNT_LIMIT':
+      return t('errors.amountLimit')
+    case 'CURRENCY':
+      return t('errors.currency')
+    case 'FORMAT_TOO_NEW':
+      return t('errors.formatTooNew')
+    case 'RECORD_INVALID':
+      return t('errors.recordInvalid')
+    case 'VAULT_CONFLICT':
+      return t('errors.conflict')
+    case 'VAULT_IN_USE':
+      return t('errors.inUse')
+    case 'MIGRATION_FAILED':
+      return t('errors.migration')
     default:
       return t('errors.generic')
   }

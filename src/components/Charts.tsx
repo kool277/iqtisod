@@ -13,13 +13,14 @@ import type { ReactNode } from 'react'
 import { Bar, Doughnut, Line } from 'react-chartjs-2'
 import { useI18n } from '../context/I18nContext'
 import { useTheme } from '../context/ThemeContext'
+import { useVault } from '../context/VaultContext'
 import type { DashboardData } from '../domain/types'
 import type { Locale } from '../i18n'
-import { intlLocale } from '../lib/money'
+import { intlLocale, toMajor } from '../lib/money'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, PointElement, LineElement, Tooltip, Legend)
 
-const slices = ['#0f6e56', '#8d5b2a', '#9d3b34', '#3d6b8a', '#6b5b95', '#b86b2a', '#2f6f4e', '#8a4b63']
+const slices = ['#166534', '#8d5b2a', '#991b1b', '#3d6b8a', '#6b5b95', '#b86b2a', '#2f6f4e', '#8a4b63']
 
 function monthLabel(month: string, locale: Locale): string {
   const [year, mon] = month.split('-').map(Number)
@@ -29,10 +30,14 @@ function monthLabel(month: string, locale: Locale): string {
 export function FinanceCharts({ data }: { data: DashboardData }) {
   const { t, locale } = useI18n()
   const { resolved } = useTheme()
+  const { currency } = useVault()
+  const major = (minor: number) => toMajor(minor, currency)
   const ink = resolved === 'dark' ? '#f3efe6' : '#1d1a15'
   const grid = resolved === 'dark' ? 'rgba(243,239,230,0.08)' : 'rgba(29,26,21,0.08)'
-  const income = resolved === 'dark' ? '#8ee0c4' : '#0f6e56'
-  const expense = resolved === 'dark' ? '#f0b0a8' : '#9d3b34'
+  const income = '#166534'
+  const expense = '#991b1b'
+  const incomeEdge = resolved === 'dark' ? '#16a34a' : income
+  const expenseEdge = resolved === 'dark' ? '#f87171' : expense
   const labels = data.months.map((month) => monthLabel(month, locale))
   const hasFlow = data.incomeByMonth.some((value) => value > 0) || data.expenseByMonth.some((value) => value > 0)
   const compact = new Intl.NumberFormat(intlLocale(locale), { notation: 'compact', maximumFractionDigits: 1 })
@@ -54,8 +59,8 @@ export function FinanceCharts({ data }: { data: DashboardData }) {
             data={{
               labels,
               datasets: [
-                { label: t('chart.income'), data: data.incomeByMonth, backgroundColor: income, borderRadius: 8 },
-                { label: t('chart.expense'), data: data.expenseByMonth, backgroundColor: expense, borderRadius: 8 },
+                { label: t('chart.income'), data: data.incomeByMonth.map(major), backgroundColor: income, borderColor: incomeEdge, borderWidth: 1, borderRadius: 8 },
+                { label: t('chart.expense'), data: data.expenseByMonth.map(major), backgroundColor: expense, borderColor: expenseEdge, borderWidth: 1, borderRadius: 8 },
               ],
             }}
             options={{ responsive: true, maintainAspectRatio: false, plugins: { legend }, scales }}
@@ -69,7 +74,7 @@ export function FinanceCharts({ data }: { data: DashboardData }) {
           <Doughnut
             data={{
               labels: data.categories.map((item) => item.label),
-              datasets: [{ data: data.categories.map((item) => item.total), backgroundColor: slices, borderWidth: 0 }],
+              datasets: [{ data: data.categories.map((item) => major(item.total)), backgroundColor: slices, borderWidth: 0 }],
             }}
             options={{ responsive: true, maintainAspectRatio: false, plugins: { legend }, cutout: '62%' }}
           />
@@ -85,8 +90,8 @@ export function FinanceCharts({ data }: { data: DashboardData }) {
               datasets: [
                 {
                   label: t('chart.expense'),
-                  data: data.trend.map((item) => item.total),
-                  borderColor: expense,
+                  data: data.trend.map((item) => major(item.total)),
+                  borderColor: expenseEdge,
                   backgroundColor: expense,
                   tension: 0.3,
                   pointRadius: 3,
@@ -107,7 +112,7 @@ export function FinanceCharts({ data }: { data: DashboardData }) {
           <Bar
             data={{
               labels: data.breakdown.map((item) => item.label),
-              datasets: [{ label: t('chart.expense'), data: data.breakdown.map((item) => item.total), backgroundColor: income, borderRadius: 8 }],
+              datasets: [{ label: t('chart.expense'), data: data.breakdown.map((item) => major(item.total)), backgroundColor: income, borderColor: incomeEdge, borderWidth: 1, borderRadius: 8 }],
             }}
             options={{ responsive: true, maintainAspectRatio: false, plugins: { legend }, scales }}
           />

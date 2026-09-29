@@ -1,14 +1,23 @@
-import type { ReactNode } from 'react'
+import { Suspense, lazy, type ReactNode } from 'react'
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
-import { AuditPage, BackupPage, GroupsPage, UsersPage } from './components/AdminPages'
 import { AppShell } from './components/AppShell'
 import { BootError, LoginPage, SetupPage, Splash } from './components/AuthScreens'
-import { Dashboard } from './components/Dashboard'
-import { SettingsPage } from './components/SettingsPage'
-import { Timeline } from './components/Timeline'
+import { UpdateBanner } from './components/UpdateBanner'
 import { I18nProvider } from './context/I18nContext'
 import { ThemeProvider } from './context/ThemeContext'
 import { useVault, VaultProvider } from './context/VaultContext'
+
+const Dashboard = lazy(() => import('./components/Dashboard').then((module) => ({ default: module.Dashboard })))
+const Timeline = lazy(() => import('./components/Timeline').then((module) => ({ default: module.Timeline })))
+const SettingsPage = lazy(() => import('./components/SettingsPage').then((module) => ({ default: module.SettingsPage })))
+const UsersPage = lazy(() => import('./components/AdminPages').then((module) => ({ default: module.UsersPage })))
+const GroupsPage = lazy(() => import('./components/AdminPages').then((module) => ({ default: module.GroupsPage })))
+const AuditPage = lazy(() => import('./components/AdminPages').then((module) => ({ default: module.AuditPage })))
+const BackupPage = lazy(() => import('./components/AdminPages').then((module) => ({ default: module.BackupPage })))
+
+function Page({ children }: { children: ReactNode }) {
+  return <Suspense fallback={<div role="status" aria-busy="true" className="min-h-40" />}>{children}</Suspense>
+}
 
 function pathFor(status: string): string {
   if (status === 'setup') return '/setup'
@@ -34,20 +43,23 @@ function AppRoutes() {
   const { status, bootError } = useVault()
   if (status === 'error') return <BootError message={bootError ?? ''} />
   return (
-    <Routes>
-      <Route path="/setup" element={<RequireStatus expect="setup"><SetupPage /></RequireStatus>} />
-      <Route path="/login" element={<RequireStatus expect="locked"><LoginPage /></RequireStatus>} />
-      <Route path="/app" element={<RequireStatus expect="ready"><AppShell /></RequireStatus>}>
-        <Route index element={<Dashboard />} />
-        <Route path="transactions" element={<Timeline />} />
-        <Route path="users" element={<UsersPage />} />
-        <Route path="groups" element={<GroupsPage />} />
-        <Route path="audit" element={<AuditPage />} />
-        <Route path="backup" element={<BackupPage />} />
-        <Route path="settings" element={<SettingsPage />} />
-      </Route>
-      <Route path="*" element={<HomeRedirect />} />
-    </Routes>
+    <>
+      <UpdateBanner />
+      <Routes>
+        <Route path="/setup" element={<RequireStatus expect="setup"><SetupPage /></RequireStatus>} />
+        <Route path="/login" element={<RequireStatus expect="locked"><LoginPage /></RequireStatus>} />
+        <Route path="/app" element={<RequireStatus expect="ready"><AppShell /></RequireStatus>}>
+          <Route index element={<Page><Dashboard /></Page>} />
+          <Route path="transactions" element={<Page><Timeline /></Page>} />
+          <Route path="users" element={<Page><UsersPage /></Page>} />
+          <Route path="groups" element={<Page><GroupsPage /></Page>} />
+          <Route path="audit" element={<Page><AuditPage /></Page>} />
+          <Route path="backup" element={<Page><BackupPage /></Page>} />
+          <Route path="settings" element={<Page><SettingsPage /></Page>} />
+        </Route>
+        <Route path="*" element={<HomeRedirect />} />
+      </Routes>
+    </>
   )
 }
 

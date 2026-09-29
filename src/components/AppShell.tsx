@@ -10,13 +10,15 @@ import {
   Settings,
   Users,
 } from 'lucide-react'
-import { useState } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { useMemo, useState } from 'react'
+import { Link, NavLink, Outlet } from 'react-router-dom'
 import { PeriodProvider } from '../context/PeriodContext'
 import { useI18n } from '../context/I18nContext'
 import { useVault } from '../context/VaultContext'
 import type { MessageKey } from '../i18n'
+import { BUILD } from '../lib/version'
 import { Permission, canUser } from '../rbac'
+import { backupReminder } from '../services/backup.service'
 import { Preferences } from './Preferences'
 
 const SIDEBAR_KEY = 'moliya.sidebar'
@@ -40,8 +42,10 @@ const links: {
 
 export function AppShell() {
   const { t } = useI18n()
-  const { user, vaultName, lock, saveState } = useVault()
+  const { user, vaultName, lock, saveState, query, revision, lastBackupAt } = useVault()
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(SIDEBAR_KEY) === 'collapsed')
+  const [reminderDismissed, setReminderDismissed] = useState(false)
+  const reminder = useMemo(() => (user ? query((vault) => backupReminder(vault)) : null), [user, query, revision, lastBackupAt])
   if (!user) return null
 
   const toggleSidebar = () => {
@@ -56,7 +60,7 @@ export function AppShell() {
       <div
         data-testid="app-shell"
         data-sidebar={collapsed ? 'collapsed' : 'expanded'}
-        className={`mx-auto grid min-h-screen max-w-[1440px] grid-rows-[40px_auto_1fr] md:grid-rows-[40px_1fr] transition-[grid-template-columns] duration-200 ${collapsed ? 'md:grid-cols-[76px_minmax(0,1fr)]' : 'md:grid-cols-[240px_minmax(0,1fr)]'}`}
+        className={`grid min-h-screen grid-rows-[40px_auto_1fr] md:grid-rows-[40px_1fr] transition-[grid-template-columns] duration-200 ${collapsed ? 'md:grid-cols-[65px_minmax(0,1fr)]' : 'md:grid-cols-[240px_minmax(0,1fr)]'}`}
       >
         <a href="#content" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-30 focus:rounded-xl focus:bg-card focus:px-3 focus:py-2">
           {t('common.skip')}
@@ -76,7 +80,9 @@ export function AppShell() {
               <ToggleIcon size={16} aria-hidden="true" />
             </button>
             <p className="flex min-w-0 items-baseline gap-2 leading-none">
-              <span className="hidden shrink-0 text-[10px] uppercase tracking-[0.18em] text-brass lg:inline">{t('app.name')}</span>
+              <Link to="/app" title={t('nav.dashboard')} className="hidden shrink-0 text-[10px] uppercase tracking-[0.18em] text-brass hover:underline lg:inline">
+                {t('app.name')}
+              </Link>
               <span className="truncate font-display text-lg leading-none">{vaultName}</span>
             </p>
           </div>
@@ -101,11 +107,17 @@ export function AppShell() {
         <nav
           id="app-sidebar"
           aria-label={t('app.name')}
-          className={`${collapsed ? 'hidden md:flex' : 'flex'} gap-1 overflow-x-auto border-b border-line p-3 md:sticky md:top-0 md:col-start-1 md:row-span-2 md:row-start-1 md:h-screen md:flex-col md:overflow-y-auto md:overflow-x-hidden md:border-b-0 md:border-r md:p-4 ${collapsed ? 'md:items-center md:px-3' : ''}`}
+          className={`${collapsed ? 'hidden md:flex' : 'flex'} gap-1 overflow-x-auto border-b border-line p-3 md:sticky md:top-0 md:col-start-1 md:row-span-2 md:row-start-1 md:h-screen md:flex-col md:overflow-y-auto md:overflow-x-hidden md:border-b-0 md:border-r md:[scrollbar-width:none] md:[&::-webkit-scrollbar]:hidden ${collapsed ? 'md:items-center' : ''}`}
         >
-          <p className={`mb-4 hidden font-display md:block ${collapsed ? 'text-2xl' : 'text-3xl'}`} aria-hidden={collapsed}>
+          <Link
+            to="/app"
+            data-testid="brand-home"
+            aria-label={`${t('app.name')}: ${t('nav.dashboard')}`}
+            title={t('nav.dashboard')}
+            className={`mb-4 hidden h-10 shrink-0 items-center rounded-xl font-display leading-none hover:text-brass md:flex ${collapsed ? 'w-10 justify-center text-2xl' : 'px-3 text-3xl'}`}
+          >
             {collapsed ? 'M' : 'Moliya'}
-          </p>
+          </Link>
           {links
             .filter((link) => canUser(user, link.permission))
             .map((link) => {
@@ -119,7 +131,7 @@ export function AppShell() {
                   data-testid={link.testId}
                   title={collapsed ? label : undefined}
                   className={({ isActive }) =>
-                    `flex shrink-0 items-center gap-2 whitespace-nowrap rounded-2xl px-3 py-2 text-sm ${collapsed ? 'md:justify-center' : ''} ${isActive ? 'bg-brass-soft text-ink' : 'text-muted hover:bg-card'}`
+                    `flex shrink-0 items-center gap-2 whitespace-nowrap rounded-2xl px-3 py-2 text-sm md:h-10 md:py-0 ${collapsed ? 'md:w-10 md:justify-center md:px-0' : ''} ${isActive ? 'bg-brass-soft text-ink' : 'text-muted hover:bg-card'}`
                   }
                 >
                   <Icon size={collapsed ? 18 : 16} aria-hidden="true" className="shrink-0" />
@@ -127,8 +139,28 @@ export function AppShell() {
                 </NavLink>
               )
             })}
+          <p
+            data-testid="app-version"
+            title={`${BUILD.version} (${BUILD.commit})`}
+            className={`mt-auto hidden pt-4 text-[11px] tabular-nums text-muted md:block ${collapsed ? 'md:text-center' : 'px-3'}`}
+          >
+            v{BUILD.version}
+          </p>
         </nav>
-        <main id="content" className="min-w-0 px-4 py-6 md:col-start-2 md:px-8 md:py-8">
+        <main id="content" className="mx-auto w-full min-w-0 max-w-[1280px] px-4 py-6 md:col-start-2 md:px-8 md:py-8">
+          {reminder && !reminderDismissed ? (
+            <div role="status" data-testid="backup-reminder" data-kind={reminder} className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-brass/50 bg-brass-soft px-4 py-3 text-sm">
+              <span className="min-w-0">{t(reminder === 'never' ? 'backup.reminderNever' : 'backup.reminderStale')}</span>
+              <span className="flex shrink-0 gap-2">
+                <Link to="/app/backup" className="rounded-xl border border-line bg-card px-3 py-1.5 font-medium hover:border-brass" onClick={() => setReminderDismissed(true)}>
+                  {t('backup.reminderAction')}
+                </Link>
+                <button type="button" className="rounded-xl px-3 py-1.5 text-muted hover:text-ink" onClick={() => setReminderDismissed(true)}>
+                  {t('backup.dismiss')}
+                </button>
+              </span>
+            </div>
+          ) : null}
           <Outlet />
         </main>
       </div>

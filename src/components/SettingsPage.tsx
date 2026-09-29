@@ -3,7 +3,11 @@ import { Button, Field, Notice, controlClass } from './ui'
 import { useI18n } from '../context/I18nContext'
 import { useVault } from '../context/VaultContext'
 import { CURRENCIES, type Category, type EntryType } from '../domain/types'
+import { readSchemaVersion } from '../db/migrations'
+import { BACKUP_VERSION, RECORD_VERSION } from '../db/versions'
 import { textForError } from '../lib/errors'
+import { formatWhen } from '../lib/money'
+import { BUILD } from '../lib/version'
 import { Permission, canUser } from '../rbac'
 import { categoryLabel, listCategories } from '../services/finance.service'
 import {
@@ -22,7 +26,7 @@ export function SettingsPage() {
   const { user } = useVault()
   if (!user || !canUser(user, Permission.MANAGE_SETTINGS)) {
     return (
-      <p data-testid="forbidden" className="text-clay">
+      <p data-testid="forbidden" className="text-clay-ink">
         {t('errors.forbidden')}
       </p>
     )
@@ -35,6 +39,7 @@ export function SettingsPage() {
       </div>
       <GeneralSettings />
       <CategorySettings />
+      <AboutPanel />
     </div>
   )
 }
@@ -95,7 +100,7 @@ function GeneralSettings() {
           {t('settings.save')}
         </Button>
         {saved ? (
-          <p role="status" className="text-sm text-pine">
+          <p role="status" className="text-sm text-pine-ink">
             {t('settings.saved')}
           </p>
         ) : null}
@@ -282,5 +287,39 @@ function CategoryForm({
         </Button>
       </div>
     </form>
+  )
+}
+
+function AboutPanel() {
+  const { t, locale } = useI18n()
+  const { query } = useVault()
+  const facts = useMemo(
+    () => query((vault) => ({ createdAt: vault.createdAt, schema: readSchemaVersion(vault.db) })),
+    [query],
+  )
+  const rows: { id: string; label: string; value: string }[] = [
+    { id: 'about-version', label: t('about.version'), value: BUILD.version },
+    { id: 'about-commit', label: t('about.commit'), value: BUILD.commit },
+    { id: 'about-built', label: t('about.built'), value: BUILD.builtAt ? formatWhen(BUILD.builtAt, locale) : t('about.unknown') },
+    { id: 'about-schema', label: t('about.schema'), value: String(facts.schema) },
+    { id: 'about-record', label: t('about.record'), value: String(RECORD_VERSION) },
+    { id: 'about-backup', label: t('about.backup'), value: String(BACKUP_VERSION) },
+    { id: 'about-created', label: t('about.created'), value: facts.createdAt ? formatWhen(facts.createdAt, locale) : t('about.unknown') },
+  ]
+  return (
+    <section data-testid="about-panel" className="rounded-3xl border border-line bg-card p-5">
+      <h2 className="font-display text-2xl">{t('about.title')}</h2>
+      <p className="mt-1 text-sm text-muted">{t('about.intro')}</p>
+      <dl className="mt-4 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-[auto_1fr]">
+        {rows.map((row) => (
+          <div key={row.id} className="contents">
+            <dt className="text-muted">{row.label}</dt>
+            <dd data-testid={row.id} className="break-all font-mono text-xs leading-5">
+              {row.value}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </section>
   )
 }

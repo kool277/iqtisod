@@ -26,6 +26,39 @@ async function expectHeaderHeight(page: Page) {
   expect(box?.height).toBe(40)
   const overflow = await header.evaluate((node) => node.scrollWidth - node.clientWidth)
   expect(overflow).toBeLessThanOrEqual(0)
+  const edges = await header.evaluate((node) => ({
+    right: node.getBoundingClientRect().right,
+    viewport: document.documentElement.clientWidth,
+    pageOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  }))
+  expect(edges.right, 'header spans to the right edge of the viewport').toBe(edges.viewport)
+  expect(edges.pageOverflow).toBeLessThanOrEqual(0)
+}
+
+async function expectCollapsedSidebarCentered(page: Page) {
+  const sidebar = page.locator('#app-sidebar')
+  await expect.poll(async () => (await sidebar.boundingBox())?.width).toBe(65)
+  const geometry = await sidebar.evaluate((nav) => {
+    const rect = nav.getBoundingClientRect()
+    const left = rect.left + nav.clientLeft
+    const center = left + nav.clientWidth / 2
+    const items = [...nav.querySelectorAll<HTMLElement>('[data-testid="brand-home"], [data-testid^="nav-"]')].map((item) => {
+      const box = item.getBoundingClientRect()
+      const icon = item.querySelector('svg')?.getBoundingClientRect() ?? box
+      return {
+        id: item.dataset.testid,
+        offset: (icon.left + icon.right) / 2 - center,
+        gapDelta: box.left - left - (left + nav.clientWidth - box.right),
+      }
+    })
+    return { navLeft: rect.left, items }
+  })
+  expect(geometry.navLeft).toBe(0)
+  expect(geometry.items.length).toBeGreaterThan(1)
+  for (const item of geometry.items) {
+    expect(Math.abs(item.offset), `${item.id} icon is centered`).toBeLessThanOrEqual(1)
+    expect(Math.abs(item.gapDelta), `${item.id} has equal side gaps`).toBeLessThanOrEqual(1)
+  }
 }
 
 test('sets up a vault, records money, and switches theme', async ({ page }) => {
@@ -78,6 +111,12 @@ test('admin changes vault settings, adds a category, and collapses the sidebar',
   await expect(shell).toHaveAttribute('data-sidebar', 'collapsed')
   await expect(page.getByTestId('sidebar-toggle')).toHaveAttribute('aria-expanded', 'false')
   await expectHeaderHeight(page)
+  await expectCollapsedSidebarCentered(page)
+  await page.setViewportSize({ width: 1600, height: 900 })
+  await expectCollapsedSidebarCentered(page)
+  await page.setViewportSize({ width: 1920, height: 1080 })
+  await expectHeaderHeight(page)
+  await expect.poll(async () => (await shell.locator('header').boundingBox())?.x).toBe(65)
   await expect(page.getByTestId('save-state')).toHaveText('Saved', { timeout: 30_000 })
   await page.reload()
   await expect(page.getByTestId('login-email')).toBeVisible({ timeout: 30_000 })
@@ -88,6 +127,8 @@ test('admin changes vault settings, adds a category, and collapses the sidebar',
   await expect(shell.locator('header')).toContainText('Family budget')
   await page.getByTestId('sidebar-toggle').click()
   await expect(shell).toHaveAttribute('data-sidebar', 'expanded')
+  await expect.poll(async () => (await shell.locator('header').boundingBox())?.x).toBe(240)
+  await expectHeaderHeight(page)
 
   await page.setViewportSize({ width: 390, height: 844 })
   await expectHeaderHeight(page)

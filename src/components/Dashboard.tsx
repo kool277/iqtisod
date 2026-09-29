@@ -1,11 +1,12 @@
-import { useMemo } from 'react'
-import { FinanceCharts } from './Charts'
+import { Suspense, lazy, useMemo } from 'react'
 import { PeriodPicker } from './PeriodPicker'
 import { useI18n } from '../context/I18nContext'
 import { usePeriod } from '../context/PeriodContext'
 import { useVault } from '../context/VaultContext'
 import { loadDashboard } from '../services/finance.service'
-import { formatMoney, intlLocale } from '../lib/money'
+import { formatMoney, intlLocale, minorToDecimal } from '../lib/money'
+
+const FinanceCharts = lazy(() => import('./Charts').then((module) => ({ default: module.FinanceCharts })))
 
 export function Dashboard() {
   const { t, locale } = useI18n()
@@ -15,16 +16,16 @@ export function Dashboard() {
     () => query((vault) => loadDashboard(vault, range, locale)),
     [query, range, locale, revision],
   )
-  const savings = Math.round(data.savingsRate * 10) / 10
+  const money = (minor: number) => ({ amount: minorToDecimal(minor, currency), text: formatMoney(minor, currency, locale) })
   const cards = [
-    { id: 'kpi-net', label: t('kpi.net'), amount: data.net, text: formatMoney(data.net, currency, locale) },
-    { id: 'kpi-income', label: t('kpi.income'), amount: data.income, text: formatMoney(data.income, currency, locale) },
-    { id: 'kpi-expense', label: t('kpi.expense'), amount: data.expense, text: formatMoney(data.expense, currency, locale) },
+    { id: 'kpi-net', label: t('kpi.net'), ...money(data.net) },
+    { id: 'kpi-income', label: t('kpi.income'), ...money(data.income) },
+    { id: 'kpi-expense', label: t('kpi.expense'), ...money(data.expense) },
     {
       id: 'kpi-savings',
       label: t('kpi.savings'),
-      amount: savings,
-      text: `${new Intl.NumberFormat(intlLocale(locale), { maximumFractionDigits: 1 }).format(savings)}%`,
+      amount: String(data.savingsRate),
+      text: `${new Intl.NumberFormat(intlLocale(locale), { maximumFractionDigits: 1 }).format(data.savingsRate)}%`,
     },
   ]
 
@@ -43,7 +44,7 @@ export function Dashboard() {
             <p className="text-sm text-muted">{card.label}</p>
             <p
               data-testid={card.id}
-              data-amount={String(card.amount)}
+              data-amount={card.amount}
               title={card.text}
               className="mt-2 font-display text-[length:clamp(1.25rem,9cqi,2.25rem)] leading-tight tabular-nums [overflow-wrap:anywhere]"
             >
@@ -52,7 +53,23 @@ export function Dashboard() {
           </article>
         ))}
       </div>
-      <FinanceCharts data={data} />
+      {data.otherCurrencies.length > 0 ? (
+        <section data-testid="other-currencies" className="rounded-3xl border border-line bg-card px-5 py-4">
+          <h2 className="text-sm text-muted">{t('dashboard.otherCurrencies')}</h2>
+          <ul className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm tabular-nums">
+            {data.otherCurrencies.map((row) => (
+              <li key={row.currency} data-currency={row.currency}>
+                <span className="font-medium">{row.currency}</span>{' '}
+                <span className="text-pine-ink">+{formatMoney(row.income, row.currency, locale)}</span>{' '}
+                <span className="text-clay-ink">−{formatMoney(row.expense, row.currency, locale)}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+      <Suspense fallback={<div className="h-64 rounded-3xl border border-line bg-card" />}>
+        <FinanceCharts data={data} />
+      </Suspense>
     </div>
   )
 }

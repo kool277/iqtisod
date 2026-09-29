@@ -4,8 +4,9 @@ import { Button, Field, Notice, controlClass } from './ui'
 import { useI18n } from '../context/I18nContext'
 import { useVault } from '../context/VaultContext'
 import { CURRENCIES } from '../domain/types'
-import { textForError } from '../lib/errors'
-import { parseBackup } from '../services/backup.service'
+import { errorText, textForError } from '../lib/errors'
+import { APP_VERSION } from '../lib/version'
+import { parseBackup, type ParsedBackup } from '../services/backup.service'
 
 export function Splash() {
   return (
@@ -15,14 +16,20 @@ export function Splash() {
   )
 }
 
+const DATA_ERRORS = new Set(['FORMAT_TOO_NEW', 'RECORD_INVALID'])
+
 export function BootError({ message }: { message: string }) {
   const { t } = useI18n()
+  const known = DATA_ERRORS.has(message)
   return (
     <div className="grid min-h-screen place-items-center p-6">
       <div className="max-w-md text-center">
         <h1 className="font-display text-4xl">Moliya</h1>
-        <p className="mt-4 text-clay">{t('errors.sqlite')}</p>
-        <p className="mt-2 text-sm text-muted">{message}</p>
+        <p data-testid="boot-error" data-code={message} className="mt-4 text-clay-ink">
+          {known ? errorText(message, t) : t('errors.sqlite')}
+        </p>
+        {known ? null : <p className="mt-2 text-sm text-muted">{message}</p>}
+        <p className="mt-6 text-xs text-muted">v{APP_VERSION}</p>
       </div>
     </div>
   )
@@ -32,12 +39,15 @@ function AuthFrame({ children }: { children: ReactNode }) {
   const { t } = useI18n()
   return (
     <div className="grid min-h-screen lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
-      <section className="hidden flex-col justify-between bg-[#0d4f3e] p-12 text-[#f6f1e7] lg:flex">
+      <section className="hidden flex-col justify-between bg-[#14532d] p-12 text-[#f6f1e7] lg:flex">
         <p className="font-display text-4xl">Moliya</p>
         <div>
           <h1 className="max-w-lg font-display text-6xl leading-[0.95]">{t('app.tagline')}</h1>
         </div>
-        <p className="max-w-sm text-sm text-[#f6f1e7]/75">{t('app.localOnly')}</p>
+        <div>
+          <p className="max-w-sm text-sm text-[#f6f1e7]/75">{t('app.localOnly')}</p>
+          <p className="mt-3 text-xs text-[#f6f1e7]/75">v{APP_VERSION}</p>
+        </div>
       </section>
       <section className="flex flex-col">
         <div className="flex justify-end p-4">
@@ -46,6 +56,7 @@ function AuthFrame({ children }: { children: ReactNode }) {
         <div className="flex flex-1 items-center justify-center px-6 pb-12">
           <div className="w-full max-w-md">{children}</div>
         </div>
+        <p className="pb-4 text-center text-xs text-muted lg:hidden">v{APP_VERSION}</p>
       </section>
     </div>
   )
@@ -61,7 +72,7 @@ export function SetupPage() {
   const [currency, setCurrency] = useState('USD')
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
-  const [backup, setBackup] = useState<Awaited<ReturnType<typeof parseBackup>> | null>(null)
+  const [backup, setBackup] = useState<ParsedBackup | null>(null)
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()

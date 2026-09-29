@@ -8,7 +8,7 @@ import type { EntryType, LedgerEntry, TransactionInput } from '../domain/types'
 import { CURRENCIES } from '../domain/types'
 import { textForError } from '../lib/errors'
 import { toIsoDate } from '../lib/dates'
-import { formatIsoDate, formatMoney } from '../lib/money'
+import { formatIsoDate, formatMoney, minorToDecimal } from '../lib/money'
 import { Permission, canUser } from '../rbac'
 import {
   MAX_RECEIPT_BYTES,
@@ -100,7 +100,7 @@ export function Timeline() {
       ) : (
         <ul className="grid gap-3">
           {entries.map((entry) => (
-            <li key={entry.id} data-testid="tx-row" data-amount={String(entry.amount)} className="rounded-3xl border border-line bg-card px-4 py-4">
+            <li key={entry.id} data-testid="tx-row" data-amount={minorToDecimal(entry.amountMinor, entry.currency)} className="rounded-3xl border border-line bg-card px-4 py-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0 flex-1 basis-56">
                   <p className="text-xs uppercase tracking-[0.14em] text-muted">{t(entry.type === 'INCOME' ? 'tx.income' : 'tx.expense')}</p>
@@ -112,8 +112,8 @@ export function Timeline() {
                   {entry.currency !== currency ? <p className="mt-2 text-xs text-brass">{t('tx.otherCurrency')}</p> : null}
                 </div>
                 <div className="min-w-0 max-w-full text-right">
-                  <p className={`font-display text-2xl tabular-nums [overflow-wrap:anywhere] sm:text-3xl ${entry.type === 'INCOME' ? 'text-pine' : 'text-clay'}`}>
-                    {formatMoney(entry.amount, entry.currency, locale)}
+                  <p className={`font-display text-2xl tabular-nums [overflow-wrap:anywhere] sm:text-3xl ${entry.type === 'INCOME' ? 'text-pine-ink' : 'text-clay-ink'}`}>
+                    {formatMoney(entry.amountMinor, entry.currency, locale)}
                   </p>
                   <div className="mt-3 flex flex-wrap justify-end gap-2">
                     {canEdit ? (
@@ -165,7 +165,7 @@ function TransactionForm({
 }) {
   const { t, locale } = useI18n()
   const [type, setType] = useState<EntryType>(initial?.type ?? 'EXPENSE')
-  const [amount, setAmount] = useState(initial ? String(initial.amount) : '')
+  const [amount, setAmount] = useState(initial ? minorToDecimal(initial.amountMinor, initial.currency) : '')
   const [categoryId, setCategoryId] = useState(initial ? String(initial.categoryId) : '')
   const [groupId, setGroupId] = useState(initial ? String(initial.groupId) : String(groups[0]?.id ?? ''))
   const [date, setDate] = useState(initial?.date ?? toIsoDate(new Date()))
@@ -203,7 +203,7 @@ function TransactionForm({
     try {
       await onSubmit({
         type,
-        amount: Number(amount),
+        amount,
         currency: entryCurrency,
         categoryId: Number(selectedCategory),
         groupId: Number(groupId),
