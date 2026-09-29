@@ -8,30 +8,41 @@ const isolationHeaders = {
   'Cross-Origin-Embedder-Policy': 'require-corp',
 }
 
+// frame-ancestors is ignored in a <meta> policy; src/main.tsx refuses to run inside a frame instead.
 export const CONTENT_SECURITY_POLICY = [
-  "default-src 'self'",
+  "default-src 'none'",
   "script-src 'self' 'wasm-unsafe-eval'",
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
+  "style-src 'self'",
+  "img-src 'self' data:",
   "font-src 'self'",
   "connect-src 'self'",
-  "worker-src 'self' blob:",
+  "worker-src 'self'",
   "manifest-src 'self'",
+  "frame-src 'none'",
+  "child-src 'none'",
   "object-src 'none'",
-  "base-uri 'self'",
+  "base-uri 'none'",
   "form-action 'none'",
+  'upgrade-insecure-requests',
+  "require-trusted-types-for 'script'",
+  'trusted-types default',
 ].join('; ')
 
 function releaseMetadata(info: BuildInfo): Plugin {
   return {
     name: 'moliya-release-metadata',
     apply: 'build',
-    transformIndexHtml() {
-      return [
-        { tag: 'meta', attrs: { 'http-equiv': 'Content-Security-Policy', content: CONTENT_SECURITY_POLICY }, injectTo: 'head-prepend' },
-        { tag: 'meta', attrs: { name: 'referrer', content: 'no-referrer' }, injectTo: 'head' },
-        { tag: 'meta', attrs: { name: 'moliya-version', content: `${info.version}+${info.commit}` }, injectTo: 'head' },
-      ]
+    // The policy must precede every script, and the charset must stay within the first 1024 bytes.
+    transformIndexHtml(html) {
+      return {
+        html: html.replace(/\s*<meta charset="UTF-8" \/>/, ''),
+        tags: [
+          { tag: 'meta', attrs: { charset: 'UTF-8' }, injectTo: 'head-prepend' },
+          { tag: 'meta', attrs: { name: 'referrer', content: 'no-referrer' }, injectTo: 'head-prepend' },
+          { tag: 'meta', attrs: { 'http-equiv': 'Content-Security-Policy', content: CONTENT_SECURITY_POLICY }, injectTo: 'head-prepend' },
+          { tag: 'meta', attrs: { name: 'moliya-version', content: `${info.version}+${info.commit}` }, injectTo: 'head' },
+        ],
+      }
     },
     generateBundle() {
       this.emitFile({ type: 'asset', fileName: 'version.json', source: `${JSON.stringify(info, null, 2)}\n` })
