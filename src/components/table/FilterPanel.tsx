@@ -45,7 +45,7 @@ export function FilterPanel<T>({ tableId, columns, filters, options, onChange, o
                 {...(secure ? secureProps : {})}
                 type="search"
                 aria-labelledby={labelId}
-                data-testid={`filter-${column.id}`}
+                data-testid={labelId}
                 className={inputClass}
                 placeholder={t('table.contains')}
                 value={value?.kind === 'text' ? value.text : ''}
@@ -55,8 +55,9 @@ export function FilterPanel<T>({ tableId, columns, filters, options, onChange, o
             {spec.kind === 'select' ? (
               <SelectFilter
                 label={column.header}
-                testId={`filter-${column.id}`}
+                testId={labelId}
                 options={options[column.id] ?? spec.options}
+                secure={secure}
                 selected={value?.kind === 'select' ? value.values : []}
                 onChange={(values) => onChange(column.id, values.length ? { kind: 'select', values } : null)}
               />
@@ -66,7 +67,7 @@ export function FilterPanel<T>({ tableId, columns, filters, options, onChange, o
                 <input
                   type="date"
                   aria-label={`${column.header}: ${t('table.from')}`}
-                  data-testid={`filter-${column.id}-from`}
+                  data-testid={`${labelId}-from`}
                   className={inputClass}
                   value={value?.kind === 'date' ? value.from : ''}
                   onChange={(event) => onChange(column.id, { kind: 'date', from: event.target.value, to: value?.kind === 'date' ? value.to : '' })}
@@ -74,7 +75,7 @@ export function FilterPanel<T>({ tableId, columns, filters, options, onChange, o
                 <input
                   type="date"
                   aria-label={`${column.header}: ${t('table.to')}`}
-                  data-testid={`filter-${column.id}-to`}
+                  data-testid={`${labelId}-to`}
                   className={inputClass}
                   value={value?.kind === 'date' ? value.to : ''}
                   onChange={(event) => onChange(column.id, { kind: 'date', from: value?.kind === 'date' ? value.from : '', to: event.target.value })}
@@ -87,7 +88,7 @@ export function FilterPanel<T>({ tableId, columns, filters, options, onChange, o
                   {...secureProps}
                   inputMode="decimal"
                   aria-label={`${column.header}: ${t('table.min')}`}
-                  data-testid={`filter-${column.id}-min`}
+                  data-testid={`${labelId}-min`}
                   placeholder={t('table.min')}
                   className={`${inputClass} tabular-nums`}
                   value={value?.kind === 'range' ? value.min : ''}
@@ -97,7 +98,7 @@ export function FilterPanel<T>({ tableId, columns, filters, options, onChange, o
                   {...secureProps}
                   inputMode="decimal"
                   aria-label={`${column.header}: ${t('table.max')}`}
-                  data-testid={`filter-${column.id}-max`}
+                  data-testid={`${labelId}-max`}
                   placeholder={t('table.max')}
                   className={`${inputClass} tabular-nums`}
                   value={value?.kind === 'range' ? value.max : ''}
@@ -125,10 +126,12 @@ function SelectFilter({
   options,
   selected,
   onChange,
+  secure,
 }: {
   label: string
   testId: string
   options: FilterOption[]
+  secure?: boolean
   selected: string[]
   onChange: (values: string[]) => void
 }) {
@@ -158,7 +161,7 @@ function SelectFilter({
                 className="size-4 shrink-0 accent-[var(--app-pine)]"
                 checked={chosen.has(option.value)}
                 data-testid={`${testId}-option`}
-                data-value={option.value}
+                data-value={secure ? undefined : option.value}
                 onChange={() => onChange(chosen.has(option.value) ? selected.filter((item) => item !== option.value) : [...selected, option.value])}
               />
               <span className="min-w-0 break-words">{option.label}</span>

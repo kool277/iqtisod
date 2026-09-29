@@ -43,6 +43,7 @@ export type DataTableProps<T> = {
   /** Private-safe data: no export and no autocomplete or spellcheck on inputs. */
   secure?: boolean
   empty?: ReactNode
+  searchLabel?: string
   defaultSort?: SortRule[]
   defaultPageSize?: PageSize
   bulkDelete?: { run: (rows: T[]) => Promise<void>; can?: (row: T) => boolean }
@@ -169,13 +170,13 @@ export function DataTable<T>(props: DataTableProps<T>) {
       {toolbar ? <div className="flex min-w-0 flex-wrap items-end gap-2">{toolbar}</div> : null}
       <div className="flex min-w-0 flex-wrap items-center gap-2">
         <label className="relative min-w-0 flex-1 basis-56">
-          <span className="sr-only">{t('table.search')}</span>
+          <span className="sr-only">{props.searchLabel ?? t('table.search')}</span>
           <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" aria-hidden="true" />
           <input
             {...(secure ? secureProps : { autoComplete: 'off' })}
             type="search"
             data-testid={`${id}-search`}
-            placeholder={t('table.searchPlaceholder')}
+            placeholder={props.searchLabel ?? t('table.searchPlaceholder')}
             className="h-9 w-full rounded-xl border border-line bg-card pl-9 pr-3 text-sm outline-none transition focus:border-pine-ink focus:ring-2 focus:ring-pine-ink/30"
             value={state.query}
             onChange={(event) => state.setQuery(event.target.value)}
