@@ -98,7 +98,8 @@ async function issueInvite(page: Page, email: string, validity?: string): Promis
   await page.getByTestId('invite-role').selectOption('Manager')
   await page.getByTestId('invite-create').click()
   const code = (await page.getByTestId('issued-code').textContent({ timeout: 30_000 }))!.trim()
-  expect(code).toMatch(/^[0-9A-Z]{4}(-[0-9A-Z]{4}){6}$/)
+  // 26 Crockford base32 data symbols, then a mod-37 check symbol that may also be one of * ~ $ = U.
+  expect(code).toMatch(/^(?:[0-9A-HJKMNP-TV-Z]{4}-){6}[0-9A-HJKMNP-TV-Z]{3}[0-9A-HJKMNP-TV-Z*~$=U]$/)
   return code
 }
 

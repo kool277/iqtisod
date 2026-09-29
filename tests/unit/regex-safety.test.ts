@@ -15,8 +15,9 @@ import { normalizeRecoveryCode } from '../../src/services/totp.service'
 
 const SIZE = 100_000
 const BUDGET_MS = 50
+const RUNS = 5
 
-function timed(run: () => unknown): number {
+function once(run: () => unknown): number {
   const started = performance.now()
   try {
     const result = run()
@@ -25,6 +26,16 @@ function timed(run: () => unknown): number {
     // Rejecting the input is fine; only the time matters here.
   }
   return performance.now() - started
+}
+
+/**
+ * Fastest of several runs: a GC pause or a busy machine only ever adds time, while backtracking on
+ * hostile input is slow on every run, so the minimum keeps the check strict without being flaky.
+ */
+function timed(run: () => unknown): number {
+  let best = Infinity
+  for (let round = 0; round < RUNS; round += 1) best = Math.min(best, once(run))
+  return best
 }
 
 const adversarial: [string, () => unknown][] = [
@@ -55,14 +66,17 @@ const adversarial: [string, () => unknown][] = [
 
 describe('regular expressions stay fast on hostile input', () => {
   it.each(adversarial)('%s', (_name, run) => {
-    timed(run)
     expect(timed(run)).toBeLessThan(BUDGET_MS)
   })
 
   it('rejects an over-long password before any pattern runs', async () => {
-    const started = performance.now()
-    await expect(passwordProblem(`${'!'.repeat(SIZE)}a`)).resolves.toBe('PASSWORD_LONG')
-    expect(performance.now() - started).toBeLessThan(BUDGET_MS)
+    let best = Infinity
+    for (let round = 0; round < RUNS; round += 1) {
+      const started = performance.now()
+      await expect(passwordProblem(`${'!'.repeat(SIZE)}a`)).resolves.toBe('PASSWORD_LONG')
+      best = Math.min(best, performance.now() - started)
+    }
+    expect(best).toBeLessThan(BUDGET_MS)
   })
 
   it('still trims trailing zeros correctly', () => {

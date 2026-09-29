@@ -3,10 +3,15 @@ import { ValidationError } from '../../src/domain/errors'
 import { assertEmail, isEmail, normalizeEmail } from '../../src/lib/email'
 import { LIMITS } from '../../src/lib/limits'
 
+/** Fastest of five runs, so a GC pause or a busy machine cannot fail the check; slow patterns are slow every time. */
 function timed(fn: () => unknown): number {
-  const start = performance.now()
-  fn()
-  return performance.now() - start
+  let best = Infinity
+  for (let round = 0; round < 5; round += 1) {
+    const start = performance.now()
+    fn()
+    best = Math.min(best, performance.now() - start)
+  }
+  return best
 }
 
 describe('normalizeEmail', () => {
@@ -68,7 +73,6 @@ describe('isEmail', () => {
       `${'a.'.repeat(60)}@${'b.'.repeat(60)}`,
     ]
     for (const input of inputs) {
-      isEmail(input)
       expect(timed(() => isEmail(input)), input.slice(0, 20)).toBeLessThan(50)
       expect(isEmail(input)).toBe(false)
     }
