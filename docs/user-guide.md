@@ -141,7 +141,11 @@ A chart shows "No figures in this range" when the period has no matching records
 
 **Groups** shows your group with its **Income** (↑), **Expenses** (↓), and **Net** (income minus expenses) for the selected period, plus the number of transactions and the date of the latest one. Net is green when it is zero or more and red when it is below zero. Each currency gets its own line; amounts in different currencies are never added together or converted. A group with no records in the period shows "No transactions in this period."
 
-You only see your own group. Admins see every group and an **All groups** strip above the list with the combined figures, still one line per currency.
+On a wide screen the figures are columns of the **Groups** table, so you can sort by income, expenses, net, number of transactions, or last activity; amounts sort by the vault currency. On a phone each group is a card with the same figures.
+
+Choose a group's name to open **Transactions** with only that group's records, for the same period. The group filter is already set; choose **Clear filters** to see every record you can see again.
+
+You only see your own group. Admins see every group and, with two or more groups, an **All groups** strip above the table with the combined figures, still one line per currency.
 
 ## Exchange rates
 

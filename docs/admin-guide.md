@@ -42,7 +42,8 @@ Open **Groups**.
 
 - **Add a group**: type a name and choose **Add group**. Use groups to separate budgets, for example "Home" and "Shop", or one group per family branch.
 - **Remove a group**: only possible when no people and no records belong to it. Move or delete those first.
-- **Summaries**: each group shows its income, expenses, net, number of transactions, and latest activity for the period chosen with the period buttons, one line per currency. The **All groups** strip above the list combines every group, again per currency. Managers and Viewers can open **Groups** too, but they only see their own group's summary and cannot add or remove groups.
+- **Summaries**: the table shows each group's **Income**, **Expenses**, **Net**, **Transactions**, and **Last activity** for the period chosen with the period buttons. A group with records in several currencies has one line per currency in each amount cell. Sorting by an amount uses the vault currency; amounts in other currencies are never added in or converted. With two or more groups, the **All groups** strip above the table combines them, again per currency. Managers and Viewers can open **Groups** too, but they only see their own group's summary and cannot add or remove groups.
+- **Records of one group**: choose a group's name to open **Transactions** with that group's filter already set, for the same period.
 
 Groups cannot be renamed from the app yet.
 
@@ -332,6 +333,15 @@ Versions 1.0.0 and 1.1.0 stored, for every person, a value in the database that 
 
 - Safes now stay open until the person chooses **Lock safes** or the vault locks: **Lock**, refreshing or closing the tab, signing out, or the vault's own **Account → Lock automatically** time (15 minutes unless changed). Switching to another tab no longer locks them.
 - The separate safes timer (5 minutes by default) and its choice under **Account → Private safes** are gone. On shared devices, choose a short **Lock automatically** time instead, because it now protects the safes too.
+
+### Upgrading to 1.4.0
+
+1.4.0 turns every list into a table and adds group summaries. It does not change any data format, and 1.3.0 and 1.3.1 still open everything 1.4.0 saves.
+
+- **Groups for everyone who can see the dashboard.** Managers and Viewers now find **Groups** in the sidebar, showing their own group's income, expenses, and net, read-only. Adding and removing groups stays with Admins.
+- **Audit log.** It now lists the latest 10,000 entries instead of 200.
+- **Table exports.** Admins can export what a table shows. These files are never encrypted and each one is recorded as **Data exported**; see [Exporting a table](#exporting-a-table).
+- **Per-browser choices.** Column layouts, the dashboard group, and rows per page are remembered in each browser's local storage (`moliya.table.<id>`, `moliya.dashboard.group`). They hold no records, names, or amounts.
 
 ## Recovery scenarios
 

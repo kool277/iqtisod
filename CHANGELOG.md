@@ -6,11 +6,12 @@ Data formats are versioned separately from the app. Each release lists the forma
 
 ## [Unreleased]
 
-No data format changes: vaults, backups, the schema, and export format 1 stay as in 1.3.1. The new table export is a separate write-only file described under [Exports](docs/data-format.md#table-view-exports).
+## [1.4.0] - 2026-09-29
+
+Reads backup and record versions 1–2 and schema versions 1–4. Writes backup 2, record 2, schema 4, and export format 1, the same as 1.3.1. No data format changes: 1.3.0 and 1.3.1 open everything 1.4.0 saves. The new table export is a separate write-only file described under [Exports](docs/data-format.md#table-view-exports).
 
 ### Added
 
-- **Group filter on the dashboard.** Next to the period buttons, **All groups** or one group narrows the four totals, the charts, and the per-currency list. The exchange-rate panel is not affected. Admins can pick any group; Managers and Viewers only see their own group, so the choice there is **All groups** or that group, which show the same figures. The choice is remembered in this browser (`moliya.dashboard.group`) and ignored if the group is removed or not yours. With one group chosen, Admins see **Who spent** instead of **Spending by group**.
 - **Tables with sorting, search, filters, and column choices** on Transactions, People, Open codes, Groups, Audit log, Categories, earlier copies on the Backup page, and the private-safe item, trash, and activity lists:
   - Choose a column heading to sort (again for the other direction, a third time to clear); Shift-choose adds up to three sort columns. Amounts sort exactly and per currency, dates by date, and text in the order of the chosen language.
   - **Search this table** looks at the visible columns and ignores case, accents, apostrophes, and script, so `taksi`, `Такси`, and `Taksi` find the same record, and `oʻzbek`, `ozbek`, and `ўзбек` match.
@@ -21,16 +22,25 @@ No data format changes: vaults, backups, the schema, and export format 1 stay as
   - **Edit in place** on Transactions (date, category, group, amount, notes) and Categories (the four names): choose the pencil, then Enter saves and Esc cancels. Errors show under the field. The change goes through the same checks, permissions, and audit entry as the full form, which stays available under **Edit**.
   - **Delete selected** on Transactions for people who can delete records, with a confirmation. Each deletion is audited on its own.
   - On a phone, rows become cards with labels, and a **Sort by** menu replaces the headings.
+- **Group filter on the dashboard.** Next to the period buttons, **All groups** or one group narrows the four totals, the charts, and the per-currency list. The exchange-rate panel is not affected. Admins can pick any group; Managers and Viewers only see their own group, so the choice there is **All groups** or that group, which show the same figures. The choice is remembered in this browser (`moliya.dashboard.group`) and ignored if the group is removed or not yours. With one group chosen, Admins see **Who spent** instead of **Spending by group**.
+- **Income, expenses, and net per group.** The **Groups** table has sortable **Income**, **Expenses**, **Net**, **Transactions**, and **Last activity** columns for the selected period. A group with records in several currencies shows one line per currency in each amount cell; amounts in different currencies are never added together or converted, and sorting uses the vault currency. With two or more groups, an **All groups** strip above the table combines them, again per currency.
+- **From a group to its records.** Choosing a group's name on **Groups** opens **Transactions** with the group filter already set, for the same period. The link (`#/app/transactions?group=<id>`) only applies a group the reader can already see; any other value is ignored, so it never shows more than the ledger would.
 - The period buttons and the **All / Income / Expense** filter now sit in the ledger table's toolbar.
-- **Groups** shows each group's income, expenses, net, transaction count, and latest activity for the selected period, one line per currency, with an **All groups** strip above the list. Managers and Viewers can now open **Groups** and see only their own group's summary; adding and removing groups stays Admin-only. No data format changes.
 
 ### Changed
 
 - Exchange rates are easier to read: each rate's change is shown in dark green when it went up and dark red when it went down, in a lightly tinted pill with an arrow and a screen-reader label. Each direction gets a thin accent line in the same color, and the converter result is shown in green. Every colored label meets WCAG AA contrast (at least 4.5:1) in the light and dark themes.
+- Managers and Viewers can open **Groups** and see their own group's summary, read-only. Adding and removing groups stays Admin-only.
 - The audit log shows up to the latest 10,000 entries instead of 200, 100 per page by default.
 - Categories are one table with a Type column instead of two lists.
 - Search inside a private safe now also matches the card, subscription, or note details shown in the list (never card numbers beyond the last four, CVV, or note text), and ignores accents and script.
+- The table strings load with the first page that shows a table, so the first screen stays within 1.3 KB (gzip) of 1.3.1.
 - Playwright uses `E2E_PORT` when set, and the dev server fails instead of switching ports when the port is taken.
+- Two tests that failed now and then no longer do: the invite-code browser test accepts every check symbol a code can end with (`*`, `~`, `$`, `=`, `U`), and the timing checks for hostile input take the fastest of five runs.
+
+### Docs
+
+- The user, admin, developer, and DevOps guides, the README, the data format, and `SECURITY.md` are brought up to date for 1.3.1 and `jaybi.uz`, then for this release: tables, the dashboard group filter, group summaries, the ledger link, and table exports.
 
 ## [1.3.1] - 2026-09-29
 
@@ -203,7 +213,8 @@ Writes backup, record, and schema version 1.
 - Audit log, encrypted `.moliya` backups, day and night themes, and a collapsible sidebar.
 - Deployment to GitHub Pages.
 
-[Unreleased]: https://github.com/kool277/iqtisod/compare/v1.3.1...HEAD
+[Unreleased]: https://github.com/kool277/iqtisod/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/kool277/iqtisod/compare/v1.3.1...v1.4.0
 [1.3.1]: https://github.com/kool277/iqtisod/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/kool277/iqtisod/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/kool277/iqtisod/compare/v1.1.0...v1.2.0

@@ -23,10 +23,11 @@ It suits a household tracking a shared budget, a small business or community gro
 
 - Encrypted vault created on first run with a master (admin) password.
 - Three roles: **Admin** (everything), **Manager** (add, edit, and delete records for their group), and **Viewer** (read-only dashboard and ledger for their group).
-- Groups, so one vault can hold separate budgets (for example "Home" and "Shop").
+- Groups, so one vault can hold separate budgets (for example "Home" and "Shop"), each with its income, expenses, net, transaction count, and latest activity for the chosen period, one line per currency. Choosing a group opens its records in the ledger.
 - Income and expense records with category, date, currency, notes, and an optional receipt photo.
 - Timeline filters for today, this week, this month, last month, year to date, or a custom range.
-- Dashboard with net balance, total income, total expenses, savings rate, and four charts: monthly income against expenses, expenses by category, spending over time, and spending by group or by person.
+- Dashboard with net balance, total income, total expenses, savings rate, and four charts: monthly income against expenses, expenses by category, spending over time, and spending by group or by person, for all groups or one.
+- Tables for the ledger, people, codes, groups, audit log (latest 10,000 entries), categories, earlier copies, and private safes: sort by any column, search that ignores case, accents, and script, filters, column choices remembered per browser, cards on a phone, in-place edits and bulk delete in the ledger, and export of exactly what the table shows for Admins.
 - Official exchange rates on the dashboard for soʻm, won, and shekel against the US dollar in both directions (UZS↔USD, KRW↔USD, ILS↔USD), from the Central Bank of Uzbekistan, the European Central Bank, and the Bank of Israel, with the rate date, the source, the change since the previous rate, a stale warning, and an exact converter. Rates are fetched and cross-checked once or twice a day by a GitHub Actions job and published on the same site, so the browser never contacts a third party.
 - Admin settings page for the vault name, vault currency, and income and expense categories in all four languages.
 - Private safes for every person: encrypted, owner-only places for payment cards, subscriptions (with monthly and yearly totals per currency and upcoming payments), and notes. Not even an Admin can open them. Password re-entry to open, locking with the vault, masked card numbers, an optional recovery code, a 30-day trash, and a private activity list.
@@ -115,7 +116,7 @@ React 19, TypeScript, Vite, Tailwind CSS 4, Chart.js, Lucide icons, `@sqlite.org
 
 ## Status
 
-Version 1.3.1, in production since 1.0.0 and served from [jaybi.uz](https://jaybi.uz) since 1.3.0. The core features work and are covered by unit tests, browser tests, and golden backups from every release. Known gaps and suggested next steps are listed in the [developer guide](docs/developer-guide.md#known-gaps-and-next-steps).
+Version 1.4.0, in production since 1.0.0 and served from [jaybi.uz](https://jaybi.uz) since 1.3.0. The core features work and are covered by unit tests, browser tests, and golden backups from every release. Known gaps and suggested next steps are listed in the [developer guide](docs/developer-guide.md#known-gaps-and-next-steps).
 
 ## License
 
