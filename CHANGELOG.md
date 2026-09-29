@@ -6,6 +6,10 @@ Data formats are versioned separately from the app. Each release lists the forma
 
 ## [Unreleased]
 
+### Changed
+
+- Exchange rates are easier to read: each rate's change is shown in dark green when it went up and dark red when it went down, in a lightly tinted pill with an arrow and a screen-reader label. Each direction gets a thin accent line in the same color, and the converter result is shown in green. Every colored label meets WCAG AA contrast (at least 4.5:1) in the light and dark themes.
+
 ## [1.3.0] - 2026-09-29
 
 Reads backup and record versions 1–2 and schema versions 1–4. Writes backup 2, record 2, schema 4, and the new write-only export format 1. Vaults and backups made by 1.0.0, 1.1.0, and 1.2.0 upgrade automatically on first sign-in, and the original stored copy is kept in the browser. Moliya 1.1.0 and 1.2.0 refuse a schema 4 vault or backup with "made by a newer version" and leave it untouched. The 1.2.0 recovery tool still decrypts schema 4 backups but does not remove the new sign-in check and code data from its output.

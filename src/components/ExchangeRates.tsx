@@ -1,4 +1,4 @@
-import { ArrowLeftRight, ExternalLink, Minus, RefreshCw, TrendingDown, TrendingUp } from 'lucide-react'
+import { ArrowLeftRight, ExternalLink, RefreshCw } from 'lucide-react'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useI18n } from '../context/I18nContext'
 import { AppError } from '../domain/errors'
@@ -16,10 +16,11 @@ import {
   type FxSnapshot,
 } from '../domain/fx'
 import { toIsoDate } from '../lib/dates'
-import { formatDecimal } from '../lib/decimal'
+import { formatDecimal, type Decimal } from '../lib/decimal'
 import { errorText } from '../lib/errors'
 import { formatIsoDate, formatWhen, intlLocale } from '../lib/money'
 import { cacheSnapshot, fetchLatestSnapshot, parseAmountInput, preferNewer, readCachedSnapshot, type LoadedSnapshot } from '../services/fx.service'
+import { TREND_CLASSES, TrendBadge, trendOf } from './FxTrend'
 import { Button, controlClass } from './ui'
 
 type Failure = 'offline' | 'unavailable' | null
@@ -61,20 +62,32 @@ function useExchangeRates() {
   return { snapshot: loaded?.snapshot ?? null, loading, failure, refresh }
 }
 
-function ChangeLine({ quote, inverse }: { quote: FxQuote; inverse: boolean }) {
+function ChangeLine({ change, date }: { change: Decimal; date: string }) {
   const { t, locale } = useI18n()
-  const change = changePercent(quote, inverse)
-  if (!change || !quote.previous) return null
-  const date = formatIsoDate(quote.previous.date, locale)
-  const Icon = change.sign() > 0 ? TrendingUp : change.sign() < 0 ? TrendingDown : Minus
-  const text =
-    change.sign() === 0
-      ? fill(t('fx.unchanged'), { date })
-      : fill(t('fx.change'), { change: `${change.sign() > 0 ? '+' : ''}${formatDecimal(change, intlLocale(locale))}%`, date })
+  const trend = trendOf(change.sign())
+  const formatted = formatIsoDate(date, locale)
+  const [before, after = ''] = t('fx.change').split('{change}')
   return (
-    <dd data-testid="fx-change" data-change={change.toString()} className="flex items-center gap-1 text-xs text-muted tabular-nums">
-      <Icon size={12} aria-hidden="true" className="shrink-0" />
-      <span className="min-w-0 [overflow-wrap:anywhere]">{text}</span>
+    <dd
+      data-testid="fx-change"
+      data-change={change.toString()}
+      data-trend={trend}
+      title={t('fx.changeHint')}
+      className="mt-0.5 text-xs leading-5 text-muted tabular-nums [overflow-wrap:anywhere]"
+    >
+      {trend === 'flat' ? (
+        <>
+          <TrendBadge trend="flat" /> {fill(t('fx.unchanged'), { date: formatted })}
+        </>
+      ) : (
+        <>
+          {fill(before, { date: formatted })}
+          <TrendBadge trend={trend} label={t(trend === 'up' ? 'fx.up' : 'fx.down')}>
+            {`${trend === 'up' ? '+' : ''}${formatDecimal(change, intlLocale(locale))}%`}
+          </TrendBadge>
+          {fill(after, { date: formatted })}
+        </>
+      )}
     </dd>
   )
 }
@@ -86,9 +99,11 @@ function DirectionRow({ quote, inverse }: { quote: FxQuote; inverse: boolean }) 
   const to = inverse ? FX_BASE : quote.quote
   const rate = displayRate(quote, inverse)
   const nominal = scaledNominal(quote, inverse)
+  const change = quote.previous ? changePercent(quote, inverse) : null
+  const accent = change ? TREND_CLASSES[trendOf(change.sign())].accent : 'border-line'
   return (
-    <div data-testid={`fx-rate-${from}-${to}`} data-rate={rate.toString()} className="min-w-0">
-      <dt className="text-xs text-muted">
+    <div data-testid={`fx-rate-${from}-${to}`} data-rate={rate.toString()} className={`min-w-0 border-l-2 pl-3 ${accent}`}>
+      <dt className="text-xs font-medium tracking-wide text-muted">
         {from} → {to}
       </dt>
       <dd className="font-display text-[length:clamp(1rem,7cqi,1.5rem)] leading-tight tabular-nums [overflow-wrap:anywhere]">
@@ -99,7 +114,7 @@ function DirectionRow({ quote, inverse }: { quote: FxQuote; inverse: boolean }) 
           {formatDecimal(nominal, intl)} {from} = {formatDecimal(convert(nominal, quote, inverse).rounded, intl)} {to}
         </dd>
       ) : null}
-      <ChangeLine quote={quote} inverse={inverse} />
+      {change && quote.previous ? <ChangeLine change={change} date={quote.previous.date} /> : null}
     </div>
   )
 }
@@ -115,7 +130,7 @@ function PairCard({ quote, today }: { quote: FxQuote; today: string }) {
       className="@container min-w-0 rounded-2xl border border-line px-4 py-3"
     >
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <h3 className="min-w-0 font-medium [overflow-wrap:anywhere]">
+        <h3 className="min-w-0 font-semibold [overflow-wrap:anywhere]">
           {FX_BASE} / {quote.quote} <span className="text-sm font-normal text-muted">{t(`fx.currencies.${quote.quote}`)}</span>
         </h3>
         {stale ? (
@@ -128,7 +143,7 @@ function PairCard({ quote, today }: { quote: FxQuote; today: string }) {
         <DirectionRow quote={quote} inverse={false} />
         <DirectionRow quote={quote} inverse />
       </dl>
-      <p className="mt-3 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted">
+      <p className="mt-3 flex flex-wrap gap-x-3 gap-y-0.5 border-t border-line pt-2 text-xs text-muted">
         <span data-testid="fx-date" data-date={quote.date}>
           {fill(t('fx.rateDate'), { date: formatIsoDate(quote.date, locale) })}
         </span>
@@ -227,8 +242,8 @@ function Converter({ snapshot }: { snapshot: FxSnapshot }) {
           data-currency={direction.to}
           className="min-w-0 @lg:col-span-2 @3xl:col-span-1"
         >
-          <span className="block text-sm">{t('fx.result')}</span>
-          <span className="block font-display text-[length:clamp(1.25rem,6cqi,2rem)] leading-tight tabular-nums [overflow-wrap:anywhere]">
+          <span className="block text-sm text-muted">{t('fx.result')}</span>
+          <span className={`block font-display text-[length:clamp(1.25rem,6cqi,2rem)] leading-tight tabular-nums [overflow-wrap:anywhere] ${result ? 'text-pine-ink' : 'text-muted'}`}>
             {result ? `${formatDecimal(result.rounded, intl)} ${direction.to}` : '—'}
           </span>
           {result && !result.exact.equals(result.rounded) ? (
