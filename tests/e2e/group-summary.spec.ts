@@ -4,7 +4,7 @@ import { expect, test, type Locator, type Page } from '@playwright/test'
 import { watchViolations } from '../support/csp'
 
 const TARGET = process.env.E2E_TARGET === 'preview' ? 'preview' : 'dev'
-const SCREENS = resolve(process.env.SCREENSHOT_DIR ?? `/tmp/moliya-group-summary-screens/${TARGET}`)
+const SCREENS = resolve(process.env.GROUP_SUMMARY_SCREENS ?? `/tmp/moliya-group-summary-screens/${TARGET}`)
 
 async function createVault(page: Page) {
   await page.goto('/')
