@@ -14,6 +14,9 @@ import { archiveFileText, backupFileName, backupFileText, noteExport } from '../
 import { auditIntegrity, listAudit } from '../services/audit.service'
 import { ExportPanel } from './ExportPanel'
 import { createGroup, deleteGroup, listGroups } from '../services/group.service'
+import { PeriodPicker } from './PeriodPicker'
+import { GroupRowSummary, GroupSummaryTotals } from './groups/GroupSummary'
+import { useGroupSummaries } from './groups/useGroupSummaries'
 
 function Forbidden() {
   const { t } = useI18n()
@@ -29,8 +32,10 @@ export function GroupsPage() {
   const { user, query, run, revision } = useVault()
   const [name, setName] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const allowed = Boolean(user && canUser(user, Permission.MANAGE_GROUPS))
+  const canManage = Boolean(user && canUser(user, Permission.MANAGE_GROUPS))
+  const allowed = canManage || Boolean(user && canUser(user, Permission.READ_DASHBOARD))
   const groups = useMemo(() => (allowed ? query((vault) => listGroups(vault)) : []), [allowed, query, revision])
+  const summaries = useGroupSummaries()
   if (!allowed) return <Forbidden />
 
   async function onCreate(event: FormEvent) {
@@ -55,27 +60,40 @@ export function GroupsPage() {
 
   return (
     <div className="grid gap-6">
-      <div>
-        <h1 className="font-display text-4xl">{t('groups.title')}</h1>
-        <p className="mt-1 text-sm text-muted">{t('groups.intro')}</p>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="font-display text-4xl">{t('groups.title')}</h1>
+          <p className="mt-1 text-sm text-muted">{t('groups.intro')}</p>
+        </div>
+        <PeriodPicker />
       </div>
       {error ? <Notice>{error}</Notice> : null}
-      <form className="flex flex-wrap items-end gap-3" onSubmit={(event) => void onCreate(event)}>
-        <Field label={t('groups.name')}>
-          <input data-testid="group-name" className={controlClass} value={name} onChange={(event) => setName(event.target.value)} required />
-        </Field>
-        <Button type="submit" data-testid="group-save">
-          {t('groups.create')}
-        </Button>
-      </form>
+      {canManage ? (
+        <form className="flex flex-wrap items-end gap-3" onSubmit={(event) => void onCreate(event)}>
+          <Field label={t('groups.name')}>
+            <input data-testid="group-name" className={controlClass} value={name} onChange={(event) => setName(event.target.value)} required />
+          </Field>
+          <Button type="submit" data-testid="group-save">
+            {t('groups.create')}
+          </Button>
+        </form>
+      ) : null}
+      {summaries && groups.length > 1 ? <GroupSummaryTotals totals={summaries.total} /> : null}
       {groups.length === 0 ? <p className="text-muted">{t('groups.empty')}</p> : null}
       <ul className="grid gap-3">
         {groups.map((group) => (
-          <li key={group.id} className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-line bg-card px-4 py-4">
-            <p className="min-w-0 break-words font-medium">{group.name}</p>
-            <Button variant="danger" onClick={() => void onDelete(group.id)}>
-              {t('groups.remove')}
-            </Button>
+          <li key={group.id} data-testid="group-row" data-group={group.name} className="grid gap-3 rounded-3xl border border-line bg-card px-4 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="min-w-0 break-words font-medium">{group.name}</p>
+              {canManage ? (
+                <Button variant="danger" onClick={() => void onDelete(group.id)}>
+                  {t('groups.remove')}
+                </Button>
+              ) : null}
+            </div>
+            <div className="border-t border-line pt-3">
+              <GroupRowSummary report={summaries} groupId={group.id} />
+            </div>
           </li>
         ))}
       </ul>

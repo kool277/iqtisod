@@ -42,6 +42,7 @@ Open **Groups**.
 
 - **Add a group**: type a name and choose **Add group**. Use groups to separate budgets, for example "Home" and "Shop", or one group per family branch.
 - **Remove a group**: only possible when no people and no records belong to it. Move or delete those first.
+- **Summaries**: each group shows its income, expenses, net, number of transactions, and latest activity for the period chosen with the period buttons, one line per currency. The **All groups** strip above the list combines every group, again per currency. Managers and Viewers can open **Groups** too, but they only see their own group's summary and cannot add or remove groups.
 
 Groups cannot be renamed from the app yet.
 

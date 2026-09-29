@@ -22,7 +22,7 @@ export const MAX_RECEIPT_BYTES = LIMITS.receiptBytes
 
 type LocaleName = 'en' | 'uz-Latn' | 'uz-Cyrl' | 'ru'
 
-function scope(user: SessionUser): { sql: string; params: SqlValue[] } {
+export function scope(user: SessionUser): { sql: string; params: SqlValue[] } {
   if (user.roleName === 'Admin') return { sql: '1 = 1', params: [] }
   if (user.groupId == null) return { sql: '1 = 0', params: [] }
   return { sql: 't.group_id = ?', params: [user.groupId] }

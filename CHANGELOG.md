@@ -6,6 +6,10 @@ Data formats are versioned separately from the app. Each release lists the forma
 
 ## [Unreleased]
 
+### Added
+
+- **Groups** shows each group's income, expenses, net, transaction count, and latest activity for the selected period, one line per currency, with an **All groups** strip above the list. Managers and Viewers can now open **Groups** and see only their own group's summary; adding and removing groups stays Admin-only. No data format changes.
+
 ### Changed
 
 - Exchange rates are easier to read: each rate's change is shown in dark green when it went up and dark red when it went down, in a lightly tinted pill with an arrow and a screen-reader label. Each direction gets a thin accent line in the same color, and the converter result is shown in green. Every colored label meets WCAG AA contrast (at least 4.5:1) in the light and dark themes.

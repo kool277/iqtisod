@@ -60,7 +60,7 @@ Like an invite code, a reset code works once, only until it expires, and only in
 
 The menu on the left (along the top on a phone) shows only what your role allows:
 
-| Role | Dashboard | Transactions | Add, edit, delete records | Private safes and Account |
+| Role | Dashboard and Groups | Transactions | Add, edit, delete records | Private safes and Account |
 | --- | --- | --- | --- | --- |
 | Manager | Yes | Yes | Yes, for your group | Yes, your own |
 | Viewer | Yes | Yes | No | Yes, your own |
@@ -71,7 +71,7 @@ The button at the far left of the top bar collapses the menu. On a computer the 
 
 ## Choosing a period
 
-Both the dashboard and the ledger use the same period buttons, and your choice carries over between them:
+The dashboard, the ledger, and **Groups** use the same period buttons, and your choice carries over between them:
 
 - **Today**
 - **This week** (Monday to Sunday)
@@ -120,6 +120,12 @@ The charts below them:
 - **Who spent** shows expenses per person in your group. Admins see **Spending by group** instead.
 
 A chart shows "No figures in this range" when the period has no matching records.
+
+## Group summaries
+
+**Groups** shows your group with its **Income** (↑), **Expenses** (↓), and **Net** (income minus expenses) for the selected period, plus the number of transactions and the date of the latest one. Net is green when it is zero or more and red when it is below zero. Each currency gets its own line; amounts in different currencies are never added together or converted. A group with no records in the period shows "No transactions in this period."
+
+You only see your own group. Admins see every group and an **All groups** strip above the list with the combined figures, still one line per currency.
 
 ## Exchange rates
 

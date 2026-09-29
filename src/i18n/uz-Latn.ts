@@ -142,6 +142,16 @@ export const uzLatn: CoreMessages = {
     removeBlocked: 'Guruhda hali odamlar yoki yozuvlar bor.',
     name: 'Guruh nomi',
   },
+  groupSummary: {
+    income: 'Daromad',
+    expense: 'Xarajat',
+    net: 'Sof natija',
+    empty: 'Bu davrda tranzaksiyalar yoʻq.',
+    transactions: 'Tranzaksiyalar',
+    lastActivity: 'Soʻnggi faollik',
+    total: 'Barcha guruhlar',
+    perCurrency: 'Har bir valyuta alohida qatorda koʻrsatiladi. Turli valyutadagi summalar hech qachon qoʻshilmaydi.',
+  },
   audit: {
     title: 'Audit jurnali',
     empty: 'Hali harakat yoʻq.',
