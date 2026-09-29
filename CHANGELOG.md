@@ -6,6 +6,20 @@ Data formats are versioned separately from the app. Each release lists the forma
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-09-29
+
+Reads backup and record versions 1–2 and schema versions 1–4. Writes backup 2, record 2, schema 4, and export format 1, the same as 1.3.0. No data format changes.
+
+### Fixed
+
+- Private safes no longer lock while you are using them. They had their own 5-minute idle timer (1, 5, 15, or 30 minutes in Account) that was separate from the vault's, and they also locked when the tab had been hidden for more than 60 seconds, for example while you switched to another tab to pay with a card, both shown as "Your safes were locked after a period of inactivity." Safes now stay open until you choose **Lock safes**, lock the vault, refresh or close the tab, or the vault locks by itself after the time under **Account → Lock automatically** (15 minutes by default). Activity anywhere in the app, including inside safes, keeps both open. When the vault locks, the safe keys are still removed from memory.
+- The inactivity notice is shown only when that was the reason: the sign-in screen now says "The vault was locked after a period of inactivity." after an automatic lock, and not after **Lock**.
+
+### Changed
+
+- The **Lock safes after inactivity** choice is removed from **Account → Private safes**, which now explains that safes lock with the vault. The stored preference is kept unchanged in the encrypted safe settings, so 1.2.0 and 1.3.0 still read it, but it is no longer used.
+- Idle activity is detected in the capture phase, so clicks and keys in parts of the page that stop event propagation still count.
+
 ## [1.3.0] - 2026-09-29
 
 Reads backup and record versions 1–2 and schema versions 1–4. Writes backup 2, record 2, schema 4, and the new write-only export format 1. Vaults and backups made by 1.0.0, 1.1.0, and 1.2.0 upgrade automatically on first sign-in, and the original stored copy is kept in the browser. Moliya 1.1.0 and 1.2.0 refuse a schema 4 vault or backup with "made by a newer version" and leave it untouched. The 1.2.0 recovery tool still decrypts schema 4 backups but does not remove the new sign-in check and code data from its output.
@@ -163,7 +177,8 @@ Writes backup, record, and schema version 1.
 - Audit log, encrypted `.moliya` backups, day and night themes, and a collapsible sidebar.
 - Deployment to GitHub Pages.
 
-[Unreleased]: https://github.com/kool277/iqtisod/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/kool277/iqtisod/compare/v1.3.1...HEAD
+[1.3.1]: https://github.com/kool277/iqtisod/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/kool277/iqtisod/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/kool277/iqtisod/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/kool277/iqtisod/compare/v1.0.0...v1.1.0
