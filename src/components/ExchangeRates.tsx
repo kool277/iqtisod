@@ -91,7 +91,7 @@ function DirectionRow({ quote, inverse }: { quote: FxQuote; inverse: boolean }) 
       <dt className="text-xs text-muted">
         {from} → {to}
       </dt>
-      <dd className="font-display text-[length:clamp(1rem,8cqi,1.5rem)] leading-tight tabular-nums [overflow-wrap:anywhere]">
+      <dd className="font-display text-[length:clamp(1rem,7cqi,1.5rem)] leading-tight tabular-nums [overflow-wrap:anywhere]">
         1 {from} = {formatDecimal(rate, intl)} {to}
       </dd>
       {nominal ? (
