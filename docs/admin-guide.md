@@ -156,15 +156,15 @@ At the bottom of **Settings**, **About this version** shows the app version, the
 
 ### Categories
 
-Categories are listed separately for income and expenses.
+Categories are listed in one table with a **Type** column; filter it to see only income or only expense categories.
 
 - **Add a category**: choose Income or Expense, type the English name, and optionally the Oʻzbekcha (Latin and Cyrillic) and Russian names. A blank translation shows the English name. Names can be up to 60 characters.
-- **Edit**: fixes a name or adds missing translations. A category cannot switch between income and expense. Records keep pointing to the same category, so they show the new name everywhere.
+- **Edit**: fixes a name or adds missing translations, either in the form under **Edit** or one name at a time with the pencil next to it (Enter saves, Esc cancels). A category cannot switch between income and expense. Records keep pointing to the same category, so they show the new name everywhere.
 - **Remove**: only possible when no records use the category, and at least one other category of the same type remains. Otherwise, edit it instead.
 
 ## Audit log
 
-**Audit log** shows the latest 200 actions with time, who did it, and what happened: vault created, settings changed, categories added, edited, or removed, users added, updated, removed, or password reset, people changing their own password, groups added or removed, records added, updated, or deleted, backups downloaded, data exported (older entries say "Unencrypted export"), data format upgrades, and password protection upgrades. Record changes keep the values before and after the change.
+**Audit log** shows the latest 10,000 actions (100 per page; choose more under **Rows**) with time, who did it, and what happened. Filter by date range, person, or action, or search, to find one entry among thousands; **Columns** adds the entity, its id, and the stored details. It records: vault created, settings changed, categories added, edited, or removed, users added, updated, removed, or password reset, people changing their own password, groups added or removed, records added, updated, or deleted, backups downloaded, data exported (older entries say "Unencrypted export"), data format upgrades, and password protection upgrades. Record changes keep the values before and after the change.
 
 From 1.3.0 it also shows:
 
@@ -250,6 +250,18 @@ Each copy shows when it was taken and which version saved it. **Download** turns
 Press **Export**. Progress is shown below the form, and **Cancel** stops it. The file name contains the vault name and the date, even for encrypted files. Each export is written to the audit log as **Data exported**, with the formats and scope but never the content or password.
 
 The PDF lists at most 10,000 records; use CSV or Excel for more. Private safes, passwords, and sign-in secrets are never included in any export. Details of every format are in the [data format specification](data-format.md#exports).
+
+### Exporting a table
+
+Transactions, People, Open codes, Groups, Audit log, Categories, and the earlier copies on the Backup page each have an **Export** button above the table. It downloads exactly what the table shows: the visible columns in their order, and the rows left after search and filters, in the current sort (all pages, not just the one on screen).
+
+1. Choose **Export**, then CSV, Excel, PDF, or JSON.
+2. Tick "I understand this file is not encrypted". Table exports are never encrypted; use **Export data** above for an encrypted file.
+3. Choose **Download**.
+
+Only Admins see the button, and only on pages they can open. Each download is written to the audit log as **Data exported**, with the table, the column ids, whether the rows were filtered, the row counts, and for Transactions the period. It never contains the rows themselves. CSV and Excel files protect text that looks like a formula, and amounts come out exact, with the currency in its own column. The PDF lists at most 10,000 rows. Private safe tables have no export.
+
+People, Open codes, Groups, and Categories keep their buttons (**Issue reset code**, **Revoke**, **Remove**, **Edit**) at the end of each row. Search, filters, and column choices only change what you see; they never change who can see what.
 
 ### Moving to another device
 

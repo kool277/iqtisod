@@ -20,9 +20,11 @@ import {
   issueReset,
   listGrants,
   revokeGrant,
+  type GrantSummary,
   type GrantValidity,
   type IssuedGrant,
 } from '../../services/grant.service'
+import { DataTable, type Column } from '../table/DataTable'
 import { listGroups } from '../../services/group.service'
 import { clearUserTotp } from '../../services/totp.service'
 import { createUser, deleteUser, listUsers, resetUserPassword } from '../../services/user.service'
@@ -34,6 +36,8 @@ const VALIDITY_LABELS: Record<GrantValidity, MessageKey> = {
   '72h': 'invites.v72h',
   '7d': 'invites.v7d',
 }
+
+const ROLES: RoleName[] = ['Admin', 'Manager', 'Viewer']
 
 function roleLabel(role: string | null, t: (key: MessageKey) => string): string {
   if (role === 'Admin' || role === 'Manager' || role === 'Viewer') return t(`roles.${role}`)
@@ -90,6 +94,146 @@ export function UsersPage() {
   const people = useMemo(() => (allowed ? query((vault) => listUsers(vault)) : []), [allowed, query, revision])
   const groups = useMemo(() => (allowed ? query((vault) => listGroups(vault)) : []), [allowed, query, revision])
   const grants = useMemo(() => (allowed ? query((vault) => listGrants(vault)) : []), [allowed, query, revision])
+  const [open, setOpen] = useState<{ id: string; mode: RowMode } | null>(null)
+  const roleOptions = useMemo(() => ROLES.map((role) => ({ value: role, label: roleLabel(role, t) })), [t])
+  const yesNo = useMemo(
+    () => [
+      { value: 'yes', label: t('table.yes') },
+      { value: 'no', label: t('table.no') },
+    ],
+    [t],
+  )
+
+  const peopleColumns = useMemo<Column<VaultUser>[]>(() => {
+    const role = (person: VaultUser) => roleLabel(person.roleName, t)
+    const group = (person: VaultUser) => person.groupName ?? '—'
+    const check = (person: VaultUser) => (person.signInCheck ? t('invites.checkOn') : '—')
+    return [
+      {
+        id: 'email',
+        header: t('common.email'),
+        hideable: false,
+        cell: (person) => <span className="break-all font-medium">{person.email}</span>,
+        sort: { type: 'text', value: (person) => person.email },
+        search: (person) => person.email,
+        filter: { kind: 'text', value: (person) => person.email },
+        exportAs: { kind: 'text', value: (person) => person.email },
+      },
+      {
+        id: 'role',
+        header: t('common.role'),
+        cell: role,
+        sort: { type: 'text', value: role },
+        search: role,
+        filter: { kind: 'select', value: (person) => person.roleName, options: roleOptions },
+        exportAs: { kind: 'text', value: role },
+      },
+      {
+        id: 'group',
+        header: t('common.group'),
+        cell: group,
+        sort: { type: 'text', value: (person) => person.groupName },
+        search: (person) => person.groupName,
+        filter: { kind: 'select', value: group, options: [] },
+        exportAs: { kind: 'text', value: (person) => person.groupName },
+      },
+      {
+        id: 'signInCheck',
+        header: t('table.col.signInCheck'),
+        cell: (person) => (person.signInCheck ? <span className="rounded-full bg-pine/10 px-2 py-0.5 text-xs text-pine-ink">{t('invites.checkOn')}</span> : '—'),
+        sort: { type: 'text', value: check },
+        filter: { kind: 'select', value: (person) => (person.signInCheck ? 'yes' : 'no'), options: yesNo },
+        exportAs: { kind: 'boolean', value: (person) => person.signInCheck },
+      },
+      {
+        id: 'created',
+        header: t('table.col.created'),
+        hidden: true,
+        cell: (person) => <span className="whitespace-nowrap tabular-nums">{formatWhen(person.createdAt, locale)}</span>,
+        sort: { type: 'date', value: (person) => person.createdAt },
+        filter: { kind: 'date', value: (person) => person.createdAt },
+        exportAs: { kind: 'when', value: (person) => person.createdAt },
+      },
+    ]
+  }, [locale, roleOptions, t, yesNo])
+
+  const grantColumns = useMemo<Column<GrantSummary>[]>(() => {
+    const kind = (grant: GrantSummary) => (grant.kind === 'RESET' ? t('invites.kindReset') : t('invites.kindInvite'))
+    const role = (grant: GrantSummary) => roleLabel(grant.roleName, t) || '—'
+    return [
+      {
+        id: 'email',
+        header: t('common.email'),
+        hideable: false,
+        cell: (grant) => <span className="break-all font-medium">{grant.email}</span>,
+        sort: { type: 'text', value: (grant) => grant.email },
+        search: (grant) => grant.email,
+        exportAs: { kind: 'text', value: (grant) => grant.email },
+      },
+      {
+        id: 'kind',
+        header: t('table.col.kind'),
+        cell: kind,
+        sort: { type: 'text', value: kind },
+        search: kind,
+        filter: {
+          kind: 'select',
+          value: (grant) => grant.kind,
+          options: [
+            { value: 'INVITE', label: t('invites.kindInvite') },
+            { value: 'RESET', label: t('invites.kindReset') },
+          ],
+        },
+        exportAs: { kind: 'text', value: kind },
+      },
+      {
+        id: 'role',
+        header: t('common.role'),
+        cell: role,
+        sort: { type: 'text', value: (grant) => roleLabel(grant.roleName, t) },
+        search: (grant) => roleLabel(grant.roleName, t),
+        filter: { kind: 'select', value: (grant) => grant.roleName ?? '', options: roleOptions },
+        exportAs: { kind: 'text', value: (grant) => roleLabel(grant.roleName, t) },
+      },
+      {
+        id: 'group',
+        header: t('common.group'),
+        cell: (grant) => grant.groupName ?? '—',
+        sort: { type: 'text', value: (grant) => grant.groupName },
+        search: (grant) => grant.groupName,
+        exportAs: { kind: 'text', value: (grant) => grant.groupName },
+      },
+      {
+        id: 'expires',
+        header: t('table.col.expires'),
+        cell: (grant) =>
+          grant.expired ? (
+            <span className="text-clay-ink">{t('invites.expired')}</span>
+          ) : (
+            <span className="whitespace-nowrap tabular-nums">{formatWhen(grant.expiresAt, locale)}</span>
+          ),
+        sort: { type: 'date', value: (grant) => grant.expiresAt },
+        filter: {
+          kind: 'select',
+          value: (grant) => (grant.expired ? 'expired' : 'active'),
+          options: [
+            { value: 'active', label: t('table.active') },
+            { value: 'expired', label: t('invites.expired') },
+          ],
+        },
+        exportAs: { kind: 'when', value: (grant) => grant.expiresAt },
+      },
+      {
+        id: 'created',
+        header: t('table.col.created'),
+        hidden: true,
+        cell: (grant) => <span className="whitespace-nowrap tabular-nums">{formatWhen(grant.createdAt, locale)}</span>,
+        sort: { type: 'date', value: (grant) => grant.createdAt },
+        exportAs: { kind: 'when', value: (grant) => grant.createdAt },
+      },
+    ]
+  }, [locale, roleOptions, t])
+
   if (!allowed) return <Forbidden />
 
   async function guarded(action: () => Promise<void>) {
@@ -173,30 +317,23 @@ export function UsersPage() {
 
       <section className="rounded-3xl border border-line bg-card p-5">
         <h2 className="font-display text-2xl">{t('invites.pending')}</h2>
-        {grants.length === 0 ? <p className="mt-3 text-sm text-muted">{t('invites.pendingNone')}</p> : null}
-        <ul className="mt-3 grid gap-2">
-          {grants.map((grant) => (
-            <li key={grant.id} data-testid="grant-row" className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3 text-sm">
-              <span className="min-w-0">
-                <span className="break-all font-medium">{grant.email}</span>
-                <span className="text-muted">
-                  {' · '}
-                  {grant.kind === 'RESET' ? t('invites.kindReset') : `${t('invites.kindInvite')} · ${roleLabel(grant.roleName, t)}`}
-                  {grant.groupName ? ` · ${grant.groupName}` : ''}
-                  {' · '}
-                  {grant.expired ? (
-                    <span className="text-clay-ink">{t('invites.expired')}</span>
-                  ) : (
-                    `${t('invites.expires')} ${formatWhen(grant.expiresAt, locale)}`
-                  )}
-                </span>
-              </span>
+        <div className="mt-3">
+          <DataTable
+            id="grants"
+            label={t('invites.pending')}
+            rows={grants}
+            columns={grantColumns}
+            rowKey={(grant) => grant.id}
+            rowAttributes={() => ({ 'data-testid': 'grant-row' })}
+            exportTable="grants"
+            empty={t('invites.pendingNone')}
+            rowActions={(grant) => (
               <Button variant="quiet" data-testid="grant-revoke" onClick={() => void onRevoke(grant.id)}>
                 {t('invites.revoke')}
               </Button>
-            </li>
-          ))}
-        </ul>
+            )}
+          />
+        </div>
       </section>
 
       <details data-testid="advanced-temp" className="rounded-3xl border border-line bg-card p-5">
@@ -238,33 +375,82 @@ export function UsersPage() {
         </form>
       </details>
 
-      <ul className="grid gap-3">
-        {people.map((person) => (
-          <PersonRow key={person.id} person={person} self={person.id === user?.id} onIssued={setIssued} guarded={guarded} setNotice={setNotice} />
-        ))}
-      </ul>
+      <DataTable
+        id="users"
+        label={t('users.title')}
+        rows={people}
+        columns={peopleColumns}
+        rowKey={(person) => person.id}
+        groupAttributes={() => ({ 'data-testid': 'person-row' })}
+        exportTable="users"
+        rowActions={(person) => (
+          <PersonActions person={person} self={person.id === user?.id} mode={open?.id === person.id ? open.mode : 'idle'} setMode={(mode) => setOpen({ id: person.id, mode })} />
+        )}
+        expanded={(person) =>
+          open?.id === person.id && open.mode !== 'idle' ? (
+            <PersonPanel
+              key={`${person.id}:${open.mode}`}
+              person={person}
+              mode={open.mode}
+              setMode={(mode) => setOpen({ id: person.id, mode })}
+              onIssued={setIssued}
+              guarded={guarded}
+              setNotice={setNotice}
+            />
+          ) : null
+        }
+      />
     </div>
   )
 }
 
 type RowMode = 'idle' | 'reset' | 'temp' | 'clear' | 'delete'
 
-function PersonRow({
+function PersonActions({ person, self, mode, setMode }: { person: VaultUser; self: boolean; mode: RowMode; setMode: (mode: RowMode) => void }) {
+  const { t } = useI18n()
+  const toggle = (next: RowMode) => setMode(mode === next ? 'idle' : next)
+  return (
+    <>
+      {self ? (
+        <Link to="/app/account" className="self-center text-sm text-pine-ink hover:underline" data-testid="user-use-account">
+          {t('users.useAccount')}
+        </Link>
+      ) : (
+        <>
+          <Button variant="quiet" aria-expanded={mode === 'reset' || mode === 'temp'} onClick={() => toggle('reset')} data-testid="user-issue-reset">
+            {t('invites.issueReset')}
+          </Button>
+          {person.signInCheck ? (
+            <Button variant="quiet" aria-expanded={mode === 'clear'} onClick={() => toggle('clear')} data-testid="user-clear-check">
+              {t('invites.clearCheck')}
+            </Button>
+          ) : null}
+        </>
+      )}
+      <Button variant="danger" aria-expanded={mode === 'delete'} onClick={() => toggle('delete')}>
+        {t('users.remove')}
+      </Button>
+    </>
+  )
+}
+
+function PersonPanel({
   person,
-  self,
+  mode,
+  setMode,
   onIssued,
   guarded,
   setNotice,
 }: {
   person: VaultUser
-  self: boolean
+  mode: RowMode
+  setMode: (mode: RowMode) => void
   onIssued: (grant: IssuedGrant) => void
   guarded: (action: () => Promise<void>) => Promise<void>
   setNotice: (text: string | null) => void
 }) {
   const { t } = useI18n()
   const { run } = useVault()
-  const [mode, setMode] = useState<RowMode>('idle')
   const [validity, setValidity] = useState<GrantValidity>(DEFAULT_GRANT_VALIDITY)
   const [stopOld, setStopOld] = useState(true)
   const [nextPassword, setNextPassword] = useState('')
@@ -301,38 +487,7 @@ function PersonRow({
     })
 
   return (
-    <li data-testid="person-row" className="rounded-3xl border border-line bg-card px-4 py-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="break-all font-medium">{person.email}</p>
-          <p className="text-sm text-muted">
-            {roleLabel(person.roleName, t)}
-            {person.groupName ? ` · ${person.groupName}` : ''}
-            {person.signInCheck ? ` · ${t('invites.checkOn')}` : ''}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {self ? (
-            <Link to="/app/account" className="text-sm text-pine-ink hover:underline" data-testid="user-use-account">
-              {t('users.useAccount')}
-            </Link>
-          ) : (
-            <>
-              <Button variant="quiet" onClick={() => setMode('reset')} data-testid="user-issue-reset">
-                {t('invites.issueReset')}
-              </Button>
-              {person.signInCheck ? (
-                <Button variant="quiet" onClick={() => setMode('clear')} data-testid="user-clear-check">
-                  {t('invites.clearCheck')}
-                </Button>
-              ) : null}
-            </>
-          )}
-          <Button variant="danger" onClick={() => setMode('delete')}>
-            {t('users.remove')}
-          </Button>
-        </div>
-      </div>
+    <div>
       {mode === 'reset' ? (
         <form className="mt-3 grid gap-3" onSubmit={onIssue}>
           <p role="note" data-testid="reset-safes-warn" className="rounded-2xl border border-brass/50 bg-brass-soft px-3 py-2 text-sm">
@@ -415,6 +570,6 @@ function PersonRow({
           </Button>
         </div>
       ) : null}
-    </li>
+    </div>
   )
 }

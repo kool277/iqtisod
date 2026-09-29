@@ -2,6 +2,8 @@ import writeXlsxFile, { type Cell, type Row, type Sheet } from 'write-excel-file
 import { loadExportMessages, translate, type Locale, type MessageKey } from '../../i18n'
 import { minorUnitOf } from '../../lib/money'
 import type { CategoryNames, ExportDataset } from './dataset'
+import type { ViewExportRequest } from './view'
+import { currencyHeader, isViewMoney } from './view-cells'
 
 const EXCEL_TEXT_LIMIT = 32_767
 const DATE_FORMAT = 'yyyy-mm-dd'
@@ -200,6 +202,43 @@ export async function buildXlsx(dataset: ExportDataset, locale: Locale, signal?:
 
   sheets.push({ sheet: sheetName(t('export.sheet.about'), used), data: aboutRows, columns: [{ width: 18 }, { width: 48 }], stickyRowsCount: 1 })
 
+  const blob = await writeXlsxFile(sheets, { fontFamily: 'Calibri', fontSize: 11 }).toBlob()
+  return new Blob([blob], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+}
+
+/** One sheet holding exactly the columns and rows of a table view; money keeps its currency in the next column. */
+export async function buildViewXlsx(request: Pick<ViewExportRequest, 'title' | 'columns' | 'rows' | 'locale'>): Promise<Blob> {
+  const labels: string[] = []
+  const widths: number[] = []
+  for (const column of request.columns) {
+    labels.push(column.header)
+    widths.push(column.kind === 'text' ? 28 : column.kind === 'when' ? 22 : 14)
+    if (column.kind === 'money') {
+      labels.push(currencyHeader(column, request.locale))
+      widths.push(8)
+    }
+  }
+  const data: Row[] = [header(labels)]
+  for (const row of request.rows) {
+    const cells: Cell[] = []
+    request.columns.forEach((column, index) => {
+      const value = row[index]
+      if (column.kind === 'money') {
+        if (isViewMoney(value)) cells.push(moneyCell(value.money, value.currency), textCell(value.currency))
+        else cells.push(null, null)
+      } else if (column.kind === 'number' && typeof value === 'number' && Number.isFinite(value)) {
+        cells.push(numberCell(value))
+      } else if (column.kind === 'date' && typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        cells.push({ value: excelDate(value), type: Date, format: DATE_FORMAT })
+      } else if (column.kind === 'boolean' && typeof value === 'boolean') {
+        cells.push({ value, type: Boolean })
+      } else {
+        cells.push(textCell(value == null || isViewMoney(value) ? null : String(value)))
+      }
+    })
+    data.push(cells)
+  }
+  const sheets: Sheet<Blob>[] = [{ sheet: sheetName(request.title, new Set()), data, columns: widths.map((width) => ({ width })), stickyRowsCount: 1 }]
   const blob = await writeXlsxFile(sheets, { fontFamily: 'Calibri', fontSize: 11 }).toBlob()
   return new Blob([blob], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
 }

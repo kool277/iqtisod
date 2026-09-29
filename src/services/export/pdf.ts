@@ -5,10 +5,13 @@ import { formatIsoDate, formatMoney, formatWhen, intlLocale } from '../../lib/mo
 import type { CategoryNames, CurrencyTotals, ExportDataset } from './dataset'
 import { PDF_ROW_LIMIT } from './options'
 import type { PdfFonts } from './pdf-fonts'
+import type { ViewExportRequest } from './view'
+import { isViewMoney, type ViewCell, type ViewKind } from './view-cells'
 
 const FONT = 'NotoSans'
 const MARGIN = 40
 const NOTES_LIMIT = 120
+const VIEW_TEXT_LIMIT = 400
 const HEAD_FILL: [number, number, number] = [22, 101, 52]
 const MUTED: [number, number, number] = [100, 100, 100]
 
@@ -187,6 +190,13 @@ export async function buildPdf(dataset: ExportDataset, options: PdfOptions): Pro
     })
   }
 
+  footers(doc, t)
+  return new Blob([doc.output('arraybuffer')], { type: 'application/pdf' })
+}
+
+function footers(doc: jsPDF, t: (key: MessageKey) => string): void {
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const pageHeight = doc.internal.pageSize.getHeight()
   const pages = doc.getNumberOfPages()
   for (let page = 1; page <= pages; page += 1) {
     doc.setPage(page)
@@ -196,5 +206,85 @@ export async function buildPdf(dataset: ExportDataset, options: PdfOptions): Pro
     doc.text(t('export.pdf.confidential'), MARGIN, pageHeight - MARGIN / 2)
     doc.text(`${t('export.pdf.page')} ${page} ${t('export.pdf.of')} ${pages}`, pageWidth - MARGIN, pageHeight - MARGIN / 2, { align: 'right' })
   }
+}
+
+function openDocument(fonts: PdfFonts, locale: Locale, title: string, landscape: boolean): jsPDF {
+  const doc = new jsPDF({ unit: 'pt', format: 'a4', orientation: landscape ? 'landscape' : 'portrait', compress: true })
+  doc.addFileToVFS('NotoSans-Regular.ttf', fonts.regular)
+  doc.addFont('NotoSans-Regular.ttf', FONT, 'normal')
+  doc.addFileToVFS('NotoSans-Bold.ttf', fonts.bold)
+  doc.addFont('NotoSans-Bold.ttf', FONT, 'bold')
+  const lang = htmlLang(locale)
+  const internal = doc.internal as typeof doc.internal & { write: (text: string) => void }
+  internal.events.subscribe('putCatalog', () => internal.write(`/Lang (${lang})`))
+  doc.setProperties({ title, creator: 'Jaybi' })
+  return doc
+}
+
+export type ViewPdfOptions = { fonts: PdfFonts; now: Date; exportedBy: string; vaultName: string; rowLimit?: number }
+
+/** The rows and columns of one table view, formatted the way the table shows them. */
+export async function buildViewPdf(
+  request: Pick<ViewExportRequest, 'title' | 'columns' | 'rows' | 'total' | 'filtered' | 'locale'>,
+  options: ViewPdfOptions,
+): Promise<Blob> {
+  const { locale } = request
+  await loadExportMessages(locale)
+  const t = (key: MessageKey) => translate(locale, key)
+  const count = new Intl.NumberFormat(intlLocale(locale))
+  const limit = options.rowLimit ?? PDF_ROW_LIMIT
+  const doc = openDocument(options.fonts, locale, `${options.vaultName} — ${request.title}`, request.columns.length > 5)
+  const pageWidth = doc.internal.pageSize.getWidth()
+
+  let y = MARGIN + 8
+  doc.setFont(FONT, 'bold')
+  doc.setFontSize(16)
+  doc.text(options.vaultName, MARGIN, y)
+  y += 18
+  doc.setFont(FONT, 'normal')
+  doc.setFontSize(12)
+  doc.text(request.title, MARGIN, y)
+  y += 14
+  doc.setFontSize(9)
+  doc.setTextColor(...MUTED)
+  const shown = Math.min(request.rows.length, limit)
+  const lines = [
+    `${t('export.pdf.generated')}: ${formatWhen(options.now.toISOString(), locale)} · ${options.exportedBy}`,
+    `${t('export.pdf.records')}: ${count.format(request.rows.length)}${request.filtered ? ` / ${count.format(request.total)}` : ''}`,
+  ]
+  if (request.rows.length > shown) lines.push(`${t('export.pdfLimit')} ${count.format(shown)}`)
+  for (const line of lines) {
+    for (const part of doc.splitTextToSize(line, pageWidth - MARGIN * 2) as string[]) {
+      doc.text(part, MARGIN, y)
+      y += 11
+    }
+  }
+  doc.setTextColor(0)
+
+  const cell = (kind: ViewKind, value: ViewCell): string => {
+    if (value == null) return ''
+    if (kind === 'money') return isViewMoney(value) ? formatMoney(value.money, value.currency, locale) : ''
+    if (kind === 'boolean') return value === true ? translate(locale, 'table.yes') : value === false ? translate(locale, 'table.no') : ''
+    if (kind === 'date' && typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) return formatIsoDate(value, locale)
+    if (kind === 'when' && typeof value === 'string') return formatWhen(value, locale)
+    if (kind === 'number' && typeof value === 'number') return count.format(value)
+    return clip(isViewMoney(value) ? '' : String(value), VIEW_TEXT_LIMIT)
+  }
+  const body: RowInput[] = request.rows.slice(0, shown).map((row) => request.columns.map((column, index) => cell(column.kind, row[index])))
+  const columnStyles: Record<number, { halign: 'right' }> = {}
+  request.columns.forEach((column, index) => {
+    if (column.kind === 'money' || column.kind === 'number') columnStyles[index] = { halign: 'right' }
+  })
+  autoTable(doc, {
+    margin: { left: MARGIN, right: MARGIN, bottom: MARGIN + 10 },
+    styles: { font: FONT, fontSize: 8, cellPadding: 3.5, overflow: 'linebreak' },
+    headStyles: { font: FONT, fontStyle: 'bold', fillColor: HEAD_FILL, textColor: 255 },
+    alternateRowStyles: { fillColor: [245, 247, 245] },
+    startY: y + 6,
+    head: [request.columns.map((column) => column.header)],
+    body,
+    columnStyles,
+  })
+  footers(doc, t)
   return new Blob([doc.output('arraybuffer')], { type: 'application/pdf' })
 }

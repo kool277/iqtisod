@@ -1,9 +1,11 @@
-import { Suspense, lazy, useMemo, type ComponentType } from 'react'
+import { Suspense, lazy, useMemo, useState, type ComponentType } from 'react'
 import { PeriodPicker } from './PeriodPicker'
 import { useI18n } from '../context/I18nContext'
 import { usePeriod } from '../context/PeriodContext'
 import { useVault } from '../context/VaultContext'
+import { readGroupChoice, writeGroupChoice, type GroupChoice } from '../lib/dashboard-group'
 import { loadDashboard } from '../services/finance.service'
+import { listGroups } from '../services/group.service'
 import { formatMoney, intlLocale, minorToDecimal } from '../lib/money'
 
 const FinanceCharts = lazy(() => import('./Charts').then((module) => ({ default: module.FinanceCharts })))
@@ -18,10 +20,19 @@ export function Dashboard() {
   const { t, locale } = useI18n()
   const { query, currency, revision } = useVault()
   const { range } = usePeriod()
+  const groups = useMemo(() => query((vault) => listGroups(vault)), [query, revision])
+  const [choice, setChoice] = useState<GroupChoice>(() => readGroupChoice(groups))
+  const groupId = choice != null && groups.some((group) => group.id === choice) ? choice : null
   const data = useMemo(
-    () => query((vault) => loadDashboard(vault, range, locale)),
-    [query, range, locale, revision],
+    () => query((vault) => loadDashboard(vault, range, locale, groupId)),
+    [query, range, locale, groupId, revision],
   )
+  const pickGroup = (value: string) => {
+    const next = value === '' ? null : Number(value)
+    const allowed = next != null && groups.some((group) => group.id === next) ? next : null
+    setChoice(allowed)
+    writeGroupChoice(allowed)
+  }
   const money = (minor: number) => ({ amount: minorToDecimal(minor, currency), text: formatMoney(minor, currency, locale) })
   const cards = [
     { id: 'kpi-net', label: t('kpi.net'), ...money(data.net) },
@@ -42,7 +53,28 @@ export function Dashboard() {
           <h1 className="font-display text-4xl">{t('dashboard.title')}</h1>
           <p className="mt-1 text-sm text-muted">{t('dashboard.subtitle')}</p>
         </div>
-        <PeriodPicker />
+        <div className="flex flex-wrap items-end gap-2">
+          {groups.length > 0 ? (
+            <label className="text-sm">
+              <span className="sr-only">{t('dashboard.group')}</span>
+              <select
+                data-testid="dashboard-group"
+                aria-label={t('dashboard.group')}
+                className="max-w-56 rounded-full border border-line bg-card px-3 py-1.5 text-sm"
+                value={groupId == null ? '' : String(groupId)}
+                onChange={(event) => pickGroup(event.target.value)}
+              >
+                <option value="">{t('dashboard.allGroups')}</option>
+                {groups.map((group) => (
+                  <option key={group.id} value={group.id}>
+                    {group.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          <PeriodPicker />
+        </div>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
         {cards.map((card) => (

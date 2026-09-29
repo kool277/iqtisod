@@ -11,12 +11,17 @@ import { downloadFile } from '../lib/download'
 import { persistenceState, type PersistenceState } from '../lib/persistence'
 import { ReplaceVaultPanel } from './admin/ReplaceVaultPanel'
 import { archiveFileText, backupFileName, backupFileText, noteExport } from '../services/backup.service'
-import { auditIntegrity, listAudit } from '../services/audit.service'
+import { AUDIT_PAGE_LIMIT, auditIntegrity, listAudit } from '../services/audit.service'
 import { ExportPanel } from './ExportPanel'
 import { createGroup, deleteGroup, listGroups } from '../services/group.service'
 import { PeriodPicker } from './PeriodPicker'
 import { GroupRowSummary, GroupSummaryTotals } from './groups/GroupSummary'
 import { useGroupSummaries } from './groups/useGroupSummaries'
+import type { AuditEntry, Group } from '../domain/types'
+import { DataTable, type Column } from './table/DataTable'
+import { optionsFrom } from './table/model'
+
+type ArchiveRow = Omit<ArchiveEntry, 'raw'>
 
 function Forbidden() {
   const { t } = useI18n()
@@ -36,6 +41,20 @@ export function GroupsPage() {
   const allowed = canManage || Boolean(user && canUser(user, Permission.READ_DASHBOARD))
   const groups = useMemo(() => (allowed ? query((vault) => listGroups(vault)) : []), [allowed, query, revision])
   const summaries = useGroupSummaries()
+  const groupColumns = useMemo<Column<Group>[]>(
+    () => [
+      {
+        id: 'name',
+        header: t('groups.name'),
+        hideable: false,
+        cell: (group) => <span className="break-words font-medium">{group.name}</span>,
+        sort: { type: 'text', value: (group) => group.name },
+        search: (group) => group.name,
+        exportAs: { kind: 'text', value: (group) => group.name },
+      },
+    ],
+    [t],
+  )
   if (!allowed) return <Forbidden />
 
   async function onCreate(event: FormEvent) {
@@ -79,34 +98,110 @@ export function GroupsPage() {
         </form>
       ) : null}
       {summaries && groups.length > 1 ? <GroupSummaryTotals totals={summaries.total} /> : null}
-      {groups.length === 0 ? <p className="text-muted">{t('groups.empty')}</p> : null}
-      <ul className="grid gap-3">
-        {groups.map((group) => (
-          <li key={group.id} data-testid="group-row" data-group={group.name} className="grid gap-3 rounded-3xl border border-line bg-card px-4 py-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="min-w-0 break-words font-medium">{group.name}</p>
-              {canManage ? (
+      <DataTable
+        id="groups"
+        label={t('groups.title')}
+        rows={groups}
+        columns={groupColumns}
+        rowKey={(group) => String(group.id)}
+        rowAttributes={(group) => ({ 'data-testid': 'group-row', 'data-group': group.name })}
+        groupAttributes={(group) => ({ 'data-group-id': String(group.id) })}
+        exportTable="groups"
+        empty={t('groups.empty')}
+        expanded={(group) => <GroupRowSummary report={summaries} groupId={group.id} />}
+        rowActions={
+          canManage
+            ? (group) => (
                 <Button variant="danger" onClick={() => void onDelete(group.id)}>
                   {t('groups.remove')}
                 </Button>
-              ) : null}
-            </div>
-            <div className="border-t border-line pt-3">
-              <GroupRowSummary report={summaries} groupId={group.id} />
-            </div>
-          </li>
-        ))}
-      </ul>
+              )
+            : undefined
+        }
+      />
     </div>
   )
+}
+
+const auditLabel = (action: string, t: (key: MessageKey) => string) => {
+  const key = `audit.actions.${action}` as MessageKey
+  const securityKey = `securityAudit.${action}` as MessageKey
+  const label = t(key) === key ? t(securityKey) : t(key)
+  return label === securityKey ? action : label
 }
 
 export function AuditPage() {
   const { t, locale } = useI18n()
   const { user, query, revision } = useVault()
   const allowed = Boolean(user && canUser(user, Permission.READ_AUDIT))
-  const rows = useMemo(() => (allowed ? query((vault) => listAudit(vault)) : []), [allowed, query, revision])
+  const rows = useMemo(() => (allowed ? query((vault) => listAudit(vault, AUDIT_PAGE_LIMIT)) : []), [allowed, query, revision])
   const chain = useMemo(() => (allowed ? query((vault) => auditIntegrity(vault)) : null), [allowed, query, revision])
+  const columns = useMemo<Column<AuditEntry>[]>(() => {
+    const collator = new Intl.Collator(locale)
+    const label = (row: AuditEntry) => auditLabel(row.action, t)
+    const actor = (row: AuditEntry) => row.actorEmail ?? '—'
+    const actions = optionsFrom(rows, (row) => row.action, (action) => auditLabel(action, t), collator)
+    const actors = optionsFrom(rows, actor, (value) => value, collator)
+    const entities = optionsFrom(rows, (row) => row.entityType ?? '—', (value) => value, collator)
+    return [
+      {
+        id: 'when',
+        header: t('audit.when'),
+        hideable: false,
+        cell: (row) => <span className="whitespace-nowrap tabular-nums">{formatWhen(row.createdAt, locale)}</span>,
+        sort: { type: 'date', value: (row) => row.createdAt },
+        search: (row) => formatWhen(row.createdAt, locale),
+        filter: { kind: 'date', value: (row) => row.createdAt },
+        exportAs: { kind: 'when', value: (row) => row.createdAt },
+      },
+      {
+        id: 'actor',
+        header: t('audit.actor'),
+        cell: (row) => <span className="break-all">{actor(row)}</span>,
+        sort: { type: 'text', value: (row) => row.actorEmail },
+        search: (row) => row.actorEmail,
+        filter: { kind: 'select', value: actor, options: actors },
+        exportAs: { kind: 'text', value: (row) => row.actorEmail },
+      },
+      {
+        id: 'action',
+        header: t('audit.action'),
+        cell: label,
+        sort: { type: 'text', value: label },
+        search: (row) => `${label(row)} ${row.action}`,
+        filter: { kind: 'select', value: (row) => row.action, options: actions },
+        exportAs: { kind: 'text', value: label },
+      },
+      {
+        id: 'entity',
+        header: t('table.col.entity'),
+        hidden: true,
+        cell: (row) => row.entityType ?? '—',
+        sort: { type: 'text', value: (row) => row.entityType },
+        search: (row) => row.entityType,
+        filter: { kind: 'select', value: (row) => row.entityType ?? '—', options: entities },
+        exportAs: { kind: 'text', value: (row) => row.entityType },
+      },
+      {
+        id: 'entityId',
+        header: t('table.col.entityId'),
+        hidden: true,
+        cell: (row) => <span className="break-all font-mono text-xs">{row.entityId ?? '—'}</span>,
+        sort: { type: 'text', value: (row) => row.entityId },
+        search: (row) => row.entityId,
+        exportAs: { kind: 'text', value: (row) => row.entityId },
+      },
+      {
+        id: 'details',
+        header: t('table.col.details'),
+        hidden: true,
+        cell: (row) => <span className="line-clamp-3 break-all font-mono text-xs">{row.details ?? '—'}</span>,
+        search: (row) => row.details,
+        filter: { kind: 'text', value: (row) => row.details },
+        exportAs: { kind: 'text', value: (row) => row.details },
+      },
+    ]
+  }, [locale, rows, t])
   if (!allowed) return <Forbidden />
   return (
     <div className="grid gap-6">
@@ -121,32 +216,16 @@ export function AuditPage() {
           {chain.entries}
         </p>
       ) : null}
-      {rows.length === 0 ? <p className="text-muted">{t('audit.empty')}</p> : null}
-      <div className="overflow-x-auto rounded-3xl border border-line bg-card">
-        <table className="w-full min-w-[640px] text-left text-sm">
-          <thead className="text-muted">
-            <tr>
-              <th className="px-4 py-3 font-medium">{t('audit.when')}</th>
-              <th className="px-4 py-3 font-medium">{t('audit.actor')}</th>
-              <th className="px-4 py-3 font-medium">{t('audit.action')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => {
-              const key = `audit.actions.${row.action}` as MessageKey
-              const securityKey = `securityAudit.${row.action}` as MessageKey
-              const label = t(key) === key ? t(securityKey) : t(key)
-              return (
-                <tr key={row.id} className="border-t border-line">
-                  <td className="px-4 py-3">{formatWhen(row.createdAt, locale)}</td>
-                  <td className="px-4 py-3">{row.actorEmail ?? '—'}</td>
-                  <td className="px-4 py-3">{label === securityKey ? row.action : label}</td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        id="audit"
+        label={t('audit.title')}
+        rows={rows}
+        columns={columns}
+        rowKey={(row) => row.id}
+        exportTable="audit"
+        defaultPageSize={100}
+        empty={t('audit.empty')}
+      />
     </div>
   )
 }
@@ -162,8 +241,47 @@ export function BackupPage() {
   const { user, run, exportBackup, lastBackupAt } = useVault()
   const [error, setError] = useState<string | null>(null)
   const [storage, setStorage] = useState<PersistenceState | null>(null)
-  const [archives, setArchives] = useState<Omit<ArchiveEntry, 'raw'>[]>([])
+  const [archives, setArchives] = useState<ArchiveRow[]>([])
   const allowed = Boolean(user && canUser(user, Permission.EXPORT_VAULT))
+  const archiveColumns = useMemo<Column<ArchiveRow>[]>(() => {
+    const reason = (entry: ArchiveRow) => (entry.reason === 'upgrade' ? t('backup.archiveUpgrade') : t('backup.archiveImport'))
+    return [
+      {
+        id: 'reason',
+        header: t('table.col.reason'),
+        cell: (entry) => <span className="font-medium">{reason(entry)}</span>,
+        sort: { type: 'text', value: reason },
+        search: reason,
+        filter: {
+          kind: 'select',
+          value: (entry) => (entry.reason === 'upgrade' ? 'upgrade' : 'import'),
+          options: [
+            { value: 'upgrade', label: t('backup.archiveUpgrade') },
+            { value: 'import', label: t('backup.archiveImport') },
+          ],
+        },
+        exportAs: { kind: 'text', value: reason },
+      },
+      {
+        id: 'archived',
+        header: t('table.col.archived'),
+        hideable: false,
+        cell: (entry) => <span className="whitespace-nowrap tabular-nums">{formatWhen(entry.archivedAt, locale)}</span>,
+        sort: { type: 'date', value: (entry) => entry.archivedAt },
+        search: (entry) => formatWhen(entry.archivedAt, locale),
+        filter: { kind: 'date', value: (entry) => entry.archivedAt },
+        exportAs: { kind: 'when', value: (entry) => entry.archivedAt },
+      },
+      {
+        id: 'version',
+        header: t('table.col.version'),
+        cell: (entry) => <span className="text-muted">{t('backup.savedBy')} {entry.sourceAppVersion}</span>,
+        sort: { type: 'text', value: (entry) => entry.sourceAppVersion },
+        search: (entry) => entry.sourceAppVersion,
+        exportAs: { kind: 'text', value: (entry) => entry.sourceAppVersion },
+      },
+    ]
+  }, [locale, t])
 
   useEffect(() => {
     if (!allowed) return
@@ -229,23 +347,24 @@ export function BackupPage() {
       <div className="rounded-3xl border border-line bg-card p-5">
         <h2 className="font-display text-2xl">{t('backup.archives')}</h2>
         <p className="mt-2 text-sm text-muted">{t('backup.archivesIntro')}</p>
-        {archives.length === 0 ? <p className="mt-4 text-sm text-muted">{t('backup.archivesEmpty')}</p> : null}
-        <ul className="mt-4 grid gap-2">
-          {archives.map((entry) => (
-            <li key={entry.key} data-testid="archive-row" className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3 text-sm">
-              <span className="min-w-0">
-                <span className="font-medium">{entry.reason === 'upgrade' ? t('backup.archiveUpgrade') : t('backup.archiveImport')}</span>
-                <span className="text-muted">
-                  {' '}
-                  · {formatWhen(entry.archivedAt, locale)} · {t('backup.savedBy')} {entry.sourceAppVersion}
-                </span>
-              </span>
+        <div className="mt-4">
+          <DataTable
+            id="archives"
+            label={t('backup.archives')}
+            rows={archives}
+            columns={archiveColumns}
+            rowKey={(entry) => entry.key}
+            rowAttributes={() => ({ 'data-testid': 'archive-row' })}
+            exportTable="archives"
+            defaultSort={[{ id: 'archived', desc: true }]}
+            empty={t('backup.archivesEmpty')}
+            rowActions={(entry) => (
               <Button variant="quiet" onClick={() => void onArchive(entry.key)}>
                 {t('backup.archiveDownload')}
               </Button>
-            </li>
-          ))}
-        </ul>
+            )}
+          />
+        </div>
       </div>
     </div>
   )

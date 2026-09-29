@@ -1,9 +1,10 @@
 import { ChevronLeft, RotateCcw, Trash2 } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useI18n } from '../../context/I18nContext'
 import { useSafes } from '../../context/SafeContext'
-import { hasRecentAuth, listTrash, purgeItems, purgeSafe, restoreItems, restoreSafe, type SafeSummary } from '../../services/safe.service'
+import { hasRecentAuth, listTrash, purgeItems, purgeSafe, restoreItems, restoreSafe, type SafeSummary, type TrashedItem } from '../../services/safe.service'
+import { DataTable, type Column } from '../table/DataTable'
 import { Button, Field, Panel, controlClass } from '../ui'
 import { KIND_ICONS } from './ItemBits'
 import { SafesGate } from './SafesGate'
@@ -38,9 +39,83 @@ function TrashContents() {
     }
   }
   const guarded = (action: () => void) => (keyring && hasRecentAuth(keyring) ? action() : setReauth(() => action))
-  const safes = data?.safes ?? []
-  const items = data?.items ?? []
+  const safes = useMemo(() => data?.safes ?? [], [data])
+  const items = useMemo(() => data?.items ?? [], [data])
   const iconButton = 'inline-flex h-8 items-center gap-1 rounded-lg border px-2 text-xs'
+
+  const safeColumns = useMemo<Column<TrashedSafe>[]>(() => {
+    const name = (safe: TrashedSafe) => safe.meta?.name ?? t('safes.unreadable')
+    const count = (safe: TrashedSafe) => safe.itemCount + safe.trashedItemCount
+    return [
+      {
+        id: 'name',
+        header: t('table.col.safe'),
+        hideable: false,
+        cell: (safe) => (
+          <span className="flex min-w-0 items-center gap-2.5">
+            {safe.meta ? <SafeGlyph icon={safe.meta.icon} color={safe.meta.color} size="sm" /> : null}
+            <span className="min-w-0 break-words font-medium">{name(safe)}</span>
+          </span>
+        ),
+        sort: { type: 'text', value: name },
+        search: name,
+      },
+      {
+        id: 'count',
+        header: t('safes.items'),
+        align: 'end',
+        cell: (safe) => <span className="tabular-nums">{count(safe)}</span>,
+        sort: { type: 'number', value: count },
+        filter: { kind: 'number', value: count },
+      },
+      daysLeftColumn<TrashedSafe>(t('safes.daysLeft')),
+    ]
+  }, [t])
+
+  const itemColumns = useMemo<Column<TrashedItem>[]>(() => {
+    const kind = (item: TrashedItem) => t(`safes.kinds.${item.kind}`)
+    return [
+      {
+        id: 'title',
+        header: t('table.col.title'),
+        hideable: false,
+        cell: (item) => {
+          const Icon = KIND_ICONS[item.kind]
+          return (
+            <span className="flex min-w-0 items-center gap-2.5">
+              <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-paper text-muted" aria-hidden="true">
+                <Icon size={14} />
+              </span>
+              <span className="min-w-0 break-words font-medium">{item.title}</span>
+            </span>
+          )
+        },
+        sort: { type: 'text', value: (item) => item.title },
+        search: (item) => item.title,
+      },
+      {
+        id: 'kind',
+        header: t('table.col.kind'),
+        cell: kind,
+        sort: { type: 'text', value: kind },
+        search: kind,
+        filter: {
+          kind: 'select',
+          value: (item) => item.kind,
+          options: (['CARD', 'SUBSCRIPTION', 'NOTE'] as const).map((value) => ({ value, label: t(`safes.kinds.${value}`) })),
+        },
+      },
+      {
+        id: 'safe',
+        header: t('table.col.safe'),
+        cell: (item) => item.safeName ?? '—',
+        sort: { type: 'text', value: (item) => item.safeName },
+        search: (item) => item.safeName,
+        filter: { kind: 'text', value: (item) => item.safeName },
+      },
+      daysLeftColumn<TrashedItem>(t('safes.daysLeft')),
+    ]
+  }, [t])
 
   return (
     <div className="space-y-5">
@@ -55,16 +130,16 @@ function TrashContents() {
       {safes.length > 0 ? (
         <section className="space-y-2">
           <h2 className="font-display text-2xl">{t('safes.trashedSafes')}</h2>
-          {safes.map((safe) => (
-            <div key={safe.id} className="flex min-w-0 flex-wrap items-center gap-3 rounded-2xl border border-line bg-card px-3 py-2.5" data-testid="trash-safe">
-              {safe.meta ? <SafeGlyph icon={safe.meta.icon} color={safe.meta.color} size="sm" /> : null}
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium">{safe.meta?.name ?? t('safes.unreadable')}</span>
-                <span className="block text-xs text-muted tabular-nums">
-                  {safe.itemCount + safe.trashedItemCount} {t('safes.items').toLocaleLowerCase()} · {t('safes.daysLeft')}: {safe.daysLeft}
-                </span>
-              </span>
-              <span className="flex shrink-0 gap-2">
+          <DataTable
+            id="safes-trash-safes"
+            label={t('safes.trashedSafes')}
+            rows={safes}
+            columns={safeColumns}
+            rowKey={(safe) => safe.id}
+            rowAttributes={() => ({ 'data-testid': 'trash-safe' })}
+            secure
+            rowActions={(safe) => (
+              <>
                 <button
                   type="button"
                   className={`${iconButton} border-line hover:border-brass`}
@@ -78,53 +153,45 @@ function TrashContents() {
                   <Trash2 size={13} aria-hidden="true" />
                   {t('safes.deleteForever')}
                 </button>
-              </span>
-            </div>
-          ))}
+              </>
+            )}
+          />
         </section>
       ) : null}
       {items.length > 0 ? (
         <section className="space-y-2">
           <h2 className="font-display text-2xl">{t('safes.trashedItems')}</h2>
-          {items.map((item) => {
-            const Icon = KIND_ICONS[item.kind]
-            return (
-              <div key={item.id} className="flex min-w-0 flex-wrap items-center gap-3 rounded-2xl border border-line bg-card px-3 py-2.5" data-testid="trash-item">
-                <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-paper text-muted" aria-hidden="true">
-                  <Icon size={14} />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium">{item.title}</span>
-                  <span className="block truncate text-xs text-muted tabular-nums">
-                    {item.safeName ? `${t('safes.inSafe')}: ${item.safeName} · ` : ''}
-                    {t('safes.daysLeft')}: {item.daysLeft}
-                  </span>
-                </span>
-                <span className="flex shrink-0 gap-2">
-                  <button
-                    type="button"
-                    className={`${iconButton} border-line hover:border-brass`}
-                    data-testid="trash-item-restore"
-                    onClick={() => void act(() => withKeyring((vault, current) => restoreItems(vault, current, [item.id]), { dirty: true }))}
-                  >
-                    <RotateCcw size={13} aria-hidden="true" />
-                    {t('safes.restore')}
-                  </button>
-                  <button
-                    type="button"
-                    className={`${iconButton} border-clay text-clay-ink hover:bg-clay/10`}
-                    data-testid="trash-item-purge"
-                    onClick={() =>
-                      guarded(() => void act(() => withKeyring((vault, current) => purgeItems(vault, current, [item.id]), { dirty: true })))
-                    }
-                  >
-                    <Trash2 size={13} aria-hidden="true" />
-                    {t('safes.deleteForever')}
-                  </button>
-                </span>
-              </div>
-            )
-          })}
+          <DataTable
+            id="safes-trash-items"
+            label={t('safes.trashedItems')}
+            rows={items}
+            columns={itemColumns}
+            rowKey={(item) => item.id}
+            rowAttributes={() => ({ 'data-testid': 'trash-item' })}
+            secure
+            rowActions={(item) => (
+              <>
+                <button
+                  type="button"
+                  className={`${iconButton} border-line hover:border-brass`}
+                  data-testid="trash-item-restore"
+                  onClick={() => void act(() => withKeyring((vault, current) => restoreItems(vault, current, [item.id]), { dirty: true }))}
+                >
+                  <RotateCcw size={13} aria-hidden="true" />
+                  {t('safes.restore')}
+                </button>
+                <button
+                  type="button"
+                  className={`${iconButton} border-clay text-clay-ink hover:bg-clay/10`}
+                  data-testid="trash-item-purge"
+                  onClick={() => guarded(() => void act(() => withKeyring((vault, current) => purgeItems(vault, current, [item.id]), { dirty: true })))}
+                >
+                  <Trash2 size={13} aria-hidden="true" />
+                  {t('safes.deleteForever')}
+                </button>
+              </>
+            )}
+          />
         </section>
       ) : null}
       {purging ? <PurgeSafeDialog safe={purging} guarded={guarded} onClose={() => setPurging(null)} /> : null}
@@ -140,6 +207,19 @@ function TrashContents() {
       ) : null}
     </div>
   )
+}
+
+type TrashedSafe = SafeSummary & { daysLeft: number }
+
+function daysLeftColumn<T extends { daysLeft: number }>(header: string): Column<T> {
+  return {
+    id: 'daysLeft',
+    header,
+    align: 'end',
+    cell: (row) => <span className={`tabular-nums ${row.daysLeft <= 3 ? 'text-clay-ink' : ''}`}>{row.daysLeft}</span>,
+    sort: { type: 'number', value: (row) => row.daysLeft },
+    filter: { kind: 'number', value: (row) => row.daysLeft },
+  }
 }
 
 function PurgeSafeDialog({ safe, guarded, onClose }: { safe: SafeSummary; guarded: (action: () => void) => void; onClose: () => void }) {

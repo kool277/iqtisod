@@ -9,7 +9,8 @@ import { textForError } from '../lib/errors'
 import { formatWhen } from '../lib/money'
 import { BUILD } from '../lib/version'
 import { Permission, canUser } from '../rbac'
-import { categoryLabel, listCategories } from '../services/finance.service'
+import { listCategories } from '../services/finance.service'
+import { DataTable, type Column } from './table/DataTable'
 import {
   categoryInput,
   createCategory,
@@ -110,7 +111,7 @@ function GeneralSettings() {
 }
 
 function CategorySettings() {
-  const { t, locale } = useI18n()
+  const { t } = useI18n()
   const { query, run, revision } = useVault()
   const [editing, setEditing] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -127,10 +128,47 @@ function CategorySettings() {
     }
   }
 
-  const sections: { type: EntryType; label: string }[] = [
-    { type: 'INCOME', label: t('tx.income') },
-    { type: 'EXPENSE', label: t('tx.expense') },
-  ]
+  const columns = useMemo<Column<Category>[]>(() => {
+    const typeText = (type: EntryType) => t(type === 'INCOME' ? 'tx.income' : 'tx.expense')
+    const patch = (category: Category, change: Partial<CategoryInput>) =>
+      run((vault) => updateCategory(vault, category.id, { ...categoryInput(category), ...change }), { dirty: true }).then(() => undefined)
+    const name = (id: string, header: string, field: NameField, required = false): Column<Category> => ({
+      id,
+      header,
+      hideable: !required,
+      cell: (category) => (category[field] ? <span className="break-words">{category[field]}</span> : <span className="text-muted">—</span>),
+      sort: { type: 'text', value: (category) => category[field] || null },
+      search: (category) => category[field],
+      exportAs: { kind: 'text', value: (category) => category[field] },
+      edit: { input: 'text', maxLength: 60, value: (category) => category[field], save: (category, value) => patch(category, { [field]: value }) },
+    })
+    return [
+      name('nameEn', t('settings.nameEn'), 'nameEn', true),
+      {
+        id: 'type',
+        header: t('common.type'),
+        cell: (category) => (
+          <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${category.type === 'INCOME' ? 'bg-pine/10 text-pine-ink' : 'bg-clay/10 text-clay-ink'}`}>
+            {typeText(category.type)}
+          </span>
+        ),
+        sort: { type: 'text', value: (category) => typeText(category.type) },
+        search: (category) => typeText(category.type),
+        filter: {
+          kind: 'select',
+          value: (category) => category.type,
+          options: [
+            { value: 'INCOME', label: t('tx.income') },
+            { value: 'EXPENSE', label: t('tx.expense') },
+          ],
+        },
+        exportAs: { kind: 'text', value: (category) => typeText(category.type) },
+      },
+      name('nameUzLatn', t('settings.nameUzLatn'), 'nameUzLatn'),
+      name('nameUzCyrl', t('settings.nameUzCyrl'), 'nameUzCyrl'),
+      name('nameRu', t('settings.nameRu'), 'nameRu'),
+    ]
+  }, [run, t])
 
   return (
     <section className="grid gap-4 rounded-3xl border border-line bg-card p-5">
@@ -146,82 +184,44 @@ function CategorySettings() {
         testPrefix="category"
         onSubmit={(input) => save(() => run((vault) => createCategory(vault, input), { dirty: true }))}
       />
-      <div className="grid gap-4 lg:grid-cols-2">
-        {sections.map((section) => (
-          <div key={section.type} className="min-w-0">
-            <h3 className="mb-2 text-xs uppercase tracking-[0.14em] text-muted">{section.label}</h3>
-            <ul className="grid gap-2">
-              {categories
-                .filter((category) => category.type === section.type)
-                .map((category) => (
-                  <CategoryRow
-                    key={category.id}
-                    category={category}
-                    label={categoryLabel(category, locale)}
-                    editing={editing === category.id}
-                    onEdit={() => setEditing(editing === category.id ? null : category.id)}
-                    onSave={async (input) => {
-                      const ok = await save(() =>
-                        run((vault) => updateCategory(vault, category.id, input), { dirty: true }),
-                      )
-                      if (ok) setEditing(null)
-                    }}
-                    onRemove={() => void save(() => run((vault) => deleteCategory(vault, category.id), { dirty: true }))}
-                  />
-                ))}
-            </ul>
-          </div>
-        ))}
-      </div>
+      <DataTable
+        id="categories"
+        label={t('settings.categories')}
+        rows={categories}
+        columns={columns}
+        rowKey={(category) => String(category.id)}
+        groupAttributes={() => ({ 'data-testid': 'category-row' })}
+        exportTable="categories"
+        rowActions={(category) => (
+          <>
+            <Button variant="quiet" aria-expanded={editing === category.id} onClick={() => setEditing(editing === category.id ? null : category.id)}>
+              {t('common.edit')}
+            </Button>
+            <Button variant="danger" onClick={() => void save(() => run((vault) => deleteCategory(vault, category.id), { dirty: true }))}>
+              {t('settings.remove')}
+            </Button>
+          </>
+        )}
+        expanded={(category) =>
+          editing === category.id ? (
+            <CategoryForm
+              title={t('settings.editCategory')}
+              initial={categoryInput(category)}
+              testPrefix={`category-edit-${category.id}`}
+              onSubmit={async (input) => {
+                const ok = await save(() => run((vault) => updateCategory(vault, category.id, input), { dirty: true }))
+                if (ok) setEditing(null)
+                return ok
+              }}
+            />
+          ) : null
+        }
+      />
     </section>
   )
 }
 
-function CategoryRow({
-  category,
-  label,
-  editing,
-  onEdit,
-  onSave,
-  onRemove,
-}: {
-  category: Category
-  label: string
-  editing: boolean
-  onEdit: () => void
-  onSave: (input: CategoryInput) => Promise<void>
-  onRemove: () => void
-}) {
-  const { t } = useI18n()
-  return (
-    <li data-testid="category-row" className="rounded-2xl border border-line px-3 py-2">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="min-w-0 break-words font-medium">{label}</p>
-        <div className="flex gap-2">
-          <Button variant="quiet" className="px-3 py-1.5" onClick={onEdit}>
-            {t('common.edit')}
-          </Button>
-          <Button variant="danger" className="px-3 py-1.5" onClick={onRemove}>
-            {t('settings.remove')}
-          </Button>
-        </div>
-      </div>
-      {editing ? (
-        <div className="mt-3">
-          <CategoryForm
-            title={t('settings.editCategory')}
-            initial={categoryInput(category)}
-            testPrefix={`category-edit-${category.id}`}
-            onSubmit={async (input) => {
-              await onSave(input)
-              return true
-            }}
-          />
-        </div>
-      ) : null}
-    </li>
-  )
-}
+type NameField = 'nameEn' | 'nameUzLatn' | 'nameUzCyrl' | 'nameRu'
 
 function CategoryForm({
   title,
