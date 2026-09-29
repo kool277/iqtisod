@@ -20,12 +20,16 @@
   },
   "dependencies": {
     "@sqlite.org/sqlite-wasm": "3.53.4-build1",
+    "@zip.js/zip.js": "^2.18.2",
     "chart.js": "^4.5.1",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
     "lucide-react": "^1.48.0",
     "react": "^19.3.0",
     "react-chartjs-2": "^5.3.1",
     "react-dom": "^19.3.0",
-    "react-router-dom": "^7.18.4"
+    "react-router-dom": "^7.18.4",
+    "write-excel-file": "^4.1.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
@@ -34,8 +38,12 @@
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
     "@vitejs/plugin-react": "^6.1.1",
+    "ajv": "^8.20.0",
+    "better-sqlite3-multiple-ciphers": "^13.0.3",
+    "read-excel-file": "^9.3.10",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
+    "unpdf": "^1.8.1",
     "vite": "^8.3.1",
     "vitest": "^5.0.2"
   }

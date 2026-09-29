@@ -1,4 +1,5 @@
 import type { Messages } from './en'
+import { exportUzCyrl } from './export/uz-Cyrl'
 
 export const uzCyrl: Messages = {
   app: {
@@ -171,6 +172,7 @@ export const uzCyrl: Messages = {
       CREDENTIALS_UPGRADED: 'Парол ҳимояси кучайтирилди',
       PLAINTEXT_EXPORTED: 'Шифрланмаган экспорт',
       PASSWORD_CHANGED: 'Парол ўзгартирилди',
+      DATA_EXPORTED: 'Маълумотлар экспорт қилинди',
     },
   },
   backup: {
@@ -757,4 +759,5 @@ export const uzCyrl: Messages = {
     TOTP_CLEARED: 'Кириш текшируви олиб ташланди',
     TOTP_RECOVERY_USED: 'Кириш учун тиклаш коди ишлатилди',
   },
+  export: exportUzCyrl,
 }

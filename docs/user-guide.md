@@ -320,6 +320,10 @@ The version you are using is shown at the bottom of the menu and on the sign-in 
 
 Pick a language from the language menu: Oʻzbekcha, Ўзбекча, Русский, or English. Pick **Day**, **Night**, or **System** to follow your device. Both choices are remembered in this browser.
 
+## Getting your data out
+
+Need your records in a spreadsheet or a PDF report? Only Admins can export data, so ask your admin. They can export one group or one period, as CSV, Excel, PDF, and other formats.
+
 ## Good habits
 
 - Lock the vault before leaving a shared device.

@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it } from 'vitest'
 import type { OpenVault } from '../../src/domain/types'
 import { unlockVault } from '../../src/services/auth.service'
 import { parseBackup } from '../../src/services/backup.service'
-import { csvCell, exportTransactionsCsv } from '../../src/services/export.service'
+import { buildTransactionsCsv, csvCell } from '../../src/services/export/csv'
+import { blobText, datasetFor } from '../support/exports'
 import { fixtureByPath } from '../support/fixtures'
 
 const TRIGGERS = ['=', '+', '-', '@', '\t', '\r', '\uFF1D', '\uFF0B', '\uFF0D', '\uFF20']
@@ -101,7 +102,7 @@ describe('csvCell', () => {
   })
 })
 
-describe('exportTransactionsCsv', () => {
+describe('buildTransactionsCsv', () => {
   const fixture = fixtureByPath('v2/ledger-v2')
   const open: OpenVault[] = []
 
@@ -121,7 +122,7 @@ describe('exportTransactionsCsv', () => {
     vault.db.exec("UPDATE groups SET name = '=GROUP()' WHERE id = (SELECT MIN(id) FROM groups)")
     vault.db.exec("UPDATE categories SET name_en = '@CATEGORY' WHERE id = (SELECT category_id FROM transactions ORDER BY id LIMIT 1)")
 
-    const rows = parseCsv(exportTransactionsCsv(vault).replace(/^\ufeff/, ''))
+    const rows = parseCsv((await blobText(await buildTransactionsCsv(datasetFor(vault)))).replace(/^\ufeff/, ''))
     const [header, ...body] = rows
     expect(body).toHaveLength(ids.length)
     const notes = header.indexOf('notes')

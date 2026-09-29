@@ -1,7 +1,7 @@
 export const DOWNLOAD_REVOKE_MS = 60_000
 
-export function downloadFile(content: string | Uint8Array, fileName: string, type: string): void {
-  const blob = new Blob([content as BlobPart], { type })
+export function downloadFile(content: string | Uint8Array | Blob, fileName: string, type: string): void {
+  const blob = content instanceof Blob ? content : new Blob([content as BlobPart], { type })
   const url = URL.createObjectURL(blob)
   const anchor = document.createElement('a')
   anchor.href = url

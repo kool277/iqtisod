@@ -10,7 +10,7 @@ import { minorToDecimal, parseAmount } from '../../src/lib/money'
 import { passwordProblem } from '../../src/lib/password-policy'
 import { assertReceipt } from '../../src/lib/receipt'
 import { base32Decode, isTotpCode } from '../../src/lib/totp'
-import { csvCell } from '../../src/services/export.service'
+import { csvCell } from '../../src/services/export/csv'
 import { normalizeRecoveryCode } from '../../src/services/totp.service'
 
 const SIZE = 100_000

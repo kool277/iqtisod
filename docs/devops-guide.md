@@ -66,6 +66,8 @@ All actions are pinned to full commit SHAs with the release tag in a comment. De
 | `codeql.yml` | Push and pull request to `main`, weekly | CodeQL `security-extended` for JavaScript and TypeScript |
 | `fx-rates.yml` | 03:17 UTC daily and 15:47 UTC on weekdays, manual | Fetches, validates, and records official exchange rates on `fx-data`, then publishes `rates/` to `gh-pages`. See [Exchange rates](#exchange-rates) |
 
+The `verify` job installs `sqlcipher` and `7zip` with apt so the export interop tests can open the encrypted SQLite and ZIP outputs with independent tools. Locally those tests are skipped when the programs are missing (`brew install sqlcipher sevenzip` enables them). The unit tests also use the native `better-sqlite3-multiple-ciphers` module, which carries prebuilt binaries for Linux, macOS, and Windows inside the package (`prebuilds/`), so it loads without install scripts and works with `npm ci --ignore-scripts`. It is a dev dependency and never reaches the site.
+
 The deploy only publishes the exact files CI tested. A failing check stops it, and the last good version stays online. Deploys and rate updates never overlap or cancel each other half-way (`concurrency: pages`, `cancel-in-progress: false`).
 
 ### One-time GitHub settings

@@ -71,7 +71,7 @@ Sign-in never compares `users.password_hash`; it succeeds only if the wrap unwra
 | 1 and 2 (1.0.0, 1.1.0) | Lower-case hex of the raw 256 PBKDF2 bits, which are the KEK itself. Anyone who reads the decrypted database can unwrap that person's `wrappedDek` without the password. |
 | 3 and later (1.2.0+) | Empty string after migration 3, until the person's next successful sign-in. Then `hex(HKDF-SHA-256(ikm = raw PBKDF2 bits, salt = empty, info = UTF-8 "moliya/verifier/v1"))`: 256 bits, 64 lower-case hex characters, no prefix. The empty salt is HKDF's default of 32 zero bytes. Written without an audit entry. New, reset, and changed passwords store this form directly. |
 
-Whenever the stored value is not the verifier (a pre-1.2.0 raw value, or the empty string left by migration 3), sign-in also wraps the same DEK again under a fresh salt with the current KDF, exactly like a KDF upgrade but without an audit entry when the KDF parameters do not change. A KEK-equal value read before that sign-in therefore no longer opens the stored wrap. Backups and archives written by 1.0.0 and 1.1.0 still contain the old KEK-equal values together with the old wraps they open. Plaintext exports blank the column (see [Plaintext exports](#plaintext-exports)).
+Whenever the stored value is not the verifier (a pre-1.2.0 raw value, or the empty string left by migration 3), sign-in also wraps the same DEK again under a fresh salt with the current KDF, exactly like a KDF upgrade but without an audit entry when the KDF parameters do not change. A KEK-equal value read before that sign-in therefore no longer opens the stored wrap. Backups and archives written by 1.0.0 and 1.1.0 still contain the old KEK-equal values together with the old wraps they open. Exports blank the column (see [Exports](#exports)).
 
 ## Backup file
 
@@ -546,14 +546,61 @@ The optional sign-in check (1.3.0) asks for a time-based one-time password after
 | `v3/safes-household` | 1.2.0 | Record/backup 2 with schema 3, HKDF verifiers, `PASSWORD_CHANGED` and `USER_PASSWORD_RESET` audit entries. Private safes for three people: cards (Visa with CVV, Humo without, Mastercard), subscriptions in USD, UZS, and EUR (monthly, yearly, cancelled, every 30 days with a trial), notes with non-ASCII text, an archived safe, a trashed item, a password-each-time safe, recovery codes, and a Viewer whose safes are stale after an admin reset |
 | `v4/access-household` | 1.3.0 | Record/backup 2 with schema 4 and a `grants[]` entry. A UZS vault with a receipt; a Manager who joined with an invite code (non-ASCII password) and turned on the sign-in check with recovery codes; a Viewer created with a temporary password whose first reset code was revoked and whose second (stopping the old password) was used; one invite still open in the file but expired, so opening the fixture ends it with `INVITE_EXPIRED`. The expected file lists every code, the TOTP secret, and the recovery codes, so the tests check that used, revoked, and expired codes are refused and that the sign-in check still works |
 
-## Plaintext exports
+## Exports
 
-Admins can download unencrypted copies from the Backup page. Both are written to the audit log as `PLAINTEXT_EXPORTED`.
+Exports are one-way copies for other apps. They cannot be imported; the `.moliya` backup stays the only format that restores a vault. All export formats share **export format version 1** (`EXPORT_FORMAT_VERSION` in `src/db/versions.ts`, first written by 1.3.0). Vault, backup, and schema versions are not affected by exports.
 
-- **CSV** (`moliya-records-YYYY-MM-DD.csv`): UTF-8 with a byte order mark, CRLF line endings, RFC 4180 quoting. Columns: `id, date, type, category, amount, currency, amount_minor, minor_unit, group, recorded_by, notes, has_receipt, created_at, updated_at`. `amount` is a plain decimal with a dot (`10.50`). Text cells that start with `=`, `+`, `-`, `@`, tab, or carriage return, or (from 1.3.0) with whitespace followed by one of these, or with a full-width `＝`, `＋`, `－`, or `＠`, are prefixed with `'` so spreadsheets do not run them as formulas.
-- **SQLite** (`moliya-database-YYYY-MM-DD.sqlite`): the decrypted database with `users.password_hash` and `users.salt` blanked, every row of `safe_events`, `secure_items`, `safes`, and `user_keys` deleted (the tables stay, empty), and the file vacuumed, so no password-derived material and no private safe data remains. From 1.3.0 it also deletes every `user_totp` row and blanks `access_grants.code_verifier`; the rest of `access_grants` (emails, roles, dates) stays as history.
+Only Admins can export (`EXPORT_VAULT`). Each export writes one `DATA_EXPORTED` audit entry **before** the files are generated, with details `{ formats, protection, scope: { from, to, groupId }, includesAudit, includesReceipts, counts }`. It never contains record content or the export password. Rows written by 1.1.0's unencrypted export keep their `PLAINTEXT_EXPORTED` action. Exports do not reset the backup reminder.
 
-Neither export includes private safes or sign-in check secrets. There is no plaintext export of safes.
+### Scope
+
+- **Period**: all data, or an inclusive `from`–`to` range on `transaction_date`. The audit log is filtered on the UTC date of `created_at`.
+- **Group**: all groups or one group. With one group, people outside it appear only if they recorded a transaction in it, and their `group_id` is blank.
+- **Audit log**: optional; requires `READ_AUDIT` and all groups, because audit details snapshot records of every group. `auditFirstSeq`/`auditLastSeq` in the metadata let a reader verify the hash chain starting from the first exported row's `prevHash`.
+- **Receipts**: off by default. When off, `receipt` is `null` and SQLite `receipt_data` is `NULL`; `hasReceipt` still says whether one exists.
+- **Never exported**: private safes (tables, metadata, and encrypted contents), password hashes and salts, key wraps, sign-in check secrets, access codes, and any table not on the allowlist below.
+
+### Files
+
+A single file downloads as-is; several files (or any encrypted choice) download as one ZIP with a `README.txt`. The downloaded name is `<app>-<vault>-<yyyy-mm-dd>.<ext>`, `…-encrypted.zip`, or `…-encrypted.sqlite`. `<vault>` is the vault name normalised to NFC, with `\/:*?"<>|`, control characters, and whitespace replaced by `-`, at most 48 characters, falling back to `vault`. The vault name is therefore visible in the file name even for encrypted exports.
+
+| Inner file | Format |
+| --- | --- |
+| `transactions.csv` | RFC 4180, UTF-8 with byte order mark, CRLF, comma separator, dot decimals. Columns (only ever appended): `id, date, type, category, amount, currency, amount_minor, minor_unit, group, recorded_by, notes, has_receipt, created_at, updated_at, category_id, group_id, user_id`. |
+| `audit-log.csv` | Same CSV rules. Columns: `seq, id, actor_id, actor_email, action, entity_type, entity_id, details, created_at, prev_hash, hash`. |
+| `*.json` | One JSON document, `"format": "moliya-export"`, `"formatVersion": 1`. Schema: [moliya-export-1.schema.json](schemas/moliya-export-1.schema.json) (JSON Schema 2020-12). |
+| `*.jsonl` | UTF-8 JSON Lines, no byte order mark, `\n` separators. First line `{"type":"header",…}` with the same metadata as JSON, then `currency`, `group`, `user`, `category`, `transaction`, and `audit` records as `{"type":…,"data":…}`, then `{"type":"footer","counts":{…}}` so truncation is detectable. Schema: [moliya-export-1.record.schema.json](schemas/moliya-export-1.record.schema.json). |
+| `*.xlsx` | Sheets Summary, Records, Categories, Groups, People, Audit log (optional), About. Transaction dates are real date cells (`yyyy-mm-dd`, written as UTC midnight so they do not shift by time zone); `amount` is a number with `#,##0.00`; `amount_minor` is the exact integer. Text that looks like a formula is stored as text. |
+| `report.pdf` | A4 report: header, totals per currency (vault currency first), expenses by category, monthly table, and up to 10,000 records. Embedded Noto Sans subset. No PDF password (jsPDF only offers RC4). |
+| `*.sqlite` | Plain SQLite 3, see below. |
+
+**Money** is always exact: an integer `amountMinor`/`amount_minor` in the currency's minor unit plus a decimal string `amount`, never a float. Totals are summed with `BigInt`. Audit `details` is the original JSON text, so the hash chain can be recomputed from the export.
+
+**CSV formula protection** (OWASP): a text cell whose first non-space character is `=`, `+`, `-`, `@`, tab, CR, LF, or a full-width `＝＋－＠` gets a leading `'`. Numeric columns are never prefixed. Excel may drop the `'` after a save and reopen; use JSON, JSON Lines, or SQLite when exact data matters.
+
+### SQLite export
+
+The file is built fresh, not copied: a new database attaches the vault as `src` and copies only an allowlist with `INSERT … SELECT`, applying the scope filters.
+
+- Tables: `roles, groups, users, categories, currencies, transactions, schema_migrations`, `settings` (keys `vault_name`, `currency`, `vault_created_at` only), and `audit_logs` when the audit log is included. Table definitions, indexes, and triggers come from `src.sqlite_schema`. Columns that the exporter does not know are written as `NULL`.
+- `users.password_hash` and `users.salt` are `''`.
+- An `export_info (key, value)` table holds the export metadata. `PRAGMA application_id = 0x4D4C5941` ("MLYA"); `user_version` is the vault's schema version.
+- Page size 4096 bytes; 80 reserved bytes per page when the file is going to be encrypted.
+
+### Encrypted outputs
+
+**AES-256 ZIP** (default): WinZip AE-2 entries (extra field `0x9901`, strength 3) written by zip.js. The ZIP key derivation is PBKDF2-HMAC-SHA1 with 1,000 iterations (fixed by the WinZip spec), and entry names and sizes are visible without the password. Opens in 7-Zip, WinZip, WinRAR, and Keka, but not in the built-in Windows or macOS archive tools.
+
+**SQLCipher 4** (`…-encrypted.sqlite`): only the SQLite export, encrypted in the browser with Web Crypto to SQLCipher 4 defaults:
+
+1. The plain file must have 4096-byte pages, 80 reserved bytes, and the legacy journal format (header bytes 18 and 19 are 1).
+2. A random 16-byte salt is written to bytes 0–15.
+3. Key = PBKDF2-HMAC-SHA512(password, salt, 256,000 iterations, 32 bytes). HMAC key = PBKDF2-HMAC-SHA512(key, salt XOR `0x3a` on every byte, 2 iterations, 32 bytes).
+4. Each page *n* (1-based): AES-256-CBC with a random 16-byte IV over bytes [16 on page 1, else 0, 4016); the IV is stored at 4016, then HMAC-SHA512(ciphertext ‖ IV ‖ *n* as 4-byte little-endian) at 4032.
+
+It opens in DB Browser for SQLite ("SQLCipher 4 defaults"), `sqlcipher` (`PRAGMA key = '…'`), and SQLite3 Multiple Ciphers (`cipher=sqlcipher; legacy=4`).
+
+**Export passwords** (both encrypted outputs; enforced by the service): at least 14 printable ASCII characters, a strength estimate of at least "fair", and not the current user's sign-in password (checked by trying to unwrap the vault key with it). The built-in generator makes 6 groups of 4 characters from a 32-character alphabet (120 bits). Passwords are never stored or audited.
 
 ## Recovering data without the app
 

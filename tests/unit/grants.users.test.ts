@@ -1,3 +1,4 @@
+import { BlobReader, Uint8ArrayWriter, ZipReader, configure } from '@zip.js/zip.js/index-native.js'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { decodeStoredRecord } from '../../src/db/envelope'
 import { readSchemaVersion, migrate } from '../../src/db/migrations'
@@ -8,7 +9,7 @@ import { LIMITS } from '../../src/lib/limits'
 import { base32Decode, importTotpKey, totpAt } from '../../src/lib/totp'
 import { sealVault, unlockVault } from '../../src/services/auth.service'
 import { backupFileText, parseBackup } from '../../src/services/backup.service'
-import { exportPlainDatabase } from '../../src/services/export.service'
+import { runExport } from '../../src/services/export'
 import { createInvite, issueReset, listGrants, redeemGrant } from '../../src/services/grant.service'
 import { beginTotpSetup, enableTotp, hasSignInCheck } from '../../src/services/totp.service'
 import { createUser, deleteUser, listUsers, resetUserPassword } from '../../src/services/user.service'
@@ -30,6 +31,8 @@ import {
 } from '../support/access'
 import { fixtureByPath } from '../support/fixtures'
 import { closeTracked, contains, track, utf8 } from '../support/safes'
+
+configure({ useWebWorkers: false })
 
 const TEMP_PASSWORD = 'Granite lighthouse ember 64'
 
@@ -169,26 +172,43 @@ describe('deleteUser', () => {
   })
 })
 
-describe('plaintext database export', () => {
-  it('strips sign-in check secrets and grant verifiers from the copy only', async () => {
+async function unzip(blob: Blob): Promise<Map<string, Uint8Array>> {
+  const reader = new ZipReader(new BlobReader(blob))
+  const files = new Map<string, Uint8Array>()
+  for (const entry of await reader.getEntries()) {
+    if (!entry.directory) files.set(entry.filename, await entry.getData(new Uint8ArrayWriter()))
+  }
+  await reader.close()
+  return files
+}
+
+describe('data export', () => {
+  it('never carries sign-in check secrets, grants, or verifiers, and leaves the vault untouched', async () => {
     const { record: withTotp } = await withMemberTotp()
     const admin = await openAs(withTotp, OWNER)
     const invite = await createInvite(admin, { email: INVITEE.email, roleName: 'Viewer', groupId: household.groupId, validity: '1h' })
     const verifier = String(grantRowOf(admin.db, invite.id)!.code_verifier)
     const ciphertext = String(admin.db.queryValue('SELECT secret_ciphertext FROM user_totp'))
+    const hashes = String(admin.db.queryValue('SELECT recovery_hashes FROM user_totp'))
+    const request = { period: null, groupId: null, includeAudit: true, includeReceipts: true, locale: 'en' as const }
 
-    const bytes = await exportPlainDatabase(admin)
-    expect(contains(bytes, utf8(verifier))).toBe(false)
-    expect(contains(bytes, utf8(ciphertext.slice(0, 40)))).toBe(false)
-    const copy = await SqlDatabase.openBytes(bytes)
+    const plain = await runExport(admin, { ...request, formats: ['sqlite', 'json', 'jsonl', 'csv'], protection: 'none', plainConfirmed: true })
+    const files = await unzip(plain.blob)
+    for (const [name, content] of files) {
+      for (const secret of [verifier, ciphertext.slice(0, 40), hashes.slice(0, 40)]) expect(contains(content, utf8(secret)), name).toBe(false)
+    }
+    const copy = await SqlDatabase.openBytes(files.get('jaybi.sqlite')!)
     try {
-      expect(copy.queryValue('SELECT COUNT(*) FROM user_totp')).toBe(0)
-      expect(copy.query('SELECT email, code_verifier FROM access_grants').map((row) => ({ ...row }))).toEqual([{ email: INVITEE.email, code_verifier: '' }])
+      const tables = copy.query("SELECT name FROM sqlite_schema WHERE type = 'table'").map((row) => String(row.name))
+      for (const table of ['user_totp', 'access_grants', 'user_keys', 'safes', 'secure_items', 'safe_events']) expect(tables, table).not.toContain(table)
+      expect(copy.queryValue("SELECT COUNT(*) FROM users WHERE password_hash <> '' OR salt <> ''")).toBe(0)
+      expect(copy.queryValue("SELECT COUNT(*) FROM settings WHERE key = 'clock_high_water'")).toBe(0)
     } finally {
       copy.close()
     }
     expect(hasSignInCheck(admin.db, household.memberId)).toBe(true)
     expect(grantRowOf(admin.db, invite.id)!.code_verifier).toBe(verifier)
+    expect(lastAudit(admin.db, 'DATA_EXPORTED')).toBeTruthy()
   })
 })
 

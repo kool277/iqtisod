@@ -99,6 +99,24 @@ export function errorText(code: string, t: (key: MessageKey) => string): string 
       return t('errors.inUse')
     case 'MIGRATION_FAILED':
       return t('errors.migration')
+    case 'EXPORT_NO_FORMAT':
+      return t('export.errors.noFormat')
+    case 'EXPORT_PASSWORD_SHORT':
+      return t('export.errors.passwordShort')
+    case 'EXPORT_PASSWORD_ASCII':
+      return t('export.errors.passwordAscii')
+    case 'EXPORT_PASSWORD_WEAK':
+      return t('export.errors.passwordWeak')
+    case 'EXPORT_PASSWORD_MISMATCH':
+      return t('export.errors.passwordMismatch')
+    case 'EXPORT_PASSWORD_REUSED':
+      return t('export.errors.passwordReused')
+    case 'EXPORT_PLAIN_UNCONFIRMED':
+      return t('export.errors.plainUnconfirmed')
+    case 'EXPORT_AUDIT_SCOPE':
+      return t('export.includeAuditHelp')
+    case 'EXPORT_CANCELLED':
+      return t('export.errors.cancelled')
     default:
       return t('errors.generic')
   }

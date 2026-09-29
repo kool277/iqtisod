@@ -6,7 +6,9 @@ Data formats are versioned separately from the app. Each release lists the forma
 
 ## [Unreleased]
 
-Reads backup and record versions 1–2 and schema versions 1–4. Writes backup 2, record 2, schema 4. Vaults and backups made by 1.0.0, 1.1.0, and 1.2.0 upgrade automatically on first sign-in, and the original stored copy is kept in the browser. Moliya 1.1.0 and 1.2.0 refuse a schema 4 vault or backup with "made by a newer version" and leave it untouched. The 1.2.0 recovery tool still decrypts schema 4 backups but does not remove the new sign-in check and code data from its output.
+## [1.3.0] - 2026-09-29
+
+Reads backup and record versions 1–2 and schema versions 1–4. Writes backup 2, record 2, schema 4, and the new write-only export format 1. Vaults and backups made by 1.0.0, 1.1.0, and 1.2.0 upgrade automatically on first sign-in, and the original stored copy is kept in the browser. Moliya 1.1.0 and 1.2.0 refuse a schema 4 vault or backup with "made by a newer version" and leave it untouched. The 1.2.0 recovery tool still decrypts schema 4 backups but does not remove the new sign-in check and code data from its output.
 
 ### Added
 
@@ -24,6 +26,10 @@ Reads backup and record versions 1–2 and schema versions 1–4. Writes backup 
 - Schema version 4: tables `access_grants` and `user_totp`, and the `clock_high_water` setting. Envelopes gain an optional `grants[]` list of code wraps.
 - `SECURITY.md` with supported versions, how to report a vulnerability privately, and a threat model summary. A threat model section in the developer guide.
 - Golden backup `v4/access-household` made by 1.3.0: a Manager who joined by invite with the sign-in check and recovery codes, a Viewer reset with a stop-old reset code after a first code was revoked, and an expired invite that is swept on open.
+- **Export data** on the Backup page (Admins only), replacing the 1.1.0 unencrypted CSV and SQLite buttons: CSV, JSON, JSON Lines, Excel workbook, PDF report, and SQLite database, for all data or a selected period, all groups or one group, with the audit log and receipt images as options (receipts off by default). The PDF lists up to 10,000 records.
+- Encrypted exports: AES-256 ZIP (the default; opens in 7-Zip, WinZip, WinRAR, and Keka, not in the built-in Windows or macOS tools) and an SQLCipher 4 database (opens in DB Browser for SQLite and `sqlcipher`), with a password generator, strength meter, and cancel. Unencrypted exports need an explicit confirmation.
+- "Data exported" audit entry with the formats, protection, scope, and counts, never content or passwords. Entries written by 1.1.0 keep their "Unencrypted export" label.
+- JSON Schemas for the `moliya-export` format version 1 in `docs/schemas/`, and an Exports section in `docs/data-format.md` with the exact SQLCipher and ZIP details.
 - Exchange rates on the dashboard: official rates for UZS↔USD, KRW↔USD, and ILS↔USD from the Central Bank of Uzbekistan, the European Central Bank (won, as a cross rate via the euro), and the Bank of Israel, with the rate date, a link to the source, the change since the previous official rate, and a Stale badge after 2 business days.
 - Converter between USD and soʻm, won, or shekel, rounded half-even to the currency's minor unit (whole won for KRW), with the exact value alongside.
 - Exact decimal arithmetic (`src/lib/decimal.ts`), a dependency-free BigInt decimal with explicit scale, precision, and rounding mode; no exchange-rate figure passes through floating point.
@@ -40,7 +46,8 @@ Reads backup and record versions 1–2 and schema versions 1–4. Writes backup 
 - Group names and the setup vault name are limited to 80 characters. (Audit 10)
 - A vault holds at most 256 people. Adding a person, creating an invite, and accepting one are refused once the people and open invites would exceed what a backup can hold.
 - Adding a person with a temporary password ends any open invite for that email. Removing a person ends their codes.
-- The unencrypted SQLite export and `npm run decrypt` (unless `--keep-keys` is given) remove sign-in check rows and code verifiers. `npm run decrypt --list` shows pending codes by kind and email.
+- The SQLite export is built from an allowlist of tables into a fresh file (4096-byte pages) instead of a scrubbed copy of the vault, so tables added later are never exported by accident. CSV gains `category_id`, `group_id`, and `user_id` columns at the end.
+- `npm run decrypt` (unless `--keep-keys` is given) removes sign-in check rows and code verifiers. `npm run decrypt --list` shows pending codes by kind and email.
 - Deploys include the latest published rates in `rates/`. The browser still connects only to the site itself.
 - CI installs with `npm ci --ignore-scripts` and runs `npm audit signatures`. Dependabot waits 7 days before proposing a release. `CODEOWNERS` requires the owner's review for key handling, storage, auth, grants, users, the sign-in check, limits, what the browser loads, fixtures, the lock file, and CI.
 
@@ -53,7 +60,8 @@ Reads backup and record versions 1–2 and schema versions 1–4. Writes backup 
 - Every decrypted database is hardened (defensive mode, `trusted_schema` off, `cell_size_check`, 8 MiB value limit, `ATTACH` disabled) and must match the schema the app's own migrations create before it is used. `PRAGMA quick_check` runs on every open. (Audit 13)
 - Envelope and backup readers enforce caps: 1–256 wraps, at most 64 code wraps, salts of 16–64 bytes, ciphertext up to 64 MiB, KDF iterations up to 2,000,000 in the app, JSON size, depth, and prototype keys. (Audit 14)
 - Sign-in with an unknown email, and a code for an unknown email, spend the same key-derivation time as a real attempt, and verifiers are compared in constant time. (Audit 8)
-- The CSV formula guard also catches leading whitespace and full-width `=`, `+`, `-`, and `@`. (Audit 12)
+- The CSV formula guard also catches leading whitespace, line feeds, and full-width `=`, `+`, `-`, and `@`. (Audit 12)
+- Exports never contain private safes, password verifiers or salts, key wraps, sign-in check secrets, or code verifiers, in any format. Export passwords need at least 14 characters and cannot be the sign-in password; they are never stored or logged. Export libraries load only when an export starts and run under the same Content Security Policy and Trusted Types rules, with jsPDF's HTML and SVG helpers left out of the build.
 - The devops guide now covers a dedicated custom domain (verified for the account, optionally behind Cloudflare with full security headers) and advises keeping no other GitHub Pages sites on the account until then, because they share the vault's origin. (Audit 1)
 - `SECURITY.md` and private vulnerability reporting. (Audit 18)
 
@@ -155,7 +163,8 @@ Writes backup, record, and schema version 1.
 - Audit log, encrypted `.moliya` backups, day and night themes, and a collapsible sidebar.
 - Deployment to GitHub Pages.
 
-[Unreleased]: https://github.com/kool277/iqtisod/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/kool277/iqtisod/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/kool277/iqtisod/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/kool277/iqtisod/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/kool277/iqtisod/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/kool277/iqtisod/releases/tag/v1.0.0

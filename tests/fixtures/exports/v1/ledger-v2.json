@@ -1,0 +1,105 @@
+{
+  "format": "moliya-export",
+  "formatVersion": 1,
+  "app": {
+    "name": "Jaybi",
+    "version": "0.0.0-test",
+    "commit": "test"
+  },
+  "schemaVersion": 4,
+  "exportedAt": "2027-02-01T08:30:00.000Z",
+  "exportedBy": {
+    "id": "a8d8525b-009e-4bef-8014-94805d499726",
+    "email": "admin@ledger.test"
+  },
+  "vault": {
+    "name": "Ledger Two",
+    "currency": "USD",
+    "createdAt": "2026-09-29T08:57:57.997Z"
+  },
+  "scope": {
+    "from": null,
+    "to": null,
+    "groupId": null,
+    "groupName": null,
+    "includesAudit": true,
+    "includesReceipts": false,
+    "auditFirstSeq": 1,
+    "auditLastSeq": 22
+  },
+  "currencies": [
+    {"code":"EUR","minorUnit":2},
+    {"code":"RUB","minorUnit":2},
+    {"code":"USD","minorUnit":2},
+    {"code":"UZS","minorUnit":2}
+  ],
+  "groups": [
+    {"id":1,"name":"Ledger Two","createdAt":"2026-09-29 08:57:57"},
+    {"id":2,"name":"Side Business","createdAt":"2026-09-29 08:57:57"}
+  ],
+  "users": [
+    {"id":"a8d8525b-009e-4bef-8014-94805d499726","email":"admin@ledger.test","role":"Admin","groupId":null,"createdAt":"2026-09-29 08:57:57"},
+    {"id":"f5484dde-1f98-4f87-adcf-6340c91f6281","email":"manager@ledger.test","role":"Manager","groupId":1,"createdAt":"2026-09-29 08:57:58"},
+    {"id":"ecff1779-1f97-4df4-9d25-a9a611695134","email":"viewer@ledger.test","role":"Viewer","groupId":1,"createdAt":"2026-09-29 08:57:58"}
+  ],
+  "categories": [
+    {"id":1,"type":"INCOME","icon":"banknote","names":{"en":"Salary","uz-Latn":"Maosh","uz-Cyrl":"Маош","ru":"Зарплата"}},
+    {"id":2,"type":"INCOME","icon":"laptop","names":{"en":"Freelance","uz-Latn":"Frilanserlik","uz-Cyrl":"Фрилансерлик","ru":"Фриланс"}},
+    {"id":3,"type":"INCOME","icon":"trending-up","names":{"en":"Investment","uz-Latn":"Investitsiya","uz-Cyrl":"Инвестиция","ru":"Инвестиции"}},
+    {"id":4,"type":"INCOME","icon":"gift","names":{"en":"Gift","uz-Latn":"Sovgʻa","uz-Cyrl":"Совға","ru":"Подарок"}},
+    {"id":5,"type":"INCOME","icon":"circle","names":{"en":"Other income","uz-Latn":"Boshqa daromad","uz-Cyrl":"Бошқа даромад","ru":"Прочий доход"}},
+    {"id":6,"type":"EXPENSE","icon":"utensils","names":{"en":"Food","uz-Latn":"Oziq-ovqat","uz-Cyrl":"Озиқ-овқат","ru":"Еда"}},
+    {"id":7,"type":"EXPENSE","icon":"bus","names":{"en":"Transport","uz-Latn":"Transport","uz-Cyrl":"Транспорт","ru":"Транспорт"}},
+    {"id":8,"type":"EXPENSE","icon":"home","names":{"en":"Housing","uz-Latn":"Uy-joy","uz-Cyrl":"Уй-жой","ru":"Жильё"}},
+    {"id":9,"type":"EXPENSE","icon":"zap","names":{"en":"Utilities","uz-Latn":"Kommunal","uz-Cyrl":"Коммунал","ru":"Коммунальные"}},
+    {"id":10,"type":"EXPENSE","icon":"heart","names":{"en":"Health","uz-Latn":"Sogʻliq","uz-Cyrl":"Соғлиқ","ru":"Здоровье"}},
+    {"id":11,"type":"EXPENSE","icon":"graduation-cap","names":{"en":"Education","uz-Latn":"Taʼlim","uz-Cyrl":"Таълим","ru":"Образование"}},
+    {"id":12,"type":"EXPENSE","icon":"clapperboard","names":{"en":"Entertainment","uz-Latn":"Koʻngilochar","uz-Cyrl":"Кўнгилочар","ru":"Развлечения"}},
+    {"id":13,"type":"EXPENSE","icon":"shopping-bag","names":{"en":"Shopping","uz-Latn":"Xaridlar","uz-Cyrl":"Харидлар","ru":"Покупки"}},
+    {"id":14,"type":"EXPENSE","icon":"circle","names":{"en":"Other expense","uz-Latn":"Boshqa xarajat","uz-Cyrl":"Бошқа харажат","ru":"Прочий расход"}},
+    {"id":15,"type":"EXPENSE","icon":"circle","names":{"en":"Subscriptions","uz-Latn":"Obunalar","uz-Cyrl":"Обуналар","ru":"Подписки"}}
+  ],
+  "transactions": [
+    {"id":"43f4a146-43ce-433a-bb75-13c29c5d22a5","date":"2026-10-01","type":"INCOME","amountMinor":420000,"amount":"4200.00","currency":"USD","categoryId":1,"groupId":1,"userId":"a8d8525b-009e-4bef-8014-94805d499726","notes":"October salary","hasReceipt":false,"receipt":null,"createdAt":"2026-09-29T08:57:58.098Z","updatedAt":"2026-09-29T08:57:58.098Z"},
+    {"id":"21f05c1d-7093-48d0-8f37-f9882b04f761","date":"2026-10-02","type":"EXPENSE","amountMinor":10,"amount":"0.10","currency":"USD","categoryId":6,"groupId":1,"userId":"a8d8525b-009e-4bef-8014-94805d499726","notes":null,"hasReceipt":false,"receipt":null,"createdAt":"2026-09-29T08:57:58.099Z","updatedAt":"2026-09-29T08:57:58.099Z"},
+    {"id":"ba425adf-dca7-4c53-ae6d-ee41e4be7e63","date":"2026-10-02","type":"EXPENSE","amountMinor":20,"amount":"0.20","currency":"USD","categoryId":6,"groupId":1,"userId":"a8d8525b-009e-4bef-8014-94805d499726","notes":"comma decimal separator","hasReceipt":false,"receipt":null,"createdAt":"2026-09-29T08:57:58.099Z","updatedAt":"2026-09-29T08:57:58.099Z"},
+    {"id":"6a6f4ab7-f52d-4a76-931c-9fbf31a01e2c","date":"2026-10-15","type":"EXPENSE","amountMinor":123456,"amount":"1234.56","currency":"USD","categoryId":7,"groupId":2,"userId":"a8d8525b-009e-4bef-8014-94805d499726","notes":"Grouped digits\nsecond line","hasReceipt":false,"receipt":null,"createdAt":"2026-09-29T08:57:58.100Z","updatedAt":"2026-09-29T08:57:58.100Z"},
+    {"id":"110b74ba-928b-41cb-859f-172b5bb14006","date":"2026-11-01","type":"INCOME","amountMinor":250000000,"amount":"2500000.00","currency":"UZS","categoryId":2,"groupId":1,"userId":"a8d8525b-009e-4bef-8014-94805d499726","notes":"Oʻzbekcha izoh — Ўзбекча","hasReceipt":false,"receipt":null,"createdAt":"2026-09-29T08:57:58.100Z","updatedAt":"2026-09-29T08:57:58.100Z"},
+    {"id":"b74b7a4b-4447-4052-97a5-0dab72bce1fc","date":"2026-11-02","type":"EXPENSE","amountMinor":9999,"amount":"99.99","currency":"EUR","categoryId":13,"groupId":1,"userId":"a8d8525b-009e-4bef-8014-94805d499726","notes":null,"hasReceipt":false,"receipt":null,"createdAt":"2026-09-29T08:57:58.100Z","updatedAt":"2026-09-29T08:57:58.100Z"},
+    {"id":"b410ee98-2530-4657-ba65-9b1d09dfc93e","date":"2026-11-03","type":"EXPENSE","amountMinor":267,"amount":"2.67","currency":"USD","categoryId":10,"groupId":1,"userId":"a8d8525b-009e-4bef-8014-94805d499726","notes":"with receipt","hasReceipt":true,"receipt":null,"createdAt":"2026-09-29T08:57:58.101Z","updatedAt":"2026-09-29T08:57:58.101Z"},
+    {"id":"adb9be22-b265-41d1-867d-55eff22aa3b2","date":"2026-12-01","type":"INCOME","amountMinor":1,"amount":"0.01","currency":"USD","categoryId":5,"groupId":1,"userId":"a8d8525b-009e-4bef-8014-94805d499726","notes":null,"hasReceipt":false,"receipt":null,"createdAt":"2026-09-29T08:57:58.101Z","updatedAt":"2026-09-29T08:57:58.101Z"},
+    {"id":"60725c67-a556-4e04-a2be-c980b6da2a70","date":"2026-12-02","type":"EXPENSE","amountMinor":1500,"amount":"15.00","currency":"USD","categoryId":15,"groupId":1,"userId":"a8d8525b-009e-4bef-8014-94805d499726","notes":"@SUM(1+1) csv trap","hasReceipt":false,"receipt":null,"createdAt":"2026-09-29T08:57:58.101Z","updatedAt":"2026-09-29T08:57:58.101Z"},
+    {"id":"9cd0b0e9-7440-42f6-adbc-5680af9becd3","date":"2026-12-03","type":"EXPENSE","amountMinor":1050,"amount":"10.50","currency":"USD","categoryId":9,"groupId":1,"userId":"a8d8525b-009e-4bef-8014-94805d499726","notes":"updated from 10 to 10.50","hasReceipt":false,"receipt":null,"createdAt":"2026-09-29T08:57:58.102Z","updatedAt":"2026-09-29T08:57:58.102Z"},
+    {"id":"6f7dd418-5f88-4e61-b779-ca9584a13092","date":"2026-12-04","type":"EXPENSE","amountMinor":1234,"amount":"12.34","currency":"USD","categoryId":6,"groupId":1,"userId":"f5484dde-1f98-4f87-adcf-6340c91f6281","notes":"added by manager","hasReceipt":false,"receipt":null,"createdAt":"2026-09-29T08:57:58.152Z","updatedAt":"2026-09-29T08:57:58.152Z"},
+    {"id":"e9ab1cde-cd03-4010-a021-bc931cd3216c","date":"2027-01-05","type":"INCOME","amountMinor":999999999999999,"amount":"9999999999999.99","currency":"USD","categoryId":3,"groupId":1,"userId":"a8d8525b-009e-4bef-8014-94805d499726","notes":"largest accepted amount","hasReceipt":false,"receipt":null,"createdAt":"2026-09-29T08:57:58.202Z","updatedAt":"2026-09-29T08:57:58.202Z"}
+  ],
+  "totals": [
+    {"currency":"USD","incomeMinor":1000000000420000,"expenseMinor":127537,"netMinor":1000000000292463},
+    {"currency":"EUR","incomeMinor":0,"expenseMinor":9999,"netMinor":-9999},
+    {"currency":"UZS","incomeMinor":250000000,"expenseMinor":0,"netMinor":250000000}
+  ],
+  "auditLog": [
+    {"seq":1,"id":"e1c66ee7-809a-4505-82b8-ab4415722d04","actorId":"a8d8525b-009e-4bef-8014-94805d499726","action":"VAULT_CREATED","entityType":"vault","entityId":"primary","details":"{\"email\":\"admin@ledger.test\",\"appVersion\":\"1.1.0\"}","createdAt":"2026-09-29T08:57:57.998Z","prevHash":"0000000000000000000000000000000000000000000000000000000000000000","hash":"1bc3bd47ca5cb35d2a7285212ab700f2735dcc50b376e0c8dca0519bddd0a94c"},
+    {"seq":2,"id":"802120b2-a237-484c-9c2f-b559c6f47545","actorId":"a8d8525b-009e-4bef-8014-94805d499726","action":"GROUP_CREATED","entityType":"group","entityId":"2","details":"{\"name\":\"Side Business\"}","createdAt":"2026-09-29T08:57:57.999Z","prevHash":"1bc3bd47ca5cb35d2a7285212ab700f2735dcc50b376e0c8dca0519bddd0a94c","hash":"ee4876b438ab420b492f98104a1d3815c17a72dc7a7f1cba8786acda91449b3d"},
+    {"seq":3,"id":"60a1ed65-d5c9-4997-a267-89a1ab1b6eac","actorId":"a8d8525b-009e-4bef-8014-94805d499726","action":"CATEGORY_CREATED","entityType":"category","entityId":"15","details":"{\"name\":\"Subscriptions\",\"type\":\"EXPENSE\"}","createdAt":"2026-09-29T08:57:57.999Z","prevHash":"ee4876b438ab420b492f98104a1d3815c17a72dc7a7f1cba8786acda91449b3d","hash":"4293e29dbdaf9fc68da2bbbc877dc40f5079ae611fcc1cc5dff3b84333f9c558"},
+    {"seq":4,"id":"af6abc0a-5a85-4453-a895-7d6e4f72e985","actorId":"a8d8525b-009e-4bef-8014-94805d499726","action":"USER_CREATED","entityType":"user","entityId":"f5484dde-1f98-4f87-adcf-6340c91f6281","details":"{\"email\":\"manager@ledger.test\",\"role\":\"Manager\",\"groupId\":1}","createdAt":"2026-09-29T08:57:58.049Z","prevHash":"4293e29dbdaf9fc68da2bbbc877dc40f5079ae611fcc1cc5dff3b84333f9c558","hash":"caebe2a2c4ec888435263ae2683708e1acb39c971f72d445aa92ae962824fbe9"},
+    {"seq":5,"id":"dc420f8d-1193-46a0-a623-d7efb5d804a0","actorId":"a8d8525b-009e-4bef-8014-94805d499726","action":"USER_CREATED","entityType":"user","entityId":"ecff1779-1f97-4df4-9d25-a9a611695134","details":"{\"email\":\"viewer@ledger.test\",\"role\":\"Viewer\",\"groupId\":1}","createdAt":"2026-09-29T08:57:58.097Z","prevHash":"caebe2a2c4ec888435263ae2683708e1acb39c971f72d445aa92ae962824fbe9","hash":"7e85dc9b55aa8cf1c6a011985d56fc3d9ed18089a5a079814bc02c5dde6644f4"},
+    {"seq":6,"id":"0bfe6583-30c6-43b2-bdb1-c71d27f0e18b","actorId":"a8d8525b-009e-4bef-8014-94805d499726","action":"TRANSACTION_CREATED","entityType":"transaction","entityId":"43f4a146-43ce-433a-bb75-13c29c5d22a5","details":"{\"type\":\"INCOME\",\"amountMinor\":420000,\"currency\":\"USD\",\"date\":\"2026-10-01\",\"categoryId\":1,\"groupId\":1,\"notes\":\"October salary\"}","createdAt":"2026-09-29T08:57:58.098Z","prevHash":"7e85dc9b55aa8cf1c6a011985d56fc3d9ed18089a5a079814bc02c5dde6644f4","hash":"74565c3aee930f79c944cb32df0d470be3d1734cb832fc1acc878ead10634fcc"},
+    {"seq":7,"id":"c2777eac-884a-42f2-bded-165823dffe4a","actorId":"a8d8525b-009e-4bef-8014-94805d499726","action":"TRANSACTION_CREATED","entityType":"transaction","entityId":"21f05c1d-7093-48d0-8f37-f9882b04f761","details":"{\"type\":\"EXPENSE\",\"amountMinor\":10,\"currency\":\"USD\",\"date\":\"2026-10-02\",\"categoryId\":6,\"groupId\":1,\"notes\":\"\"}","createdAt":"2026-09-29T08:57:58.099Z","prevHash":"74565c3aee930f79c944cb32df0d470be3d1734cb832fc1acc878ead10634fcc","hash":"5f7db1cdf82a2efc36de1591a99543b477f6225992dc57b351ded5d6e2c963f7"},
+    {"seq":8,"id":"e022ede1-e0ce-456f-9e88-b16dd017c018","actorId":"a8d8525b-009e-4bef-8014-94805d499726","action":"TRANSACTION_CREATED","entityType":"transaction","entityId":"ba425adf-dca7-4c53-ae6d-ee41e4be7e63","details":"{\"type\":\"EXPENSE\",\"amountMinor\":20,\"currency\":\"USD\",\"date\":\"2026-10-02\",\"categoryId\":6,\"groupId\":1,\"notes\":\"comma decimal separator\"}","createdAt":"2026-09-29T08:57:58.099Z","prevHash":"5f7db1cdf82a2efc36de1591a99543b477f6225992dc57b351ded5d6e2c963f7","hash":"557e8b573fd9584f22765357027909b6ddb08507a1c58945bf665f828a7f62a6"},
+    {"seq":9,"id":"34ee634c-40a8-472f-99cf-88411473c9af","actorId":"a8d8525b-009e-4bef-8014-94805d499726","action":"TRANSACTION_CREATED","entityType":"transaction","entityId":"6a6f4ab7-f52d-4a76-931c-9fbf31a01e2c","details":"{\"type\":\"EXPENSE\",\"amountMinor\":123456,\"currency\":\"USD\",\"date\":\"2026-10-15\",\"categoryId\":7,\"groupId\":2,\"notes\":\"Grouped digits\\nsecond line\"}","createdAt":"2026-09-29T08:57:58.100Z","prevHash":"557e8b573fd9584f22765357027909b6ddb08507a1c58945bf665f828a7f62a6","hash":"01d2554ba70f3c85f24837f53e95fd4fafc1894e85fe155b1b06982475500527"},
+    {"seq":10,"id":"c2579bd5-35f6-4c95-8bf8-1402814a86bb","actorId":"a8d8525b-009e-4bef-8014-94805d499726","action":"TRANSACTION_CREATED","entityType":"transaction","entityId":"110b74ba-928b-41cb-859f-172b5bb14006","details":"{\"type\":\"INCOME\",\"amountMinor\":250000000,\"currency\":\"UZS\",\"date\":\"2026-11-01\",\"categoryId\":2,\"groupId\":1,\"notes\":\"Oʻzbekcha izoh — Ўзбекча\"}","createdAt":"2026-09-29T08:57:58.100Z","prevHash":"01d2554ba70f3c85f24837f53e95fd4fafc1894e85fe155b1b06982475500527","hash":"dd1708d5c09c22d1a3e7812908a75a87234ca7ecab225ccf42aadbb35e642891"},
+    {"seq":11,"id":"d9db9143-68a8-4a61-93d4-e4836d9f727a","actorId":"a8d8525b-009e-4bef-8014-94805d499726","action":"TRANSACTION_CREATED","entityType":"transaction","entityId":"b74b7a4b-4447-4052-97a5-0dab72bce1fc","details":"{\"type\":\"EXPENSE\",\"amountMinor\":9999,\"currency\":\"EUR\",\"date\":\"2026-11-02\",\"categoryId\":13,\"groupId\":1,\"notes\":\"\"}","createdAt":"2026-09-29T08:57:58.100Z","prevHash":"dd1708d5c09c22d1a3e7812908a75a87234ca7ecab225ccf42aadbb35e642891","hash":"8f1d9c3f5f91640c9f95979f2e9bf5da2dcfba0c683803ff1a2a6f010632656d"},
+    {"seq":12,"id":"72bb9f3c-ac91-4fbc-8f7d-da442550dfd7","actorId":"a8d8525b-009e-4bef-8014-94805d499726","action":"TRANSACTION_CREATED","entityType":"transaction","entityId":"b410ee98-2530-4657-ba65-9b1d09dfc93e","details":"{\"type\":\"EXPENSE\",\"amountMinor\":267,\"currency\":\"USD\",\"date\":\"2026-11-03\",\"categoryId\":10,\"groupId\":1,\"notes\":\"with receipt\"}","createdAt":"2026-09-29T08:57:58.101Z","prevHash":"8f1d9c3f5f91640c9f95979f2e9bf5da2dcfba0c683803ff1a2a6f010632656d","hash":"fa80c58d12d683f295db6a2e98a1ed2187b95806f87181443671b1e51bdc8096"},
+    {"seq":13,"id":"fa1c31a4-f194-4654-bbaf-94f886c01c72","actorId":"a8d8525b-009e-4bef-8014-94805d499726","action":"TRANSACTION_CREATED","entityType":"transaction","entityId":"60725c67-a556-4e04-a2be-c980b6da2a70","details":"{\"type\":\"EXPENSE\",\"amountMinor\":1500,\"currency\":\"USD\",\"date\":\"2026-12-02\",\"categoryId\":15,\"groupId\":1,\"notes\":\"@SUM(1+1) csv trap\"}","createdAt":"2026-09-29T08:57:58.101Z","prevHash":"fa80c58d12d683f295db6a2e98a1ed2187b95806f87181443671b1e51bdc8096","hash":"46b9b90476ea45a5609a7f4e63abe4af88b2686c036d2805432c80b592c96f5b"},
+    {"seq":14,"id":"6158d0c3-68df-4fe8-ade2-56c8b358bba1","actorId":"a8d8525b-009e-4bef-8014-94805d499726","action":"TRANSACTION_CREATED","entityType":"transaction","entityId":"adb9be22-b265-41d1-867d-55eff22aa3b2","details":"{\"type\":\"INCOME\",\"amountMinor\":1,\"currency\":\"USD\",\"date\":\"2026-12-01\",\"categoryId\":5,\"groupId\":1,\"notes\":\"\"}","createdAt":"2026-09-29T08:57:58.101Z","prevHash":"46b9b90476ea45a5609a7f4e63abe4af88b2686c036d2805432c80b592c96f5b","hash":"87b0ddefdcd350a95d4dbced21dfe862750219575d565101441db8a8f2dc72af"},
+    {"seq":15,"id":"0ccf9824-6493-4000-8bb9-766c2dda9340","actorId":"a8d8525b-009e-4bef-8014-94805d499726","action":"TRANSACTION_CREATED","entityType":"transaction","entityId":"9cd0b0e9-7440-42f6-adbc-5680af9becd3","details":"{\"type\":\"EXPENSE\",\"amountMinor\":1000,\"currency\":\"USD\",\"date\":\"2026-12-03\",\"categoryId\":9,\"groupId\":1,\"notes\":\"updated from 10 to 10.50\"}","createdAt":"2026-09-29T08:57:58.102Z","prevHash":"87b0ddefdcd350a95d4dbced21dfe862750219575d565101441db8a8f2dc72af","hash":"cd2b29c190fe4089861fccd69d0b1b6036e728312f606d7f3077fcb747eaeeeb"},
+    {"seq":16,"id":"9008603e-b4f8-4b34-8071-9e50d737118d","actorId":"a8d8525b-009e-4bef-8014-94805d499726","action":"TRANSACTION_UPDATED","entityType":"transaction","entityId":"9cd0b0e9-7440-42f6-adbc-5680af9becd3","details":"{\"before\":{\"type\":\"EXPENSE\",\"amountMinor\":1000,\"currency\":\"USD\",\"date\":\"2026-12-03\",\"categoryId\":9,\"groupId\":1,\"notes\":\"updated from 10 to 10.50\"},\"after\":{\"type\":\"EXPENSE\",\"amountMinor\":1050,\"currency\":\"USD\",\"date\":\"2026-12-03\",\"categoryId\":9,\"groupId\":1,\"notes\":\"updated from 10 to 10.50\"}}","createdAt":"2026-09-29T08:57:58.102Z","prevHash":"cd2b29c190fe4089861fccd69d0b1b6036e728312f606d7f3077fcb747eaeeeb","hash":"d618aa580531eda614fa344139b41beafc0a9887841b046aa1738296d6b53adb"},
+    {"seq":17,"id":"6bdd97c4-9186-4c62-b783-21035dcb4bbe","actorId":"a8d8525b-009e-4bef-8014-94805d499726","action":"TRANSACTION_CREATED","entityType":"transaction","entityId":"63276e35-89c7-4230-b6ae-9c20cc059cb4","details":"{\"type\":\"EXPENSE\",\"amountMinor\":500,\"currency\":\"USD\",\"date\":\"2026-12-03\",\"categoryId\":9,\"groupId\":1,\"notes\":\"deleted\"}","createdAt":"2026-09-29T08:57:58.103Z","prevHash":"d618aa580531eda614fa344139b41beafc0a9887841b046aa1738296d6b53adb","hash":"982dab94c67c9e4bd1aeadd7e2d5fddf23fd5aeae28b93d36f4ad8f484d99ecf"},
+    {"seq":18,"id":"3fba75e8-3e31-48fb-acf3-b8b2b4493fd2","actorId":"a8d8525b-009e-4bef-8014-94805d499726","action":"TRANSACTION_DELETED","entityType":"transaction","entityId":"63276e35-89c7-4230-b6ae-9c20cc059cb4","details":"{\"type\":\"EXPENSE\",\"amountMinor\":500,\"currency\":\"USD\",\"date\":\"2026-12-03\",\"categoryId\":9,\"groupId\":1,\"notes\":\"deleted\",\"userId\":\"a8d8525b-009e-4bef-8014-94805d499726\"}","createdAt":"2026-09-29T08:57:58.103Z","prevHash":"982dab94c67c9e4bd1aeadd7e2d5fddf23fd5aeae28b93d36f4ad8f484d99ecf","hash":"fb2f7c7dd2990c81ca8f7bfe01919b26183851105896e015e1eb857dc2082e0f"},
+    {"seq":19,"id":"fc24c27e-80f6-43cb-a01c-b767c0e1a464","actorId":"f5484dde-1f98-4f87-adcf-6340c91f6281","action":"TRANSACTION_CREATED","entityType":"transaction","entityId":"6f7dd418-5f88-4e61-b779-ca9584a13092","details":"{\"type\":\"EXPENSE\",\"amountMinor\":1234,\"currency\":\"USD\",\"date\":\"2026-12-04\",\"categoryId\":6,\"groupId\":1,\"notes\":\"added by manager\"}","createdAt":"2026-09-29T08:57:58.153Z","prevHash":"fb2f7c7dd2990c81ca8f7bfe01919b26183851105896e015e1eb857dc2082e0f","hash":"4ba809408541e82fade24933b1c119a5156cf080bf6eda48f31ab20060ebf1fe"},
+    {"seq":20,"id":"0b8d31cf-bebc-4d9a-a1d9-cb1347b201dc","actorId":"a8d8525b-009e-4bef-8014-94805d499726","action":"TRANSACTION_CREATED","entityType":"transaction","entityId":"e9ab1cde-cd03-4010-a021-bc931cd3216c","details":"{\"type\":\"INCOME\",\"amountMinor\":999999999999999,\"currency\":\"USD\",\"date\":\"2027-01-05\",\"categoryId\":3,\"groupId\":1,\"notes\":\"largest accepted amount\"}","createdAt":"2026-09-29T08:57:58.202Z","prevHash":"4ba809408541e82fade24933b1c119a5156cf080bf6eda48f31ab20060ebf1fe","hash":"e9d24bc667871e670d8ab19b016e8562c5ffd684ea90646b9915c50bb667fcaf"},
+    {"seq":21,"id":"fc4e7ad1-fe37-40a3-9e04-cfb3da36cce4","actorId":"a8d8525b-009e-4bef-8014-94805d499726","action":"BACKUP_EXPORTED","entityType":"vault","entityId":"primary","details":null,"createdAt":"2026-09-29T08:57:58.202Z","prevHash":"e9d24bc667871e670d8ab19b016e8562c5ffd684ea90646b9915c50bb667fcaf","hash":"eb83194e0d81e26b994bdfb57762fe407e89a70109be4426e193cd11ee6dcf3b"},
+    {"seq":22,"id":"*","actorId":"a8d8525b-009e-4bef-8014-94805d499726","action":"SCHEMA_MIGRATED","entityType":"vault","entityId":"primary","details":"{\"from\":2,\"to\":4,\"appVersion\":\"*\"}","createdAt":"*","prevHash":"eb83194e0d81e26b994bdfb57762fe407e89a70109be4426e193cd11ee6dcf3b","hash":"*"}
+  ]
+}

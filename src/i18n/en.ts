@@ -1,3 +1,5 @@
+import { exportEn } from './export/en'
+
 export const en = {
   app: {
     name: 'Jaybi',
@@ -169,6 +171,7 @@ export const en = {
       CREDENTIALS_UPGRADED: 'Password protection strengthened',
       PLAINTEXT_EXPORTED: 'Unencrypted export',
       PASSWORD_CHANGED: 'Password changed',
+      DATA_EXPORTED: 'Data exported',
     },
   },
   backup: {
@@ -755,6 +758,7 @@ export const en = {
     TOTP_CLEARED: 'Sign-in check removed',
     TOTP_RECOVERY_USED: 'Sign-in recovery code used',
   },
+  export: exportEn,
 }
 
 export type Messages = typeof en

@@ -1,4 +1,5 @@
 import type { Messages } from './en'
+import { exportRu } from './export/ru'
 
 export const ru: Messages = {
   app: {
@@ -171,6 +172,7 @@ export const ru: Messages = {
       CREDENTIALS_UPGRADED: 'Защита пароля усилена',
       PLAINTEXT_EXPORTED: 'Незашифрованный экспорт',
       PASSWORD_CHANGED: 'Пароль изменён',
+      DATA_EXPORTED: 'Данные экспортированы',
     },
   },
   backup: {
@@ -757,4 +759,5 @@ export const ru: Messages = {
     TOTP_CLEARED: 'Проверка при входе снята',
     TOTP_RECOVERY_USED: 'Использован код восстановления для входа',
   },
+  export: exportRu,
 }

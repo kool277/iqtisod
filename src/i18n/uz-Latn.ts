@@ -1,4 +1,5 @@
 import type { Messages } from './en'
+import { exportUzLatn } from './export/uz-Latn'
 
 export const uzLatn: Messages = {
   app: {
@@ -171,6 +172,7 @@ export const uzLatn: Messages = {
       CREDENTIALS_UPGRADED: 'Parol himoyasi kuchaytirildi',
       PLAINTEXT_EXPORTED: 'Shifrlanmagan eksport',
       PASSWORD_CHANGED: 'Parol oʻzgartirildi',
+      DATA_EXPORTED: 'Maʼlumotlar eksport qilindi',
     },
   },
   backup: {
@@ -757,4 +759,5 @@ export const uzLatn: Messages = {
     TOTP_CLEARED: 'Kirish tekshiruvi olib tashlandi',
     TOTP_RECOVERY_USED: 'Kirish uchun tiklash kodi ishlatildi',
   },
+  export: exportUzLatn,
 }

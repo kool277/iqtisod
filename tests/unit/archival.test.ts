@@ -2,15 +2,12 @@ import { createHash, randomBytes } from 'node:crypto'
 import { afterEach, describe, expect, it } from 'vitest'
 import { GENESIS_HASH, verifyAuditChain } from '../../src/db/audit-chain'
 import { SqlDatabase } from '../../src/db/sqlite'
-import { SCHEMA_VERSION } from '../../src/db/versions'
-import { ForbiddenError } from '../../src/domain/errors'
 import type { OpenVault } from '../../src/domain/types'
 import { sha256Hex, sha256 } from '../../src/lib/sha256'
 import { isNewerBuild } from '../../src/lib/updates'
 import { auditIntegrity, listAudit } from '../../src/services/audit.service'
 import { unlockVault } from '../../src/services/auth.service'
 import { parseBackup } from '../../src/services/backup.service'
-import { csvCell, exportPlainDatabase, exportTransactionsCsv } from '../../src/services/export.service'
 import { fixtureByPath } from '../support/fixtures'
 
 const fixture = fixtureByPath('v2/ledger-v2')
@@ -20,7 +17,7 @@ afterEach(() => {
   for (const item of open.splice(0)) item.close()
 })
 
-async function openAs(role: 'Admin' | 'Viewer'): Promise<OpenVault> {
+async function openAs(role: 'Admin'): Promise<OpenVault> {
   const user = fixture.expected.users.find((item) => item.role === role)!
   const vault = await unlockVault(parseBackup(fixture.text).record, user.email, user.password)
   open.push(vault.db)
@@ -65,57 +62,6 @@ describe('audit hash chain', () => {
     const details = JSON.parse(String(vault.db.queryValue('SELECT details FROM audit_logs WHERE id = ?', [update!.id])))
     expect(details.before.amountMinor).toBe(1000)
     expect(details.after.amountMinor).toBe(1050)
-  })
-})
-
-describe('plaintext archival export', () => {
-  it('escapes CSV cells and neutralises spreadsheet formulas', () => {
-    expect(csvCell(null)).toBe('')
-    expect(csvCell('plain')).toBe('plain')
-    expect(csvCell('a,b')).toBe('"a,b"')
-    expect(csvCell('say "hi"')).toBe('"say ""hi"""')
-    expect(csvCell('line\nbreak')).toBe('"line\nbreak"')
-    expect(csvCell('=SUM(A1)')).toBe("'=SUM(A1)")
-    expect(csvCell('@cmd')).toBe("'@cmd")
-    expect(csvCell('-2+3')).toBe("'-2+3")
-    expect(csvCell(-5)).toBe('-5')
-    expect(csvCell(true)).toBe('true')
-  })
-
-  it('writes every record as UTF-8 CSV with exact amounts', async () => {
-    const vault = await openAs('Admin')
-    const csv = exportTransactionsCsv(vault)
-    expect(csv.startsWith('\ufeffid,date,type,category,amount,currency,amount_minor,minor_unit,')).toBe(true)
-    const lines = csv.slice(1).trimEnd().split('\r\n')
-    expect(lines).toHaveLength(fixture.expected.transactions.length + 1)
-    const utilities = fixture.expected.transactions.find((tx) => tx.category === 'Utilities')!
-    expect(lines.find((line) => line.startsWith(utilities.id))).toContain(',10.50,USD,1050,2,')
-    expect(csv).toContain("'@SUM(1+1) csv trap")
-    expect(csv).toContain('"Grouped digits\nsecond line"')
-    expect(csv).toContain(',9999999999999.99,USD,999999999999999,2,')
-    expect(listAudit(vault)[0].action).toBe('PLAINTEXT_EXPORTED')
-  })
-
-  it('writes a standard SQLite file without password material', async () => {
-    const vault = await openAs('Admin')
-    const bytes = await exportPlainDatabase(vault)
-    expect(new TextDecoder().decode(bytes.slice(0, 15))).toBe('SQLite format 3')
-    const copy = await SqlDatabase.openBytes(bytes)
-    open.push(copy)
-    expect(copy.queryValue("SELECT COUNT(*) FROM users WHERE password_hash <> '' OR salt <> ''")).toBe(0)
-    expect(copy.queryValue('SELECT COUNT(*) FROM transactions')).toBe(fixture.expected.transactions.length)
-    expect(copy.queryValue('PRAGMA user_version')).toBe(SCHEMA_VERSION)
-    for (const table of ['user_keys', 'safes', 'secure_items', 'safe_events']) {
-      expect(copy.queryValue(`SELECT COUNT(*) FROM ${table}`), table).toBe(0)
-    }
-    expect(verifyAuditChain(copy).ok).toBe(true)
-    expect(Number(vault.db.queryValue("SELECT COUNT(*) FROM users WHERE password_hash <> ''"))).toBeGreaterThan(0)
-  })
-
-  it('is limited to people allowed to export the vault', async () => {
-    const vault = await openAs('Viewer')
-    expect(() => exportTransactionsCsv(vault)).toThrow(ForbiddenError)
-    await expect(exportPlainDatabase(vault)).rejects.toBeInstanceOf(ForbiddenError)
   })
 })
 
