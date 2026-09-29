@@ -1,7 +1,46 @@
-import type { MessageKey } from '../i18n'
+import type { MessageKey, Messages } from '../i18n'
 import { AppError } from '../domain/errors'
 
+type SafeErrorKey = keyof Messages['safeErrors']
+
+const SAFE_ERROR_CODES: readonly SafeErrorKey[] = [
+  'SAFES_LOCKED',
+  'SAFES_NOT_SET_UP',
+  'SAFES_ALREADY_SET_UP',
+  'SAFES_STALE',
+  'MUST_CHANGE_PASSWORD',
+  'REAUTH_REQUIRED',
+  'NO_RECOVERY_CODE',
+  'RECOVERY_CODE',
+  'SAFE_LIMIT',
+  'ITEM_LIMIT',
+  'SAFE_NOT_EMPTY',
+  'LAST_SAFE',
+  'CONFIRM_NAME',
+  'CONFIRM_RESET',
+  'SAFE_ARCHIVED',
+  'SAFE_CLOSED',
+  'SAFE_NOT_FOUND',
+  'ITEM_NOT_FOUND',
+  'ITEM_CONFLICT',
+  'CARD_NUMBER',
+  'CARD_EXPIRY',
+  'CVV',
+  'TOO_LONG',
+  'SAME_PASSWORD',
+  'USE_ACCOUNT',
+  'CUSTOM_DAYS',
+  'DATE',
+  'REMIND_DAYS',
+  'URL',
+]
+
+function isSafeErrorKey(code: string): code is SafeErrorKey {
+  return (SAFE_ERROR_CODES as readonly string[]).includes(code)
+}
+
 export function errorText(code: string, t: (key: MessageKey) => string): string {
+  if (isSafeErrorKey(code)) return t(`safeErrors.${code}`)
   switch (code) {
     case 'BAD_CREDENTIALS':
       return t('login.badCredentials')
