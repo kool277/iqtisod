@@ -1,10 +1,10 @@
 # User guide
 
-This guide is for people who use a Moliya vault day to day: **Managers**, who record income and expenses, and **Viewers**, who review them. Admins can do everything here too. Their extra tasks are in the [admin guide](admin-guide.md).
+This guide is for people who use a Moliya vault day to day: **Managers**, who record income and expenses, and **Viewers**, who review them. Everyone, whatever their role, can keep their own [private safes](#private-safes). Admins can do everything here too. Their extra tasks are in the [admin guide](admin-guide.md).
 
 ## Before you start
 
-Your admin gives you three things: the address of the app, your email, and a starting password. Moliya has no "forgot password" link. If you forget your password, ask your admin to reset it.
+Your admin gives you three things: the address of the app, your email, and a starting password. The first time you sign in, Moliya asks you to replace the starting password with one that only you know (see [Your account](#your-account)). Moliya has no "forgot password" link. If you forget your password, ask your admin to reset it, but read [After an admin resets your password](#after-an-admin-resets-your-password) first if you use private safes.
 
 The vault lives inside one browser on one device. If your admin set it up on a shared computer, use that computer and that browser. Opening the app on your own phone will show an empty setup screen, because that browser has no vault yet. Your admin can move a copy there with a backup file.
 
@@ -19,10 +19,10 @@ Unlocking takes a moment, because your password is deliberately stretched to mak
 
 The menu on the left (along the top on a phone) shows only what your role allows:
 
-| Role | Dashboard | Transactions | Add, edit, delete records |
-| --- | --- | --- | --- |
-| Manager | Yes | Yes | Yes, for your group |
-| Viewer | Yes | Yes | No |
+| Role | Dashboard | Transactions | Add, edit, delete records | Private safes and Account |
+| --- | --- | --- | --- | --- |
+| Manager | Yes | Yes | Yes, for your group | Yes, your own |
+| Viewer | Yes | Yes | No | Yes, your own |
 
 You only see records that belong to your group. The top bar shows the vault name, the save status, the language and theme switches, and the **Lock** button.
 
@@ -91,7 +91,124 @@ You never need to press a save button for the vault itself. The status next to t
 
 The vault can be unlocked in only one tab at a time. If you see "already unlocked in another tab or window", switch to that tab or lock it there first.
 
-Choose **Lock** when you step away. Locking, refreshing, or closing the tab removes the decrypted data from memory, and the next person must sign in.
+Choose **Lock** when you step away. Locking, refreshing, or closing the tab removes the decrypted data from memory, and the next person must sign in. Moliya also locks the vault by itself after 15 minutes without activity.
+
+## Your account
+
+Open **Account** in the menu. Everyone has this page, whatever their role.
+
+### Changing your password
+
+Enter your **current password**, then the **new password** twice (at least 8 characters, and different from the current one), and choose **Change password**. If you have set up private safes, they move to the new password at the same time.
+
+If your admin created your account or reset your password, the password was chosen by them. Moliya then asks you to choose a new one before you can use anything else: every page leads back to **Account** until you do.
+
+### Other settings on this page
+
+- **Private safes**: how long before your safes lock, how long shown values stay visible, and how long copied values stay in the clipboard. Open your safes first to change these.
+- **Recovery code**: create one, or replace the one you have.
+- **Start over**: **Reset private safes**, described below.
+
+## Private safes
+
+A private safe is a place for things you want to keep to yourself: payment cards, subscriptions, and notes. It is not a money account, and nothing in it appears on the dashboard or in the ledger.
+
+Only you can open your safes. Your admin cannot see them, cannot see their names or what kind of items they hold, and cannot open or recover them for you, even with the whole database or a backup. Other people in the vault each have their own safes, which you cannot see either.
+
+### Setting up
+
+1. Open **Private safes** in the menu and choose **Create my safes**.
+2. Enter your password.
+3. Choose whether to create a **recovery code** (see below).
+4. Choose **Create my safes**. You get one empty safe called **Personal**.
+
+### The recovery code
+
+A recovery code is a backup key for your safes, 25 characters in five groups, like `XXXXX-XXXXX-XXXXX-XXXXX-XXXXX`. It matters in one situation: your admin resets your password and you no longer remember the password you had before. Without the code, your safes are then lost for good.
+
+- **Create a recovery code (recommended)**: the code is shown once. Write it down or print it and keep it away from this device. Type its last 4 characters to confirm you saved it.
+- **Skip for now**: you must tick "I understand my safes can be lost forever if an admin resets my password and I forget my old one". You can create a code later under **Account → Recovery code**.
+
+Anyone who has your recovery code and your current password can open your safes, so keep the code as private as the password. Creating a new code in **Account** makes the old one stop working. When typing a code, capital or small letters, spaces, and dashes do not matter, the letter O counts as zero, and I and L count as one.
+
+### Opening and locking
+
+Signing in to the vault does not open your safes. Choose **Open safes** and enter your password again. After opening, Moliya shows when your safes were **previously opened**; if you do not recognise that time, someone else may have used your password.
+
+Your safes lock again:
+
+- when you choose **Lock safes**;
+- after 5 minutes without activity (you can choose 1, 5, 15, or 30 minutes in **Account**);
+- when the tab is hidden for more than a minute;
+- when the vault locks.
+
+### Safes
+
+Choose **New safe** to add one. Each safe has a name (up to 60 characters), an optional description, one of eight icons, and one of four colours. In **Safe settings** you can also:
+
+- **Ask for my password every time this safe is opened**: the safe stays closed, even when your other safes are open, until you enter your password for it. While closed it is left out of search, totals, and upcoming payments.
+- **Make default**: the safe new items go to first.
+- **Archive**: the safe becomes read-only and is left out of search, totals, upcoming payments, and expiring cards. **Show archived** lists it again, and **Unarchive** undoes it.
+- **Change encryption key**: encrypts everything in the safe again with a new key. Use it if you think the old key might have been exposed.
+- **Delete safe**: moves it to the trash. If it still has items, move them to another safe first or choose to delete them with it. You always keep at least one safe.
+
+You can have up to 50 safes and 5,000 items (1,000 per safe), counting what is in the trash.
+
+### Cards
+
+Choose **Add card** and fill in the cardholder name, the card number, the brand, the expiry month and year, the bank, and notes. Moliya detects the brand from the number; you can change it.
+
+- The number is checked with the usual check digit. For Visa, Mastercard, American Express, and Mir a failed check is an error. For UzCard, Humo, UnionPay, and Other it is only a warning, because some local cards do not follow the rule.
+- The **security code (CVV)** is optional and hidden behind **Add security code**. Banks advise against keeping it; leave it empty unless you really need it.
+- There is no place for a PIN. Never store your card PIN, here or anywhere else.
+
+Cards are listed with only the last four digits and the expiry date. Expired cards are marked, and cards that expire within 60 days are marked **Expires soon** and listed on the safes page.
+
+### Subscriptions
+
+Choose **Add subscription** and enter the service name, the price and currency, the billing cycle (weekly, monthly, every 3 months, yearly, or every N days), one past or upcoming payment date, and the status (active, paused, or cancelled). You can also add a trial end date, how many days before a payment to remind you, the card it is paid with, the website, the account or login, and notes.
+
+The safes page shows what your active subscriptions cost **per month** and **per year**, for each currency separately. Currencies are not converted, so a USD total and a UZS total are listed side by side. **Upcoming payments** lists what is due in the next 30 days and highlights those within your reminder time or near the end of a trial.
+
+### Notes
+
+Choose **Add note** for anything else, up to 10,000 characters. Notes are plain text.
+
+### Showing and copying card numbers
+
+Card numbers and security codes are hidden. **Show** and **Copy** ask for your password unless you entered it in the last 2 minutes.
+
+- A shown value hides again after 15 seconds (15, 30, or 60 in **Account**), or when you switch away.
+- A copied value is cleared from the clipboard after 30 seconds (10, 30, or 60 in **Account**), when your safes lock, and when you leave the page. Browsers do not always allow this, so paste it promptly and do not rely on it.
+
+Permanent deletes, changing a safe's encryption key, resetting your safes, and creating a recovery code also need your password within the last 2 minutes.
+
+### Moving, copying, and favourites
+
+Select items to **Move to…** or **Copy to…** another safe. They are encrypted again with the other safe's key. Mark items you use often as favourites; **Favourites** filters them. **Search open safes** searches every open, non-archived safe.
+
+### Trash
+
+Deleted safes and items go to **Trash** and stay there for 30 days. You can **Restore** them, or **Delete permanently** (for a safe, type its name to confirm). After 30 days they are removed for good the next time you open your safes.
+
+Deleted data is also overwritten in the database, but copies stay in older backups and in the earlier copies the browser keeps. It is gone completely only when those are gone too.
+
+### Activity
+
+**Activity** lists what happened in your safes: when they were opened, and when safes and items were added, changed, moved, deleted, or restored. Only you can read it; it is encrypted like your safes and never appears in the admin's audit log. It shows the kind of action and the time, not names or values.
+
+### After an admin resets your password
+
+If your admin resets your password:
+
+1. Sign in with the temporary password they give you. Moliya asks you to choose a new password in **Account**.
+2. Open **Private safes**. Moliya says your password changed since you last opened your safes.
+3. Enter the **previous password**: the one you chose yourself before the reset, not the temporary one from the admin. Or choose **Use recovery code instead** and enter your code. Also enter your current password.
+4. Your safes open, and from now on your current password opens them. If you used the recovery code, create a new one.
+
+Never type the temporary password from your admin as your previous password. Your safes are never unlocked with a password that someone else chose; that is what keeps them private from the admin.
+
+If you remember neither your previous password nor your recovery code, nobody can open your safes. Under **Account → Start over**, **Reset private safes** destroys them and everything in them and gives you a new, empty safe. Type `RESET` and your password to confirm.
 
 ## Updates and version
 
@@ -108,3 +225,5 @@ Pick a language from the language menu: Oʻzbekcha, Ўзбекча, Русски
 - Lock the vault before leaving a shared device.
 - Do not clear this site's browsing data. Doing so deletes the vault from this browser. Only a backup can bring it back.
 - Use a password that is long and not used anywhere else.
+- If you use private safes, create a recovery code and keep it offline.
+- Lock your safes when you are done with them, even if you keep the vault open.

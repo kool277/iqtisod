@@ -24,6 +24,8 @@ It suits a household tracking a shared budget, a small business or community gro
 - Timeline filters for today, this week, this month, last month, year to date, or a custom range.
 - Dashboard with net balance, total income, total expenses, savings rate, and four charts: monthly income against expenses, expenses by category, spending over time, and spending by group or by person.
 - Admin settings page for the vault name, vault currency, and income and expense categories in all four languages.
+- Private safes for every person: encrypted, owner-only places for payment cards, subscriptions (with monthly and yearly totals per currency and upcoming payments), and notes. Not even an Admin can open them. Password re-entry to open, auto-lock, masked card numbers, an optional recovery code, a 30-day trash, and a private activity list.
+- Account page where everyone changes their own password. People whose password was set by an Admin must choose their own at next sign-in.
 - Collapsible sidebar that remembers its state.
 - Exact money: amounts are stored as whole minor units (cents, tiyin) and never rounded, with per-currency subtotals for records outside the vault currency.
 - Tamper-evident audit log of every change, with before and after values.
@@ -38,7 +40,7 @@ It suits a household tracking a shared budget, a small business or community gro
 ```mermaid
 flowchart LR
   password[UserPassword] --> kdf["PBKDF2 600k"]
-  kdf --> kek[UserKey]
+  kdf --> kek[KeyEncryptionKey]
   kek -->|unwrap| dek[VaultKey]
   dek -->|decrypt| db[SQLiteInMemory]
   db -->|export and encrypt| idb[IndexedDB]
@@ -46,11 +48,12 @@ flowchart LR
 ```
 
 1. A random 256-bit **vault key** encrypts the whole SQLite database.
-2. Each person's password is stretched with PBKDF2 (SHA-256, 600,000 iterations, 32-byte salt) into a **personal key**, which wraps a copy of the vault key. Adding a person adds one more wrapped copy. Wraps made by 1.0.0 (200,000 iterations) still open and are strengthened at the person's next sign-in.
+2. Each person's password is stretched with PBKDF2 (SHA-256, 600,000 iterations, 32-byte salt) into a **key-encryption key**, which wraps a copy of the vault key. Adding a person adds one more wrapped copy. Wraps made by 1.0.0 (200,000 iterations) still open and are strengthened at the person's next sign-in.
 3. Signing in unwraps the vault key and decrypts the database into memory. Nothing readable is written to disk.
 4. Changes are re-encrypted and saved to the browser's IndexedDB within about a second of each edit, every 5 seconds while changes are pending, and when the tab is hidden or the vault is locked.
+5. Private safes are encrypted a second time inside the database. A separate PBKDF2 run over the owner's password (or their recovery code) unlocks a **personal key**, which unlocks one key per safe. Nobody else's password or key opens them.
 
-Refreshing or closing the tab locks the vault. Signing in again is required.
+Refreshing or closing the tab locks the vault, and so does 15 minutes without activity. Signing in again is required.
 
 ## Versions and data longevity
 
@@ -82,7 +85,7 @@ Open the address Vite prints (usually `http://localhost:5173`), create a vault, 
 
 ## Documentation
 
-- [User guide](docs/user-guide.md) is for Managers and Viewers who record and review money.
+- [User guide](docs/user-guide.md) is for Managers and Viewers who record and review money, and for anyone using private safes.
 - [Admin guide](docs/admin-guide.md) covers setting up a vault, settings and categories, people, groups, backups, and recovery.
 - [Developer guide](docs/developer-guide.md) covers architecture, code layout, conventions, and how to extend the app.
 - [DevOps guide](docs/devops-guide.md) covers building, CI, releases, GitHub Pages, other hosts, and operational risks.
@@ -91,7 +94,7 @@ Open the address Vite prints (usually `http://localhost:5173`), create a vault, 
 
 ## Security in one paragraph
 
-Data is protected by encryption at rest and by passwords. It is **not** protected from someone who already holds a valid password: the vault is a single encrypted database, so any person who can sign in could, with developer tools, read every group's records, not only their own. Roles control what the app shows and allows, not what the cryptography hides. Email addresses are stored unencrypted next to the ciphertext so the app knows whose key to try. There is no password recovery. If every password is lost, the data cannot be recovered. See the [admin guide](docs/admin-guide.md#security-limits-to-know) for the full list.
+Data is protected by encryption at rest and by passwords. It is **not** protected from someone who already holds a valid password: the vault is a single encrypted database, so any person who can sign in could, with developer tools, read every group's records, not only their own. Roles control what the app shows and allows, not what the cryptography hides. The exception is private safes, which are encrypted with keys derived only from their owner's password or recovery code, so Admins and other people cannot read them even with the decrypted database; they do not hide how many items someone has, and they do not protect against a compromised device. Email addresses are stored unencrypted next to the ciphertext so the app knows whose key to try. There is no password recovery. If every password is lost, the data cannot be recovered. Backups made before 1.2.0 contain key material for each person and should be replaced after upgrading. See the [admin guide](docs/admin-guide.md#security-limits-to-know) for the full list.
 
 ## Tech stack
 
@@ -99,4 +102,4 @@ React 19, TypeScript, Vite, Tailwind CSS 4, Chart.js, Lucide icons, `@sqlite.org
 
 ## Status
 
-Version 1.1.0, in production since 1.0.0. The core features work and are covered by unit tests, browser tests, and golden backups from every release. Known gaps and suggested next steps are listed in the [developer guide](docs/developer-guide.md#known-gaps-and-next-steps).
+Version 1.2.0, in production since 1.0.0. The core features work and are covered by unit tests, browser tests, and golden backups from every release. Known gaps and suggested next steps are listed in the [developer guide](docs/developer-guide.md#known-gaps-and-next-steps).

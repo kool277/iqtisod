@@ -6,6 +6,37 @@ Data formats are versioned separately from the app. Each release lists the forma
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-09-29
+
+Reads backup and record versions 1–2 and schema versions 1–3. Writes backup 2, record 2, schema 3. Vaults and backups made by 1.0.0 and 1.1.0 upgrade automatically on first sign-in, and the original stored copy is kept in the browser. Moliya 1.1.0 refuses a schema 3 vault or backup with "made by a newer version" and leaves it untouched.
+
+### Added
+
+- Private safes: encrypted containers for payment cards, subscriptions, and notes that only their owner can open. Every role has its own safes. Nobody else can read safe names, item fields, item types, or timestamps, including Admins with the decrypted database, the recovery tool, or someone holding a backup and another person's password. Safes are not money accounts and do not appear in the ledger or on the dashboard.
+- Cards store the cardholder, number, brand (Visa, Mastercard, American Express, UnionPay, UzCard, Humo, Mir, Other), expiry, bank, and notes. The security code (CVV) is optional, hidden behind "Add security code", and comes with a warning. There is no PIN field. Numbers fail the check-digit (Luhn) test with an error for Visa, Mastercard, American Express, and Mir, and with a warning only for UzCard, Humo, UnionPay, and Other. Cards show only the last four digits, and cards expiring within 60 days are listed.
+- Subscriptions with price, billing cycle (weekly, monthly, every 3 months, yearly, or every N days), status, trial end, reminder, and a linked card. Monthly and yearly totals per currency (no conversion, exact half-even rounding) and payments due in the next 30 days.
+- Opening safes needs the password again. Safes lock after 5 minutes without activity (1, 5, 15, or 30 in Account), after the tab is hidden for more than 60 seconds, and when the vault locks. Showing or copying a card number or security code, permanent deletes, changing a safe's key, resetting safes, and creating a recovery code need the password within the last 2 minutes. Shown values hide after 15 seconds (15, 30, or 60) and copied values are cleared from the clipboard after 30 seconds (10, 30, or 60), when safes lock, and when the page is closed.
+- Optional recovery code (25 characters, shown as five groups of five), offered and recommended at setup. Skipping it needs an explicit acknowledgement. It can be created or replaced later in Account; replacing it makes the old code stop working.
+- A per-safe option to ask for the password every time the safe is opened, archived (read-only) safes, a 30-day trash for safes and items, moving and copying items between safes, changing a safe's encryption key, and an activity list that only the owner can read.
+- Account page for every role: change your own password (which also moves your safes to the new password), safe preferences, recovery code, and "Reset private safes" for when both the previous password and the recovery code are lost.
+- The whole vault locks after 15 minutes without activity.
+- Golden backup `v3/safes-household` made by 1.2.0, with safes for three people, one of them after an admin password reset.
+
+### Changed
+
+- New accounts created by an Admin, and people whose password an Admin resets, must choose their own password at their next sign-in. Every page redirects to Account until they do.
+- Admins can no longer reset their own password from Users; they use Account → Change password.
+- Resetting a password or removing a person always shows a warning about private safes, whether or not the person has any. Removing a person destroys their safes.
+- After an admin reset, safes open only with the previous password the person chose, or their recovery code, together with the new password. They are never opened with a password an Admin set.
+- The unencrypted SQLite export and `npm run decrypt` (unless `--keep-keys` is given) leave out all private safe tables.
+- Deleted database rows are overwritten with zeros (`PRAGMA secure_delete = ON`).
+- Schema version 3: tables `user_keys`, `safes`, `secure_items`, and `safe_events`, and columns `users.must_change_password` and `users.password_changed_at`. The backup and stored record formats are unchanged.
+- Translations for all new text in Oʻzbekcha (Latin and Cyrillic), Russian, and English.
+
+### Security
+
+- In 1.0.0 and 1.1.0, `users.password_hash` held the hex of the raw PBKDF2 output, which is the key that unwraps that person's copy of the vault key. Anyone who could read the decrypted database, for example an Admin with the unencrypted SQLite export or developer tools, could read it for every person. Migration 3 blanks every `password_hash`, and each person's next successful sign-in stores `hex(HKDF-SHA-256(raw, salt = empty, info = "moliya/verifier/v1"))` instead. Nothing derives keys from `password_hash`. Backups and earlier copies in the browser made by 1.0.0 or 1.1.0 still contain the old values: treat them as sensitive and replace them. The first 1.2.0 sign-in also re-wraps that person's copy of the vault key under a fresh salt, so a value read earlier no longer opens the stored vault.
+
 ## [1.1.0] - 2026-09-29
 
 Reads backup, record, and schema versions 1 and 2. Writes version 2 of each. Vaults and backups made by 1.0.0 upgrade automatically on first sign-in, and the original stored copy is kept in the browser.
@@ -66,6 +97,7 @@ Writes backup, record, and schema version 1.
 - Audit log, encrypted `.moliya` backups, day and night themes, and a collapsible sidebar.
 - Deployment to GitHub Pages.
 
-[Unreleased]: https://github.com/kool277/iqtisod/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/kool277/iqtisod/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/kool277/iqtisod/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/kool277/iqtisod/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/kool277/iqtisod/releases/tag/v1.0.0

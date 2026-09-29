@@ -72,7 +72,7 @@ The repository is `kool277/iqtisod`. These settings cannot be committed and must
 5. A tag ruleset for `v*`: restrict creation to maintainers and block deletion and updates, so a released tag always points at the same code.
 6. **Settings → Code security**: enable Dependabot alerts, Dependabot security updates, secret scanning with push protection, and code scanning (the CodeQL workflow uploads results once enabled).
 
-The repository also tracks an `iqtisod` entry that is a nested git clone rather than project code. It has no `.gitmodules`, so `actions/checkout` skips it, and CodeQL ignores it. Remove it from the index (`git rm --cached iqtisod`) if it was added by mistake.
+A local `iqtisod/` directory, if present, is a nested git clone rather than project code. `.gitignore` excludes it; do not add it back to the index, because a gitlink without `.gitmodules` breaks `actions/checkout`.
 
 ### Custom domain
 
@@ -113,8 +113,8 @@ Running apps notice the new `version.json` within 30 minutes, or when the tab be
 ### Rollback
 
 - Code: `git revert` the bad commit on `main` and push; the normal pipeline redeploys. In an emergency, re-run **Deploy GitHub Pages** for the last good commit from the Actions tab, or reset `gh-pages` to its previous commit.
-- **Data after a format change.** If a release upgraded users' vaults (for example 1.0.0 → 1.1.0), rolling the code back does not roll the data back. An older build refuses a newer record with the message "This vault was saved by a newer version of Moliya" instead of damaging it. Users are not stuck:
-  - each upgraded browser keeps the original record as an archive (Backup page → Earlier copies in this browser), which the older build can import;
+- **Data after a format change.** If a release upgraded users' vaults (for example 1.0.0 → 1.1.0, or 1.1.0 → 1.2.0 with schema 3), rolling the code back does not roll the data back. An older build refuses a newer record with the message "This vault was saved by a newer version of Moliya" instead of damaging it. Users are not stuck:
+  - each upgraded browser keeps the original record as an archive (Backup page → Earlier copies in this browser), which the older build can import (anything done in the newer release, such as private safes created in 1.2.0, is not in it);
   - backups taken before the upgrade still open in the older build;
   - `npm run decrypt` opens any version.
 
@@ -210,7 +210,7 @@ There is no server-side logging, analytics, or error reporting, by design. Addin
 
 - [ ] Served only over HTTPS. Enforce HTTPS in Pages settings.
 - [ ] Hosted on a dedicated origin for production use.
-- [ ] Branch and tag rulesets as described in [One-time GitHub settings](#one-time-github-settings), with reviews required for changes to `src/crypto`, `src/db`, `src/services/auth.service.ts`, and `.github/`.
+- [ ] Branch and tag rulesets as described in [One-time GitHub settings](#one-time-github-settings), with reviews required for changes to `src/crypto`, `src/db`, `src/services/auth.service.ts`, `src/services/account.service.ts`, `src/services/safe.service.ts`, `tools/moliya-decrypt.mjs`, and `.github/`.
 - [ ] `production` environment in place; workflow default permissions read-only.
 - [ ] Code scanning, Dependabot alerts, and secret scanning enabled.
 - [ ] No analytics or third-party scripts added to `index.html`; the policy blocks them anyway.
