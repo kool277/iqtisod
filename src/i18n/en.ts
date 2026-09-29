@@ -243,6 +243,17 @@ export const en = {
     available: 'A new version of Jaybi is available.',
     reload: 'Reload',
   },
+  move: {
+    body: 'Jaybi is moving to jaybi.uz. Download an encrypted backup now, then open jaybi.uz and import it.',
+    setup: 'Jaybi is moving to jaybi.uz. A vault created at this address has to be moved there later with a backup.',
+    signIn: 'Sign in as an admin to download the backup in one click.',
+    askAdmin: 'Only an admin can download the backup. Ask them to move the vault.',
+    download: 'Download backup now',
+    backupPage: 'Open the Backup page',
+    downloaded: 'Backup downloaded. Now open jaybi.uz and import it.',
+    dismiss: 'Hide for now',
+    importHint: 'Coming from kool277.github.io/iqtisod? Import your backup here.',
+  },
   theme: {
     light: 'Day',
     dark: 'Night',

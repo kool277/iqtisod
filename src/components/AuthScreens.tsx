@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from 'react'
+import { useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { PasswordHint, ThrottleNotice } from './auth/AuthBits'
 import { SignInCheckStep } from './auth/SignInCheckStep'
@@ -10,6 +10,7 @@ import { useVault } from '../context/VaultContext'
 import { CURRENCIES } from '../domain/types'
 import { errorText, textForError } from '../lib/errors'
 import { LIMITS } from '../lib/limits'
+import { isNewAddress } from '../lib/origin-move'
 import { ThrottledError } from '../lib/throttle'
 import { useCountdown } from '../lib/use-countdown'
 import { APP_VERSION } from '../lib/version'
@@ -82,6 +83,7 @@ export function SetupPage() {
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
   const [backup, setBackup] = useState<ParsedBackup | null>(null)
+  const importRef = useRef<HTMLInputElement>(null)
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
@@ -120,6 +122,21 @@ export function SetupPage() {
       <BrandLockup className="lg:hidden" />
       <h2 className="mt-2 font-display text-4xl">{t('setup.title')}</h2>
       <p className="mt-2 text-sm text-muted">{t('setup.subtitle')}</p>
+      {isNewAddress() ? (
+        <div data-testid="move-import-hint" className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-brass/50 bg-brass-soft px-4 py-3 text-sm">
+          <span className="min-w-0">{t('move.importHint')}</span>
+          <button
+            type="button"
+            className="shrink-0 rounded-xl border border-line bg-card px-3 py-1.5 font-medium hover:border-brass"
+            onClick={() => {
+              importRef.current?.scrollIntoView({ block: 'center' })
+              importRef.current?.focus()
+            }}
+          >
+            {t('setup.import')}
+          </button>
+        </div>
+      ) : null}
       <form className="mt-6 grid gap-4" onSubmit={(event) => void onSubmit(event)}>
         {error ? <Notice>{error}</Notice> : null}
         <Field label={t('setup.displayName')}>
@@ -152,6 +169,7 @@ export function SetupPage() {
         <h3 className="font-display text-2xl">{t('setup.import')}</h3>
         <p className="mt-1 text-sm text-muted">{t('backup.importHelp')}</p>
         <input
+          ref={importRef}
           data-testid="import-file"
           className="mt-3 block w-full text-sm"
           type="file"

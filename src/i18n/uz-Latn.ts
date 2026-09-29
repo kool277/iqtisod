@@ -245,6 +245,17 @@ export const uzLatn: Messages = {
     available: 'Jaybining yangi versiyasi chiqdi.',
     reload: 'Yangilash',
   },
+  move: {
+    body: 'Jaybi jaybi.uz manziliga koʻchmoqda. Hozir shifrlangan zaxira nusxani yuklab oling, soʻng jaybi.uz saytini ochib, uni import qiling.',
+    setup: 'Jaybi jaybi.uz manziliga koʻchmoqda. Bu manzilda yaratilgan seyfni keyinroq zaxira nusxa orqali u yerga koʻchirish kerak boʻladi.',
+    signIn: 'Zaxira nusxani bir bosishda yuklab olish uchun administrator sifatida kiring.',
+    askAdmin: 'Zaxira nusxani faqat administrator yuklab oladi. Undan seyfni koʻchirishni soʻrang.',
+    download: 'Nusxani hozir yuklab olish',
+    backupPage: '“Zaxira nusxa” sahifasini ochish',
+    downloaded: 'Nusxa yuklab olindi. Endi jaybi.uz saytini ochib, uni import qiling.',
+    dismiss: 'Hozircha yashirish',
+    importHint: 'kool277.github.io/iqtisod manzilidan kelyapsizmi? Zaxira nusxangizni shu yerda import qiling.',
+  },
   theme: {
     light: 'Kun',
     dark: 'Tun',

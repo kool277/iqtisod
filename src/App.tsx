@@ -2,6 +2,7 @@ import { Suspense, lazy, type ReactNode } from 'react'
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from './components/AppShell'
 import { BootError, LoginPage, SetupPage, Splash } from './components/AuthScreens'
+import { MoveNotice } from './components/MoveNotice'
 import { UpdateBanner } from './components/UpdateBanner'
 import { I18nProvider } from './context/I18nContext'
 import { ThemeProvider } from './context/ThemeContext'
@@ -54,6 +55,7 @@ function AppRoutes() {
   return (
     <>
       <UpdateBanner />
+      <MoveNotice />
       <Routes>
         <Route path="/setup" element={<RequireStatus expect="setup"><SetupPage /></RequireStatus>} />
         <Route path="/login" element={<RequireStatus expect={['locked', 'challenge']}><LoginPage /></RequireStatus>} />
