@@ -86,9 +86,9 @@ export async function createUser(vault: OpenVault, input: NewUserInput): Promise
   try {
     vault.db.withTransaction(() => {
       vault.db.exec(
-        `INSERT INTO users (id, email, password_hash, salt, role_id, group_id)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [userId, email, verifier, bytesToBase64(salt), roleId(vault, input.roleName), groupId],
+        `INSERT INTO users (id, email, password_hash, salt, role_id, group_id, must_change_password, password_changed_at)
+         VALUES (?, ?, ?, ?, ?, ?, 1, ?)`,
+        [userId, email, verifier, bytesToBase64(salt), roleId(vault, input.roleName), groupId, new Date().toISOString()],
       )
       writeAudit(vault.db, vault.user.id, 'USER_CREATED', 'user', userId, {
         email,
@@ -115,6 +115,7 @@ export async function createUser(vault: OpenVault, input: NewUserInput): Promise
 
 export async function resetUserPassword(vault: OpenVault, userId: string, password: string): Promise<void> {
   if (!canUser(vault.user, Permission.MANAGE_USERS)) throw new ForbiddenError()
+  if (userId === vault.user.id) throw new ValidationError('USE_ACCOUNT')
   assertPassword(password)
   const existing = vault.db.queryOne('SELECT id, email FROM users WHERE id = ?', [userId])
   if (!existing) throw new ValidationError('REQUIRED')
@@ -123,11 +124,10 @@ export async function resetUserPassword(vault: OpenVault, userId: string, passwo
   const { key, verifier } = await deriveKeyAndVerifier(password, salt, CURRENT_KDF)
   const wrapped = await wrapDek(vault.dek, key)
   vault.db.withTransaction(() => {
-    vault.db.exec('UPDATE users SET password_hash = ?, salt = ? WHERE id = ?', [
-      verifier,
-      bytesToBase64(salt),
-      userId,
-    ])
+    vault.db.exec(
+      'UPDATE users SET password_hash = ?, salt = ?, must_change_password = 1, password_changed_at = ? WHERE id = ?',
+      [verifier, bytesToBase64(salt), new Date().toISOString(), userId],
+    )
     writeAudit(vault.db, vault.user.id, 'USER_PASSWORD_RESET', 'user', userId, { email })
   })
   const wrap: UserWrap = {
@@ -200,6 +200,10 @@ export function deleteUser(vault: OpenVault, userId: string): void {
   const email = String(existing.email)
   vault.db.withTransaction(() => {
     writeAudit(vault.db, vault.user.id, 'USER_DELETED', 'user', userId, { email })
+    vault.db.exec('DELETE FROM safe_events WHERE owner_user_id = ?', [userId])
+    vault.db.exec('DELETE FROM secure_items WHERE owner_user_id = ?', [userId])
+    vault.db.exec('DELETE FROM safes WHERE owner_user_id = ?', [userId])
+    vault.db.exec('DELETE FROM user_keys WHERE user_id = ?', [userId])
     vault.db.exec('DELETE FROM users WHERE id = ?', [userId])
   })
   const index = vault.wraps.findIndex((wrap) => wrap.userId === userId)

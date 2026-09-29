@@ -35,8 +35,13 @@ export class SqlDatabase {
     const sqlite3 = await loadModule()
     const db = new sqlite3.oo1.DB(':memory:', 'c')
     const handle = new SqlDatabase(sqlite3, db)
-    handle.exec('PRAGMA foreign_keys = ON')
+    handle.configure()
     return handle
+  }
+
+  private configure(): void {
+    this.exec('PRAGMA foreign_keys = ON')
+    this.exec('PRAGMA secure_delete = ON')
   }
 
   static async openBytes(bytes: Uint8Array): Promise<SqlDatabase> {
@@ -58,7 +63,7 @@ export class SqlDatabase {
     )
     db.checkRc(rc)
     const handle = new SqlDatabase(sqlite3, db)
-    handle.exec('PRAGMA foreign_keys = ON')
+    handle.configure()
     return handle
   }
 

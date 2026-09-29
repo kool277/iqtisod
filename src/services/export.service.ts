@@ -78,6 +78,7 @@ export async function exportPlainDatabase(vault: OpenVault): Promise<Uint8Array>
   const copy = await SqlDatabase.openBytes(vault.db.export())
   try {
     copy.exec("UPDATE users SET password_hash = '', salt = ''")
+    copy.exec('DELETE FROM safe_events; DELETE FROM secure_items; DELETE FROM safes; DELETE FROM user_keys;')
     copy.exec('VACUUM')
     return copy.export()
   } finally {

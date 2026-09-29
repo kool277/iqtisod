@@ -45,7 +45,7 @@ export function assertPassword(password: string): void {
 
 function loadUser(db: SqlDatabase, email: string): SessionUser | null {
   const row = db.queryOne(
-    `SELECT u.id, u.email, u.role_id, u.group_id, r.name AS role_name, r.permissions
+    `SELECT u.id, u.email, u.role_id, u.group_id, u.must_change_password, r.name AS role_name, r.permissions
      FROM users u
      JOIN roles r ON r.id = u.role_id
      WHERE u.email = ?`,
@@ -66,6 +66,7 @@ function loadUser(db: SqlDatabase, email: string): SessionUser | null {
     roleId: Number(row.role_id),
     groupId: row.group_id == null ? null : Number(row.group_id),
     permissions,
+    mustChangePassword: Number(row.must_change_password) === 1,
   }
 }
 
@@ -167,9 +168,11 @@ export async function unlockVault(record: VaultRecord, email: string, password: 
   if (!wrap) throw new AuthError()
   let dek: CryptoKey
   let plain: Uint8Array
+  let verifier: string
   try {
-    const kek = await deriveKey(password, wrap.salt, wrap.kdf)
-    dek = await unwrapDek(wrap.wrappedDek, kek, wrap.iv)
+    const derived = await deriveKeyAndVerifier(password, wrap.salt, wrap.kdf)
+    verifier = derived.verifier
+    dek = await unwrapDek(wrap.wrappedDek, derived.key, wrap.iv)
     plain = await decryptDatabase(record.body.ciphertext, dek, new Uint8Array(record.body.iv))
   } catch {
     throw new AuthError()
@@ -188,7 +191,13 @@ export async function unlockVault(record: VaultRecord, email: string, password: 
       })
     }
     const strengthen = kdfNeedsUpgrade(wrap.kdf)
-    if (strengthen) await strengthenWrap(db, dek, wrap, password, user.id)
+    let verifierUpgraded = false
+    if (strengthen) {
+      await strengthenWrap(db, dek, wrap, password, user.id)
+    } else if (db.queryValue('SELECT password_hash FROM users WHERE id = ?', [user.id]) !== verifier) {
+      db.exec('UPDATE users SET password_hash = ? WHERE id = ?', [verifier, user.id])
+      verifierUpgraded = true
+    }
     const currency = getSetting(db, 'currency')
     return {
       db,
@@ -199,11 +208,21 @@ export async function unlockVault(record: VaultRecord, email: string, password: 
       vaultName: getSetting(db, 'vault_name') ?? 'Moliya',
       createdAt: record.createdAt ?? getSetting(db, 'vault_created_at'),
       lastBackupAt: getSetting(db, 'last_backup_at'),
-      needsSave: migration.applied.length > 0 || strengthen,
+      needsSave: migration.applied.length > 0 || strengthen || verifierUpgraded,
     }
   } catch (error) {
     db.close()
     throw error
+  }
+}
+
+export async function verifyOwnPassword(vault: OpenVault, password: string): Promise<void> {
+  const wrap = vault.wraps.find((item) => item.userId === vault.user.id)
+  if (!wrap) throw new AuthError()
+  try {
+    await unwrapDek(wrap.wrappedDek, await deriveKey(password, wrap.salt, wrap.kdf), wrap.iv)
+  } catch {
+    throw new AuthError()
   }
 }
 

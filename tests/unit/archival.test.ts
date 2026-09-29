@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'node:crypto'
 import { afterEach, describe, expect, it } from 'vitest'
 import { GENESIS_HASH, verifyAuditChain } from '../../src/db/audit-chain'
 import { SqlDatabase } from '../../src/db/sqlite'
+import { SCHEMA_VERSION } from '../../src/db/versions'
 import { ForbiddenError } from '../../src/domain/errors'
 import type { OpenVault } from '../../src/domain/types'
 import { sha256Hex, sha256 } from '../../src/lib/sha256'
@@ -40,7 +41,8 @@ describe('audit hash chain', () => {
   it('detects edits, deletions, and reordering made outside the app', async () => {
     const vault = await openAs('Admin')
     const report = auditIntegrity(vault)
-    expect(report).toMatchObject({ ok: true, brokenAt: null, entries: fixture.expected.auditActions.length })
+    expect(report).toMatchObject({ ok: true, brokenAt: null, entries: fixture.expected.auditActions.length + 1 })
+    expect(listAudit(vault)[0].action).toBe('SCHEMA_MIGRATED')
     expect(report.head).not.toBe(GENESIS_HASH)
 
     const edited = await SqlDatabase.openBytes(vault.db.export())
@@ -102,7 +104,10 @@ describe('plaintext archival export', () => {
     open.push(copy)
     expect(copy.queryValue("SELECT COUNT(*) FROM users WHERE password_hash <> '' OR salt <> ''")).toBe(0)
     expect(copy.queryValue('SELECT COUNT(*) FROM transactions')).toBe(fixture.expected.transactions.length)
-    expect(copy.queryValue('PRAGMA user_version')).toBe(2)
+    expect(copy.queryValue('PRAGMA user_version')).toBe(SCHEMA_VERSION)
+    for (const table of ['user_keys', 'safes', 'secure_items', 'safe_events']) {
+      expect(copy.queryValue(`SELECT COUNT(*) FROM ${table}`), table).toBe(0)
+    }
     expect(verifyAuditChain(copy).ok).toBe(true)
     expect(Number(vault.db.queryValue("SELECT COUNT(*) FROM users WHERE password_hash <> ''"))).toBeGreaterThan(0)
   })

@@ -62,7 +62,8 @@ describe('vault envelope', () => {
     const { record } = parseBackupText(v2Text)
     const again = parseBackupJson(JSON.parse(JSON.stringify(toBackupJson(record, '2026-10-01T00:00:00.000Z'))))
     expect(again.record).toEqual(record)
-    expect(toBackupJson(record, 'x')).toMatchObject({ version: BACKUP_VERSION, schemaVersion: SCHEMA_VERSION })
+    expect(record.schemaVersion).toBe(2)
+    expect(toBackupJson(record, 'x')).toMatchObject({ version: BACKUP_VERSION, schemaVersion: record.schemaVersion })
   })
 
   it('refuses files and records written by a newer version', () => {

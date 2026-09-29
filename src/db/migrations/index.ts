@@ -3,6 +3,7 @@ import type { SqlDatabase } from '../sqlite'
 import { SCHEMA_VERSION } from '../versions'
 import baselineSql from './0001-baseline.sql?raw'
 import { migrateExactMoney } from './0002-exact-money'
+import privateSafesSql from './0003-private-safes.sql?raw'
 
 export type Migration = {
   version: number
@@ -13,6 +14,7 @@ export type Migration = {
 export const MIGRATIONS: readonly Migration[] = [
   { version: 1, name: 'baseline', up: (db) => db.exec(baselineSql) },
   { version: 2, name: 'exact-money-and-audit-chain', up: migrateExactMoney },
+  { version: 3, name: 'private-safes-and-verifier', up: (db) => db.exec(privateSafesSql) },
 ]
 
 export type MigrationResult = {

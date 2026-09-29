@@ -22,6 +22,7 @@ export type SessionUser = {
   roleId: number
   groupId: number | null
   permissions: string[]
+  mustChangePassword: boolean
 }
 
 export type UserWrap = {

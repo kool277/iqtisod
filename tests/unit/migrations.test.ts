@@ -41,7 +41,7 @@ describe('schema migrations', () => {
     const result = migrate(db, APP)
     expect(result).toEqual({ from: 0, to: SCHEMA_VERSION, applied: MIGRATIONS.map((migration) => migration.version) })
     expect(Number(db.queryValue('PRAGMA user_version'))).toBe(SCHEMA_VERSION)
-    expect(db.query('SELECT version FROM schema_migrations ORDER BY version').map((row) => Number(row.version))).toEqual([1, 2])
+    expect(db.query('SELECT version FROM schema_migrations ORDER BY version').map((row) => Number(row.version))).toEqual([1, 2, 3])
     expect(migrate(db, APP).applied).toEqual([])
   })
 
@@ -52,7 +52,7 @@ describe('schema migrations', () => {
     expect(readSchemaVersion(db)).toBe(1)
     expect(columns(db, 'transactions')).toContain('amount')
 
-    expect(migrate(db, APP)).toEqual({ from: 1, to: SCHEMA_VERSION, applied: [2] })
+    expect(migrate(db, APP)).toEqual({ from: 1, to: SCHEMA_VERSION, applied: [2, 3] })
     expect(columns(db, 'transactions')).toContain('amount_minor')
     expect(columns(db, 'transactions')).not.toContain('amount')
     expect(db.queryValue("SELECT COUNT(*) FROM transactions WHERE typeof(amount_minor) <> 'integer'")).toBe(0)
@@ -62,12 +62,34 @@ describe('schema migrations', () => {
     expect(db.queryValue('PRAGMA foreign_key_check')).toBeUndefined()
   })
 
+  it('upgrades a 1.1.0 database to private safes and drops key-equivalent password hashes', async () => {
+    const fixture = fixtureByPath('v2/ledger-v2')
+    const db = await track(openRawFixtureDatabase(fixture))
+    expect(readSchemaVersion(db)).toBe(2)
+    expect(Number(db.queryValue("SELECT COUNT(*) FROM users WHERE length(password_hash) = 64"))).toBeGreaterThan(0)
+    const before = db.query('SELECT id, email, role_id, salt FROM users ORDER BY id')
+
+    expect(migrate(db, APP)).toEqual({ from: 2, to: SCHEMA_VERSION, applied: [3] })
+    expect(columns(db, 'users')).toEqual(expect.arrayContaining(['must_change_password', 'password_changed_at']))
+    expect(db.queryValue("SELECT COUNT(*) FROM users WHERE password_hash <> ''")).toBe(0)
+    expect(db.queryValue('SELECT COUNT(*) FROM users WHERE must_change_password <> 0 OR password_changed_at IS NOT NULL')).toBe(0)
+    expect(db.query('SELECT id, email, role_id, salt FROM users ORDER BY id')).toEqual(before)
+    for (const table of ['user_keys', 'safes', 'secure_items', 'safe_events']) {
+      expect(db.queryValue(`SELECT COUNT(*) FROM ${table}`), table).toBe(0)
+    }
+    expect(db.queryValue('SELECT COUNT(*) FROM transactions')).toBe(fixture.expected.transactions.length)
+    expect(verifyAuditChain(db)).toMatchObject({ ok: true, entries: fixture.expected.auditActions.length })
+    expect(db.queryValue('PRAGMA foreign_key_check')).toBeUndefined()
+  })
+
   it('produces the same schema for upgraded and new databases', async () => {
-    const upgraded = await track(openRawFixtureDatabase(fixtureByPath('v1/business-uzs')))
-    migrate(upgraded, APP)
-    const fresh = await track(SqlDatabase.openEmpty())
-    migrate(fresh, APP)
-    expect(schemaOf(upgraded)).toEqual(schemaOf(fresh))
+    for (const path of ['v1/business-uzs', 'v2/ledger-v2']) {
+      const upgraded = await track(openRawFixtureDatabase(fixtureByPath(path)))
+      migrate(upgraded, APP)
+      const fresh = await track(SqlDatabase.openEmpty())
+      migrate(fresh, APP)
+      expect(schemaOf(upgraded), path).toEqual(schemaOf(fresh))
+    }
   })
 
   it('makes the audit log append-only', async () => {

@@ -52,7 +52,9 @@ async function importPassphrase(passphrase: string): Promise<CryptoKey> {
   return crypto.subtle.importKey('raw', new TextEncoder().encode(passphrase), 'PBKDF2', false, ['deriveBits'])
 }
 
-async function deriveRaw(passphrase: string, salt: Uint8Array, kdf: KdfParams): Promise<Uint8Array> {
+export const VERIFIER_INFO = 'moliya/verifier/v1'
+
+export async function derivePbkdf2Bits(passphrase: string, salt: Uint8Array, kdf: KdfParams): Promise<Uint8Array> {
   if (!isKdfParams(kdf)) throw new Error('Unsupported key derivation parameters')
   const material = await importPassphrase(passphrase)
   const bits = await crypto.subtle.deriveBits(
@@ -72,14 +74,33 @@ async function importAesKey(raw: Uint8Array, usages: KeyUsage[]): Promise<Crypto
   return crypto.subtle.importKey('raw', copyToBuffer(raw), { name: 'AES-GCM', length: 256 }, false, usages)
 }
 
+export async function hkdfBits(ikm: Uint8Array, salt: Uint8Array, info: string): Promise<Uint8Array> {
+  const material = await crypto.subtle.importKey('raw', copyToBuffer(ikm), 'HKDF', false, ['deriveBits'])
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'HKDF', hash: 'SHA-256', salt: copyToBuffer(salt), info: new TextEncoder().encode(info) },
+    material,
+    256,
+  )
+  return new Uint8Array(bits)
+}
+
+export async function verifierFromBits(raw: Uint8Array): Promise<string> {
+  const bits = await hkdfBits(raw, new Uint8Array(0), VERIFIER_INFO)
+  try {
+    return bytesToHex(bits)
+  } finally {
+    bits.fill(0)
+  }
+}
+
 export async function deriveKeyAndVerifier(
   passphrase: string,
   salt: Uint8Array,
   kdf: KdfParams = CURRENT_KDF,
 ): Promise<{ key: CryptoKey; verifier: string }> {
-  const raw = await deriveRaw(passphrase, salt, kdf)
+  const raw = await derivePbkdf2Bits(passphrase, salt, kdf)
   try {
-    const verifier = bytesToHex(raw)
+    const verifier = await verifierFromBits(raw)
     const key = await importAesKey(raw, ['wrapKey', 'unwrapKey'])
     return { key, verifier }
   } finally {
