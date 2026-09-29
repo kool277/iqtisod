@@ -23,14 +23,18 @@ export function writeAudit(
   })
 }
 
-export function listAudit(vault: OpenVault): AuditEntry[] {
+export const AUDIT_PAGE_LIMIT = 10_000
+
+export function listAudit(vault: OpenVault, limit = 200): AuditEntry[] {
   if (!canUser(vault.user, Permission.READ_AUDIT)) throw new ForbiddenError()
+  const bounded = Number.isSafeInteger(limit) ? Math.min(Math.max(limit, 1), AUDIT_PAGE_LIMIT) : 200
   const rows = vault.db.query(
     `SELECT a.id, a.actor_id, u.email AS actor_email, a.action, a.entity_type, a.entity_id, a.details, a.created_at
      FROM audit_logs a
      LEFT JOIN users u ON u.id = a.actor_id
      ORDER BY a.seq DESC
-     LIMIT 200`,
+     LIMIT ?`,
+    [bounded],
   )
   return rows.map((row) => ({
     id: String(row.id),
