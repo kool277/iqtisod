@@ -10,7 +10,7 @@ import { useVault, VaultProvider } from './context/VaultContext'
 const Dashboard = lazy(() => import('./components/Dashboard').then((module) => ({ default: module.Dashboard })))
 const Timeline = lazy(() => import('./components/Timeline').then((module) => ({ default: module.Timeline })))
 const SettingsPage = lazy(() => import('./components/SettingsPage').then((module) => ({ default: module.SettingsPage })))
-const UsersPage = lazy(() => import('./components/AdminPages').then((module) => ({ default: module.UsersPage })))
+const UsersPage = lazy(() => import('./components/admin/UsersPage').then((module) => ({ default: module.UsersPage })))
 const GroupsPage = lazy(() => import('./components/AdminPages').then((module) => ({ default: module.GroupsPage })))
 const AuditPage = lazy(() => import('./components/AdminPages').then((module) => ({ default: module.AuditPage })))
 const BackupPage = lazy(() => import('./components/AdminPages').then((module) => ({ default: module.BackupPage })))
@@ -19,6 +19,7 @@ const SafeView = lazy(() => import('./components/safes/SafeView').then((module) 
 const SafesTrash = lazy(() => import('./components/safes/SafesTrash').then((module) => ({ default: module.SafesTrash })))
 const SafesActivity = lazy(() => import('./components/safes/SafesActivity').then((module) => ({ default: module.SafesActivity })))
 const AccountPage = lazy(() => import('./components/AccountPage').then((module) => ({ default: module.AccountPage })))
+const RegisterPage = lazy(() => import('./components/auth/RegisterPage').then((module) => ({ default: module.RegisterPage })))
 
 function Page({ children }: { children: ReactNode }) {
   return <Suspense fallback={<div role="status" aria-busy="true" className="min-h-40" />}>{children}</Suspense>
@@ -26,15 +27,18 @@ function Page({ children }: { children: ReactNode }) {
 
 function pathFor(status: string): string {
   if (status === 'setup') return '/setup'
-  if (status === 'locked') return '/login'
+  if (status === 'locked' || status === 'challenge') return '/login'
   if (status === 'ready') return '/app'
   return '/'
 }
 
-function RequireStatus({ expect, children }: { expect: 'setup' | 'locked' | 'ready'; children: ReactNode }) {
+type RouteStatus = 'setup' | 'locked' | 'challenge' | 'ready'
+
+function RequireStatus({ expect, children }: { expect: RouteStatus | RouteStatus[]; children: ReactNode }) {
   const { status } = useVault()
   if (status === 'checking') return <Splash />
-  if (status !== expect) return <Navigate to={pathFor(status)} replace />
+  const allowed: string[] = Array.isArray(expect) ? expect : [expect]
+  if (!allowed.includes(status)) return <Navigate to={pathFor(status)} replace />
   return children
 }
 
@@ -52,7 +56,8 @@ function AppRoutes() {
       <UpdateBanner />
       <Routes>
         <Route path="/setup" element={<RequireStatus expect="setup"><SetupPage /></RequireStatus>} />
-        <Route path="/login" element={<RequireStatus expect="locked"><LoginPage /></RequireStatus>} />
+        <Route path="/login" element={<RequireStatus expect={['locked', 'challenge']}><LoginPage /></RequireStatus>} />
+        <Route path="/register" element={<RequireStatus expect={['locked', 'setup']}><Suspense fallback={<Splash />}><RegisterPage /></Suspense></RequireStatus>} />
         <Route path="/app" element={<RequireStatus expect="ready"><AppShell /></RequireStatus>}>
           <Route index element={<Page><Dashboard /></Page>} />
           <Route path="transactions" element={<Page><Timeline /></Page>} />

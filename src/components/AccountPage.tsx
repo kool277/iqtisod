@@ -8,6 +8,9 @@ import { ValidationError } from '../domain/errors'
 import { AUTO_LOCK_MINUTES, CLIPBOARD_SECONDS, REVEAL_SECONDS, type SafePrefs } from '../domain/safes'
 import { changeOwnPassword } from '../services/account.service'
 import { createRecoveryCode, resetSafes, updateSafePrefs } from '../services/safe.service'
+import { IdleLockSection } from './account/IdleLockSection'
+import { SignInCheckSection } from './account/SignInCheckSection'
+import { PasswordHint } from './auth/AuthBits'
 import { RecoveryChoice, RecoveryCodeDisplay, useSafeStatus } from './safes/SafesGate'
 import { ErrorNotice, PageHeader, PasswordInput, Success, Warning, secureInputProps } from './safes/shared'
 import { Button, Field, Panel, controlClass } from './ui'
@@ -23,6 +26,12 @@ export function AccountPage() {
       <PageHeader title={t('account.title')} intro={user.email} />
       {user.mustChangePassword ? <Warning testId="must-change-banner">{t('account.mustChange')}</Warning> : null}
       <ChangePassword />
+      {user.mustChangePassword ? null : (
+        <>
+          <SignInCheckSection />
+          <IdleLockSection />
+        </>
+      )}
       {code ? (
         <RecoveryCodeDisplay code={code} onDone={() => setCode(null)} />
       ) : status && status.initialized && !status.mustChangePassword ? (
@@ -38,7 +47,7 @@ export function AccountPage() {
 
 function ChangePassword() {
   const { t } = useI18n()
-  const { run } = useVault()
+  const { run, clearWeakPassword } = useVault()
   const [current, setCurrent] = useState('')
   const [next, setNext] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -56,6 +65,7 @@ function ChangePassword() {
     setBusy(true)
     try {
       await run((vault) => changeOwnPassword(vault, current, next), { dirty: true })
+      clearWeakPassword()
       setCurrent('')
       setNext('')
       setConfirm('')
@@ -75,6 +85,7 @@ function ChangePassword() {
           <PasswordInput label={t('account.newPassword')} value={next} onChange={setNext} testId="account-new" autoComplete="new-password" />
           <PasswordInput label={t('account.confirmPassword')} value={confirm} onChange={setConfirm} testId="account-confirm" autoComplete="new-password" />
         </div>
+        <PasswordHint />
         <ErrorNotice error={error} />
         {done ? <Success>{t('account.changed')}</Success> : null}
         <div className="flex justify-end">

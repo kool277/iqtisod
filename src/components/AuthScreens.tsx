@@ -1,10 +1,16 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
+import { Link } from 'react-router-dom'
+import { PasswordHint, ThrottleNotice } from './auth/AuthBits'
+import { SignInCheckStep } from './auth/SignInCheckStep'
 import { Preferences } from './Preferences'
 import { Button, Field, Notice, controlClass } from './ui'
 import { useI18n } from '../context/I18nContext'
 import { useVault } from '../context/VaultContext'
 import { CURRENCIES } from '../domain/types'
 import { errorText, textForError } from '../lib/errors'
+import { LIMITS } from '../lib/limits'
+import { ThrottledError } from '../lib/throttle'
+import { useCountdown } from '../lib/use-countdown'
 import { APP_VERSION } from '../lib/version'
 import { parseBackup, type ParsedBackup } from '../services/backup.service'
 
@@ -35,7 +41,7 @@ export function BootError({ message }: { message: string }) {
   )
 }
 
-function AuthFrame({ children }: { children: ReactNode }) {
+export function AuthFrame({ children }: { children: ReactNode }) {
   const { t } = useI18n()
   return (
     <div className="grid min-h-screen lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
@@ -95,8 +101,8 @@ export function SetupPage() {
     setBackup(null)
     setError(null)
     if (!file) return
-    if (file.size > 20 * 1024 * 1024) {
-      setError(t('backup.invalid'))
+    if (file.size > LIMITS.importFileBytes) {
+      setError(errorText('IMPORT_TOO_LARGE', t))
       return
     }
     try {
@@ -114,13 +120,14 @@ export function SetupPage() {
       <form className="mt-6 grid gap-4" onSubmit={(event) => void onSubmit(event)}>
         {error ? <Notice>{error}</Notice> : null}
         <Field label={t('setup.displayName')}>
-          <input data-testid="setup-name" className={controlClass} value={displayName} onChange={(event) => setDisplayName(event.target.value)} required />
+          <input data-testid="setup-name" className={controlClass} maxLength={LIMITS.nameChars} value={displayName} onChange={(event) => setDisplayName(event.target.value)} required />
         </Field>
         <Field label={t('setup.email')}>
-          <input data-testid="setup-email" type="email" autoComplete="username" className={controlClass} value={email} onChange={(event) => setEmail(event.target.value)} required />
+          <input data-testid="setup-email" type="email" autoComplete="username" className={controlClass} maxLength={LIMITS.emailChars} value={email} onChange={(event) => setEmail(event.target.value)} required />
         </Field>
         <Field label={t('setup.password')}>
-          <input data-testid="setup-password" type="password" autoComplete="new-password" className={controlClass} value={password} onChange={(event) => setPassword(event.target.value)} required />
+          <input data-testid="setup-password" type="password" autoComplete="new-password" className={controlClass} maxLength={LIMITS.passwordMax} value={password} onChange={(event) => setPassword(event.target.value)} required />
+          <PasswordHint />
         </Field>
         <Field label={t('setup.confirmPassword')}>
           <input data-testid="setup-confirm" type="password" autoComplete="new-password" className={controlClass} value={confirm} onChange={(event) => setConfirm(event.target.value)} required />
@@ -167,23 +174,40 @@ export function SetupPage() {
 
 export function LoginPage() {
   const { t } = useI18n()
-  const { login } = useVault()
+  const { status, login, guardWait } = useVault()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
+  const countdown = useCountdown()
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
-    setPending(true)
     setError(null)
+    const wait = guardWait('login', email)
+    if (wait > 0) {
+      countdown.start(wait)
+      return
+    }
+    setPending(true)
     try {
       await login(email, password)
+      setPassword('')
     } catch (caught) {
-      setError(textForError(caught, t))
+      if (caught instanceof ThrottledError) countdown.start(caught.waitMs)
+      else setError(textForError(caught, t))
     } finally {
       setPending(false)
     }
+  }
+
+  if (status === 'challenge') {
+    return (
+      <AuthFrame>
+        <p className="font-display text-4xl lg:hidden">Moliya</p>
+        <SignInCheckStep />
+      </AuthFrame>
+    )
   }
 
   return (
@@ -193,16 +217,25 @@ export function LoginPage() {
       <p className="mt-2 text-sm text-muted">{t('login.subtitle')}</p>
       <form className="mt-6 grid gap-4" onSubmit={(event) => void onSubmit(event)}>
         {error ? <Notice>{error}</Notice> : null}
+        <ThrottleNotice remaining={countdown.remaining} />
         <Field label={t('login.email')}>
-          <input data-testid="login-email" type="email" autoComplete="username" className={controlClass} value={email} onChange={(event) => setEmail(event.target.value)} required />
+          <input data-testid="login-email" type="email" autoComplete="username" className={controlClass} maxLength={LIMITS.emailChars} value={email} onChange={(event) => setEmail(event.target.value)} required />
         </Field>
         <Field label={t('login.password')}>
           <input data-testid="login-password" type="password" autoComplete="current-password" className={controlClass} value={password} onChange={(event) => setPassword(event.target.value)} required />
         </Field>
-        <Button type="submit" data-testid="login-submit" disabled={pending}>
+        <Button type="submit" data-testid="login-submit" disabled={pending || countdown.remaining > 0}>
           {pending ? t('login.working') : t('login.submit')}
         </Button>
       </form>
+      <div className="mt-6 flex flex-wrap gap-x-4 gap-y-2 border-t border-line pt-4 text-sm">
+        <Link to="/register" data-testid="join-link" className="text-pine-ink hover:underline">
+          {t('register.joinLink')}
+        </Link>
+        <Link to="/register?kind=reset" data-testid="reset-link" className="text-pine-ink hover:underline">
+          {t('register.resetLink')}
+        </Link>
+      </div>
     </AuthFrame>
   )
 }

@@ -1,15 +1,26 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { readVault, readVaultRaw, stampOf, writeVault, type VaultRecord } from '../db/storage'
+import { encodeStoredRecord } from '../db/envelope'
+import { readVault, readVaultRaw, stampOf, writeVault, type LoadedVault, type VaultRecord } from '../db/storage'
 import { RECORD_VERSION, SCHEMA_VERSION } from '../db/versions'
 import type { OpenVault, SessionUser } from '../domain/types'
-import { AppError, AuthError, ConflictError, VaultInUseError } from '../domain/errors'
+import { AppError, AuthError, ConflictError, ForbiddenError, ValidationError, VaultInUseError } from '../domain/errors'
+import { readIdleMinutes, storeIdleMinutes, type IdleMinutes } from '../lib/idle'
+import { LIMITS } from '../lib/limits'
+import { passwordProblem } from '../lib/password-policy'
 import { requestPersistence } from '../lib/persistence'
 import { acquireSessionLock } from '../lib/session-lock'
+import { ThrottledError, createThrottle, type ThrottleScope } from '../lib/throttle'
+import { Permission, canUser } from '../rbac'
+import { writeAudit } from '../services/audit.service'
 import type { ParsedBackup } from '../services/backup.service'
-import { createVault, sealVault, unlockVault, type SetupInput } from '../services/auth.service'
+import { createVault, sealVault, unlockVault, verifyOwnPassword, type SetupInput } from '../services/auth.service'
+import { redeemGrant, type RedeemInput } from '../services/grant.service'
+import { completeTotpChallenge, openTotpChallenge, type TotpChallenge } from '../services/totp.service'
 
-type Status = 'checking' | 'setup' | 'locked' | 'ready' | 'error'
+type Status = 'checking' | 'setup' | 'locked' | 'challenge' | 'ready' | 'error'
 type SaveState = 'saved' | 'saving' | 'dirty' | 'error' | 'conflict'
+
+export type ReplaceInput = { password: string; confirmName: string }
 
 type VaultApi = {
   status: Status
@@ -20,17 +31,43 @@ type VaultApi = {
   lastBackupAt: string | null
   revision: number
   saveState: SaveState
+  weakPassword: boolean
+  /** Recovery codes left after one was used at this sign-in; null when none was used. */
+  recoveryLeft: number | null
+  /** Failed sign-ins for this account in this browser since its last successful one. */
+  failuresSeen: number
+  storageNearLimit: boolean
+  idleMinutes: IdleMinutes
   setup: (input: SetupInput) => Promise<void>
   login: (email: string, password: string) => Promise<void>
+  verifySignInCheck: (code: string) => Promise<{ usedRecovery: boolean; recoveryLeft: number }>
+  cancelSignInCheck: () => void
+  redeem: (input: RedeemInput) => Promise<void>
+  guardWait: (scope: ThrottleScope, email: string) => number
   lock: () => Promise<void>
   importBackup: (backup: ParsedBackup) => Promise<void>
+  replaceWithBackup: (backup: ParsedBackup, input: ReplaceInput) => Promise<void>
   exportBackup: () => Promise<VaultRecord>
+  clearWeakPassword: () => void
+  clearRecoveryNotice: () => void
+  clearFailuresSeen: () => void
+  setIdleMinutes: (minutes: IdleMinutes) => void
   run: <T>(fn: (vault: OpenVault) => Promise<T> | T, options?: { dirty?: boolean }) => Promise<T>
   query: <T>(fn: (vault: OpenVault) => T) => T
 }
 
+type Unlocked = {
+  vault: OpenVault
+  loaded: LoadedVault
+  release: () => void
+  failuresSeen: { failures: number; since: string | null }
+  weak: boolean
+}
+
+type PendingCheck = Unlocked & { challenge: TotpChallenge; timer: number }
+
 const VaultContext = createContext<VaultApi | null>(null)
-const VAULT_IDLE_MS = 15 * 60_000
+const SIGN_IN_CHECK_MS = 5 * 60_000
 
 function snapshotUser(user: SessionUser): SessionUser {
   return { ...user, permissions: [...user.permissions] }
@@ -39,6 +76,10 @@ function snapshotUser(user: SessionUser): SessionUser {
 function bootErrorCode(error: unknown): string {
   if (error instanceof AppError) return error.code
   return error instanceof Error ? error.message : 'sqlite'
+}
+
+function isCodeFailure(error: unknown): boolean {
+  return error instanceof AppError && (error.code === 'INVITE_INVALID' || error.code === 'INVITE_CODE')
 }
 
 export function VaultProvider({ children }: { children: ReactNode }) {
@@ -50,6 +91,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const releaseRef = useRef<(() => void) | null>(null)
   const chainRef = useRef(Promise.resolve())
   const debounceRef = useRef<number | null>(null)
+  const pendingRef = useRef<PendingCheck | null>(null)
+  const throttleRef = useRef(createThrottle())
   const [status, setStatus] = useState<Status>('checking')
   const [bootError, setBootError] = useState<string | null>(null)
   const [user, setUser] = useState<SessionUser | null>(null)
@@ -58,6 +101,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const [lastBackupAt, setLastBackupAt] = useState<string | null>(null)
   const [revision, setRevision] = useState(0)
   const [saveState, setSaveState] = useState<SaveState>('saved')
+  const [weakPassword, setWeakPassword] = useState(false)
+  const [recoveryLeft, setRecoveryLeft] = useState<number | null>(null)
+  const [failuresSeen, setFailuresSeen] = useState(0)
+  const [vaultBytes, setVaultBytes] = useState(0)
+  const [idleMinutes, setIdleMinutesState] = useState<IdleMinutes>(() => readIdleMinutes())
 
   const syncState = useCallback((vault: OpenVault) => {
     setUser(snapshotUser(vault.user))
@@ -78,6 +126,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       conflictRef.current = false
       stampRef.current = stamp
       syncState(vault)
+      setVaultBytes(vault.db.sizeBytes())
       setSaveState('saved')
       setStatus('ready')
       void requestPersistence()
@@ -99,6 +148,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       })
       archiveRef.current = null
       stampRef.current = record.updatedAt
+      setVaultBytes(vault.db.sizeBytes())
       setSaveState(dirtyRef.current ? 'dirty' : 'saved')
     } catch (error) {
       dirtyRef.current = true
@@ -144,6 +194,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     return fn(vault)
   }, [])
 
+  const guardWait = useCallback((scope: ThrottleScope, email: string) => throttleRef.current.wait(scope, email), [])
+
   const setup = useCallback(
     async (input: SetupInput) => {
       const release = await acquireSessionLock()
@@ -166,8 +218,43 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     [publish],
   )
 
+  const finishLogin = useCallback(
+    async ({ vault, loaded, release, failuresSeen, weak }: Unlocked) => {
+      if (failuresSeen.failures > 0) {
+        writeAudit(vault.db, vault.user.id, 'SIGNIN_FAILURES_SEEN', 'user', vault.user.id, failuresSeen)
+        vault.needsSave = true
+      }
+      releaseRef.current = release
+      publish(vault, stampOf(loaded.raw))
+      setWeakPassword(weak)
+      setFailuresSeen(failuresSeen.failures)
+      if (vault.needsSave) {
+        const upgraded = loaded.sourceVersion < RECORD_VERSION || loaded.record.schemaVersion < SCHEMA_VERSION
+        archiveRef.current = upgraded ? loaded.raw : null
+        vault.needsSave = false
+        dirtyRef.current = true
+        setSaveState('dirty')
+        await enqueuePersist()
+      }
+    },
+    [publish, enqueuePersist],
+  )
+
+  const cancelSignInCheck = useCallback(() => {
+    const pending = pendingRef.current
+    if (!pending) return
+    pendingRef.current = null
+    window.clearTimeout(pending.timer)
+    pending.vault.db.close()
+    pending.release()
+    setStatus('locked')
+  }, [])
+
   const login = useCallback(
     async (email: string, password: string) => {
+      const throttle = throttleRef.current
+      const wait = throttle.wait('login', email)
+      if (wait > 0) throw new ThrottledError(wait)
       const loaded = await readVault()
       if (!loaded) {
         setStatus('setup')
@@ -175,27 +262,109 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       }
       const release = await acquireSessionLock()
       if (!release) throw new VaultInUseError()
+      let vault: OpenVault
       try {
-        const vault = await unlockVault(loaded.record, email, password)
-        releaseRef.current = release
-        publish(vault, stampOf(loaded.raw))
-        if (vault.needsSave) {
-          const upgraded = loaded.sourceVersion < RECORD_VERSION || loaded.record.schemaVersion < SCHEMA_VERSION
-          archiveRef.current = upgraded ? loaded.raw : null
-          vault.needsSave = false
-          dirtyRef.current = true
-          setSaveState('dirty')
-          await enqueuePersist()
-        }
+        vault = await unlockVault(loaded.record, email, password)
       } catch (error) {
-        if (releaseRef.current !== release) release()
+        release()
+        if (error instanceof AuthError) {
+          const next = throttle.fail('login', email)
+          if (next > 0) throw new ThrottledError(next)
+        }
+        throw error
+      }
+      try {
+        const failuresSeen = throttle.succeed('login', email)
+        const weak = (await passwordProblem(password, { email: vault.user.email, vaultName: vault.vaultName })) !== null
+        const challenge = await openTotpChallenge(vault, password)
+        const unlocked: Unlocked = { vault, loaded, release, failuresSeen, weak }
+        if (challenge) {
+          const timer = window.setTimeout(() => cancelSignInCheck(), SIGN_IN_CHECK_MS)
+          pendingRef.current = { ...unlocked, challenge, timer }
+          setStatus('challenge')
+          return
+        }
+        await finishLogin(unlocked)
+      } catch (error) {
+        if (releaseRef.current !== release) {
+          vault.db.close()
+          release()
+        }
         throw error
       }
     },
-    [publish, enqueuePersist],
+    [finishLogin, cancelSignInCheck],
+  )
+
+  const verifySignInCheck = useCallback(
+    async (code: string) => {
+      const pending = pendingRef.current
+      if (!pending) throw new AuthError()
+      const throttle = throttleRef.current
+      const email = pending.vault.user.email
+      const wait = throttle.wait('totp', email)
+      if (wait > 0) throw new ThrottledError(wait)
+      let result: { usedRecovery: boolean; recoveryLeft: number }
+      try {
+        result = await completeTotpChallenge(pending.vault, pending.challenge, code)
+      } catch (error) {
+        if (error instanceof ValidationError && error.code === 'TOTP_INVALID') {
+          const next = throttle.fail('totp', email)
+          if (next > 0) throw new ThrottledError(next)
+        }
+        throw error
+      }
+      throttle.succeed('totp', email)
+      pendingRef.current = null
+      window.clearTimeout(pending.timer)
+      pending.vault.needsSave = true
+      await finishLogin(pending)
+      setRecoveryLeft(result.usedRecovery ? result.recoveryLeft : null)
+      return result
+    },
+    [finishLogin],
+  )
+
+  const redeem = useCallback(
+    async (input: RedeemInput) => {
+      const throttle = throttleRef.current
+      const wait = throttle.wait('code', input.email)
+      if (wait > 0) throw new ThrottledError(wait)
+      const loaded = await readVault()
+      if (!loaded) throw new ValidationError('NO_VAULT')
+      const release = await acquireSessionLock()
+      if (!release) throw new VaultInUseError()
+      let vault: OpenVault
+      try {
+        vault = await redeemGrant(loaded.record, input)
+      } catch (error) {
+        release()
+        if (isCodeFailure(error)) {
+          const next = throttle.fail('code', input.email)
+          if (next > 0) throw new ThrottledError(next)
+        }
+        throw error
+      }
+      try {
+        // Save before publishing so the used code is gone from storage before anything else happens.
+        const record = await sealVault(vault)
+        await writeVault(record, { expectedStamp: stampOf(loaded.raw) })
+        vault.needsSave = false
+        throttle.succeed('code', input.email)
+        releaseRef.current = release
+        publish(vault, record.updatedAt)
+        setWeakPassword(false)
+      } catch (error) {
+        vault.db.close()
+        release()
+        throw error
+      }
+    },
+    [publish],
   )
 
   const lock = useCallback(async () => {
+    cancelSignInCheck()
     if (dirtyRef.current) enqueuePersist()
     await chainRef.current
     const vault = vaultRef.current
@@ -205,27 +374,62 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     archiveRef.current = null
     releaseSession()
     setUser(null)
+    setWeakPassword(false)
+    setRecoveryLeft(null)
+    setFailuresSeen(0)
     setStatus('locked')
-  }, [enqueuePersist, releaseSession])
+  }, [enqueuePersist, releaseSession, cancelSignInCheck])
 
+  const closeAfterReplace = useCallback(() => {
+    const current = vaultRef.current
+    vaultRef.current = null
+    current?.db.close()
+    dirtyRef.current = false
+    conflictRef.current = false
+    archiveRef.current = null
+    releaseSession()
+    setUser(null)
+    setWeakPassword(false)
+    setRecoveryLeft(null)
+    setFailuresSeen(0)
+    setSaveState('saved')
+    setStatus('locked')
+  }, [releaseSession])
+
+  /** First-run import only: an existing vault is replaced through {@link replaceWithBackup}. */
   const importBackup = useCallback(
     async (backup: ParsedBackup) => {
-      const current = vaultRef.current
-      const existing = await readVaultRaw()
-      await writeVault(backup.record, {
-        archive: existing === undefined ? undefined : { reason: 'import', raw: existing },
-      })
-      vaultRef.current = null
-      current?.db.close()
-      dirtyRef.current = false
-      conflictRef.current = false
-      archiveRef.current = null
-      releaseSession()
-      setUser(null)
-      setSaveState('saved')
-      setStatus('locked')
+      if ((await readVaultRaw()) !== undefined) throw new ValidationError('VAULT_EXISTS')
+      await writeVault(backup.record, { expectedStamp: null })
+      closeAfterReplace()
     },
-    [releaseSession],
+    [closeAfterReplace],
+  )
+
+  const replaceWithBackup = useCallback(
+    async (backup: ParsedBackup, input: ReplaceInput) => {
+      const vault = vaultRef.current
+      if (!vault) throw new Error('LOCKED')
+      if (!canUser(vault.user, Permission.IMPORT_VAULT)) throw new ForbiddenError()
+      if (input.confirmName.trim().toLocaleLowerCase() !== vault.vaultName.trim().toLocaleLowerCase()) throw new ValidationError('CONFIRM_NAME')
+      await verifyOwnPassword(vault, input.password)
+      if (dirtyRef.current) enqueuePersist()
+      await chainRef.current
+      if (conflictRef.current) throw new ConflictError()
+      writeAudit(vault.db, vault.user.id, 'VAULT_REPLACED_BY_IMPORT', 'vault', 'primary', {
+        backupAppVersion: backup.appVersion,
+        backupSchemaVersion: backup.record.schemaVersion,
+        backupExportedAt: backup.exportedAt,
+        people: backup.record.wraps.length,
+      })
+      const sealed = await sealVault(vault)
+      await writeVault(backup.record, {
+        expectedStamp: stampRef.current,
+        archive: { reason: 'import', raw: encodeStoredRecord(sealed) },
+      })
+      closeAfterReplace()
+    },
+    [enqueuePersist, closeAfterReplace],
   )
 
   const exportBackup = useCallback(async () => {
@@ -237,6 +441,15 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     if (!loaded) throw new Error('MISSING')
     return loaded.record
   }, [enqueuePersist])
+
+  const clearWeakPassword = useCallback(() => setWeakPassword(false), [])
+  const clearRecoveryNotice = useCallback(() => setRecoveryLeft(null), [])
+  const clearFailuresSeen = useCallback(() => setFailuresSeen(0), [])
+
+  const setIdleMinutes = useCallback((minutes: IdleMinutes) => {
+    storeIdleMinutes(minutes)
+    setIdleMinutesState(minutes)
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -278,26 +491,36 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (status !== 'ready') return
+    const idleMs = idleMinutes * 60_000
     let lastActivity = Date.now()
     const touch = () => {
       lastActivity = Date.now()
     }
+    const check = () => {
+      if (Date.now() - lastActivity >= idleMs) void lock()
+    }
+    // Background tabs throttle timers, so also check the moment the tab comes back.
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') check()
+    }
     const events = ['pointerdown', 'keydown', 'wheel', 'touchstart'] as const
     for (const name of events) window.addEventListener(name, touch, { passive: true })
-    const interval = window.setInterval(() => {
-      if (Date.now() - lastActivity >= VAULT_IDLE_MS) void lock()
-    }, 15_000)
+    document.addEventListener('visibilitychange', onVisibility)
+    const interval = window.setInterval(check, 15_000)
     return () => {
       for (const name of events) window.removeEventListener(name, touch)
+      document.removeEventListener('visibilitychange', onVisibility)
       window.clearInterval(interval)
     }
-  }, [status, lock])
+  }, [status, lock, idleMinutes])
 
   useEffect(() => {
     return () => {
       if (debounceRef.current != null) window.clearTimeout(debounceRef.current)
     }
   }, [])
+
+  const storageNearLimit = vaultBytes >= LIMITS.databaseWarnBytes
 
   const value = useMemo(
     () => ({
@@ -309,11 +532,25 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       lastBackupAt,
       revision,
       saveState,
+      weakPassword,
+      recoveryLeft,
+      failuresSeen,
+      storageNearLimit,
+      idleMinutes,
       setup,
       login,
+      verifySignInCheck,
+      cancelSignInCheck,
+      redeem,
+      guardWait,
       lock,
       importBackup,
+      replaceWithBackup,
       exportBackup,
+      clearWeakPassword,
+      clearRecoveryNotice,
+      clearFailuresSeen,
+      setIdleMinutes,
       run,
       query,
     }),
@@ -326,11 +563,25 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       lastBackupAt,
       revision,
       saveState,
+      weakPassword,
+      recoveryLeft,
+      failuresSeen,
+      storageNearLimit,
+      idleMinutes,
       setup,
       login,
+      verifySignInCheck,
+      cancelSignInCheck,
+      redeem,
+      guardWait,
       lock,
       importBackup,
+      replaceWithBackup,
       exportBackup,
+      clearWeakPassword,
+      clearRecoveryNotice,
+      clearFailuresSeen,
+      setIdleMinutes,
       run,
       query,
     ],

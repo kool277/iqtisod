@@ -49,7 +49,7 @@ const ACCOUNT_PATH = '/app/account'
 
 export function AppShell() {
   const { t } = useI18n()
-  const { user, vaultName, lock, saveState, query, revision, lastBackupAt } = useVault()
+  const { user, vaultName, lock, saveState, query, revision, lastBackupAt, weakPassword, storageNearLimit, recoveryLeft, clearRecoveryNotice, failuresSeen, clearFailuresSeen } = useVault()
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(SIDEBAR_KEY) === 'collapsed')
   const [reminderDismissed, setReminderDismissed] = useState(false)
   const reminder = useMemo(() => (user ? query((vault) => backupReminder(vault)) : null), [user, query, revision, lastBackupAt])
@@ -156,6 +156,44 @@ export function AppShell() {
           </p>
         </nav>
         <main id="content" className="mx-auto w-full min-w-0 max-w-[1280px] px-4 py-6 md:col-start-2 md:px-8 md:py-8">
+          {weakPassword && !forced && location.pathname !== ACCOUNT_PATH ? (
+            <div role="status" data-testid="weak-password-banner" className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-brass/50 bg-brass-soft px-4 py-3 text-sm">
+              <span className="min-w-0">{t('security.weakPassword')}</span>
+              <Link to={ACCOUNT_PATH} className="shrink-0 rounded-xl border border-line bg-card px-3 py-1.5 font-medium hover:border-brass">
+                {t('security.weakAction')}
+              </Link>
+            </div>
+          ) : null}
+          {failuresSeen > 0 && !forced ? (
+            <div role="status" data-testid="failures-seen-banner" className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-clay/50 bg-clay/10 px-4 py-3 text-sm text-clay-ink">
+              <span className="min-w-0">
+                {t('security.failuresSeen')} <strong className="tabular-nums">{failuresSeen}</strong>
+              </span>
+              <button type="button" className="shrink-0 rounded-xl px-3 py-1.5 hover:text-ink" onClick={clearFailuresSeen}>
+                {t('common.close')}
+              </button>
+            </div>
+          ) : null}
+          {recoveryLeft !== null && !forced ? (
+            <div role="status" data-testid="recovery-used-banner" className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-brass/50 bg-brass-soft px-4 py-3 text-sm">
+              <span className="min-w-0">
+                {t('signInCheck.recoveryUsed')} <strong className="tabular-nums">{recoveryLeft}</strong>
+              </span>
+              <span className="flex shrink-0 gap-2">
+                <Link to={ACCOUNT_PATH} className="rounded-xl border border-line bg-card px-3 py-1.5 font-medium hover:border-brass" onClick={clearRecoveryNotice}>
+                  {t('signInCheck.title')}
+                </Link>
+                <button type="button" className="rounded-xl px-3 py-1.5 text-muted hover:text-ink" onClick={clearRecoveryNotice}>
+                  {t('common.close')}
+                </button>
+              </span>
+            </div>
+          ) : null}
+          {storageNearLimit && !forced ? (
+            <div role="status" data-testid="storage-near-limit" className="mb-6 rounded-2xl border border-clay/50 bg-clay/10 px-4 py-3 text-sm text-clay-ink">
+              {t('security.storageNear')}
+            </div>
+          ) : null}
           {reminder && !reminderDismissed && !forced ? (
             <div role="status" data-testid="backup-reminder" data-kind={reminder} className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-brass/50 bg-brass-soft px-4 py-3 text-sm">
               <span className="min-w-0">{t(reminder === 'never' ? 'backup.reminderNever' : 'backup.reminderStale')}</span>
