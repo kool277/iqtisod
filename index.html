@@ -9,12 +9,7 @@
     />
     <title>Moliya</title>
     <script>
-      window.coi = {
-        shouldRegister: function () {
-          return window.crossOriginIsolated === false
-        },
-        quiet: true,
-      }
+      window.coi = { quiet: true }
     </script>
     <script src="./coi-serviceworker.js"></script>
   </head>

@@ -1,0 +1,97 @@
+# User guide
+
+This guide is for people who use a Moliya vault day to day: **Managers**, who record income and expenses, and **Viewers**, who review them. Admins can do everything here too. Their extra tasks are in the [admin guide](admin-guide.md).
+
+## Before you start
+
+Your admin gives you three things: the address of the app, your email, and a starting password. Moliya has no "forgot password" link. If you forget your password, ask your admin to reset it.
+
+The vault lives inside one browser on one device. If your admin set it up on a shared computer, use that computer and that browser. Opening the app on your own phone will show an empty setup screen, because that browser has no vault yet. Your admin can move a copy there with a backup file.
+
+## Signing in
+
+1. Open the app. You will see **Unlock vault**.
+2. Enter your email and password, then choose **Unlock**.
+
+Unlocking takes a moment, because your password is deliberately stretched to make guessing slow. If you see "Email or password is incorrect", check both. The message is the same for either mistake on purpose.
+
+## Finding your way around
+
+The menu on the left (along the top on a phone) shows only what your role allows:
+
+| Role | Dashboard | Transactions | Add, edit, delete records |
+| --- | --- | --- | --- |
+| Manager | Yes | Yes | Yes, for your group |
+| Viewer | Yes | Yes | No |
+
+You only see records that belong to your group. The top bar shows the vault name, the save status, the language and theme switches, and the **Lock** button.
+
+## Choosing a period
+
+Both the dashboard and the ledger use the same period buttons, and your choice carries over between them:
+
+- **Today**
+- **This week** (Monday to Sunday)
+- **This month** (the default)
+- **Last month**
+- **Year to date** (1 January to today)
+- **Custom**, which opens From and To date fields. If you enter them backwards, Moliya swaps them.
+
+## Recording money (Managers)
+
+1. Open **Transactions** and choose **Add record**.
+2. Fill in the form:
+   - **Type**: Income or Expense. The category list changes to match.
+   - **Amount**: a number above zero. Decimals are rounded to two places.
+   - **Category**: for example Salary, Food, or Transport.
+   - **Date**: defaults to today.
+   - **Currency**: defaults to the vault currency. See the note on currencies below.
+   - **Group**: only shown if you can see more than one group.
+   - **Notes**: optional, up to 2,000 characters.
+   - **Receipt**: optional photo, up to 1.5 MB. Use **View receipt** to check it, or **Remove receipt** to drop it.
+3. Choose **Save**.
+
+To change a record, choose **Edit** on it, adjust the fields, and choose **Update record**. To delete, choose **Delete**, then confirm. Deleting cannot be undone, but it is recorded in the admin's audit log.
+
+To narrow the list, use the **All / Income / Expense** filter next to **Add record**.
+
+### A note on currencies
+
+Each vault has one main currency, chosen when it was created. Totals and charts only count records in that currency. A record in another currency is still saved and listed, marked "Other currency — not included in totals". Moliya does not convert between currencies.
+
+## Reading the dashboard
+
+The four figures at the top cover the selected period:
+
+- **Net balance**: income minus expenses.
+- **Total income** and **Total expenses**.
+- **Savings rate**: the share of income left after expenses. It shows 0% when there is no income in the period, and it can be negative if you spent more than you earned.
+
+The charts below them:
+
+- **Income and expenses** compares each month in the period.
+- **Expenses by category** shows where the money went.
+- **Spending over time** shows daily expense totals.
+- **Who spent** shows expenses per person in your group. Admins see **Spending by group** instead.
+
+A chart shows "No figures in this range" when the period has no matching records.
+
+## Saving and locking
+
+You never need to press a save button for the vault itself. The status next to the language switch tells you what is happening:
+
+- **Saved**: everything is encrypted and stored.
+- **Unsaved** or **Encrypting…**: a change is being stored. This normally takes about a second.
+- **Could not save**: the browser refused to store data, for example because the disk is full or storage is blocked. Keep the tab open and tell your admin.
+
+Choose **Lock** when you step away. Locking, refreshing, or closing the tab removes the decrypted data from memory, and the next person must sign in.
+
+## Language and theme
+
+Pick a language from the language menu: Oʻzbekcha, Ўзбекча, Русский, or English. Pick **Day**, **Night**, or **System** to follow your device. Both choices are remembered in this browser.
+
+## Good habits
+
+- Lock the vault before leaving a shared device.
+- Do not clear this site's browsing data. Doing so deletes the vault from this browser. Only a backup can bring it back.
+- Use a password that is long and not used anywhere else.

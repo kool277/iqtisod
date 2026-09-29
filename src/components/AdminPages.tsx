@@ -40,6 +40,7 @@ export function UsersPage() {
   const allowed = Boolean(user && canUser(user, Permission.MANAGE_USERS))
   const people = useMemo(() => (allowed ? query((vault) => listUsers(vault)) : []), [allowed, query, revision])
   const groups = useMemo(() => (allowed ? query((vault) => listGroups(vault)) : []), [allowed, query, revision])
+  const selectedGroup = groupId || (role === 'Admin' ? '' : String(groups[0]?.id ?? ''))
   if (!allowed) return <Forbidden />
 
   async function onCreate(event: FormEvent) {
@@ -52,7 +53,7 @@ export function UsersPage() {
             email,
             password,
             roleName: role,
-            groupId: groupId ? Number(groupId) : null,
+            groupId: selectedGroup ? Number(selectedGroup) : null,
           }),
         { dirty: true },
       )
@@ -108,7 +109,7 @@ export function UsersPage() {
           </select>
         </Field>
         <Field label={t('common.group')}>
-          <select data-testid="user-group" className={controlClass} value={groupId} onChange={(event) => setGroupId(event.target.value)}>
+          <select data-testid="user-group" className={controlClass} value={selectedGroup} onChange={(event) => setGroupId(event.target.value)}>
             {role === 'Admin' ? <option value="">—</option> : null}
             {groups.map((group) => (
               <option key={group.id} value={group.id}>
