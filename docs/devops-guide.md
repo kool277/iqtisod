@@ -61,7 +61,7 @@ All actions are pinned to full commit SHAs with the release tag in a comment. De
 | Workflow | Trigger | What it does |
 | --- | --- | --- |
 | `ci.yml` | Pull requests, pushes to branches other than `main`, called by the other workflows | `npm ci --ignore-scripts`, `npm audit signatures` (registry signatures and provenance), typecheck, unit tests, `npm audit --omit=dev --audit-level=high` (plus an advisory full `npm audit`), build (uploads `dist` as an artifact), Playwright against the production preview, dependency review on pull requests |
-| `deploy.yml` | Push to `main`, manual | Runs `ci.yml`, then publishes the tested `dist` artifact to `gh-pages` in the `production` environment, with `CNAME` only once the custom domain is set (see [Custom domain jaybi.uz](#custom-domain-jaybiuz)) |
+| `deploy.yml` | Push to `main`, manual | Runs `ci.yml`, then publishes the tested `dist` artifact to `gh-pages` in the `production` environment, with `CNAME` only while the custom domain is set (see [Custom domain and DNS](#custom-domain-and-dns-jaybiuz)) |
 | `release.yml` | Tag `vX.Y.Z` | Runs `ci.yml`, checks the tag equals `package.json`'s version, packages `jaybi-X.Y.Z.zip` (releases up to 1.2.0 are named `moliya-X.Y.Z.zip`) and `SHA256SUMS`, attests build provenance, and creates a GitHub release with the notes from `CHANGELOG.md` |
 | `codeql.yml` | Push and pull request to `main`, weekly | CodeQL `security-extended` for JavaScript and TypeScript |
 | `fx-rates.yml` | 03:17 UTC daily and 15:47 UTC on weekdays, manual | Fetches, validates, and records official exchange rates on `fx-data`, then publishes `rates/` to `gh-pages`. See [Exchange rates](#exchange-rates) |
@@ -74,7 +74,7 @@ The deploy only publishes the exact files CI tested. A failing check stops it, a
 
 The repository is `kool277/iqtisod`. These settings cannot be committed and must be set by an owner:
 
-1. **Settings → Pages → Build and deployment**: **Deploy from a branch**, branch `gh-pages`, folder `/ (root)`. Enable **Enforce HTTPS**. (If you ever switch to "GitHub Actions" as the source, change `deploy.yml` to `actions/deploy-pages` at the same time, or the site stops updating.)
+1. **Settings → Pages → Build and deployment**: **Deploy from a branch**, branch `gh-pages`, folder `/ (root)`. **Custom domain** `jaybi.uz` with **Enforce HTTPS** (see [Custom domain and DNS](#custom-domain-and-dns-jaybiuz)). (If you ever switch to "GitHub Actions" as the source, change `deploy.yml` to `actions/deploy-pages` at the same time, or the site stops updating.)
 2. **Settings → Environments → New environment** `production`. Optionally add required reviewers and restrict deployment branches to `main`, so a person approves each production deploy.
 3. **Settings → Actions → General → Workflow permissions**: keep **Read repository contents** as the default. Each job asks for the write permissions it needs.
 4. **Settings → Rules → Rulesets** (or Branches) for `main`: require a pull request, require the status checks **Typecheck, unit tests, audit, build**, **End-to-end tests (production preview)**, and **Analyze (javascript-typescript)**, block force pushes and deletion.
@@ -86,69 +86,111 @@ The repository is `kool277/iqtisod`. These settings cannot be committed and must
 
 A local `iqtisod/` directory, if present, is a nested git clone rather than project code. `.gitignore` excludes it; do not add it back to the index, because a gitlink without `.gitmodules` breaks `actions/checkout`.
 
-### Custom domain jaybi.uz
+### Custom domain and DNS (jaybi.uz)
 
-Production moves from the old address `https://kool277.github.io/iqtisod/` to `https://jaybi.uz`, which gives the app an origin of its own (see [Origin and storage isolation](#origin-and-storage-isolation)). `www.jaybi.uz` redirects to `jaybi.uz`: GitHub does this by itself when both names point at GitHub Pages and the custom domain is the apex. A custom domain on the `kool277/iqtisod` repository moves only this project; other Pages sites of the account keep their `github.io` addresses.
+Production is served from `https://jaybi.uz`, the apex domain, which gives the app an origin of its own (see [Origin and storage isolation](#origin-and-storage-isolation)). The move from `https://kool277.github.io/iqtisod/` is done: GitHub answers the old address with a `301` redirect to `https://jaybi.uz/`, and `www.jaybi.uz` redirects to `jaybi.uz` (GitHub does this by itself when both names point at GitHub Pages and the custom domain is the apex). The custom domain is set on the `kool277/iqtisod` repository only; other Pages sites of the account keep their `github.io` addresses.
 
-**Users' vaults do not follow.** IndexedDB is per origin. Once the custom domain is set, GitHub answers `https://kool277.github.io/iqtisod/` with a `301` redirect to `https://jaybi.uz`, so nobody can open the old origin in a browser any more, and the vaults stored there become unreachable (they are not deleted). That is why the cut-over order below matters. From 1.3.0 the app helps: at `kool277.github.io` it shows a moving notice on the setup, sign-in, and app screens ("Jaybi is moving to jaybi.uz. Download an encrypted backup now, then open jaybi.uz and import it."), and admins get a one-click backup download. At `jaybi.uz`, the setup screen of an empty browser points people coming from the old address to the backup import.
+**Users' vaults did not follow.** IndexedDB is per origin. Vaults created at the old address are still in those browsers, but the redirect means nobody can open that origin any more, so they are unreachable (not deleted). [Recovering a vault left at the old address](#recovering-a-vault-left-at-the-old-address) is the way back. The app helps with that: at `kool277.github.io` it shows a moving notice on the setup, sign-in, and app screens ("Jaybi is moving to jaybi.uz. Download an encrypted backup now, then open jaybi.uz and import it."), with a one-click backup download for Admins, and at `jaybi.uz` the setup screen of an empty browser points people coming from the old address to the backup import.
 
-**How the domain is deployed.** `public/CNAME` contains `jaybi.uz`, and Vite copies it to `dist/CNAME`. When Pages publishes from a branch, a `CNAME` file on `gh-pages` *is* the custom domain setting, so publishing it too early would switch the site over at once. The step **Keep CNAME only once the custom domain is set** in `deploy.yml` therefore reads `CNAME` from `gh-pages` before publishing:
+#### How the domain is deployed
+
+`public/CNAME` contains `jaybi.uz`, and Vite copies it to `dist/CNAME`. When Pages publishes from a branch, a `CNAME` file on `gh-pages` *is* the custom domain setting, so publishing it at the wrong time would switch the site over at once. The step **Keep CNAME only once the custom domain is set** in `deploy.yml` therefore reads `CNAME` from `gh-pages` before publishing:
 
 | `CNAME` on `gh-pages` | What the deploy does |
 | --- | --- |
-| None (the domain is not set yet) | Removes `dist/CNAME` and publishes; the site stays at the old address. The log shows a notice. |
-| `jaybi.uz` (an owner saved the domain in Settings, which commits the file) | Publishes `dist/CNAME`, so `keep_files: false` never deletes the domain. |
-| Anything else, or the API call fails | Fails the deploy; the last good version stays online. |
+| Exactly `jaybi.uz` (an owner saved the domain in Settings, which commits the file). This is the normal state | Publishes `dist/CNAME`, so `keep_files: false` never deletes the domain. The log says "Custom domain jaybi.uz is set; publishing CNAME". |
+| None (the domain was removed in Settings) | Removes `dist/CNAME` and publishes; the site is served at the old address `kool277.github.io/iqtisod/`. The log shows the notice "No custom domain on gh-pages yet". |
+| Any other value, or the API call fails | Fails the deploy; the last good version stays online. |
 
-Do not also set the action's `cname:` input: the domain has exactly one source, `public/CNAME`. Any other workflow that publishes to `gh-pages` must leave the root `CNAME` alone (with `peaceiris/actions-gh-pages`, a `destination_dir` limits `keep_files: false` to that folder). The `production` environment URL follows the live address automatically.
+Do not also set the action's `cname:` input: the domain has exactly one source, `public/CNAME` (`tests/unit/hosting.test.ts` checks both). Any other workflow that publishes to `gh-pages` must leave the root `CNAME` alone (with `peaceiris/actions-gh-pages`, a `destination_dir` limits `keep_files: false` to that folder). The `production` environment URL follows the live address automatically.
 
-#### Safe cut-over order
+#### DNS records (ahost.uz)
 
-1. **Deploy this version at the old address first.** Merge 1.3.0 to `main`. The deploy log says "No custom domain on gh-pages yet". Visitors at `kool277.github.io/iqtisod/` now see the moving notice.
-2. **Let users back up.** Announce the move and a date, and give every Admin time (at least two weeks is reasonable) to download a backup there. Each Admin should also import it at `jaybi.uz` as soon as it works (step 7) and check it before anyone makes changes there.
-3. **Verify the domain for the account.** On GitHub, open your profile **Settings → Pages → Verified domains → Add a domain**, enter `jaybi.uz`, and add the `TXT` record it shows at the registrar (step 4): name `_github-pages-challenge-kool277`, value as shown. Choose **Verify**, and keep the record in DNS for good. A verified domain cannot be claimed by anyone else's Pages site, which is what makes it safe to point DNS at GitHub before the repository uses the domain. (GitHub's docs otherwise say to add the domain to the repository first; doing that before DNS works here would redirect every visitor to the registrar's parking page.)
-4. **DNS at the registrar.** At ahost.uz open **My domains → jaybi.uz → DNS manager**. Do not use the **Domain redirect** tab: GitHub serves the site and does the `www` redirect itself.
-   - Delete the existing `A` record `@` → `185.196.212.52` (ahost's parking server) and every other `A`, `AAAA`, `ALIAS`, `ANAME`, or URL/redirect record for `@` and for `www`.
-   - Add these records (no wildcard records, ever):
+The domain is registered at ahost.uz and uses its nameservers `rdns1.ahost.uz`, `rdns2.ahost.uz`, and `rdns3.ahost.uz`. Records are edited under **My domains → jaybi.uz → DNS manager**. Do not use the **Domain redirect** tab: GitHub serves the site and does the `www` redirect itself. This is the configuration in use:
 
-   | Type | Name | Value |
-   | --- | --- | --- |
-   | `A` | `@` | `185.199.108.153` |
-   | `A` | `@` | `185.199.109.153` |
-   | `A` | `@` | `185.199.110.153` |
-   | `A` | `@` | `185.199.111.153` |
-   | `AAAA` | `@` | `2606:50c0:8000::153` |
-   | `AAAA` | `@` | `2606:50c0:8001::153` |
-   | `AAAA` | `@` | `2606:50c0:8002::153` |
-   | `AAAA` | `@` | `2606:50c0:8003::153` |
-   | `CNAME` | `www` | `kool277.github.io.` (the account's Pages host only, no repository path) |
-   | `TXT` | `_github-pages-challenge-kool277` | the value from step 3 |
+| Type | Name | Value | Purpose |
+| --- | --- | --- | --- |
+| `A` | `@` | `185.199.108.153` | GitHub Pages |
+| `A` | `@` | `185.199.109.153` | GitHub Pages |
+| `A` | `@` | `185.199.110.153` | GitHub Pages |
+| `A` | `@` | `185.199.111.153` | GitHub Pages |
+| `AAAA` | `@` | `2606:50c0:8000::153` | GitHub Pages (IPv6) |
+| `AAAA` | `@` | `2606:50c0:8001::153` | GitHub Pages (IPv6) |
+| `AAAA` | `@` | `2606:50c0:8002::153` | GitHub Pages (IPv6) |
+| `AAAA` | `@` | `2606:50c0:8003::153` | GitHub Pages (IPv6) |
+| `CNAME` | `www` | `kool277.github.io.` | `www` redirect. This is the recommended value: the account's Pages host, with no repository path. The value in place today is `jaybi.uz`, which also works because it resolves to the same Pages addresses |
+| `A` | `mail` | `185.196.212.52` | ahost mail hosting |
+| `A` | `ftp` | `185.196.212.52` | ahost hosting |
+| `MX` | `@` | `mail.jaybi.uz` | mail for `@jaybi.uz` addresses |
+| `TXT` | `@` | `v=spf1 +mx +ip4:185.196.212.52 ~all` | SPF (recommended value, see below) |
+| `TXT` | DKIM and DMARC names | unchanged from ahost's mail set-up | mail signing and policy |
+| `TXT` | `_github-pages-challenge-kool277` | the value GitHub shows | optional domain verification (see [GitHub Pages settings](#github-pages-settings)) |
 
-   These are GitHub's published Pages addresses (checked against [Managing a custom domain](https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/managing-a-custom-domain-for-your-github-pages-site) in September 2026; check again before changing DNS). If you add a `CAA` record, it must allow `letsencrypt.org`, or GitHub cannot issue the certificate.
-5. **Wait for DNS**, then check from a terminal:
+- The apex used to point at ahost (`A @ → 185.196.212.52`). That record must stay deleted, together with any other `A`, `AAAA`, `ALIAS`, `ANAME`, or URL/redirect record for `@` or `www`. Never add wildcard records.
+- Mail and FTP stay on ahost, which is why `mail` and `ftp` keep their own `A` records. Drop `+a` from the SPF record: `a` now means GitHub's addresses, which never send mail for the domain.
+- These are GitHub's published Pages addresses (checked against [Managing a custom domain](https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/managing-a-custom-domain-for-your-github-pages-site) in September 2026; check again before changing DNS). If you add a `CAA` record, it must allow `letsencrypt.org`, or GitHub cannot issue the certificate.
 
-   ```bash
-   dig jaybi.uz +short          # exactly the four 185.199.108-111.153 addresses
-   dig jaybi.uz AAAA +short     # the four 2606:50c0:800x::153 addresses
-   dig www.jaybi.uz +short      # kool277.github.io. followed by Pages addresses
-   dig TXT _github-pages-challenge-kool277.jaybi.uz +short
-   ```
+#### GitHub Pages settings
 
-   Nothing else, and in particular not `185.196.212.52`, may appear. Changes can take up to 24 hours to reach every resolver.
-6. **Set the custom domain.** In `kool277/iqtisod` **Settings → Pages → Custom domain**, enter `jaybi.uz` and choose **Save**. GitHub commits `CNAME` to `gh-pages`, runs its DNS check, and requests a certificate (up to an hour, sometimes longer). When the page says the certificate is ready, tick **Enforce HTTPS**. From this moment the old address redirects to `jaybi.uz`.
-7. **Check the result:**
+1. **Verify the domain for the account (optional, recommended).** On GitHub, open your profile **Settings → Pages → Verified domains → Add a domain**, enter `jaybi.uz`, add the `TXT` record it shows (name `_github-pages-challenge-kool277`) at ahost, and choose **Verify**. Keep the record for good. A verified domain cannot be claimed by anyone else's Pages site, even for a moment while the repository's custom domain is removed.
+2. **Custom domain.** In `kool277/iqtisod` **Settings → Pages → Custom domain**, `jaybi.uz` is saved. Saving commits `CNAME` to `gh-pages`, runs GitHub's DNS check, and requests a certificate (up to an hour, sometimes longer). From that moment the old address redirects to `jaybi.uz`.
+3. **Enforce HTTPS** is ticked. The box can be ticked only once the certificate is ready.
+4. After saving the domain, run **Deploy GitHub Pages** once by hand (Actions tab, **Run workflow**) and check that its log says "Custom domain jaybi.uz is set; publishing CNAME", so later deploys cannot drop the domain.
 
-   ```bash
-   curl -I https://jaybi.uz                      # 200, server: GitHub.com
-   curl -I https://www.jaybi.uz                  # 301, location: https://jaybi.uz/
-   curl -I http://jaybi.uz                       # 301 to https:// once HTTPS is enforced
-   curl -I https://kool277.github.io/iqtisod/    # 301, location: https://jaybi.uz/
-   ```
+#### Checking DNS and HTTPS
 
-   Open `https://jaybi.uz`, expect one automatic reload on the first visit (the isolation service worker), import a backup in a private window, and check the version in Settings → About.
-8. **Run Deploy GitHub Pages once by hand** (Actions tab, **Run workflow**) and check that its log says "Custom domain jaybi.uz is set; publishing CNAME", so later deploys cannot drop the domain.
+Ask a public resolver directly, so local caches cannot mislead you:
 
-If someone missed the move, their vault is still in their browser under the old origin. The only way back to it is to remove the custom domain in Settings for a while, which also takes `jaybi.uz` offline for everyone; the next deploy then publishes without `CNAME` again. Prefer a generous announcement period instead.
+```bash
+dig @1.1.1.1 jaybi.uz +short          # exactly the four 185.199.108-111.153 addresses
+dig @1.1.1.1 jaybi.uz AAAA +short     # the four 2606:50c0:800x::153 addresses
+dig @1.1.1.1 www.jaybi.uz +short      # kool277.github.io. (or jaybi.uz.) followed by Pages addresses
+dig @1.1.1.1 jaybi.uz MX +short       # mail.jaybi.uz.
+dig @1.1.1.1 mail.jaybi.uz +short     # 185.196.212.52
+dig @1.1.1.1 TXT _github-pages-challenge-kool277.jaybi.uz +short   # only if the domain is verified
+```
+
+`185.196.212.52` must not appear for `jaybi.uz` itself. Then check the site:
+
+```bash
+curl -I https://jaybi.uz                      # 200, server: GitHub.com
+curl -I https://www.jaybi.uz                  # 301, location: https://jaybi.uz/
+curl -I http://jaybi.uz                       # 301 to https:// (Enforce HTTPS)
+curl -I https://kool277.github.io/iqtisod/    # 301, location: https://jaybi.uz/
+curl https://jaybi.uz/version.json            # the version and commit that were just deployed
+```
+
+#### DNS pitfalls
+
+- **A name with a `CNAME` cannot have any other record.** ahost refuses an `A` record for a name that still has a `CNAME`. Delete the `CNAME`, save, and only then add the `A` records.
+- **`AAAA` records take only IPv6 addresses** (and `A` records only IPv4). Pasting an IPv4 address into an `AAAA` record fails.
+- **Caches show the old address for a while.** The TTL is 14,400 seconds (4 hours), and the router, the operating system, and the browser each cache answers. Your own machine may keep showing the old IP after public resolvers have the new one. Check with `dig @1.1.1.1 jaybi.uz +short` rather than a browser. To clear local caches:
+  - macOS: `sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder`
+  - Firefox: open `about:networking#dns` and choose **Clear DNS Cache**
+  - Chrome: open `chrome://net-internals/#dns` and choose **Clear host cache**
+  - The router: restart it, or test from a phone on mobile data.
+- **GitHub's DNS check** on the Pages settings page can report a misconfiguration until caches have expired. Wait for the TTL, then choose **Check again**.
+
+#### After a deploy
+
+- **Exchange rates.** Once the deploy works, run **Actions → Exchange rates → Run workflow** once, then run **Deploy GitHub Pages** again (or push to `main`), so the site includes `rates/latest.json`. After that, the scheduled rate runs and every deploy keep `rates/` in place. Check with `curl -sI https://jaybi.uz/rates/latest.json` (expect `200`).
+- **Version.** `curl https://jaybi.uz/version.json` must show the version and commit you just deployed. GitHub Pages caches for about 10 minutes.
+- Open `https://jaybi.uz`, expect one automatic reload on the first visit (the isolation service worker), and check the version in Settings → About.
+
+#### Recovering a vault left at the old address
+
+A browser that still holds a vault from `kool277.github.io/iqtisod/` keeps it, but the redirect hides it. To get it out, the old origin has to be served again for a while:
+
+1. Pick a time and warn users: while the custom domain is removed, `jaybi.uz` does not serve the app.
+2. In `kool277/iqtisod` **Settings → Pages → Custom domain**, choose **Remove**. GitHub deletes `CNAME` from `gh-pages`, and after a few minutes `https://kool277.github.io/iqtisod/` serves the app again instead of redirecting. A deploy in the meantime publishes without `CNAME` (see [How the domain is deployed](#how-the-domain-is-deployed)).
+3. The person opens the old address in the same browser and profile that holds the vault. An Admin signs in and chooses **Download backup now** in the moving notice (or **Backup → Download backup**). Other roles see that only an Admin can download the backup.
+4. Enter `jaybi.uz` under **Custom domain** again and choose **Save**. Wait for the DNS check and the certificate, and make sure **Enforce HTTPS** is ticked.
+5. Run **Deploy GitHub Pages** once and check the log for "Custom domain jaybi.uz is set; publishing CNAME".
+6. The Admin opens `https://jaybi.uz`, and in a browser with no vault there chooses **Import a backup instead** on **Create your vault**, then signs in and checks the records. See [Moving to jaybi.uz](admin-guide.md#moving-to-jaybiuz) in the admin guide.
+
+#### Changing the domain again
+
+Any new origin strands every vault again. If the domain ever has to change, deploy a build that shows a moving notice at the current address first (`src/lib/origin-move.ts` names the old and new hosts), announce the date, give Admins time (two weeks or more) to download backups, verify the new domain and set up its DNS, and only then change **Custom domain** and `public/CNAME` together (deploys fail while they differ). Saving a domain in the repository before its DNS points at GitHub sends every visitor to wherever the domain points at that moment.
 
 The cross-origin isolation headers keep working unchanged: `coi-serviceworker.js` is served from `jaybi.uz` like the rest of the app. Nothing in the app refers to the old host except the moving notice, which appears only when `location.hostname` is `kool277.github.io`.
 
@@ -156,7 +198,7 @@ The cross-origin isolation headers keep working unchanged: `coi-serviceworker.js
 
 GitHub Pages cannot send security headers. Cloudflare can, later, without changing the app:
 
-1. Move the domain's nameservers from ahost.uz to Cloudflare and recreate the records from step 4 as **DNS only** until GitHub has issued the certificate, because GitHub's certificate check needs to reach GitHub directly.
+1. Move the domain's nameservers from ahost.uz to Cloudflare and recreate every record from [DNS records](#dns-records-ahostuz), including the mail, FTP, MX, SPF, DKIM, and DMARC records. Keep the Pages records **DNS only** until GitHub has issued the certificate, because GitHub's certificate check needs to reach GitHub directly. The `mail` and `ftp` records always stay **DNS only**.
 2. Switch the `A`, `AAAA`, and `www` records to **Proxied**.
 3. **SSL/TLS → Overview**: set the mode to **Full (strict)**. Never use Flexible: it would fetch the site from GitHub over plain HTTP. Turn on **Always Use HTTPS**.
 4. Add the headers from [Security headers](#security-headers) as a Transform Rule.
@@ -279,9 +321,9 @@ Running apps notice the new `version.json` within 30 minutes, or when the tab be
 
 This is the most important operational topic, because it decides whether users can reach their data.
 
-- **A vault belongs to an origin** (scheme, host, and port). IndexedDB is per origin. Moving from `kool277.github.io` to a custom domain, or changing a port, gives users an empty app. Their vault still exists at the old address. Announce a move ahead of time, and ask admins to export a backup at the old address and import it at the new one. On GitHub Pages the old address redirects as soon as the custom domain is set, so the backups must happen before that; see [Custom domain jaybi.uz](#custom-domain-jaybiuz) for the order.
-- **Paths do not isolate.** `https://kool277.github.io/iqtisod/` shares its origin with every other GitHub Pages site of the account: the user site (a repository named `kool277.github.io`) and the project site of every other repository with Pages turned on. JavaScript on any of those pages can read the stored ciphertext and the plaintext emails, delete or replace the vault and its earlier copies, unregister the isolation service worker, and script open app windows. A user site can also register a service worker for the whole origin, which would then control the app's pages. The data stays encrypted, but for real use, host the app on its **own origin**: a custom domain or subdomain that serves nothing else. That is `jaybi.uz` from 1.3.0 (see [Custom domain jaybi.uz](#custom-domain-jaybiuz)).
-- **Until the move, keep no other Pages sites on `kool277`.** Do not create a user site or turn on Pages for any other repository of the account, and check **Settings → Pages** of existing repositories now and then. Also note that giving a user site a custom domain moves project sites without their own domain under it, which would change the old address's origin and hide every vault stored there.
+- **A vault belongs to an origin** (scheme, host, and port). IndexedDB is per origin. Moving to another domain, or changing a port, gives users an empty app. Their vault still exists at the old address. That is what happened with the move from `kool277.github.io` to `jaybi.uz` in 1.3.0: on GitHub Pages the old address redirects as soon as the custom domain is set, so vaults that were not backed up before then need the steps in [Recovering a vault left at the old address](#recovering-a-vault-left-at-the-old-address).
+- **Paths do not isolate.** Until 1.3.0 the app lived at `https://kool277.github.io/iqtisod/`, which shares its origin with every other GitHub Pages site of the account: the user site (a repository named `kool277.github.io`) and the project site of every other repository with Pages turned on. JavaScript on any of those pages can read the stored ciphertext and the plaintext emails, delete or replace the vault and its earlier copies, unregister the isolation service worker, and script open app windows. That is why production now runs on its **own origin**, `jaybi.uz`, which serves nothing else. Keep it that way: put no other content on `jaybi.uz`, and give any other site its own subdomain or domain.
+- **The old origin still holds stranded vaults.** Vaults nobody moved are still stored, encrypted, under `kool277.github.io` in their browsers. A user site or another project site of the account could read or delete them if someone visited it in the same browser. Prefer not to publish other Pages sites on `kool277.github.io` while such vaults may still need [recovering](#recovering-a-vault-left-at-the-old-address).
 - **Browsers may evict storage.** The app requests persistent storage after sign-in. Safari still deletes script-written data after 7 days without a visit for sites not added to the Home Screen. Backups are the real protection; the app reminds admins when the last backup is older than 7 days.
 - **Redeploying never touches user data.** Data lives only in users' browsers. Rolling back the code does not roll back or delete anyone's vault.
 
@@ -363,7 +405,7 @@ Outside GitHub, publish rates with a scheduled job on any machine with Node.js 2
 There is no server-side logging, analytics, or error reporting, by design. Adding any would break the "nothing leaves the device" promise and must be opt-in and documented if ever added. Useful checks:
 
 - The Actions tab and the Security tab (CodeQL, Dependabot) for failures and alerts.
-- An uptime check that fetches `version.json`, expects `200`, and compares `version` with the latest tag.
+- An uptime check that fetches `https://jaybi.uz/version.json`, expects `200`, and compares `version` with the latest tag.
 - A freshness check that fetches `rates/latest.json` and alerts when `generatedAt` is more than 4 days old. Failed **Exchange rates** runs also appear in the Actions tab and in GitHub's failure emails.
 - After each deploy, open the site, create a throwaway vault in a private window, add one record, and check the version in Settings → About.
 
@@ -379,8 +421,9 @@ There is no server-side logging, analytics, or error reporting, by design. Addin
 ## Security checklist
 
 - [ ] Served only over HTTPS. Enforce HTTPS in Pages settings.
-- [ ] Hosted on a dedicated origin for production use, with the domain verified for the account.
-- [ ] Until then, no other GitHub Pages site (user or project) on `kool277`.
+- [ ] Hosted on a dedicated origin (`jaybi.uz`, serving nothing else), with the domain verified for the account.
+- [ ] DNS matches [DNS records](#dns-records-ahostuz): no leftover apex record pointing at ahost, no wildcard records.
+- [ ] While vaults may remain at the old address, no other GitHub Pages site (user or project) on `kool277.github.io`.
 - [ ] If a proxy or host can send headers: the full policy with `frame-ancestors 'none'`, COOP, COEP, `nosniff`, `Referrer-Policy`, and `Permissions-Policy` sent on every response, and Cloudflare in **Full (strict)** mode with script-injecting features off.
 - [ ] Branch and tag rulesets as described in [One-time GitHub settings](#one-time-github-settings), with **Require review from Code Owners** on `main`. `.github/CODEOWNERS` covers key handling, storage, auth, grants, users, account, the sign-in check, limits, `public/`, `index.html`, `vite.config.ts`, the recovery tool, fixtures, the lock file, and `.github/`. (`src/services/safe.service.ts` is not in it; review it with the same care.)
 - [ ] `production` environment in place; workflow default permissions read-only.

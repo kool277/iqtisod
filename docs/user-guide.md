@@ -8,7 +8,7 @@ Your admin gives you the address of the app, your email, and usually a **one-tim
 
 Jaybi has no "forgot password" link. If you forget your password, ask your admin for a reset code, but read [After an admin resets your password](#after-an-admin-resets-your-password) first if you use private safes.
 
-Jaybi was called Moliya before version 1.3.0, and it moves from `kool277.github.io/iqtisod` to `https://jaybi.uz`. If your admin has moved the vault, use the new address with your usual email and password.
+Jaybi was called Moliya before version 1.3.0, and it now lives at [https://jaybi.uz](https://jaybi.uz). The old address, `kool277.github.io/iqtisod`, forwards there. Sign in at `jaybi.uz` with your usual email and password. If it shows **Create your vault** instead, your vault is still stored under the old address in this browser and has not been moved yet: do not create a new vault, and ask your admin (see [Moving to jaybi.uz](admin-guide.md#moving-to-jaybiuz)).
 
 The vault lives inside one browser on one device. If your admin set it up on a shared computer, use that computer and that browser. Opening the app on your own phone will show an empty setup screen, because that browser has no vault yet. Your admin can move a copy there with a backup file.
 
@@ -322,7 +322,7 @@ Pick a language from the language menu: Oʻzbekcha, Ўзбекча, Русски
 
 ## Getting your data out
 
-Need your records in a spreadsheet or a PDF report? Only Admins can export data, so ask your admin. They can export one group or one period, as CSV, Excel, PDF, and other formats.
+Need your records in a spreadsheet or a PDF report? Only Admins can export data, so ask your admin. They can export one group or one period, as CSV, Excel, PDF, and other formats, usually as an encrypted file with a separate export password. Private safes are never part of an export.
 
 ## Good habits
 
