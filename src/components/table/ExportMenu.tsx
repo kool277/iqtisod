@@ -6,7 +6,7 @@ import { loadExportMessages } from '../../i18n'
 import { downloadFile } from '../../lib/download'
 import { textForError } from '../../lib/errors'
 import type { ViewCell, ViewColumn } from '../../services/export/view-cells'
-import type { ViewTable } from '../../services/export/view-tables'
+import type { ViewTable } from '../../services/view-access'
 import { Popover } from './Popover'
 
 const FORMATS = ['csv', 'xlsx', 'pdf', 'json'] as const

@@ -1,4 +1,4 @@
-import { Permission, canUser, type PermissionName } from '../../rbac'
+import { Permission, canUser, type PermissionName } from '../rbac'
 
 /**
  * Tables whose current view may be exported, with the permission that already guards the page.

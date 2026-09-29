@@ -8,10 +8,10 @@ import { csvCell } from './csv'
 import { MIME, exportFileName, type ExportResult } from './options'
 import type { PdfFonts } from './pdf-fonts'
 import { currencyHeader, isViewMoney, type ViewCell, type ViewColumn, type ViewKind } from './view-cells'
-import { canExportView, isViewTable, type ViewTable } from './view-tables'
+import { canExportView, isViewTable, type ViewTable } from '../view-access'
 
 export type { ViewCell, ViewColumn, ViewKind, ViewMoney } from './view-cells'
-export { VIEW_TABLES, canExportView, isViewTable, type ViewTable } from './view-tables'
+export { VIEW_TABLES, canExportView, isViewTable, type ViewTable } from '../view-access'
 
 export const VIEW_FORMATS = ['csv', 'xlsx', 'pdf', 'json'] as const
 export type ViewFormat = (typeof VIEW_FORMATS)[number]
