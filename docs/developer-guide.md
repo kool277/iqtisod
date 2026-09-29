@@ -143,10 +143,43 @@ Private safes and the Account page are outside RBAC on purpose. They are availab
 | `audit.service.ts` | `writeAudit` (call inside the same transaction as the change), `listAudit`, `auditIntegrity` |
 | `backup.service.ts` | Backup file text and names, `noteExport`, `backupReminder` |
 | `export.service.ts` | Plaintext CSV and SQLite exports (gated by `EXPORT_VAULT`, audited). The CSV formula guard also catches leading whitespace and full-width `＝ ＋ － ＠`. The SQLite export blanks password columns, drops all safe and `user_totp` rows, and blanks `access_grants.code_verifier` |
+| `fx.service.ts` | Exchange-rate snapshot fetch, verification, and cache; converter input parsing. Needs no vault or permission |
 
 Shared helpers used by the services: `src/lib/email.ts` (`normalizeEmail`, and `isEmail`, which checks the 254-character cap before a linear-time pattern), `src/lib/password-policy.ts` (`assertNewPassword` and `passwordProblem`: 12 to 256 characters, the lazily loaded blocklist in `common-passwords.ts`, no email or vault name as the main part, no repetition or keyboard run), and `src/lib/limits.ts` (every size cap in one place).
 
 Errors are `AppError` subclasses with a string code (`src/domain/errors.ts`). `src/lib/errors.ts` maps codes to translated messages. Add a case there when you add a code. Safe errors are `SafeError` with a `SafeErrorCode`, translated from the `safeErrors` section of the dictionaries. Codes added in 1.3.0 (password, code, sign-in check, receipt, size, and import errors) are translated from `securityErrors`, and their audit labels from `securityAudit`.
+
+### Exchange rates
+
+The dashboard panel shows official USD rates for UZS, KRW, and ILS in both directions. It is public reference data, so it lives outside the vault and has no permission check.
+
+```text
+fx-rates.yml (cron) → tools/fetch-rates.ts → validate + cross-check → fx-data branch → gh-pages /rates/
+browser → ./rates/latest.json (same origin) → parseSnapshot (digest, schema, bounds) → localStorage → panel
+```
+
+Why a scheduled job instead of calling the banks from the browser: the Bank of Israel and the ECB's daily XML send no CORS headers, the Bank of Korea API needs a private key, and a direct call would tell every central bank (and any proxy) who uses Jaybi and when. The job keeps `connect-src 'self'` in the CSP, gives every user the same audited numbers, and archives the raw upstream bytes.
+
+| Pair | Primary source | Fallbacks |
+| --- | --- | --- |
+| USD/UZS | [Central Bank of Uzbekistan](https://cbu.uz/en/arkhiv-kursov-valyut/) JSON, official rate | none (a missing rate is carried forward) |
+| USD/KRW | [ECB](https://data-api.ecb.europa.eu/) cross: EUR/KRW ÷ EUR/USD | CBU cross: USD/UZS ÷ KRW/UZS (CBU publishes KRW to 2 decimals only) |
+| USD/ILS | [Bank of Israel](https://www.boi.org.il/en/economic-roles/financial-markets/exchange-rates/) SDMX, representative rate `RER_USD_ILS` | ECB cross, then CBU cross |
+
+The publisher refuses to write a snapshot (and the job fails) when a response does not parse, a rate is outside `FX_BOUNDS`, the primary and an independent reference disagree by more than 1.5% (ECB/BOI) or 2% (CBU cross, and CBU's implied EUR/USD against the ECB's), or a rate moves more than 10% against the published one without `--allow-large-moves`. A source that is down is replaced by its fallback, or by the previous quote with its old date, and the run is marked degraded. The snapshot format is in [data-format.md](data-format.md#published-exchange-rate-snapshot).
+
+Decimal policy:
+
+- Money and rates never pass through `number`. `src/lib/decimal.ts` is a small BigInt decimal in the style of Java's `BigDecimal` (unscaled integer and scale, `divide` with an explicit scale or precision, `HALF_EVEN` by default). It accepts only strings and bigints. It was chosen over decimal.js, big.js, and bignumber.js to stay dependency-free and to share one implementation between the browser and the Node publisher; the randomized test compares it against exact rational bounds.
+- Official rates are kept and shown as published. Cross rates are stored to 12 significant digits (`CROSS_PRECISION`), with the two official legs kept beside them so the client can recompute and verify them.
+- Inverse and derived rates are displayed to 6 significant digits (`DISPLAY_PRECISION`).
+- The converter computes amount × (numerator ÷ denominator of the official legs) and rounds once, half-even, to the ISO 4217 minor unit (`FX_MINOR_UNITS`: USD 2, UZS 2, KRW 0, ILS 2). It never rounds a rounded rate again. The unrounded value is shown to 20 significant digits.
+- `formatDecimal` takes only separators from `Intl.NumberFormat` and groups the digit string itself.
+- `tests/unit/fx-exactness.test.ts` fails the build if `parseFloat`, `Number(`, `toFixed`, `Math.round`, and similar appear in the exchange-rate code.
+
+`src/domain/fx.ts`, `src/lib/decimal.ts`, and `src/lib/sha256.ts` are also run by Node through type stripping (`node --experimental-strip-types`), so they import with explicit `.ts` extensions, use `import type` for types, and avoid enums and parameter properties.
+
+KRW and ILS are converter currencies only (`FX_MINOR_UNITS`), not ledger currencies. Adding them to `CURRENCY_MINOR_UNITS` would need a vault migration, because `transactions.currency` references the `currencies` table. A test keeps the two registries in agreement for USD and UZS.
 
 ### UI
 
@@ -164,7 +197,8 @@ Errors are `AppError` subclasses with a string code (`src/domain/errors.ts`). `s
 - Charts: `Charts.tsx` registers only the Chart.js pieces that are used, and picks colors from the resolved theme.
 - Styling: Tailwind 4 with design tokens in `src/index.css` (`paper`, `card`, `ink`, `muted`, `line`, `pine`, `clay`, `brass`, `brass-soft`, `on-pine`, `pine-ink`, `clay-ink`). `pine`/`clay` are dark green/red fills in both themes; use `text-pine-ink`/`text-clay-ink` for green/red text (lighter in dark mode for AA contrast). Dark mode is the `.dark` class on `<html>`, set by `ThemeContext`.
 - i18n: `src/i18n/en.ts` is the source of truth. `Messages = typeof en`, so TypeScript forces `ru`, `uz-Latn`, and `uz-Cyrl` to have the same keys. `t('section.key')` is type-checked.
-- Local storage keys: `moliya.locale`, `moliya.theme`, `moliya.sidebar` (`collapsed` or `expanded`), `moliya.idleMinutes`, and `moliya.guard.v1` (throttle counters keyed by hashed emails; no passwords or codes).
+- Exchange rates: `ExchangeRates.tsx` is lazy-loaded by the dashboard in its own `Suspense`, and a failed chunk renders nothing, so the panel can never block the dashboard.
+- Local storage keys: `moliya.locale`, `moliya.theme`, `moliya.sidebar` (`collapsed` or `expanded`), `moliya.idleMinutes`, `moliya.guard.v1` (throttle counters keyed by hashed emails; no passwords or codes), and `moliya.fx.snapshot.v1` (the last verified rates snapshot, public data).
 
 ## Threat model
 
@@ -197,7 +231,7 @@ Rules that follow from this:
 ## Project layout
 
 ```text
-.github/workflows/             ci.yml (checks), deploy.yml (main → Pages), release.yml (tags), codeql.yml
+.github/workflows/             ci.yml (checks), deploy.yml (main → Pages), release.yml (tags), codeql.yml, fx-rates.yml (rates)
 .github/dependabot.yml         weekly npm and Actions updates, 7-day cooldown
 .github/CODEOWNERS             owner review for crypto, db, auth, grants, users, account, sign-in check, limits, public/, CI
 index.html                     loads coi-config.js and coi-serviceworker.js before the app
@@ -209,20 +243,23 @@ src/
   context/                     Vault, Safe, I18n, Theme, Period providers
   crypto/                      Web Crypto wrappers (vault, private safes, codes and sign-in check), byte helpers
   db/                          versions, envelope, IndexedDB, migrations, audit chain, SQLite wrapper, seed
-  domain/                      shared types, error classes, safes, cards, subscriptions, item validation
+  domain/                      shared types, error classes, safes, cards, subscriptions, item validation; fx.ts (rates, validation, conversion)
   i18n/                        en, ru, uz-Latn, uz-Cyrl dictionaries
-  lib/                         money, dates, version, updates, persistence, session lock, sha256, clipboard, errors,
+  lib/                         money, decimal, dates, version, updates, persistence, session lock, sha256, clipboard, errors,
                                limits, safe-json, email, password policy and blocklist, throttle, idle, access codes,
                                TOTP, QR, receipts, countdown
   rbac/                        permissions
   services/                    business logic
 tests/
   fixtures/backups/            golden backups from every release (immutable, SHA-256 pinned)
+  fixtures/fx/                 recorded CBU, ECB, and BOI responses and the snapshot they produce
   support/                     fixture helpers shared by tests; access.ts builds a household for code and sign-in check tests
   unit/                        Vitest
   e2e/                         Playwright
 tools/
   build-info.ts                version, commit, and build date for the bundle
+  fetch-rates.ts               exchange-rate publisher (npm run rates:fetch)
+  fx-sources.ts                CBU, ECB, and BOI URLs and parsers
   fixtures/<version>/          generators that produced each fixture set
   moliya-decrypt.mjs           dependency-free recovery CLI
 ```
@@ -283,6 +320,13 @@ Then call it from the UI with `run((vault) => renameGroup(vault, id, name), { di
 5. Create every table, index, trigger, and view in a migration. `assertKnownSchema` builds the expected schema by running the migrations on an empty database, so anything created elsewhere makes every vault fail with `SCHEMA_UNKNOWN`. If the new tables hold password-derived or secret material, also remove it in `exportPlainDatabase` and in the CLI's `scrub`.
 6. Add tests in `tests/unit/migrations.test.ts` against the previous version's fixtures, then follow [Changing a format](data-format.md#changing-a-format) for the release fixture.
 
+### Add an exchange-rate pair
+
+1. Add the quote currency to `FX_QUOTES`, `FX_MINOR_UNITS`, `FX_BOUNDS`, and `FX_DIRECTIONS` in `src/domain/fx.ts`, and `fx.currencies` in all four dictionaries.
+2. Parse it in `tools/fx-sources.ts` and choose its primary source, fallbacks, and cross-check in `tools/fetch-rates.ts`. Prefer the issuing central bank; check its CORS and licence terms even though the job runs server-side.
+3. Record fresh responses with `npm run rates:fetch -- --out <dir>` (the raw bytes land in `<dir>/archive/<date>/`), copy them to `tests/fixtures/fx`, and regenerate `snapshot.json` with `--replay tests/fixtures/fx --now <fetch time>`.
+4. Changing the shape of a quote means a new `FX_SCHEMA` and cache key. Old builds reject the new file and keep showing their cached rates as stale.
+
 ### Change the storage or backup format
 
 Bump `RECORD_VERSION` or `BACKUP_VERSION`, add a new branch in `src/db/envelope.ts` while keeping every existing one, rename or add a field that older builds will fail on rather than misread, update [data-format.md](data-format.md), and add a fixture from the release.
@@ -311,6 +355,10 @@ Bump `RECORD_VERSION` or `BACKUP_VERSION`, add a new branch in `src/db/envelope.
   - `sqlite-hardening.test.ts`: `ATTACH` refused, the 8 MiB value limit, defensive mode, `vacuum()`, and the schema allowlist (unknown, missing, or changed objects, and every fixture accepted as stored and upgraded).
   - `i18n-security.test.ts`: every security error and audit label translated in all four locales, and the Uzbek Latin apostrophes (`ʻ` U+02BB, `ʼ` U+02BC).
   - `crypto.service.test.ts`, `rbac.test.ts`, `i18n.test.ts`, `dates.test.ts`, `vault.test.ts`, `settings.test.ts`: primitives, permissions, locale parity, periods, the full vault flow, and settings.
+  - `decimal.test.ts`: parsing, arithmetic, half-even ties, and thousands of random divisions checked against exact rational bounds.
+  - `fx.test.ts`, `fx.service.test.ts`: snapshot validation and tamper cases, staleness across weekends, conversions to minor units, display rates, cache, and rollback protection.
+  - `fx-sources.test.ts`, `fetch-rates.test.ts`: parsers against the recorded responses in `tests/fixtures/fx`, a byte-for-byte reproduction of `snapshot.json`, fallbacks, carry-forward, cross-check and jump failures, and the CLI's files and exit codes.
+  - `fx-exactness.test.ts`: no floating-point calls in the exchange-rate code, and `.ts` import specifiers in the modules Node runs.
 - **End to end** (Chromium):
   - `vault.spec.ts`: setup, records, dashboard and charts, language and theme, settings and categories, sidebar, roles, and backup export and import.
   - `upgrade.spec.ts`: a real 1.0.0 IndexedDB record upgraded in the browser (records, totals, stored format, archive download), a 1.0.0 backup import, refusal of a newer or damaged record, the single-session lock, and no CSP violations in preview mode.
@@ -318,6 +366,7 @@ Bump `RECORD_VERSION` or `BACKUP_VERSION`, add a new branch in `src/db/envelope.
   - `security.spec.ts`: joining with an invite code (and a second use refused), an expired code, the sign-in lockout and countdown, the sign-in check with recovery codes, a reset code that stops the old password, replacing a vault (password and vault name), the idle lock, an oversized import, the register page without a vault, the frame guard under a cross-origin parent, and the production CSP with Trusted Types and no violations.
 
 Test helpers for safes (a household vault with an Admin and a Manager, sample card, subscription, and note, and byte search for plaintext leaks) are in `tests/support/safes.ts`, and for codes and the sign-in check in `tests/support/access.ts`. The v3 fixture was produced by `tools/fixtures/v3/generate.gen.ts` with 1.2.0, and the v4 fixture by `tools/fixtures/v4/generate.gen.ts` with 1.3.0.
+  - `exchange-rates.spec.ts`: the six directions, the converter, stale badges, error, retry, offline and cached states, tampered snapshots, and a 360px layout, with `rates/latest.json` served by `page.route`.
 
 Each Playwright test gets a fresh browser context, so IndexedDB starts empty. The warning "localStorage is not available" during unit tests comes from Node and is harmless.
 
@@ -331,7 +380,7 @@ Roughly in priority order:
 4. **Private safes follow-ups**: decryption of safes in `tools/moliya-decrypt.mjs` for the owner; an encrypted per-safe manifest so deleted or rolled-back rows are detected; rotating the personal key (for example after the recovery code was used); a way to delete earlier copies kept in the browser, so shredded data can be removed sooner.
 5. **Cryptographic group isolation**, if groups must be hidden from each other. This needs per-group keys or separate vaults.
 6. **Receipts outside the database.** Images are stored as data URLs inside SQLite, and the whole database is re-encrypted on every save.
-7. **Exchange rates**, if mixed-currency totals are ever needed. Store the rate and its date with each conversion; never convert silently.
+7. **Mixed-currency totals.** Official rates are now on the dashboard, but totals are still per currency. If conversion is ever needed, store the rate, its date, and its source with each converted figure; never convert silently. KRW and ILS as ledger currencies need a vault migration.
 8. **Offline support**: a caching service worker that coexists with `coi-serviceworker`.
 9. **Multi-device sync.** Out of scope for a serverless design today. Any future sync must merge, not overwrite.
 10. **Throttle private safes.** The `safe` throttle scope exists but opening safes is not throttled yet.

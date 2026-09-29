@@ -1,0 +1,101 @@
+# Fetches official exchange rates, validates them, records them on the fx-data
+# branch (rates/ plus the raw upstream responses in archive/), and publishes
+# rates/ to gh-pages. deploy.yml copies fx-data/rates into every app deploy, so
+# neither workflow removes the other's files. Scheduled runs only fire from the
+# default branch.
+name: Exchange rates
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+    - cron: "47 15 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      allow_large_moves:
+        description: Publish even if a rate moved more than 10% since the last snapshot (only after checking the source)
+        type: boolean
+        default: false
+      republish:
+        description: Publish rates/ to gh-pages even if the official rates did not change
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Fetch, validate, and publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Check out the fx-data branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          auth="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 | tr -d '\n')"
+          remote="https://github.com/${GITHUB_REPOSITORY}.git"
+          if git -c "http.https://github.com/.extraheader=${auth}" ls-remote --exit-code --heads "$remote" fx-data >/dev/null; then
+            git -c "http.https://github.com/.extraheader=${auth}" clone --depth=1 --branch fx-data --single-branch "$remote" fx-data
+          else
+            echo "::notice::fx-data does not exist yet; starting it as an orphan branch."
+            git init -b fx-data fx-data
+            git -C fx-data remote add origin "$remote"
+          fi
+
+      - name: Fetch and validate official rates
+        id: fetch
+        env:
+          ALLOW_LARGE_MOVES: ${{ inputs.allow_large_moves && '--allow-large-moves' || '' }}
+        run: npm run rates:fetch -- --out fx-data $ALLOW_LARGE_MOVES
+
+      - name: Record the snapshot on fx-data
+        if: steps.fetch.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DIGEST: ${{ steps.fetch.outputs.digest }}
+        run: |
+          set -euo pipefail
+          auth="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 | tr -d '\n')"
+          cd fx-data
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add rates archive
+          git commit -m "Exchange rates $(date -u +%Y-%m-%dT%H:%MZ) sha256:${DIGEST}"
+          git -c "http.https://github.com/.extraheader=${auth}" push origin HEAD:fx-data
+
+      - name: Publish rates/ to gh-pages
+        if: steps.fetch.outputs.changed == 'true' || inputs.republish
+        uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453 # v4.1.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./fx-data/rates
+          destination_dir: rates
+          publish_branch: gh-pages
+          keep_files: false
+          full_commit_message: "Publish exchange rates sha256:${{ steps.fetch.outputs.digest }}"
+          user_name: github-actions[bot]
+          user_email: 41898282+github-actions[bot]@users.noreply.github.com
+
+      - name: Fail loudly on degraded sources
+        if: steps.fetch.outputs.degraded == 'true'
+        run: |
+          echo "::error::At least one official source failed. Rates were published from fallback sources or carried forward; see the warnings above."
+          exit 1

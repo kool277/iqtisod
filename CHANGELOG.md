@@ -24,6 +24,11 @@ Reads backup and record versions 1–2 and schema versions 1–4. Writes backup 
 - Schema version 4: tables `access_grants` and `user_totp`, and the `clock_high_water` setting. Envelopes gain an optional `grants[]` list of code wraps.
 - `SECURITY.md` with supported versions, how to report a vulnerability privately, and a threat model summary. A threat model section in the developer guide.
 - Golden backup `v4/access-household` made by 1.3.0: a Manager who joined by invite with the sign-in check and recovery codes, a Viewer reset with a stop-old reset code after a first code was revoked, and an expired invite that is swept on open.
+- Exchange rates on the dashboard: official rates for UZS↔USD, KRW↔USD, and ILS↔USD from the Central Bank of Uzbekistan, the European Central Bank (won, as a cross rate via the euro), and the Bank of Israel, with the rate date, a link to the source, the change since the previous official rate, and a Stale badge after 2 business days.
+- Converter between USD and soʻm, won, or shekel, rounded half-even to the currency's minor unit (whole won for KRW), with the exact value alongside.
+- Exact decimal arithmetic (`src/lib/decimal.ts`), a dependency-free BigInt decimal with explicit scale, precision, and rounding mode; no exchange-rate figure passes through floating point.
+- `fx-rates.yml` workflow and `npm run rates:fetch`: fetches the three central banks twice a day, cross-checks them against each other, rejects implausible values and unconfirmed jumps over 10%, keeps every published snapshot and raw response on the `fx-data` branch, and publishes `rates/latest.json` on the site.
+- Specification of the published rates snapshot in `docs/data-format.md`, recorded central-bank responses in `tests/fixtures/fx/`, and unit and browser tests for the rates and the converter.
 - Translations for all new text in Oʻzbekcha (Latin and Cyrillic), Russian, and English.
 
 ### Changed
@@ -36,6 +41,7 @@ Reads backup and record versions 1–2 and schema versions 1–4. Writes backup 
 - A vault holds at most 256 people. Adding a person, creating an invite, and accepting one are refused once the people and open invites would exceed what a backup can hold.
 - Adding a person with a temporary password ends any open invite for that email. Removing a person ends their codes.
 - The unencrypted SQLite export and `npm run decrypt` (unless `--keep-keys` is given) remove sign-in check rows and code verifiers. `npm run decrypt --list` shows pending codes by kind and email.
+- Deploys include the latest published rates in `rates/`. The browser still connects only to the site itself.
 - CI installs with `npm ci --ignore-scripts` and runs `npm audit signatures`. Dependabot waits 7 days before proposing a release. `CODEOWNERS` requires the owner's review for key handling, storage, auth, grants, users, the sign-in check, limits, what the browser loads, fixtures, the lock file, and CI.
 
 ### Security

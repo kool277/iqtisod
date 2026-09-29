@@ -17,5 +17,5 @@
     "noFallthroughCasesInSwitch": true,
     "types": ["vite/client", "node"]
   },
-  "include": ["src", "tests", "tools/build-info.ts", "vite.config.ts", "vitest.config.ts", "vitest.fixtures.config.ts", "playwright.config.ts"]
+  "include": ["src", "tests", "tools/build-info.ts", "tools/fx-sources.ts", "tools/fetch-rates.ts", "vite.config.ts", "vitest.config.ts", "vitest.fixtures.config.ts", "playwright.config.ts"]
 }

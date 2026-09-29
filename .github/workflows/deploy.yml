@@ -1,6 +1,8 @@
 # Publishes dist/ to the gh-pages branch; Settings -> Pages -> Source must stay
 # "Deploy from a branch: gh-pages". The custom domain travels as dist/CNAME;
-# do not also set the action's cname: input.
+# do not also set the action's cname: input. rates/ is copied in from the
+# fx-data branch (written by fx-rates.yml) because keep_files: false replaces
+# the whole branch.
 # Optional alternative: actions/upload-pages-artifact + actions/deploy-pages.
 # Only switch after changing Settings -> Pages -> Source to "GitHub Actions";
 # otherwise the live site stops updating.
@@ -83,6 +85,29 @@ jobs:
               exit 1
               ;;
           esac
+
+      - name: Check out published exchange rates
+        id: rates
+        continue-on-error: true
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: fx-data
+          path: fx-data
+          sparse-checkout: rates
+          persist-credentials: false
+
+      - name: Include exchange rates in the site
+        shell: bash
+        env:
+          RATES_OUTCOME: ${{ steps.rates.outcome }}
+        run: |
+          set -euo pipefail
+          if [[ "$RATES_OUTCOME" == "success" && -f fx-data/rates/latest.json ]]; then
+            mkdir -p dist/rates
+            cp -R fx-data/rates/. dist/rates/
+          else
+            echo "::warning::No fx-data branch yet; deploying without rates/. Run the Exchange rates workflow to publish them."
+          fi
 
       - name: Publish to gh-pages branch
         uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453 # v4.1.0

@@ -1,4 +1,4 @@
-import { Suspense, lazy, useMemo } from 'react'
+import { Suspense, lazy, useMemo, type ComponentType } from 'react'
 import { PeriodPicker } from './PeriodPicker'
 import { useI18n } from '../context/I18nContext'
 import { usePeriod } from '../context/PeriodContext'
@@ -7,6 +7,12 @@ import { loadDashboard } from '../services/finance.service'
 import { formatMoney, intlLocale, minorToDecimal } from '../lib/money'
 
 const FinanceCharts = lazy(() => import('./Charts').then((module) => ({ default: module.FinanceCharts })))
+const ExchangeRates = lazy<ComponentType>(() =>
+  import('./ExchangeRates').then(
+    (module) => ({ default: module.ExchangeRates }),
+    () => ({ default: () => null }),
+  ),
+)
 
 export function Dashboard() {
   const { t, locale } = useI18n()
@@ -67,6 +73,9 @@ export function Dashboard() {
           </ul>
         </section>
       ) : null}
+      <Suspense fallback={<div className="h-72 rounded-3xl border border-line bg-card" />}>
+        <ExchangeRates />
+      </Suspense>
       <Suspense fallback={<div className="h-64 rounded-3xl border border-line bg-card" />}>
         <FinanceCharts data={data} />
       </Suspense>

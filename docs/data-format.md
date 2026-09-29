@@ -581,6 +581,27 @@ The tool does not decrypt private safes. An owner can still recover them from a 
 4. Decrypt each `secure_items` row of that safe with AAD `["moliya.item",1,userId,safeId,itemId,keyVersion]`, read the 4-byte big-endian length, and parse that many bytes as UTF-8 JSON.
 
 If the wrap is stale, the current password does not open it; use the previous password or the recovery code.
+## Published exchange-rate snapshot
+
+The dashboard's exchange rates are public data, not part of the vault. They are never written to SQLite, backups, or IndexedDB, and the ten-year guarantee above does not cover them. The format is still versioned so that old and new builds fail safely.
+
+`rates/latest.json` on the site (and `rates/history/YYYY-MM-DD.json` for each UTC day a run changed it) holds one JSON object, schema 1. The browser keeps the last verified copy, as the exact text it received, in `localStorage` under `moliya.fx.snapshot.v1`.
+
+| Field | Meaning |
+| --- | --- |
+| `schema` | `1`. A reader refuses any other value. |
+| `generatedAt` | ISO 8601 UTC time the publisher built the snapshot. A reader keeps the newer of its cached and fetched copies. |
+| `quotes[]` | Exactly three, in the order UZS, KRW, ILS. Each is units of `quote` per 1 `base` (`USD`). |
+| `quotes[].rate` | Decimal string, digits and at most one dot, no exponent. Official rates exactly as the source published them; cross rates to 12 significant digits, half-even. |
+| `quotes[].date` | `YYYY-MM-DD` the source says the rate is valid for. |
+| `quotes[].source`, `method` | `CBU`, `ECB`, or `BOI`; `official` or `cross`. |
+| `quotes[].legs` | For `cross`: the two official rates `[numerator, denominator]` it was computed from, such as EUR/KRW and EUR/USD. `null` for `official`. The reader recomputes the cross rate and rejects a mismatch. |
+| `quotes[].previous` | The previous official rate and its earlier date, or `null`. Used for the change figure. |
+| `fetches[]` | Each upstream request: `source`, `url` (https), `fetchedAt`, and `sha256` of the exact response bytes. The bytes are kept on the `fx-data` branch under `archive/YYYY-MM-DD/`. |
+| `checks[]` | Cross-checks that were run: `subject`, `reference`, `deviationPercent`, `tolerancePercent`, `passed`. A published snapshot only contains passed checks. |
+| `digest` | Lowercase hex SHA-256 of `JSON.stringify` of the same object without `digest`, keys in file order. A checksum against truncation and corruption, not a signature: the protection against forgery is that only the repository's workflow can write the site. |
+
+Readers also reject rates outside plausible bounds (UZS 1,000–100,000, KRW 100–10,000, ILS 1–20 per USD) and dates more than four days after `generatedAt`. `tests/fixtures/fx/snapshot.json` is a complete example.
 
 ## Changing a format
 
