@@ -375,7 +375,7 @@ export function DataTable<T>(props: DataTableProps<T>) {
                       {...rowAttributes?.(row)}
                       aria-current={isSelected ? true : undefined}
                       data-selected={checked || undefined}
-                      className={`${narrow.row} align-top transition-colors ${isSelected || checked ? 'bg-pine/5 @max-3xl:border-pine-ink' : 'hover:bg-paper/70'}`}
+                      className={`group/row ${narrow.row} align-middle transition-colors ${isSelected || checked ? 'bg-pine/5 @max-3xl:border-pine-ink' : 'hover:bg-paper/70'}`}
                     >
                       {selection ? (
                         <td className={`${pad} border-t border-line ${narrow.cell} @max-3xl:before:hidden`}>
@@ -421,7 +421,7 @@ export function DataTable<T>(props: DataTableProps<T>) {
                       })}
                       {hasActions ? (
                         <td className={`${pad} border-t border-line text-right ${narrow.cell} ${narrow.wide} @max-3xl:before:hidden`}>
-                          <div className="flex flex-wrap justify-end gap-2">{rowActions!(row)}</div>
+                          <div className="flex flex-wrap justify-end gap-1.5 [&_button]:rounded-lg [&_button]:px-3 [&_button]:py-1.5 [&_button]:text-xs">{rowActions!(row)}</div>
                         </td>
                       ) : null}
                     </tr>

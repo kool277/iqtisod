@@ -31,14 +31,14 @@ export function EditableCell<T>({
   const { t } = useI18n()
   if (!editing) {
     return (
-      <span className="group/edit flex min-w-0 items-start gap-1">
+      <span className="group/edit flex min-w-0 items-center gap-1">
         <span className="min-w-0 flex-1">{children}</span>
         <button
           type="button"
           data-testid={`edit-${testId}`}
           aria-label={fill(t('table.editCell'), { column: header })}
           title={t('table.editHint')}
-          className="grid size-6 shrink-0 place-items-center rounded-md text-muted opacity-60 transition hover:bg-brass-soft hover:text-ink focus-visible:opacity-100 group-hover/edit:opacity-100 @max-3xl:opacity-100"
+          className="grid size-6 shrink-0 place-items-center rounded-md text-muted opacity-25 transition hover:bg-brass-soft hover:text-ink focus-visible:opacity-100 group-hover/row:opacity-70 group-hover/edit:opacity-100 @max-3xl:opacity-70"
           onClick={onStart}
         >
           <Pencil size={13} aria-hidden="true" />

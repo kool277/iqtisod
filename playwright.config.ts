@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test'
 
 const preview = process.env.E2E_TARGET === 'preview'
-const port = preview ? 4173 : 5173
+const port = Number(process.env.E2E_PORT) || (preview ? 4173 : 5173)
 const baseURL = `http://127.0.0.1:${port}`
 
 export default defineConfig({
@@ -19,7 +19,7 @@ export default defineConfig({
   webServer: {
     command: preview
       ? `npx vite build && npx vite preview --host 127.0.0.1 --port ${port} --strictPort`
-      : `npm run dev -- --host 127.0.0.1 --port ${port}`,
+      : `npm run dev -- --host 127.0.0.1 --port ${port} --strictPort`,
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
