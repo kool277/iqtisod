@@ -4,7 +4,7 @@ This document is the long-term contract for everything Jaybi stores. It is writt
 
 ## Names
 
-The product was renamed Jaybi in 1.3.0; the on-disk identifiers keep the historical 'moliya' name forever. That covers the format ids (`moliya-vault`), the IndexedDB database `moliya`, the Web Lock `moliya-vault-session`, local storage keys `moliya.*`, the `.moliya` file extension and the `moliya-backup-YYYY-MM-DD.moliya` and `moliya-archive-YYYY-MM-DD.moliya` file names, every HKDF `info` string and AAD label (`moliya/…`, `moliya.…`), the throttle hash prefix `moliya-throttle|`, the golden fixtures, and the recovery tool `tools/moliya-decrypt.mjs` with its `MOLIYA_PASSWORD` variable. Changing any of them would stop existing vaults and backups from opening. Only text shown to people uses the new name.
+**Why files still say moliya.** The product was renamed Jaybi in 1.3.0; the on-disk and cryptographic identifiers keep the historical 'moliya' name forever. That covers the format ids (`moliya-vault`, and `moliya-export` for exports with its schema files in `docs/schemas/`), the IndexedDB database `moliya`, the Web Lock `moliya-vault-session`, local storage keys `moliya.*`, the `.moliya` file extension and the `moliya-backup-YYYY-MM-DD.moliya` and `moliya-archive-YYYY-MM-DD.moliya` file names, every HKDF `info` string and AAD label (`moliya/…`, `moliya.…`), the throttle hash prefix `moliya-throttle|`, the golden fixtures, and the recovery tool `tools/moliya-decrypt.mjs` with its `MOLIYA_PASSWORD` variable, and the npm package name `moliya`. Changing any of them would stop existing vaults and backups from opening, or break scripts that rely on them. Only text shown to people, release zips (`jaybi-X.Y.Z.zip` from 1.3.0), and export file names (`jaybi-…`) use the new name.
 
 ## The guarantee
 
@@ -78,7 +78,7 @@ Whenever the stored value is not the verifier (a pre-1.2.0 raw value, or the emp
 
 A `.moliya` file is a single JSON object encoded as UTF-8. Readers must ignore unknown fields. Binary fields are standard base64 with padding (RFC 4648 section 4).
 
-### Backup version 2 (written by 1.1.0, 1.2.0, and 1.3.0)
+### Backup version 2 (written by 1.1.0 and later)
 
 ```json
 {
@@ -563,7 +563,7 @@ Only Admins can export (`EXPORT_VAULT`). Each export writes one `DATA_EXPORTED` 
 
 ### Files
 
-A single file downloads as-is; several files (or any encrypted choice) download as one ZIP with a `README.txt`. The downloaded name is `<app>-<vault>-<yyyy-mm-dd>.<ext>`, `…-encrypted.zip`, or `…-encrypted.sqlite`. `<vault>` is the vault name normalised to NFC, with `\/:*?"<>|`, control characters, and whitespace replaced by `-`, at most 48 characters, falling back to `vault`. The vault name is therefore visible in the file name even for encrypted exports.
+A single file downloads as-is; several files (or any encrypted choice) download as one ZIP with a `README.txt`. The downloaded name is `jaybi-<vault>-<yyyy-mm-dd>.<ext>`, `…-encrypted.zip`, or `…-encrypted.sqlite`. `<vault>` is the vault name normalised to NFC, with `\/:*?"<>|`, control characters, and whitespace replaced by `-`, at most 48 characters, falling back to `vault`. The vault name is therefore visible in the file name even for encrypted exports.
 
 | Inner file | Format |
 | --- | --- |
@@ -613,7 +613,9 @@ MOLIYA_PASSWORD='…' node tools/moliya-decrypt.mjs backup.moliya --email admin@
 sqlite3 ledger.sqlite "SELECT transaction_date, type, amount_minor / 100.0, currency, notes FROM transactions ORDER BY 1"
 ```
 
-For schema version 1 files the amount column is `amount` instead of `amount_minor`. The tool is about 200 lines of dependency-free JavaScript and doubles as a reference implementation of this document. Any language with PBKDF2 and AES-GCM can do the same in three steps: derive the KEK, decrypt `wrappedDek` to get the DEK, decrypt `body.ciphertext`.
+The password comes from `MOLIYA_PASSWORD`, or the tool prompts for it. Without `--out` the output is the backup's name with `.sqlite`; an existing file is only overwritten with `--force`. `--help` prints the usage. Exit code 2 means bad arguments.
+
+For schema version 1 files the amount column is `amount` instead of `amount_minor`. The tool is about 240 lines of dependency-free JavaScript and doubles as a reference implementation of this document. Any language with PBKDF2 and AES-GCM can do the same in three steps: derive the KEK, decrypt `wrappedDek` to get the DEK, decrypt `body.ciphertext`.
 
 With Node.js 22.13 or newer, the tool blanks `users.password_hash` and `users.salt`, deletes every row of `safe_events`, `secure_items`, `safes`, `user_keys`, and `user_totp`, and blanks `access_grants.code_verifier` in the output before vacuuming it. `--keep-keys` skips this step, which keeps the verifiers, salts, the private safe rows, and the sign-in check rows, still encrypted with each owner's keys. On older Node.js versions without `node:sqlite` nothing is removed and the tool prints a warning.
 
@@ -629,6 +631,7 @@ The tool does not decrypt private safes. An owner can still recover them from a 
 4. Decrypt each `secure_items` row of that safe with AAD `["moliya.item",1,userId,safeId,itemId,keyVersion]`, read the 4-byte big-endian length, and parse that many bytes as UTF-8 JSON.
 
 If the wrap is stale, the current password does not open it; use the previous password or the recovery code.
+
 ## Published exchange-rate snapshot
 
 The dashboard's exchange rates are public data, not part of the vault. They are never written to SQLite, backups, or IndexedDB, and the ten-year guarantee above does not cover them. The format is still versioned so that old and new builds fail safely.

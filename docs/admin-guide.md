@@ -30,7 +30,7 @@ Your admin account does not belong to any group, so you see every group's record
 | Manage people and groups | Yes | No | No |
 | Vault settings and categories | Yes | No | No |
 | Audit log | Yes | No | No |
-| Export backups, replace the vault with a backup | Yes | No | No |
+| Download backups, export data, replace the vault with a backup | Yes | No | No |
 | Own private safes, own password, own sign-in check (Account) | Yes | Yes | Yes |
 | See or open anyone else's private safes | No | No | No |
 
@@ -244,7 +244,7 @@ Each copy shows when it was taken and which version saved it. **Download** turns
    - **Encrypted ZIP (AES-256)**, the default. Open it with [7-Zip](https://www.7-zip.org/) (Windows), [Keka](https://www.keka.io/) (macOS), WinZip, or WinRAR. The built-in Windows and macOS archive tools **cannot** open it and will say the archive is damaged or ask for a password they cannot use. File names inside the archive are visible without the password; the contents are not.
    - **Encrypted SQLite database (SQLCipher 4)**. Stronger password protection, database only. Open it in [DB Browser for SQLite](https://sqlitebrowser.org/): choose **Open Database**, enter the password, and pick **SQLCipher 4 defaults**. With the command-line tool: `sqlcipher file.sqlite`, then `PRAGMA key = 'your export password';`.
    - **No encryption**. You must tick "I understand this file is not encrypted". Anyone who gets the file can read every record.
-7. **Export password**: at least 14 characters using Latin letters, digits, and symbols, and not your sign-in password. **Generate** makes a strong one; **Copy** puts it on the clipboard. The app does not keep the password. If you lose it, nobody can open the file.
+7. **Export password**: at least 14 characters using Latin letters, digits, and symbols, not too easy to guess (the **Strength** meter must show at least **Fair**), and not your sign-in password. **Generate** makes a strong one; **Copy** puts it on the clipboard. The app does not keep the password. If you lose it, nobody can open the file.
 
 Press **Export**. Progress is shown below the form, and **Cancel** stops it. The file name contains the vault name and the date, even for encrypted files. Each export is written to the audit log as **Data exported**, with the formats and scope but never the content or password.
 
@@ -261,14 +261,17 @@ The same applies when someone should use the vault on their own device: an invit
 
 ### Moving to jaybi.uz
 
-Before 1.3.0 the app was called Moliya and lived at `https://kool277.github.io/iqtisod/`. From 1.3.0 it is called Jaybi and moves to `https://jaybi.uz`. A browser keeps each website's data separately, so **your vault does not move by itself**, and once the move is complete the old address forwards to `jaybi.uz` and the vault stored there can no longer be opened in the browser. Move it while the old address still works:
+Before 1.3.0 the app was called Moliya and lived at `https://kool277.github.io/iqtisod/`. Since 1.3.0 it is called Jaybi and lives at `https://jaybi.uz`. The move is complete: the old address now forwards to `jaybi.uz`. A browser keeps each website's data separately, so **a vault does not move by itself**. If you open `jaybi.uz` and see **Create your vault** instead of your vault, it is still stored under the old address in that browser. It is not lost, but it can no longer be opened by visiting the old address.
 
-1. At the old address, a bar says "Jaybi is moving to jaybi.uz. Download an encrypted backup now, then open jaybi.uz and import it." Sign in as an Admin and choose **Download backup now** in that bar (or **Backup → Download backup**). Do this on every browser or device that holds a vault.
-2. Open `https://jaybi.uz` in the same browser. It shows **Create your vault** with the hint "Coming from kool277.github.io/iqtisod? Import your backup here."
-3. Under **Import a backup instead**, choose the file and **Replace vault**, then sign in with your usual email and password. Check the records, then tell everyone the new address.
+- **If you already have a backup** (any `.moliya` file, from any version), import it at `jaybi.uz` (step 3 below). Changes made after that backup are only in the old copy.
+- **If you have no recent backup**, ask whoever runs the site to reopen the old address for a short while (see [Recovering a vault left at the old address](devops-guide.md#recovering-a-vault-left-at-the-old-address) in the DevOps guide). Then:
+
+1. At the old address, a bar says "Jaybi is moving to jaybi.uz. Download an encrypted backup now, then open jaybi.uz and import it." Sign in as an Admin and choose **Download backup now** in that bar (or **Backup → Download backup**). Do this on every browser or device that holds a vault. People with other roles see that only an Admin can download it.
+2. Once `jaybi.uz` works again, open it in the same browser. It shows **Create your vault** with the hint "Coming from kool277.github.io/iqtisod? Import your backup here."
+3. Under **Import a backup instead**, choose the file and **Replace vault**, then sign in with your usual email and password. Check the records, then tell everyone to use `jaybi.uz`.
 4. Everyone else signs in at `jaybi.uz` with their usual password. Private safes, recovery codes, and the sign-in check move with the backup and keep working. Authenticator apps keep showing the entry under the old name "Moliya"; its codes still work. New set-ups appear as "Jaybi".
 
-Nothing about the data changes: backups are still `.moliya` files, old backups open in Jaybi, and the recovery tool is still `npm run decrypt`. If a device missed the move, ask whoever runs the site; see the [DevOps guide](devops-guide.md#custom-domain-jaybiuz).
+Nothing about the data changes: backups are still `.moliya` files, old backups open in Jaybi, and the recovery tool is still `npm run decrypt`.
 
 ### Opening a backup without the website
 
@@ -279,7 +282,7 @@ npm run decrypt -- moliya-backup-2026-09-29.moliya --list
 MOLIYA_PASSWORD='…' npm run decrypt -- moliya-backup-2026-09-29.moliya --email you@example.com --out ledger.sqlite
 ```
 
-It asks for the password if `MOLIYA_PASSWORD` is not set, and writes a normal SQLite file. It works for backups from every version. On Node.js 22.13 or newer it removes password information, private safe rows, sign-in check data, and code checks from the output; `--keep-keys` keeps them, with the safes still encrypted for their owners. The tool cannot open private safes. It does not ask for the sign-in check: a password is enough, which is why the sign-in check adds no protection to backups. `--list` also lists the codes that were open when the backup was made (kind and email only); the tool never opens a vault with a code.
+It asks for the password if `MOLIYA_PASSWORD` is not set, and writes a normal SQLite file (`--out`, or the backup's name with `.sqlite`). It refuses to overwrite an existing file unless you add `--force`; `--help` shows every option. It works for backups from every version. On Node.js 22.13 or newer it removes password information, private safe rows, sign-in check data, and code checks from the output; `--keep-keys` keeps them, with the safes still encrypted for their owners. The tool cannot open private safes. It does not ask for the sign-in check: a password is enough, which is why the sign-in check adds no protection to backups. `--list` also lists the codes that were open when the backup was made (kind and email only); the tool never opens a vault with a code.
 
 Use the tool from 1.3.0 or newer for vaults saved by 1.3.0. Older copies of the tool open them but leave the sign-in check data and code checks in the output.
 
@@ -308,7 +311,14 @@ Versions 1.0.0 and 1.1.0 stored, for every person, a value in the database that 
 - **Automatic lock** is still 15 minutes by default; each browser can choose 5, 15, 30, or 60 minutes under **Account → Lock automatically**.
 - **Large receipts.** New receipts must be images of up to 1.5 MB, and the vault is capped at about 48 MB. Existing receipts are kept.
 - **Recovery tool.** Use the 1.3.0 recovery tool for vaults and backups saved by 1.3.0. Older copies of the tool still open them, but leave sign-in check data and code checks in their output.
-- **Hosting.** The app moves from `kool277.github.io/iqtisod` to its own address, `jaybi.uz`; see [Moving to jaybi.uz](#moving-to-jaybiuz). Until then, do not publish any other GitHub Pages site under the same account. Every Pages site of the account shares one web address, and any of them could read or delete the vault. See the [DevOps guide](devops-guide.md#origin-and-storage-isolation).
+- **Hosting.** With 1.3.0 the app moved from `kool277.github.io/iqtisod` to its own address, `jaybi.uz`, and the old address now forwards there. A vault stored at the old address has to be brought over with a backup; see [Moving to jaybi.uz](#moving-to-jaybiuz). The new address serves nothing but Jaybi, so no other website can read the stored vault (see the [DevOps guide](devops-guide.md#origin-and-storage-isolation)).
+
+### Upgrading to 1.3.1
+
+1.3.1 changes when private safes lock. It does not change any data format, and 1.3.0 still opens everything 1.3.1 saves.
+
+- Safes now stay open until the person chooses **Lock safes** or the vault locks: **Lock**, refreshing or closing the tab, signing out, or the vault's own **Account → Lock automatically** time (15 minutes unless changed). Switching to another tab no longer locks them.
+- The separate safes timer (5 minutes by default) and its choice under **Account → Private safes** are gone. On shared devices, choose a short **Lock automatically** time instead, because it now protects the safes too.
 
 ## Recovery scenarios
 
@@ -328,7 +338,7 @@ Versions 1.0.0 and 1.1.0 stored, for every person, a value in the database that 
 | You forgot the only admin password | The vault cannot be opened as Admin. A Manager or Viewer can still sign in and read their group. Keep a second Admin account to avoid this |
 | Browser data was cleared, or the device was lost | Import your latest backup on a new browser |
 | All passwords are lost | The data cannot be recovered, even from a backup |
-| The site moved to a new address (new domain) | The old address's vault is not visible at the new one. Export at the old address, then import at the new one |
+| `jaybi.uz` shows **Create your vault**, but you used the app at `kool277.github.io/iqtisod` | The vault is still stored under the old address. Import a backup, or follow [Moving to jaybi.uz](#moving-to-jaybiuz) |
 | "This vault was saved by a newer version of Jaybi" (1.2.0 and older say "Moliya") | Reload the page. If it persists, the site was rolled back: import a backup or an earlier copy made by this version, or wait for the newer version to return |
 | "The vault stored in this browser is damaged" (on opening the app, or when signing in) | Nothing else was changed, but nobody can sign in to replace it, and the setup screen only appears when the browser has no vault. Make sure you have a good backup. Then clear this site's data in the browser settings (this also deletes the earlier copies), reload, and import the backup from the setup screen. The same applies if a vault you just imported shows this message |
 | "Not saved: changed elsewhere" | The vault was changed in another tab, window, or by an import. Lock and unlock to load the latest data, then redo the last change |

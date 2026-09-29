@@ -6,7 +6,7 @@ Take control of your finances without handing them to anyone.
 
 **Jaybi** (جيبي) is a private income and expense ledger for a person, a family, or a small team. It runs entirely in the browser. There is no server, no account to sign up for, and no analytics. The ledger is an SQLite database encrypted with AES-256-GCM and stored on your device. The website itself is only static files, so it can be hosted free on GitHub Pages. This repository is `kool277/iqtisod`.
 
-Jaybi was called Moliya up to version 1.2.0 and was served from `kool277.github.io/iqtisod`, its old address. Stored data keeps the old name on purpose: backups are still `.moliya` files, and every vault and backup made under either name keeps opening (see [docs/data-format.md](docs/data-format.md#names)). If your vault is still at the old address, download a backup there and import it at jaybi.uz; the [admin guide](docs/admin-guide.md#moving-to-jaybiuz) explains how.
+Jaybi was called Moliya up to version 1.2.0 and was served from `kool277.github.io/iqtisod`. That old address now redirects to jaybi.uz. Stored data keeps the old name on purpose: backups are still `.moliya` files, and every vault and backup made under either name keeps opening (see [docs/data-format.md](docs/data-format.md#names)). Browsers keep data per website, so a vault created at the old address does not appear at jaybi.uz by itself; the [admin guide](docs/admin-guide.md#moving-to-jaybiuz) explains how to bring it over with a backup.
 
 ## Why it exists
 
@@ -30,12 +30,14 @@ It suits a household tracking a shared budget, a small business or community gro
 - Official exchange rates on the dashboard for soʻm, won, and shekel against the US dollar in both directions (UZS↔USD, KRW↔USD, ILS↔USD), from the Central Bank of Uzbekistan, the European Central Bank, and the Bank of Israel, with the rate date, the source, the change since the previous rate, a stale warning, and an exact converter. Rates are fetched and cross-checked once or twice a day by a GitHub Actions job and published on the same site, so the browser never contacts a third party.
 - Admin settings page for the vault name, vault currency, and income and expense categories in all four languages.
 - Private safes for every person: encrypted, owner-only places for payment cards, subscriptions (with monthly and yearly totals per currency and upcoming payments), and notes. Not even an Admin can open them. Password re-entry to open, locking with the vault, masked card numbers, an optional recovery code, a 30-day trash, and a private activity list.
-- Account page where everyone changes their own password. People whose password was set by an Admin must choose their own at next sign-in.
+- One-time invite and reset codes (valid 24 hours by default), so people choose their own passwords and an Admin never needs to know them.
+- Account page where everyone changes their own password, turns on an optional sign-in check with an authenticator app, and chooses when the vault locks itself. People whose password was set by an Admin must choose their own at next sign-in.
+- Password rules (12+ characters, no common passwords) and attempt limits with a growing wait after repeated wrong passwords or codes.
 - Collapsible sidebar that remembers its state.
 - Exact money: amounts are stored as whole minor units (cents, tiyin) and never rounded, with per-currency subtotals for records outside the vault currency.
 - Tamper-evident audit log of every change, with before and after values.
 - Encrypted backup file (`.moliya`) for moving a vault to another browser or keeping a safe copy, with a reminder when the last backup is older than 7 days.
-- Unencrypted CSV and SQLite exports for spreadsheets, accountants, and long-term archiving.
+- Data exports for Admins, for spreadsheets, accountants, and long-term archiving: CSV, JSON, JSON Lines, Excel, PDF report, and SQLite, for all data or one period and group. Exports are encrypted by default (AES-256 ZIP or an SQLCipher 4 database) with an export password of at least 14 characters that must differ from the sign-in password. Private safes are never exported.
 - Versioned data formats: every vault and backup made by any release keeps opening in every later release, and a standalone tool opens backups without the website.
 - In-app version display and a prompt to reload when a new version is deployed.
 - Day, night, and system themes. Language and theme choices are remembered.
@@ -71,8 +73,10 @@ Every release must open every vault and backup ever produced, for at least ten y
 Requirements: Node.js 22.12 or newer and npm.
 
 ```bash
-npm install
-npm run dev
+npm ci --ignore-scripts   # install exactly what package-lock.json pins, as CI does
+npm run dev               # development server
+npm test                  # unit tests
+npm run build             # type-check and build static files into dist/
 ```
 
 Open the address Vite prints (usually `http://localhost:5173`), create a vault, and start adding records.
@@ -94,18 +98,25 @@ Open the address Vite prints (usually `http://localhost:5173`), create a vault, 
 - [User guide](docs/user-guide.md) is for Managers and Viewers who record and review money, and for anyone using private safes.
 - [Admin guide](docs/admin-guide.md) covers setting up a vault, settings and categories, people, groups, backups, and recovery.
 - [Developer guide](docs/developer-guide.md) covers architecture, code layout, conventions, and how to extend the app.
-- [DevOps guide](docs/devops-guide.md) covers building, CI, releases, GitHub Pages, other hosts, and operational risks.
-- [Data format](docs/data-format.md) specifies every stored format and the rules that keep old data readable.
+- [DevOps guide](docs/devops-guide.md) covers building, CI, releases, GitHub Pages, the jaybi.uz domain and DNS, exchange rates, other hosts, and operational risks.
+- [Data format](docs/data-format.md) specifies every stored and exported format and the rules that keep old data readable. JSON Schemas for exports are in [docs/schemas/](docs/schemas/).
+- [Security policy](SECURITY.md) lists supported versions, how to report a vulnerability, and the threat model in brief.
 - [Changelog](CHANGELOG.md) lists what changed in each release.
 
 ## Security in one paragraph
 
 Data is protected by encryption at rest and by passwords. It is **not** protected from someone who already holds a valid password: the vault is a single encrypted database, so any person who can sign in could, with developer tools, read every group's records, not only their own. Roles control what the app shows and allows, not what the cryptography hides. The exception is private safes, which are encrypted with keys derived only from their owner's password or recovery code, so Admins and other people cannot read them even with the decrypted database; they do not hide how many items someone has, and they do not protect against a compromised device. Email addresses are stored unencrypted next to the ciphertext so the app knows whose key to try. There is no password recovery. If every password is lost, the data cannot be recovered. Backups made before 1.2.0 contain key material for each person and should be replaced after upgrading. See the [admin guide](docs/admin-guide.md#security-limits-to-know) for the full list.
 
+To report a vulnerability, use GitHub's [private security advisory form](https://github.com/kool277/iqtisod/security/advisories/new), not a public issue. [SECURITY.md](SECURITY.md) explains what to include and what to expect.
+
 ## Tech stack
 
-React 19, TypeScript, Vite, Tailwind CSS 4, Chart.js, Lucide icons, `@sqlite.org/sqlite-wasm`, the Web Crypto API, Vitest, Playwright, GitHub Actions, CodeQL, and Dependabot.
+React 19, TypeScript, Vite, Tailwind CSS 4, Chart.js, Lucide icons, `@sqlite.org/sqlite-wasm`, the Web Crypto API, jsPDF, write-excel-file, zip.js, Vitest, Playwright, GitHub Actions, CodeQL, and Dependabot.
 
 ## Status
 
-Version 1.2.0, in production since 1.0.0. The core features work and are covered by unit tests, browser tests, and golden backups from every release. Known gaps and suggested next steps are listed in the [developer guide](docs/developer-guide.md#known-gaps-and-next-steps).
+Version 1.3.1, in production since 1.0.0 and served from [jaybi.uz](https://jaybi.uz) since 1.3.0. The core features work and are covered by unit tests, browser tests, and golden backups from every release. Known gaps and suggested next steps are listed in the [developer guide](docs/developer-guide.md#known-gaps-and-next-steps).
+
+## License
+
+The repository does not include a license file yet, so no open-source license is granted for the app's own code. Bundled third-party parts keep their own licenses: `coi-serviceworker` (MIT), the Noto Sans font subset (SIL OFL 1.1, `src/assets/fonts/OFL.txt`), the QR code generator adapted from Project Nayuki (MIT), and the npm dependencies listed in `package-lock.json`.
