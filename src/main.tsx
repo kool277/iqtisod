@@ -19,7 +19,7 @@ function isFramed(): boolean {
   }
 }
 
-/** A page that another site frames could be overlaid to trick clicks, so Moliya only offers a way out. */
+/** A page that another site frames could be overlaid to trick clicks, so the app only offers a way out. */
 function renderFramed(root: HTMLElement): void {
   const locale = detectLocale()
   const box = document.createElement('main')

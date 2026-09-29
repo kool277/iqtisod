@@ -182,7 +182,7 @@ export function decryptRecordBody(record: VaultRecord, dek: CryptoKey): Promise<
   return decryptDatabase(record.body.ciphertext, dek, new Uint8Array(record.body.iv))
 }
 
-/** Checks the schema is one Moliya wrote, then migrates. The caller owns the returned handle. */
+/** Checks the schema is one this app wrote, then migrates. The caller owns the returned handle. */
 export async function openRecordDatabase(plain: Uint8Array): Promise<{ db: SqlDatabase; migration: MigrationResult }> {
   const db = await SqlDatabase.openBytes(plain)
   try {
@@ -221,7 +221,7 @@ export function buildOpenVault(
     grants: grantsFromRecord(record),
     user: parts.user,
     currency: currency && isCurrency(currency) ? currency : 'USD',
-    vaultName: getSetting(db, 'vault_name') ?? 'Moliya',
+    vaultName: getSetting(db, 'vault_name') ?? 'Jaybi',
     createdAt: record.createdAt ?? getSetting(db, 'vault_created_at'),
     lastBackupAt: getSetting(db, 'last_backup_at'),
     needsSave: parts.needsSave,

@@ -22,6 +22,7 @@ import type { MessageKey } from '../i18n'
 import { BUILD } from '../lib/version'
 import { Permission, canUser } from '../rbac'
 import { backupReminder } from '../services/backup.service'
+import { BrandMark } from './Brand'
 import { Preferences } from './Preferences'
 
 const SIDEBAR_KEY = 'moliya.sidebar'
@@ -124,9 +125,10 @@ export function AppShell() {
             data-testid="brand-home"
             aria-label={`${t('app.name')}: ${t('nav.dashboard')}`}
             title={t('nav.dashboard')}
-            className={`mb-4 hidden h-10 shrink-0 items-center rounded-xl font-display leading-none hover:text-brass md:flex ${collapsed ? 'w-10 justify-center text-2xl' : 'px-3 text-3xl'}`}
+            className={`mb-4 hidden h-10 shrink-0 items-center rounded-xl leading-none hover:text-brass md:flex ${collapsed ? 'w-10 justify-center overflow-hidden' : 'gap-3 px-3'}`}
           >
-            {collapsed ? 'M' : 'Moliya'}
+            <BrandMark className={collapsed ? 'text-lg' : 'text-3xl'} />
+            {collapsed ? null : <span className="truncate font-display text-xl">{t('app.name')}</span>}
           </Link>
           {visibleLinks.map((link) => {
               const Icon = link.icon

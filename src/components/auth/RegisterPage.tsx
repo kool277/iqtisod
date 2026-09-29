@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { AuthFrame } from '../AuthScreens'
+import { BrandLockup } from '../Brand'
 import { PasswordHint, ThrottleNotice } from './AuthBits'
 import { Button, Field, Notice, controlClass } from '../ui'
 import { useI18n } from '../../context/I18nContext'
@@ -57,7 +58,7 @@ export function RegisterPage() {
   const reset = kind === 'RESET'
   return (
     <AuthFrame>
-      <p className="font-display text-4xl lg:hidden">Moliya</p>
+      <BrandLockup className="lg:hidden" />
       <h2 className="mt-2 font-display text-4xl">{reset ? t('register.titleReset') : t('register.title')}</h2>
       <p className="mt-2 text-sm text-muted">{reset ? t('register.subtitleReset') : t('register.subtitle')}</p>
       {status === 'setup' ? (

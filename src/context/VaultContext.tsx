@@ -97,7 +97,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const [bootError, setBootError] = useState<string | null>(null)
   const [user, setUser] = useState<SessionUser | null>(null)
   const [currency, setCurrency] = useState('USD')
-  const [vaultName, setVaultName] = useState('Moliya')
+  const [vaultName, setVaultName] = useState('Jaybi')
   const [lastBackupAt, setLastBackupAt] = useState<string | null>(null)
   const [revision, setRevision] = useState(0)
   const [saveState, setSaveState] = useState<SaveState>('saved')

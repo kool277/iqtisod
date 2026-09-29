@@ -2,7 +2,7 @@ import type { Messages } from './en'
 
 export const uzLatn: Messages = {
   app: {
-    name: 'Moliya',
+    name: 'Jaybi',
     tagline: 'Shu qurilmada qoladigan shaxsiy daftar.',
     localOnly: 'Brauzerda shifrlanadi. Hech narsa yuklanmaydi.',
   },
@@ -181,8 +181,8 @@ export const uzLatn: Messages = {
     importHelp: 'Import shu brauzerdagi seyfni almashtiradi.',
     importWarn: 'Joriy seyf almashtiriladi. Buni qaytarib boʻlmaydi.',
     confirmImport: 'Seyfni almashtirish',
-    choose: '.moliya faylni tanlang',
-    invalid: 'Bu Moliya zaxira fayli emas.',
+    choose: 'Jaybi zaxira faylini (.moliya) tanlang',
+    invalid: 'Bu Jaybi zaxira fayli (.moliya) emas.',
     imported: 'Nusxa tiklandi. Davom etish uchun seyfni oching.',
     lastBackup: 'Oxirgi nusxa',
     never: 'Hech qachon',
@@ -195,7 +195,7 @@ export const uzLatn: Messages = {
     storageBestEffort: 'Himoyalanmagan. Joy yetishmasa yoki uzoq vaqt kirilmasa, brauzer maʼlumotlarni oʻchirishi mumkin. Nusxa olib turing.',
     storageUnsupported: 'Brauzer maʼlumotlar himoyalanganini bildirmaydi. Nusxa olib turing.',
     archives: 'Bu brauzerdagi oldingi nusxalar',
-    archivesIntro: 'Moliya har bir format yangilanishi va har bir importdan oldin seyf nusxasini saqlaydi. Orqaga qaytish kerak boʻlsa, uni yuklab oling.',
+    archivesIntro: 'Jaybi har bir format yangilanishi va har bir importdan oldin seyf nusxasini saqlaydi. Orqaga qaytish kerak boʻlsa, uni yuklab oling.',
     archiveUpgrade: 'Yangilanishdan oldin',
     archiveImport: 'Importdan oldin',
     archiveDownload: 'Yuklab olish',
@@ -242,7 +242,7 @@ export const uzLatn: Messages = {
     unknown: 'Nomaʼlum',
   },
   update: {
-    available: 'Moliyaning yangi versiyasi chiqdi.',
+    available: 'Jaybining yangi versiyasi chiqdi.',
     reload: 'Yangilash',
   },
   theme: {
@@ -260,7 +260,7 @@ export const uzLatn: Messages = {
     generic: 'Nimadir xato ketdi. Qayta urinib koʻring.',
     positiveAmount: 'Noldan katta summa kiriting.',
     sqlite: 'Daftar bu brauzerda ochilmadi.',
-    formatTooNew: 'Bu seyf Moliyaning yangiroq versiyasida saqlangan. Soʻnggi versiyani olish uchun sahifani yangilang. Hech narsa oʻzgartirilmadi.',
+    formatTooNew: 'Bu seyf Jaybining yangiroq versiyasida saqlangan. Soʻnggi versiyani olish uchun sahifani yangilang. Hech narsa oʻzgartirilmadi.',
     recordInvalid: 'Bu brauzerdagi seyf shikastlangan va ochilmaydi. Hech narsa oʻzgartirilmadi. Uni nusxadan tiklang.',
     conflict: 'Seyf boshqa varaq yoki oynada oʻzgartirilgan, shuning uchun bu oʻzgarish saqlanmadi. Soʻnggi maʼlumotlarni yuklash uchun seyfni qulflab, qayta oching.',
     inUse: 'Bu seyf boshqa varaq yoki oynada allaqachon ochiq. Avval u yerda qulflang.',
@@ -657,7 +657,7 @@ export const uzLatn: Messages = {
     idle15: '15 daqiqa',
     idle30: '30 daqiqa',
     idle60: '1 soat',
-    weakPassword: 'Parolingiz Moliya endi ruxsat beradiganidan qisqaroq yoki juda keng tarqalgan. Iltimos, yangi parol tanlang.',
+    weakPassword: 'Parolingiz Jaybi endi ruxsat beradiganidan qisqaroq yoki juda keng tarqalgan. Iltimos, yangi parol tanlang.',
     weakAction: 'Parolni oʻzgartirish',
     storageNear: 'Seyf hajmi chegarasiga yaqinlashdi. Joy boʻshatish uchun katta cheklarni olib tashlang.',
     failuresSeen: 'Oxirgi kirishingizdan beri shu brauzerda hisobingizga muvaffaqiyatsiz kirish urinishlari:',
@@ -672,8 +672,8 @@ export const uzLatn: Messages = {
     importLimit: 'Eng katta fayl hajmi',
   },
   framed: {
-    title: 'Xavfsizligingiz uchun Moliya boshqa sahifa ichida ishlamaydi.',
-    open: 'Moliyani alohida varaqda ochish',
+    title: 'Xavfsizligingiz uchun Jaybi boshqa sahifa ichida ishlamaydi.',
+    open: 'Jaybini alohida varaqda ochish',
   },
   securityErrors: {
     PASSWORD_LONG: 'Koʻpi bilan 256 ta belgi kiriting.',
@@ -691,7 +691,7 @@ export const uzLatn: Messages = {
     TOTP_ENABLED: 'Kirish tekshiruvi allaqachon yoqilgan.',
     RECEIPT_TYPE: 'Chek PNG, JPEG, WebP yoki GIF rasm boʻlishi kerak.',
     VAULT_FULL: 'Seyf toʻldi. Yana qoʻshishdan oldin katta cheklarni olib tashlang.',
-    IMPORT_TOO_LARGE: 'Bu fayl Moliya zaxira nusxasi boʻlishi uchun juda katta.',
+    IMPORT_TOO_LARGE: 'Bu fayl Jaybi zaxira nusxasi boʻlishi uchun juda katta.',
     VAULT_EXISTS: 'Bu brauzerda seyf allaqachon bor. Tizimga kiring va uni Zaxira nusxa sahifasida almashtiring.',
     NO_VAULT: 'Bu brauzerda hali seyf yoʻq.',
   },

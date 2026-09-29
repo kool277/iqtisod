@@ -2,6 +2,7 @@ import { useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { PasswordHint, ThrottleNotice } from './auth/AuthBits'
 import { SignInCheckStep } from './auth/SignInCheckStep'
+import { BrandLockup } from './Brand'
 import { Preferences } from './Preferences'
 import { Button, Field, Notice, controlClass } from './ui'
 import { useI18n } from '../context/I18nContext'
@@ -17,7 +18,7 @@ import { parseBackup, type ParsedBackup } from '../services/backup.service'
 export function Splash() {
   return (
     <div className="grid min-h-screen place-items-center">
-      <p className="font-display text-5xl">Moliya</p>
+      <BrandLockup size="lg" />
     </div>
   )
 }
@@ -30,7 +31,9 @@ export function BootError({ message }: { message: string }) {
   return (
     <div className="grid min-h-screen place-items-center p-6">
       <div className="max-w-md text-center">
-        <h1 className="font-display text-4xl">Moliya</h1>
+        <h1>
+          <BrandLockup />
+        </h1>
         <p data-testid="boot-error" data-code={message} className="mt-4 text-clay-ink">
           {known ? errorText(message, t) : t('errors.sqlite')}
         </p>
@@ -46,7 +49,7 @@ export function AuthFrame({ children }: { children: ReactNode }) {
   return (
     <div className="grid min-h-screen lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
       <section className="hidden flex-col justify-between bg-[#14532d] p-12 text-[#f6f1e7] lg:flex">
-        <p className="font-display text-4xl">Moliya</p>
+        <BrandLockup size="lg" />
         <div>
           <h1 className="max-w-lg font-display text-6xl leading-[0.95]">{t('app.tagline')}</h1>
         </div>
@@ -114,7 +117,7 @@ export function SetupPage() {
 
   return (
     <AuthFrame>
-      <p className="font-display text-4xl lg:hidden">Moliya</p>
+      <BrandLockup className="lg:hidden" />
       <h2 className="mt-2 font-display text-4xl">{t('setup.title')}</h2>
       <p className="mt-2 text-sm text-muted">{t('setup.subtitle')}</p>
       <form className="mt-6 grid gap-4" onSubmit={(event) => void onSubmit(event)}>
@@ -204,7 +207,7 @@ export function LoginPage() {
   if (status === 'challenge') {
     return (
       <AuthFrame>
-        <p className="font-display text-4xl lg:hidden">Moliya</p>
+        <BrandLockup className="lg:hidden" />
         <SignInCheckStep />
       </AuthFrame>
     )
@@ -212,7 +215,7 @@ export function LoginPage() {
 
   return (
     <AuthFrame>
-      <p className="font-display text-4xl lg:hidden">Moliya</p>
+      <BrandLockup className="lg:hidden" />
       <h2 className="mt-2 font-display text-4xl">{t('login.title')}</h2>
       <p className="mt-2 text-sm text-muted">{t('login.subtitle')}</p>
       <form className="mt-6 grid gap-4" onSubmit={(event) => void onSubmit(event)}>

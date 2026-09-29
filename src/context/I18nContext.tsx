@@ -19,7 +19,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     document.documentElement.lang = htmlLang(locale)
-    document.title = 'Moliya'
+    document.title = translate(locale, 'app.name')
   }, [locale])
 
   const t = useCallback((key: MessageKey) => translate(locale, key), [locale])

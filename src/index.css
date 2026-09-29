@@ -18,6 +18,7 @@
   --app-brass-soft: #f4e7d4;
   --app-font-sans: "Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif;
   --app-font-display: "Iowan Old Style", Palatino, "Palatino Linotype", Georgia, serif;
+  --app-font-brand: "Geeza Pro", "Noto Naskh Arabic", "Noto Sans Arabic", "Segoe UI", Tahoma, "DejaVu Sans", Arial, sans-serif;
 }
 
 .dark {
@@ -51,6 +52,7 @@
   --color-brass-soft: var(--app-brass-soft);
   --font-sans: var(--app-font-sans);
   --font-display: var(--app-font-display);
+  --font-brand: var(--app-font-brand);
 }
 
 html,

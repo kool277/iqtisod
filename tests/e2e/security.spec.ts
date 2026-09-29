@@ -400,7 +400,7 @@ test('does not run inside another page', async ({ browser, baseURL }) => {
   await page.goto(parent)
   const frame = page.frameLocator('iframe')
   await expect(frame.getByText('does not run inside another page')).toBeVisible({ timeout: 30_000 })
-  const link = frame.getByRole('link', { name: 'Open Moliya in its own tab' })
+  const link = frame.getByRole('link', { name: 'Open Jaybi in its own tab' })
   await expect(link).toHaveAttribute('target', '_blank')
   await expect(link).toHaveAttribute('rel', /noopener/)
   await expect(frame.getByTestId('setup-email')).toHaveCount(0)

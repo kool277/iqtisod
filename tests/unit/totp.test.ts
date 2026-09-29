@@ -46,7 +46,7 @@ describe('constants', () => {
     expect(TOTP_DIGITS).toBe(6)
     expect(TOTP_PERIOD_SECONDS).toBe(30)
     expect(TOTP_WINDOW).toBe(1)
-    expect(TOTP_ISSUER).toBe('Moliya')
+    expect(TOTP_ISSUER).toBe('Jaybi')
   })
 })
 
@@ -128,15 +128,15 @@ describe('otpauthUri', () => {
     const secret = crypto.getRandomValues(new Uint8Array(TOTP_SECRET_BYTES))
     const uri = otpauthUri(secret, 'admin@example.com')
     expect(uri).toBe(
-      `otpauth://totp/Moliya%3Aadmin%40example.com?secret=${base32Encode(secret)}&issuer=Moliya&algorithm=SHA1&digits=6&period=30`,
+      `otpauth://totp/Jaybi%3Aadmin%40example.com?secret=${base32Encode(secret)}&issuer=Jaybi&algorithm=SHA1&digits=6&period=30`,
     )
     const url = new URL(uri)
     expect(url.protocol).toBe('otpauth:')
     expect(url.host).toBe('totp')
-    expect(decodeURIComponent(url.pathname)).toBe('/Moliya:admin@example.com')
+    expect(decodeURIComponent(url.pathname)).toBe('/Jaybi:admin@example.com')
     expect(Object.fromEntries(url.searchParams)).toEqual({
       secret: base32Encode(secret),
-      issuer: 'Moliya',
+      issuer: 'Jaybi',
       algorithm: 'SHA1',
       digits: '6',
       period: '30',
@@ -148,7 +148,7 @@ describe('otpauthUri', () => {
     const account = 'o’g‘il & qiz?#/ user+1@misol.uz'
     const uri = otpauthUri(new Uint8Array(20), account)
     const url = new URL(uri)
-    expect(decodeURIComponent(url.pathname)).toBe(`/Moliya:${account}`)
+    expect(decodeURIComponent(url.pathname)).toBe(`/Jaybi:${account}`)
     expect(url.hash).toBe('')
     expect([...url.searchParams.keys()]).toEqual(['secret', 'issuer', 'algorithm', 'digits', 'period'])
     expect(uri.split('?')[0]).not.toMatch(/[ &?#+]/)

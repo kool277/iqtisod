@@ -124,7 +124,7 @@ export function SignInCheckSection() {
               ))}
             </ul>
             <div className="flex flex-wrap gap-2">
-              <Button variant="quiet" onClick={() => downloadFile(`${recovery.join('\n')}\n`, 'moliya-sign-in-recovery.txt', 'text/plain;charset=utf-8')}>
+              <Button variant="quiet" onClick={() => downloadFile(`${recovery.join('\n')}\n`, 'jaybi-sign-in-recovery.txt', 'text/plain;charset=utf-8')}>
                 {t('signInCheck.recoveryDownload')}
               </Button>
               <Button data-testid="totp-recovery-done" onClick={() => setRecovery(null)}>

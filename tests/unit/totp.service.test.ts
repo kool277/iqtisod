@@ -85,7 +85,7 @@ describe('sign-in check setup', () => {
     const setup = beginTotpSetup(OWNER.email)
     expect(setup.secret).toMatch(/^[A-Z2-7]{32}$/)
     expect(base32Decode(setup.secret)).toHaveLength(20)
-    expect(setup.uri).toBe(`otpauth://totp/Moliya%3Akeeper%40maple.test?secret=${setup.secret}&issuer=Moliya&algorithm=SHA1&digits=6&period=30`)
+    expect(setup.uri).toBe(`otpauth://totp/Jaybi%3Akeeper%40maple.test?secret=${setup.secret}&issuer=Jaybi&algorithm=SHA1&digits=6&period=30`)
     expect(beginTotpSetup(OWNER.email).secret).not.toBe(setup.secret)
   })
 
