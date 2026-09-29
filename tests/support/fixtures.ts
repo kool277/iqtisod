@@ -33,6 +33,24 @@ export type ExpectedTransaction = {
 
 export type ExpectedTotals = { incomeMinor: number; expenseMinor: number; netMinor: number; savingsRate: number }
 
+export type ExpectedSafe = {
+  id: string
+  name: string
+  archived: boolean
+  requirePassword: boolean
+  isDefault: boolean
+  items: Record<string, unknown>[]
+}
+
+export type ExpectedSafeOwner = {
+  email: string
+  state: 'OPEN' | 'STALE'
+  previousPassword?: string
+  recoveryCode: string | null
+  safes: ExpectedSafe[]
+  totals: { currency: string; monthlyMinor: number; yearlyMinor: number; active: number }[]
+}
+
 export type Expected = {
   producedBy: { appVersion: string; commit: string }
   vaultName: string
@@ -43,6 +61,7 @@ export type Expected = {
   transactions: ExpectedTransaction[]
   totals: { range: { start: string; end: string } } & Partial<Record<'admin' | 'manager', ExpectedTotals>>
   auditActions: string[]
+  safes?: { summaryDate: string; owners: ExpectedSafeOwner[] }
 }
 
 export type Fixture = ManifestEntry & { text: string; expected: Expected }

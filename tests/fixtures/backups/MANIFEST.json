@@ -20,6 +20,13 @@
       "backupFormat": 2,
       "recordFormat": 2,
       "schemaVersion": 2
+    },
+    {
+      "path": "v3/safes-household",
+      "producedBy": "1.2.0",
+      "backupFormat": 2,
+      "recordFormat": 2,
+      "schemaVersion": 3
     }
   ]
 }

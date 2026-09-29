@@ -13,6 +13,17 @@ import { sealVault, unlockVault } from '../../src/services/auth.service'
 import { backupFileText, parseBackup } from '../../src/services/backup.service'
 import { listCategories, listTransactions, loadDashboard } from '../../src/services/finance.service'
 import { listGroups } from '../../src/services/group.service'
+import { DecryptError, SAFE_KEY_USAGES, aad, unwrapWithAad } from '../../src/crypto/safe-crypto'
+import { subscriptionSummary } from '../../src/domain/subscriptions'
+import {
+  getSafeStatus,
+  listItems,
+  listOpenItems,
+  listSafes,
+  openSafe,
+  unlockSafes,
+  type SafeKeyring,
+} from '../../src/services/safe.service'
 import {
   FIXTURE_ROOT,
   fixtureFolders,
@@ -21,6 +32,7 @@ import {
   readManifest,
   sha256File,
   v1StoredRecordFromBackup,
+  type ExpectedSafeOwner,
   type ExpectedUser,
   type Fixture,
 } from '../support/fixtures'
@@ -88,6 +100,29 @@ async function expectFixtureContents(record: VaultRecord, fixture: Fixture) {
     }
     if (user.role === 'Manager') expectTotals(vault, fixture, 'manager')
   }
+}
+
+async function expectSafes(vault: OpenVault, keyring: SafeKeyring, owner: ExpectedSafeOwner, password: string, summaryDate: string) {
+  const listed = await listSafes(vault, keyring)
+  expect(
+    listed.map((safe) => ({
+      id: safe.id,
+      name: safe.meta?.name,
+      archived: safe.meta?.archived,
+      requirePassword: safe.meta?.requirePassword,
+      isDefault: safe.isDefault,
+    })),
+  ).toEqual(owner.safes.map(({ items: _items, ...safe }) => safe))
+  for (const safe of owner.safes) {
+    if (safe.requirePassword) {
+      await expect(listItems(vault, keyring, safe.id)).rejects.toMatchObject({ code: 'SAFE_CLOSED' })
+      await openSafe(vault, keyring, safe.id, password)
+    }
+    const { items, unreadable } = await listItems(vault, keyring, safe.id, { includeTrashed: true })
+    expect(unreadable).toEqual([])
+    expect(items.map(({ createdAt: _created, updatedAt: _updated, rev: _rev, ...item }) => item)).toEqual(safe.items)
+  }
+  expect(subscriptionSummary((await listOpenItems(vault, keyring)).items, summaryDate).totals).toEqual(owner.totals)
 }
 
 const manifest = readManifest()
@@ -168,6 +203,42 @@ describe.each(fixtures.map((fixture) => [fixture.path, fixture] as const))('gold
     expect(again.needsSave).toBe(false)
     const restored = parseBackup(backupFileText(upgraded)).record
     await expectFixtureContents(restored, fixture)
+  })
+
+  it.runIf(fixture.expected.safes !== undefined)('opens each private safe only for its owner, with exact contents', async () => {
+    const safes = fixture.expected.safes!
+    const record = parseBackup(fixture.text).record
+    const unlocked = new Map<string, { vault: OpenVault; keyring: SafeKeyring }>()
+    for (const owner of safes.owners) {
+      const user = fixture.expected.users.find((item) => item.email === owner.email)!
+      const vault = await unlock(record, user)
+      let keyring: SafeKeyring
+      if (owner.state === 'STALE') {
+        expect(getSafeStatus(vault)).toMatchObject({ initialized: true, stale: true, hasRecovery: owner.recoveryCode !== null })
+        await expect(unlockSafes(vault, { kind: 'password', password: user.password })).rejects.toMatchObject({ code: 'SAFES_STALE' })
+        const viaCode = await unlock(record, user)
+        const recovered = await unlockSafes(viaCode, { kind: 'recoveryCode', code: owner.recoveryCode!, current: user.password })
+        await expectSafes(viaCode, recovered.keyring, owner, user.password, safes.summaryDate)
+        keyring = (await unlockSafes(vault, { kind: 'previousPassword', previous: owner.previousPassword!, current: user.password })).keyring
+      } else {
+        expect(getSafeStatus(vault)).toMatchObject({ initialized: true, stale: false, hasRecovery: owner.recoveryCode !== null })
+        keyring = (await unlockSafes(vault, { kind: 'password', password: user.password })).keyring
+      }
+      await expectSafes(vault, keyring, owner, user.password, safes.summaryDate)
+      unlocked.set(owner.email, { vault, keyring })
+    }
+    for (const [email, { vault, keyring }] of unlocked) {
+      for (const other of safes.owners.filter((owner) => owner.email !== email)) {
+        for (const safe of other.safes) {
+          await expect(listItems(vault, keyring, safe.id)).rejects.toMatchObject({ code: 'SAFE_NOT_FOUND' })
+          const row = vault.db.queryOne('SELECT owner_user_id, key_version, key_iv, wrapped_key FROM safes WHERE id = ?', [safe.id])!
+          const data = aad('moliya.safe-key', String(row.owner_user_id), safe.id, Number(row.key_version))
+          await expect(
+            unwrapWithAad({ iv: String(row.key_iv), ct: String(row.wrapped_key) }, keyring.personalKey, data, { extractable: false, usages: SAFE_KEY_USAGES }),
+          ).rejects.toBeInstanceOf(DecryptError)
+        }
+      }
+    }
   })
 
   it.runIf(fixture.recordFormat === 1)('loads the IndexedDB record 1.0.0 stored and re-exports the original backup byte for byte', async () => {

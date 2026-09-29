@@ -1,0 +1,357 @@
+{
+  "description": "Produced by Moliya 1.2.0 services: vault record v2, backup v2, schema v3 (private safes, HKDF password verifier).",
+  "producedBy": {
+    "appVersion": "1.2.0",
+    "commit": "ceffe22d8895"
+  },
+  "format": {
+    "backup": 2,
+    "record": 2,
+    "schema": 3
+  },
+  "vaultName": "Safe House",
+  "currency": "USD",
+  "users": [
+    {
+      "email": "admin@safes.test",
+      "password": "safes-admin-v3",
+      "role": "Admin",
+      "group": null
+    },
+    {
+      "email": "manager@safes.test",
+      "password": "safes-manager-v3",
+      "role": "Manager",
+      "group": "Safe House"
+    },
+    {
+      "email": "viewer@safes.test",
+      "password": "viewer-after-reset-v3",
+      "role": "Viewer",
+      "group": "Safe House"
+    }
+  ],
+  "groups": [
+    "Safe House"
+  ],
+  "categoryCount": 14,
+  "transactions": [
+    {
+      "id": "f6459735-0f56-412c-b285-142ff2dd18ef",
+      "type": "INCOME",
+      "amountMinor": 300000,
+      "currency": "USD",
+      "category": "Salary",
+      "group": "Safe House",
+      "date": "2026-10-01",
+      "notes": null,
+      "hasReceipt": false,
+      "userEmail": "admin@safes.test"
+    },
+    {
+      "id": "56616939-9f87-4f7e-88f9-f96e1895c771",
+      "type": "EXPENSE",
+      "amountMinor": 4250,
+      "currency": "USD",
+      "category": "Food",
+      "group": "Safe House",
+      "date": "2026-10-03",
+      "notes": "market",
+      "hasReceipt": false,
+      "userEmail": "admin@safes.test"
+    }
+  ],
+  "totals": {
+    "range": {
+      "start": "2026-10-01",
+      "end": "2026-10-31"
+    },
+    "admin": {
+      "incomeMinor": 300000,
+      "expenseMinor": 4250,
+      "netMinor": 295750,
+      "savingsRate": 98.6
+    }
+  },
+  "auditActions": [
+    "VAULT_CREATED",
+    "USER_CREATED",
+    "USER_CREATED",
+    "TRANSACTION_CREATED",
+    "TRANSACTION_CREATED",
+    "PASSWORD_CHANGED",
+    "PASSWORD_CHANGED",
+    "USER_PASSWORD_RESET",
+    "PASSWORD_CHANGED",
+    "BACKUP_EXPORTED"
+  ],
+  "safes": {
+    "summaryDate": "2026-10-01",
+    "owners": [
+      {
+        "email": "admin@safes.test",
+        "state": "OPEN",
+        "recoveryCode": "G8VM1-3SMS8-M2B5G-78WV8-SV29A",
+        "safes": [
+          {
+            "id": "e5b0fab1-ed99-4da6-b406-af4e09cbaeea",
+            "name": "Personal",
+            "archived": false,
+            "requirePassword": false,
+            "isDefault": true,
+            "items": [
+              {
+                "v": 1,
+                "kind": "CARD",
+                "title": "Family Visa",
+                "cardholder": "Aziza Karimova",
+                "number": "4111111111111111",
+                "brand": "VISA",
+                "expMonth": 8,
+                "expYear": 2029,
+                "cvv": "737",
+                "bank": "Kapitalbank",
+                "notes": "Main card",
+                "favorite": true,
+                "id": "f48b12f7-9778-4b8b-98c3-072815673316",
+                "safeId": "e5b0fab1-ed99-4da6-b406-af4e09cbaeea",
+                "deletedAt": null
+              },
+              {
+                "v": 1,
+                "kind": "CARD",
+                "title": "Salary Humo",
+                "cardholder": "AZIZA KARIMOVA",
+                "number": "9860123456789012",
+                "brand": "HUMO",
+                "expMonth": 12,
+                "expYear": 2027,
+                "cvv": null,
+                "bank": "Xalq banki",
+                "notes": "",
+                "favorite": false,
+                "id": "6d1054d9-f9c5-4842-81dc-a035e2ef8b29",
+                "safeId": "e5b0fab1-ed99-4da6-b406-af4e09cbaeea",
+                "deletedAt": null
+              },
+              {
+                "v": 1,
+                "kind": "SUBSCRIPTION",
+                "title": "Netflix",
+                "url": "https://www.netflix.com/",
+                "amountMinor": 999,
+                "currency": "USD",
+                "cycle": "MONTHLY",
+                "customDays": null,
+                "anchorDate": "2026-01-31",
+                "status": "ACTIVE",
+                "trialEndsOn": null,
+                "remindDaysBefore": 3,
+                "cardItemId": "f48b12f7-9778-4b8b-98c3-072815673316",
+                "account": "aziza@example.com",
+                "notes": "",
+                "favorite": false,
+                "id": "b07876c2-3224-486a-9cf8-319d63b2ce18",
+                "safeId": "e5b0fab1-ed99-4da6-b406-af4e09cbaeea",
+                "deletedAt": null
+              },
+              {
+                "v": 1,
+                "kind": "SUBSCRIPTION",
+                "title": "Internet",
+                "url": "",
+                "amountMinor": 120000000,
+                "currency": "UZS",
+                "cycle": "YEARLY",
+                "customDays": null,
+                "anchorDate": "2026-03-15",
+                "status": "ACTIVE",
+                "trialEndsOn": null,
+                "remindDaysBefore": 7,
+                "cardItemId": "6d1054d9-f9c5-4842-81dc-a035e2ef8b29",
+                "account": "contract 77-1",
+                "notes": "Paid yearly",
+                "favorite": false,
+                "id": "bdca749c-f9fb-43ce-8f6a-0e4c656b5a61",
+                "safeId": "e5b0fab1-ed99-4da6-b406-af4e09cbaeea",
+                "deletedAt": null
+              },
+              {
+                "v": 1,
+                "kind": "SUBSCRIPTION",
+                "title": "Old gym",
+                "url": "",
+                "amountMinor": 25000000,
+                "currency": "UZS",
+                "cycle": "MONTHLY",
+                "customDays": null,
+                "anchorDate": "2026-02-01",
+                "status": "CANCELLED",
+                "trialEndsOn": null,
+                "remindDaysBefore": 0,
+                "cardItemId": null,
+                "account": "",
+                "notes": "",
+                "favorite": false,
+                "id": "7e2b7431-6067-4425-86fb-3ab4ee477b3e",
+                "safeId": "e5b0fab1-ed99-4da6-b406-af4e09cbaeea",
+                "deletedAt": null
+              },
+              {
+                "v": 1,
+                "kind": "NOTE",
+                "title": "Deposit box",
+                "body": "Box 42, Chilonzor branch.\nKey in the blue drawer.",
+                "favorite": false,
+                "id": "699bf53c-cb11-4953-a901-294ea9ec4d6b",
+                "safeId": "e5b0fab1-ed99-4da6-b406-af4e09cbaeea",
+                "deletedAt": null
+              }
+            ]
+          },
+          {
+            "id": "15fd2a48-f52e-448e-b8d4-2d42ab347a22",
+            "name": "Travel",
+            "archived": true,
+            "requirePassword": false,
+            "isDefault": false,
+            "items": [
+              {
+                "v": 1,
+                "kind": "NOTE",
+                "title": "Visa numbers",
+                "body": "Schengen 2025: X1234567",
+                "favorite": false,
+                "id": "5f3e9285-3ae9-4632-a9ac-7ab7ca2f658e",
+                "safeId": "15fd2a48-f52e-448e-b8d4-2d42ab347a22",
+                "deletedAt": null
+              },
+              {
+                "v": 1,
+                "kind": "NOTE",
+                "title": "Hotel wifi",
+                "body": "guest / sunshine",
+                "favorite": false,
+                "id": "339d2316-40c9-43a7-9276-1c8b3a934cbb",
+                "safeId": "15fd2a48-f52e-448e-b8d4-2d42ab347a22",
+                "deletedAt": "2026-09-29T09:27:35.121Z"
+              }
+            ]
+          }
+        ],
+        "totals": [
+          {
+            "currency": "USD",
+            "monthlyMinor": 999,
+            "yearlyMinor": 11988,
+            "active": 1
+          },
+          {
+            "currency": "UZS",
+            "monthlyMinor": 10000000,
+            "yearlyMinor": 120000000,
+            "active": 1
+          }
+        ]
+      },
+      {
+        "email": "manager@safes.test",
+        "state": "OPEN",
+        "recoveryCode": "QYBHT-N0A3Y-8JC3P-W5BEW-TE74K",
+        "safes": [
+          {
+            "id": "4419baae-908d-4e34-8ba1-7948d310a2c3",
+            "name": "Shaxsiy",
+            "archived": false,
+            "requirePassword": false,
+            "isDefault": true,
+            "items": []
+          },
+          {
+            "id": "9b739154-5add-4294-91c1-527ba786492f",
+            "name": "Oltin · Золото",
+            "archived": false,
+            "requirePassword": true,
+            "isDefault": false,
+            "items": [
+              {
+                "v": 1,
+                "kind": "CARD",
+                "title": "Business Mastercard",
+                "cardholder": "Rustam T.",
+                "number": "5555555555554444",
+                "brand": "MASTERCARD",
+                "expMonth": 1,
+                "expYear": 2027,
+                "cvv": null,
+                "bank": "",
+                "notes": "",
+                "favorite": false,
+                "id": "79547eed-300e-4adc-a24a-f64de78f7c00",
+                "safeId": "9b739154-5add-4294-91c1-527ba786492f",
+                "deletedAt": null
+              },
+              {
+                "v": 1,
+                "kind": "SUBSCRIPTION",
+                "title": "Cloud backup",
+                "url": "https://backup.example/",
+                "amountMinor": 1000,
+                "currency": "EUR",
+                "cycle": "CUSTOM",
+                "customDays": 30,
+                "anchorDate": "2026-09-20",
+                "status": "ACTIVE",
+                "trialEndsOn": "2026-10-05",
+                "remindDaysBefore": 5,
+                "cardItemId": null,
+                "account": "",
+                "notes": "",
+                "favorite": false,
+                "id": "c7cd5a55-aa8e-4a8a-8ed0-845df0bac052",
+                "safeId": "9b739154-5add-4294-91c1-527ba786492f",
+                "deletedAt": null
+              }
+            ]
+          }
+        ],
+        "totals": [
+          {
+            "currency": "EUR",
+            "monthlyMinor": 1015,
+            "yearlyMinor": 12175,
+            "active": 1
+          }
+        ]
+      },
+      {
+        "email": "viewer@safes.test",
+        "state": "STALE",
+        "previousPassword": "Viewer own · свой · v3",
+        "recoveryCode": "DQR5C-EMWXX-K63X0-RBK7Z-WX8VK",
+        "safes": [
+          {
+            "id": "8ebb20a6-0a8d-44cf-be9d-274e431ee56a",
+            "name": "Личное",
+            "archived": false,
+            "requirePassword": false,
+            "isDefault": true,
+            "items": [
+              {
+                "v": 1,
+                "kind": "NOTE",
+                "title": "Wi-Fi",
+                "body": "Uy · Дом: parol-123",
+                "favorite": false,
+                "id": "c352b1e3-37e4-40c1-8430-496a400afe84",
+                "safeId": "8ebb20a6-0a8d-44cf-be9d-274e431ee56a",
+                "deletedAt": null
+              }
+            ]
+          }
+        ],
+        "totals": []
+      }
+    ]
+  }
+}
