@@ -1,0 +1,211 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/kool277/iqtisod/main/docs/schemas/moliya-export-1.schema.json",
+  "title": "Moliya export, format version 1 (moliya.json)",
+  "description": "One-way export of a Moliya vault. Money is an exact integer in minor units (amountMinor) plus a decimal string (amount). Readers must ignore unknown fields.",
+  "type": "object",
+  "required": [
+    "format",
+    "formatVersion",
+    "app",
+    "schemaVersion",
+    "exportedAt",
+    "exportedBy",
+    "vault",
+    "scope",
+    "currencies",
+    "groups",
+    "users",
+    "categories",
+    "transactions",
+    "totals",
+    "auditLog"
+  ],
+  "properties": {
+    "format": { "$ref": "#/$defs/format" },
+    "formatVersion": { "$ref": "#/$defs/formatVersion" },
+    "app": { "$ref": "#/$defs/app" },
+    "schemaVersion": { "$ref": "#/$defs/schemaVersion" },
+    "exportedAt": { "$ref": "#/$defs/timestamp" },
+    "exportedBy": { "$ref": "#/$defs/exportedBy" },
+    "vault": { "$ref": "#/$defs/vault" },
+    "scope": { "$ref": "#/$defs/scope" },
+    "currencies": { "type": "array", "items": { "$ref": "#/$defs/currency" } },
+    "groups": { "type": "array", "items": { "$ref": "#/$defs/group" } },
+    "users": { "type": "array", "items": { "$ref": "#/$defs/user" } },
+    "categories": { "type": "array", "items": { "$ref": "#/$defs/category" } },
+    "transactions": { "type": "array", "items": { "$ref": "#/$defs/transaction" } },
+    "totals": { "type": "array", "items": { "$ref": "#/$defs/totals" } },
+    "auditLog": { "type": "array", "items": { "$ref": "#/$defs/audit" } }
+  },
+  "$defs": {
+    "format": { "const": "moliya-export" },
+    "formatVersion": { "const": 1 },
+    "schemaVersion": { "type": "integer", "minimum": 1 },
+    "isoDate": { "type": "string", "pattern": "^[0-9]{4}-[0-1][0-9]-[0-3][0-9]$" },
+    "timestamp": {
+      "description": "ISO 8601 UTC time. Rows written by Moliya 1.0.0 may use the SQLite form YYYY-MM-DD HH:MM:SS.",
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-1][0-9]-[0-3][0-9][T ][0-2][0-9]:[0-5][0-9]:[0-6][0-9]"
+    },
+    "nullableTimestamp": { "oneOf": [{ "$ref": "#/$defs/timestamp" }, { "type": "null" }] },
+    "currencyCode": { "type": "string", "pattern": "^[A-Z]{3}$" },
+    "minor": {
+      "description": "Exact integer amount in the currency's minor unit.",
+      "type": "integer"
+    },
+    "hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "app": {
+      "type": "object",
+      "required": ["name", "version", "commit"],
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string" },
+        "commit": { "type": "string" }
+      }
+    },
+    "exportedBy": {
+      "type": "object",
+      "required": ["id", "email"],
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string" }
+      }
+    },
+    "vault": {
+      "type": "object",
+      "required": ["name", "currency", "createdAt"],
+      "properties": {
+        "name": { "type": "string" },
+        "currency": { "$ref": "#/$defs/currencyCode" },
+        "createdAt": { "$ref": "#/$defs/nullableTimestamp" }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "required": ["from", "to", "groupId", "groupName", "includesAudit", "includesReceipts", "auditFirstSeq", "auditLastSeq"],
+      "properties": {
+        "from": { "oneOf": [{ "$ref": "#/$defs/isoDate" }, { "type": "null" }] },
+        "to": { "oneOf": [{ "$ref": "#/$defs/isoDate" }, { "type": "null" }] },
+        "groupId": { "type": ["integer", "null"] },
+        "groupName": { "type": ["string", "null"] },
+        "includesAudit": { "type": "boolean" },
+        "includesReceipts": { "type": "boolean" },
+        "auditFirstSeq": { "type": ["integer", "null"], "minimum": 1 },
+        "auditLastSeq": { "type": ["integer", "null"], "minimum": 1 }
+      }
+    },
+    "currency": {
+      "type": "object",
+      "required": ["code", "minorUnit"],
+      "properties": {
+        "code": { "$ref": "#/$defs/currencyCode" },
+        "minorUnit": { "type": "integer", "minimum": 0, "maximum": 4 }
+      }
+    },
+    "group": {
+      "type": "object",
+      "required": ["id", "name", "createdAt"],
+      "properties": {
+        "id": { "type": "integer" },
+        "name": { "type": "string" },
+        "createdAt": { "$ref": "#/$defs/nullableTimestamp" }
+      }
+    },
+    "user": {
+      "type": "object",
+      "required": ["id", "email", "role", "groupId", "createdAt"],
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string" },
+        "groupId": { "type": ["integer", "null"] },
+        "createdAt": { "$ref": "#/$defs/nullableTimestamp" }
+      }
+    },
+    "category": {
+      "type": "object",
+      "required": ["id", "type", "icon", "names"],
+      "properties": {
+        "id": { "type": "integer" },
+        "type": { "enum": ["INCOME", "EXPENSE"] },
+        "icon": { "type": ["string", "null"] },
+        "names": {
+          "type": "object",
+          "required": ["en", "uz-Latn", "uz-Cyrl", "ru"],
+          "properties": {
+            "en": { "type": "string" },
+            "uz-Latn": { "type": "string" },
+            "uz-Cyrl": { "type": "string" },
+            "ru": { "type": "string" }
+          }
+        }
+      }
+    },
+    "transaction": {
+      "type": "object",
+      "required": [
+        "id",
+        "date",
+        "type",
+        "amountMinor",
+        "amount",
+        "currency",
+        "categoryId",
+        "groupId",
+        "userId",
+        "notes",
+        "hasReceipt",
+        "receipt",
+        "createdAt",
+        "updatedAt"
+      ],
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "$ref": "#/$defs/isoDate" },
+        "type": { "enum": ["INCOME", "EXPENSE"] },
+        "amountMinor": { "$ref": "#/$defs/minor", "type": "integer", "minimum": 1, "maximum": 999999999999999 },
+        "amount": { "description": "amountMinor as a decimal string with the currency's minor-unit digits, e.g. \"10.50\".", "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?$" },
+        "currency": { "$ref": "#/$defs/currencyCode" },
+        "categoryId": { "type": "integer" },
+        "groupId": { "type": "integer" },
+        "userId": { "type": "string" },
+        "notes": { "type": ["string", "null"] },
+        "hasReceipt": { "type": "boolean" },
+        "receipt": {
+          "description": "Receipt image as a data URL when scope.includesReceipts is true; otherwise null.",
+          "oneOf": [{ "type": "string", "pattern": "^data:image/" }, { "type": "null" }]
+        },
+        "createdAt": { "$ref": "#/$defs/timestamp" },
+        "updatedAt": { "$ref": "#/$defs/timestamp" }
+      }
+    },
+    "totals": {
+      "type": "object",
+      "required": ["currency", "incomeMinor", "expenseMinor", "netMinor"],
+      "properties": {
+        "currency": { "$ref": "#/$defs/currencyCode" },
+        "incomeMinor": { "$ref": "#/$defs/minor", "type": "integer", "minimum": 0 },
+        "expenseMinor": { "$ref": "#/$defs/minor", "type": "integer", "minimum": 0 },
+        "netMinor": { "$ref": "#/$defs/minor" }
+      }
+    },
+    "audit": {
+      "description": "One audit_logs row. details is the stored JSON text, verbatim, so the SHA-256 hash chain can be recomputed.",
+      "type": "object",
+      "required": ["seq", "id", "actorId", "action", "entityType", "entityId", "details", "createdAt", "prevHash", "hash"],
+      "properties": {
+        "seq": { "type": "integer", "minimum": 1 },
+        "id": { "type": "string" },
+        "actorId": { "type": ["string", "null"] },
+        "action": { "type": "string" },
+        "entityType": { "type": ["string", "null"] },
+        "entityId": { "type": ["string", "null"] },
+        "details": { "type": ["string", "null"] },
+        "createdAt": { "$ref": "#/$defs/timestamp" },
+        "prevHash": { "$ref": "#/$defs/hash" },
+        "hash": { "$ref": "#/$defs/hash" }
+      }
+    }
+  }
+}

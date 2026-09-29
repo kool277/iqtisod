@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/kool277/iqtisod/main/docs/schemas/moliya-export-1.record.schema.json",
+  "title": "Moliya export, format version 1, one JSON Lines record (moliya.jsonl)",
+  "description": "Each line of moliya.jsonl is one object. The first line is the header, the last line is the footer, and the records in between appear in the order currency, group, user, category, transaction, audit. A record line is {\"type\": <kind>, \"data\": <the same object as in moliya.json>}; data is nested because categories and transactions have their own type field.",
+  "type": "object",
+  "required": ["type"],
+  "oneOf": [
+    {
+      "properties": { "type": { "const": "header" } },
+      "required": ["type", "format", "formatVersion", "app", "schemaVersion", "exportedAt", "exportedBy", "vault", "scope", "totals"],
+      "allOf": [
+        {
+          "properties": {
+            "format": { "$ref": "moliya-export-1.schema.json#/$defs/format" },
+            "formatVersion": { "$ref": "moliya-export-1.schema.json#/$defs/formatVersion" },
+            "app": { "$ref": "moliya-export-1.schema.json#/$defs/app" },
+            "schemaVersion": { "$ref": "moliya-export-1.schema.json#/$defs/schemaVersion" },
+            "exportedAt": { "$ref": "moliya-export-1.schema.json#/$defs/timestamp" },
+            "exportedBy": { "$ref": "moliya-export-1.schema.json#/$defs/exportedBy" },
+            "vault": { "$ref": "moliya-export-1.schema.json#/$defs/vault" },
+            "scope": { "$ref": "moliya-export-1.schema.json#/$defs/scope" },
+            "totals": { "type": "array", "items": { "$ref": "moliya-export-1.schema.json#/$defs/totals" } }
+          }
+        }
+      ]
+    },
+    { "properties": { "type": { "const": "currency" }, "data": { "$ref": "moliya-export-1.schema.json#/$defs/currency" } }, "required": ["type", "data"] },
+    { "properties": { "type": { "const": "group" }, "data": { "$ref": "moliya-export-1.schema.json#/$defs/group" } }, "required": ["type", "data"] },
+    { "properties": { "type": { "const": "user" }, "data": { "$ref": "moliya-export-1.schema.json#/$defs/user" } }, "required": ["type", "data"] },
+    { "properties": { "type": { "const": "category" }, "data": { "$ref": "moliya-export-1.schema.json#/$defs/category" } }, "required": ["type", "data"] },
+    { "properties": { "type": { "const": "transaction" }, "data": { "$ref": "moliya-export-1.schema.json#/$defs/transaction" } }, "required": ["type", "data"] },
+    { "properties": { "type": { "const": "audit" }, "data": { "$ref": "moliya-export-1.schema.json#/$defs/audit" } }, "required": ["type", "data"] },
+    {
+      "properties": {
+        "type": { "const": "footer" },
+        "counts": {
+          "type": "object",
+          "required": ["currency", "group", "user", "category", "transaction", "audit"],
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "required": ["type", "counts"]
+    }
+  ]
+}
