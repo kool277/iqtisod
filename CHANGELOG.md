@@ -39,6 +39,7 @@ Reads backup, record, and schema versions 1 and 2. Writes version 2 of each. Vau
 - Deploys publish the exact build that passed CI, through the `production` environment. All actions are pinned to commit SHAs.
 - Node.js 22.12 or newer is required for development.
 - Refreshed colour tokens for green and red text with better contrast in dark mode, and a narrower collapsed sidebar with centred icons.
+- The Moliya name at the top of the sidebar links to the dashboard.
 
 ### Security
 
