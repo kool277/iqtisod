@@ -369,6 +369,7 @@ test('the vault locks itself after the chosen idle time', async ({ page }) => {
   await expect(page.getByTestId('app-shell')).toBeVisible()
   await page.clock.fastForward('01:30')
   await expect(page.getByTestId('login-email')).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByTestId('idle-locked')).toBeVisible()
   expect(await watcher.violations()).toEqual([])
 })
 

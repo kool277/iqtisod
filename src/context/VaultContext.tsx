@@ -4,7 +4,7 @@ import { readVault, readVaultRaw, stampOf, writeVault, type LoadedVault, type Va
 import { RECORD_VERSION, SCHEMA_VERSION } from '../db/versions'
 import type { OpenVault, SessionUser } from '../domain/types'
 import { AppError, AuthError, ConflictError, ForbiddenError, ValidationError, VaultInUseError } from '../domain/errors'
-import { readIdleMinutes, storeIdleMinutes, type IdleMinutes } from '../lib/idle'
+import { readIdleMinutes, storeIdleMinutes, watchIdle, type IdleMinutes } from '../lib/idle'
 import { LIMITS } from '../lib/limits'
 import { passwordProblem } from '../lib/password-policy'
 import { requestPersistence } from '../lib/persistence'
@@ -19,6 +19,7 @@ import { completeTotpChallenge, openTotpChallenge, type TotpChallenge } from '..
 
 type Status = 'checking' | 'setup' | 'locked' | 'challenge' | 'ready' | 'error'
 type SaveState = 'saved' | 'saving' | 'dirty' | 'error' | 'conflict'
+export type VaultLockReason = 'manual' | 'idle'
 
 export type ReplaceInput = { password: string; confirmName: string }
 
@@ -38,13 +39,15 @@ type VaultApi = {
   failuresSeen: number
   storageNearLimit: boolean
   idleMinutes: IdleMinutes
+  /** Why the vault last locked in this tab; null until it has been locked, and again once it is open. */
+  lockReason: VaultLockReason | null
   setup: (input: SetupInput) => Promise<void>
   login: (email: string, password: string) => Promise<void>
   verifySignInCheck: (code: string) => Promise<{ usedRecovery: boolean; recoveryLeft: number }>
   cancelSignInCheck: () => void
   redeem: (input: RedeemInput) => Promise<void>
   guardWait: (scope: ThrottleScope, email: string) => number
-  lock: () => Promise<void>
+  lock: (reason?: VaultLockReason) => Promise<void>
   importBackup: (backup: ParsedBackup) => Promise<void>
   replaceWithBackup: (backup: ParsedBackup, input: ReplaceInput) => Promise<void>
   exportBackup: () => Promise<VaultRecord>
@@ -106,6 +109,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const [failuresSeen, setFailuresSeen] = useState(0)
   const [vaultBytes, setVaultBytes] = useState(0)
   const [idleMinutes, setIdleMinutesState] = useState<IdleMinutes>(() => readIdleMinutes())
+  const [lockReason, setLockReason] = useState<VaultLockReason | null>(null)
 
   const syncState = useCallback((vault: OpenVault) => {
     setUser(snapshotUser(vault.user))
@@ -128,6 +132,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       syncState(vault)
       setVaultBytes(vault.db.sizeBytes())
       setSaveState('saved')
+      setLockReason(null)
       setStatus('ready')
       void requestPersistence()
     },
@@ -363,7 +368,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     [publish],
   )
 
-  const lock = useCallback(async () => {
+  const lock = useCallback(async (reason: VaultLockReason = 'manual') => {
     cancelSignInCheck()
     if (dirtyRef.current) enqueuePersist()
     await chainRef.current
@@ -377,6 +382,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     setWeakPassword(false)
     setRecoveryLeft(null)
     setFailuresSeen(0)
+    setLockReason(vault ? reason : null)
     setStatus('locked')
   }, [enqueuePersist, releaseSession, cancelSignInCheck])
 
@@ -393,6 +399,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     setRecoveryLeft(null)
     setFailuresSeen(0)
     setSaveState('saved')
+    setLockReason(null)
     setStatus('locked')
   }, [releaseSession])
 
@@ -491,27 +498,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (status !== 'ready') return
-    const idleMs = idleMinutes * 60_000
-    let lastActivity = Date.now()
-    const touch = () => {
-      lastActivity = Date.now()
-    }
-    const check = () => {
-      if (Date.now() - lastActivity >= idleMs) void lock()
-    }
-    // Background tabs throttle timers, so also check the moment the tab comes back.
-    const onVisibility = () => {
-      if (document.visibilityState === 'visible') check()
-    }
-    const events = ['pointerdown', 'keydown', 'wheel', 'touchstart'] as const
-    for (const name of events) window.addEventListener(name, touch, { passive: true })
-    document.addEventListener('visibilitychange', onVisibility)
-    const interval = window.setInterval(check, 15_000)
-    return () => {
-      for (const name of events) window.removeEventListener(name, touch)
-      document.removeEventListener('visibilitychange', onVisibility)
-      window.clearInterval(interval)
-    }
+    return watchIdle({ idleMs: idleMinutes * 60_000, onIdle: () => void lock('idle') })
   }, [status, lock, idleMinutes])
 
   useEffect(() => {
@@ -537,6 +524,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       failuresSeen,
       storageNearLimit,
       idleMinutes,
+      lockReason,
       setup,
       login,
       verifySignInCheck,
@@ -568,6 +556,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       failuresSeen,
       storageNearLimit,
       idleMinutes,
+      lockReason,
       setup,
       login,
       verifySignInCheck,

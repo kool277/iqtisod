@@ -5,7 +5,7 @@ import { useI18n } from '../context/I18nContext'
 import { useSafes } from '../context/SafeContext'
 import { useVault } from '../context/VaultContext'
 import { ValidationError } from '../domain/errors'
-import { AUTO_LOCK_MINUTES, CLIPBOARD_SECONDS, REVEAL_SECONDS, type SafePrefs } from '../domain/safes'
+import { CLIPBOARD_SECONDS, REVEAL_SECONDS, type SafePrefs } from '../domain/safes'
 import { changeOwnPassword } from '../services/account.service'
 import { createRecoveryCode, resetSafes, updateSafePrefs } from '../services/safe.service'
 import { IdleLockSection } from './account/IdleLockSection'
@@ -138,21 +138,10 @@ function SafePreferences() {
         <SafesLockedHint />
       ) : (
         <form className="space-y-4" onSubmit={(event) => void submit(event)} data-testid="safe-prefs">
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Field label={t('safes.autoLock')}>
-              <select
-                className={controlClass}
-                value={current.autoLockMinutes}
-                data-testid="pref-auto-lock"
-                onChange={(event) => setPrefs({ ...current, autoLockMinutes: Number(event.target.value) as SafePrefs['autoLockMinutes'] })}
-              >
-                {AUTO_LOCK_MINUTES.map((value) => (
-                  <option key={value} value={value}>
-                    {value} {t('safes.minutes')}
-                  </option>
-                ))}
-              </select>
-            </Field>
+          <p className="text-sm text-muted" data-testid="safes-stay-open">
+            {t('safes.stayOpen')}
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2">
             <Field label={t('safes.clipboardClear')}>
               <select
                 className={controlClass}

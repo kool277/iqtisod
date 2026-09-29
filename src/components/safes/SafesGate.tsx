@@ -186,7 +186,7 @@ function Onboarding({ onCode }: { onCode: (code: string) => void }) {
 function UnlockForm() {
   const { t } = useI18n()
   const { run } = useVault()
-  const { adopt, lockReason, refresh } = useSafes()
+  const { adopt, refresh } = useSafes()
   const [password, setPassword] = useState('')
   const [error, setError] = useState<unknown>(null)
   const [busy, setBusy] = useState(false)
@@ -208,7 +208,6 @@ function UnlockForm() {
   return (
     <Panel className="mx-auto max-w-md">
       <form className="space-y-4" onSubmit={(event) => void submit(event)} data-testid="safes-unlock">
-        {lockReason === 'idle' ? <Warning testId="safes-auto-locked">{t('safes.autoLocked')}</Warning> : null}
         <h2 className="break-words font-display text-2xl">{t('safes.unlockTitle')}</h2>
         <p className="text-sm text-muted">{t('safes.unlockBody')}</p>
         <PasswordInput label={t('login.password')} value={password} onChange={setPassword} testId="safes-unlock-password" autoFocus />

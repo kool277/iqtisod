@@ -20,8 +20,9 @@ Three formats are versioned independently of the app version. A change to one do
 | 1.1.0 | 2 | 2 | 2 | PBKDF2-SHA-256, 600,000 iterations |
 | 1.2.0 | 2 | 2 | 3 | PBKDF2-SHA-256, 600,000 iterations |
 | 1.3.0 | 2 | 2 | 4 | PBKDF2-SHA-256, 600,000 iterations |
+| 1.3.1 | 2 | 2 | 4 | PBKDF2-SHA-256, 600,000 iterations |
 
-1.3.0 reads every row above it: record and backup versions 1–2 and schema versions 1–4. It writes record 2, backup 2, and schema 4. Readers never lose support for a version once it has been released. Private safes (1.2.0) live inside the encrypted database, so they changed only the schema version; the record and backup formats are the same as in 1.1.0. One-time codes and the sign-in check (1.3.0) add two tables (schema 4) and an optional `grants` field to the record and backup; the record and backup version numbers stay at 2 (see [One-time code wraps](#one-time-code-wraps-grants)). Because the backup carries `schemaVersion`, 1.1.0 refuses a 1.2.0 vault or backup, and 1.1.0 and 1.2.0 refuse a 1.3.0 one, with `FORMAT_TOO_NEW` instead of misreading it. The data is left untouched.
+1.3.0 and 1.3.1 read every row above them: record and backup versions 1–2 and schema versions 1–4. It writes record 2, backup 2, and schema 4. Readers never lose support for a version once it has been released. Private safes (1.2.0) live inside the encrypted database, so they changed only the schema version; the record and backup formats are the same as in 1.1.0. One-time codes and the sign-in check (1.3.0) add two tables (schema 4) and an optional `grants` field to the record and backup; the record and backup version numbers stay at 2 (see [One-time code wraps](#one-time-code-wraps-grants)). Because the backup carries `schemaVersion`, 1.1.0 refuses a 1.2.0 vault or backup, and 1.1.0 and 1.2.0 refuse a 1.3.0 one, with `FORMAT_TOO_NEW` instead of misreading it. The data is left untouched.
 
 The constants live in `src/db/versions.ts`. The KDF parameters live in `src/crypto/crypto.service.ts`.
 
@@ -419,7 +420,7 @@ Every payload is a JSON object with `v: 1`. Readers must ignore unknown fields.
 }
 ```
 
-`autoLockMinutes` is 1, 5, 15, or 30; `clipboardSeconds` is 10, 30, or 60; `revealSeconds` is 15, 30, or 60. Unknown values fall back to the defaults shown.
+`autoLockMinutes` is 1, 5, 15, or 30; `clipboardSeconds` is 10, 30, or 60; `revealSeconds` is 15, 30, or 60. Unknown values fall back to the defaults shown. Since 1.3.1 `autoLockMinutes` is ignored (safes lock with the vault) but still validated and written back unchanged, so older versions keep reading it.
 
 `SafeMeta` (in `safes`):
 

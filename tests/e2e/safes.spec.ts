@@ -121,6 +121,13 @@ async function expectNoSecretsInChrome(page: Page) {
   expect(exposed.labels.filter((value) => value.includes(CVV)), 'CVV leaks into a title or label').toEqual([])
 }
 
+async function setTabHidden(page: Page, hidden: boolean) {
+  await page.evaluate((value) => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => (value ? 'hidden' : 'visible') })
+    document.dispatchEvent(new Event('visibilitychange'))
+  }, hidden)
+}
+
 async function screenshot(page: Page, name: string, target?: ReturnType<Page['getByTestId']>) {
   mkdirSync(SCREENS, { recursive: true })
   await page.mouse.move(0, 0)
@@ -138,7 +145,7 @@ async function overflowing(page: Page): Promise<string[]> {
   )
 }
 
-test('keeps cards, subscriptions and notes in a private safe with masked secrets and auto-lock', async ({ page, context }) => {
+test('keeps cards, subscriptions and notes in a private safe with masked secrets, open until the vault locks', async ({ page, context }) => {
   const consoleText: string[] = []
   page.on('console', (message) => consoleText.push(message.text()))
   page.on('pageerror', (error) => consoleText.push(error.message))
@@ -238,9 +245,20 @@ test('keeps cards, subscriptions and notes in a private safe with masked secrets
   await expect(page.getByTestId('recovery-status')).toHaveAttribute('data-state', 'set')
   await page.getByTestId('nav-safes').click()
   await expect(page.getByTestId('safe-grid')).toBeVisible()
+  await expect(page.getByTestId('save-state')).toHaveText('Saved', { timeout: 30_000 })
   await page.clock.fastForward('05:05')
+  await expect(page.getByTestId('safe-grid')).toBeVisible()
+  await setTabHidden(page, true)
+  await page.clock.fastForward('02:00')
+  await setTabHidden(page, false)
+  await expect(page.getByTestId('safe-grid')).toBeVisible()
+  await expect(page.getByTestId('safes-unlock')).toHaveCount(0)
+  await page.clock.fastForward('08:30')
+  await expect(page.getByTestId('login-email')).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByTestId('idle-locked')).toBeVisible()
+  await loginAs(page, 'admin@example.com', 'Correct horse lantern 7')
+  await page.getByTestId('nav-safes').click()
   await expect(page.getByTestId('safes-unlock')).toBeVisible()
-  await expect(page.getByTestId('safes-auto-locked')).toBeVisible()
   await page.getByTestId('safes-unlock-password').fill('wrong-password')
   await page.getByTestId('safes-unlock-submit').click()
   await expect(page.getByTestId('form-error')).toBeVisible({ timeout: 30_000 })
@@ -256,6 +274,14 @@ test('keeps cards, subscriptions and notes in a private safe with masked secrets
   await expect(page.getByTestId('user-use-account')).toBeVisible()
   await expect(page.getByTestId('user-reset')).toHaveCount(0)
   await expect(page.getByTestId('user-issue-reset')).toHaveCount(0)
+
+  await page.getByTestId('nav-account').click()
+  await expect(page.getByTestId('safes-stay-open')).toBeVisible()
+  await page.getByTestId('nav-safes').click()
+  await page.getByTestId('safes-lock').click()
+  await expect(page.getByTestId('safes-unlock')).toBeVisible()
+  await lockVault(page)
+  await expect(page.getByTestId('idle-locked')).toHaveCount(0)
 
   const leaks = consoleText.filter((line) => [...SECRETS, `cvv ${CVV}`].some((secret) => line.includes(secret)))
   expect(leaks).toEqual([])
