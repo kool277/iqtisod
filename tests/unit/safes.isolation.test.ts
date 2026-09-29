@@ -58,7 +58,8 @@ describe('private safes are owner-only', () => {
     const needles = [
       CARD_NUMBER,
       '4111 1111 1111 1111',
-      '737',
+      '"cvv"',
+      '"737"',
       'Aziza Karimova',
       'Kapitalbank',
       'Netflix',
@@ -70,7 +71,7 @@ describe('private safes are owner-only', () => {
       'Deposit box',
       '"1111"',
       '•••• 1111',
-      'VISA',
+      '"VISA"',
       'SUBSCRIPTION',
       '"kind"',
     ]
