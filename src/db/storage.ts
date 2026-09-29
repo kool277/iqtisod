@@ -1,6 +1,6 @@
 import { cloneBuffer, cloneBytes } from '../crypto/encoding'
 import { ConflictError } from '../domain/errors'
-import type { UserWrap } from '../domain/types'
+import type { GrantWrap, UserWrap } from '../domain/types'
 import { APP_VERSION } from '../lib/version'
 import {
   PAYLOAD_CIPHER,
@@ -175,8 +175,21 @@ export function wrapsFromRecord(record: VaultRecord): UserWrap[] {
   }))
 }
 
+export function grantsFromRecord(record: VaultRecord): GrantWrap[] {
+  return (record.grants ?? []).map((grant) => ({
+    id: grant.id,
+    kind: grant.kind,
+    email: grant.email,
+    kdf: { ...grant.kdf },
+    salt: cloneBytes(grant.salt),
+    iv: cloneBytes(grant.iv),
+    wrappedDek: cloneBuffer(grant.wrappedDek),
+  }))
+}
+
 export function recordFromSession(input: {
   wraps: UserWrap[]
+  grants?: GrantWrap[]
   iv: Uint8Array
   ciphertext: ArrayBuffer
   schemaVersion: number
@@ -198,6 +211,15 @@ export function recordFromSession(input: {
       salt: cloneBuffer(wrap.salt),
       iv: cloneBuffer(wrap.iv),
       wrappedDek: cloneBuffer(wrap.wrappedDek),
+    })),
+    grants: (input.grants ?? []).map((grant) => ({
+      id: grant.id,
+      kind: grant.kind,
+      email: grant.email,
+      kdf: { ...grant.kdf },
+      salt: cloneBuffer(grant.salt),
+      iv: cloneBuffer(grant.iv),
+      wrappedDek: cloneBuffer(grant.wrappedDek),
     })),
     body: { iv: cloneBuffer(input.iv), ciphertext: cloneBuffer(input.ciphertext) },
   })

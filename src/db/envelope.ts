@@ -9,6 +9,8 @@ import {
 } from '../crypto/crypto.service'
 import { base64ToBytes, bytesToBase64, cloneBuffer, cloneBytes } from '../crypto/encoding'
 import { CorruptRecordError, FormatTooNewError, ValidationError } from '../domain/errors'
+import { LIMITS } from '../lib/limits'
+import { parseJsonSafely } from '../lib/safe-json'
 import { BACKUP_VERSION, RECORD_VERSION, SCHEMA_VERSION } from './versions'
 
 export const BACKUP_FORMAT = 'moliya-vault'
@@ -27,6 +29,18 @@ export type WrapRecord = {
   wrappedDek: ArrayBuffer
 }
 
+export type GrantKind = 'INVITE' | 'RESET'
+
+export type GrantRecord = {
+  id: string
+  kind: GrantKind
+  email: string
+  kdf: KdfParams
+  salt: ArrayBuffer
+  iv: ArrayBuffer
+  wrappedDek: ArrayBuffer
+}
+
 export type VaultRecord = {
   id: typeof RECORD_ID
   version: typeof RECORD_VERSION
@@ -36,6 +50,7 @@ export type VaultRecord = {
   updatedAt: string
   cipher: PayloadCipher
   wraps: WrapRecord[]
+  grants?: GrantRecord[]
   body: { iv: ArrayBuffer; ciphertext: ArrayBuffer }
 }
 
@@ -58,6 +73,16 @@ type BackupWrapJson = {
   wrappedDek: string
 }
 
+type BackupGrantJson = {
+  id: string
+  kind: GrantKind
+  email: string
+  kdf: KdfParams
+  salt: string
+  iv: string
+  wrappedDek: string
+}
+
 export type BackupFileV2 = {
   format: typeof BACKUP_FORMAT
   version: typeof BACKUP_VERSION
@@ -68,6 +93,7 @@ export type BackupFileV2 = {
   exportedAt: string
   cipher: PayloadCipher
   wraps: BackupWrapJson[]
+  grants?: BackupGrantJson[]
   body: { iv: string; ciphertext: string }
 }
 
@@ -128,7 +154,7 @@ function readVersion(value: unknown, supported: number, invalid: Invalid): numbe
 type ByteReader = (value: unknown, invalid: Invalid) => Uint8Array
 
 function readWraps(value: unknown, fallbackKdf: KdfParams | null, bytes: ByteReader, invalid: Invalid): WrapRecord[] {
-  if (!Array.isArray(value) || value.length === 0) throw invalid()
+  if (!Array.isArray(value) || value.length === 0 || value.length > LIMITS.wraps) throw invalid()
   return value.map((item) => {
     const wrap = asObject(item, invalid)
     return {
@@ -142,11 +168,32 @@ function readWraps(value: unknown, fallbackKdf: KdfParams | null, bytes: ByteRea
   })
 }
 
+function readGrants(value: unknown, bytes: ByteReader, invalid: Invalid): GrantRecord[] | undefined {
+  if (value === undefined || value === null) return undefined
+  if (!Array.isArray(value) || value.length > LIMITS.grants) throw invalid()
+  const grants = value.map((item) => {
+    const grant = asObject(item, invalid)
+    if (grant.kind !== 'INVITE' && grant.kind !== 'RESET') throw invalid()
+    const email = asString(grant.email, invalid)
+    if (email.length > LIMITS.emailChars) throw invalid()
+    return {
+      id: asString(grant.id, invalid),
+      kind: grant.kind as GrantKind,
+      email,
+      kdf: readKdf(grant.kdf, invalid),
+      salt: checkLength(bytes(grant.salt, invalid), SALT_BOUNDS.min, SALT_BOUNDS.max, invalid),
+      iv: checkLength(bytes(grant.iv, invalid), IV_BYTES, IV_BYTES, invalid),
+      wrappedDek: checkLength(bytes(grant.wrappedDek, invalid), WRAPPED_DEK_BYTES, WRAPPED_DEK_BYTES, invalid),
+    }
+  })
+  return grants.length > 0 ? grants : undefined
+}
+
 function readBody(value: unknown, bytes: ByteReader, invalid: Invalid): VaultRecord['body'] {
   const body = asObject(value, invalid)
   return {
     iv: checkLength(bytes(body.iv, invalid), IV_BYTES, IV_BYTES, invalid),
-    ciphertext: checkLength(bytes(body.ciphertext, invalid), GCM_TAG_BYTES + 1, Number.MAX_SAFE_INTEGER, invalid),
+    ciphertext: checkLength(bytes(body.ciphertext, invalid), GCM_TAG_BYTES + 1, LIMITS.ciphertextBytes, invalid),
   }
 }
 
@@ -186,8 +233,13 @@ function decode(
     updatedAt: asOptionalString(source.updatedAt) ?? updatedAtFallback(),
     cipher: readCipher(source.cipher, invalid),
     wraps: readWraps(source.wraps, null, bytes, invalid),
+    ...optionalGrants(readGrants(source.grants, bytes, invalid)),
     body: readBody(source.body, bytes, invalid),
   }
+}
+
+function optionalGrants<T>(grants: T[] | undefined): { grants?: T[] } {
+  return grants && grants.length > 0 ? { grants } : {}
 }
 
 const corrupt: Invalid = () => new CorruptRecordError()
@@ -216,6 +268,17 @@ export function encodeStoredRecord(record: VaultRecord): VaultRecord {
       iv: cloneBuffer(wrap.iv),
       wrappedDek: cloneBuffer(wrap.wrappedDek),
     })),
+    ...optionalGrants(
+      record.grants?.map((grant) => ({
+        id: grant.id,
+        kind: grant.kind,
+        email: grant.email,
+        kdf: { name: grant.kdf.name, hash: grant.kdf.hash, iterations: grant.kdf.iterations },
+        salt: cloneBuffer(grant.salt),
+        iv: cloneBuffer(grant.iv),
+        wrappedDek: cloneBuffer(grant.wrappedDek),
+      })),
+    ),
     body: {
       iv: cloneBuffer(record.body.iv),
       ciphertext: cloneBuffer(record.body.ciphertext),
@@ -241,7 +304,7 @@ export function parseBackupJson(value: unknown): DecodedBackup {
 export function parseBackupText(text: string): DecodedBackup {
   let parsed: unknown
   try {
-    parsed = JSON.parse(text)
+    parsed = parseJsonSafely(text)
   } catch {
     throw badBackup()
   }
@@ -266,6 +329,17 @@ export function toBackupJson(record: VaultRecord, exportedAt: string): BackupFil
       iv: bytesToBase64(cloneBytes(wrap.iv)),
       wrappedDek: bytesToBase64(cloneBytes(wrap.wrappedDek)),
     })),
+    ...optionalGrants(
+      record.grants?.map((grant) => ({
+        id: grant.id,
+        kind: grant.kind,
+        email: grant.email,
+        kdf: { name: grant.kdf.name, hash: grant.kdf.hash, iterations: grant.kdf.iterations },
+        salt: bytesToBase64(cloneBytes(grant.salt)),
+        iv: bytesToBase64(cloneBytes(grant.iv)),
+        wrappedDek: bytesToBase64(cloneBytes(grant.wrappedDek)),
+      })),
+    ),
     body: {
       iv: bytesToBase64(cloneBytes(record.body.iv)),
       ciphertext: bytesToBase64(cloneBytes(record.body.ciphertext)),

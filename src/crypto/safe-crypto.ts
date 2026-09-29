@@ -24,6 +24,7 @@ export type AadLabel =
   | 'moliya.safe-key'
   | 'moliya.safe-meta'
   | 'moliya.item'
+  | 'moliya.totp'
 
 export class DecryptError extends Error {
   constructor() {

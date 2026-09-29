@@ -2,9 +2,12 @@ import { bytesToBase64 } from '../crypto/encoding'
 import { CURRENT_KDF, SALT_BYTES, deriveKeyAndVerifier, randomBytes, wrapDek } from '../crypto/crypto.service'
 import { ForbiddenError, ValidationError, isUniqueViolation } from '../domain/errors'
 import { isRoleName, type OpenVault, type RoleName, type UserWrap, type VaultUser } from '../domain/types'
+import { assertNewPassword } from '../lib/password-policy'
 import { Permission, canUser } from '../rbac'
-import { assertEmail, assertPassword, normalizeEmail } from './auth.service'
+import { assertEmail, normalizeEmail } from './auth.service'
 import { writeAudit } from './audit.service'
+import { dropEnvelopeGrant, endGrant, openGrantRows } from './grant-store'
+import { dropTotp } from './totp.service'
 
 export type NewUserInput = {
   email: string
@@ -39,6 +42,14 @@ function assertGroup(vault: OpenVault, groupId: number | null, roleName: RoleNam
   return groupId
 }
 
+export function roleIdByName(vault: OpenVault, name: RoleName): number {
+  return roleId(vault, name)
+}
+
+export function checkUserGroup(vault: OpenVault, groupId: number | null, roleName: RoleName): number | null {
+  return assertGroup(vault, groupId, roleName)
+}
+
 export function listUsers(vault: OpenVault): VaultUser[] {
   if (!canUser(vault.user, Permission.MANAGE_USERS) && !canUser(vault.user, Permission.READ_TRANSACTIONS)) {
     throw new ForbiddenError()
@@ -47,14 +58,16 @@ export function listUsers(vault: OpenVault): VaultUser[] {
   const rows =
     vault.user.roleName === 'Admin'
       ? vault.db.query(
-          `SELECT u.id, u.email, r.name AS role_name, u.group_id, g.name AS group_name, u.created_at
+          `SELECT u.id, u.email, r.name AS role_name, u.group_id, g.name AS group_name, u.created_at,
+                  EXISTS (SELECT 1 FROM user_totp t WHERE t.user_id = u.id) AS sign_in_check
            FROM users u
            JOIN roles r ON r.id = u.role_id
            LEFT JOIN groups g ON g.id = u.group_id
            ORDER BY u.email`,
         )
       : vault.db.query(
-          `SELECT u.id, u.email, r.name AS role_name, u.group_id, g.name AS group_name, u.created_at
+          `SELECT u.id, u.email, r.name AS role_name, u.group_id, g.name AS group_name, u.created_at,
+                  EXISTS (SELECT 1 FROM user_totp t WHERE t.user_id = u.id) AS sign_in_check
            FROM users u
            JOIN roles r ON r.id = u.role_id
            LEFT JOIN groups g ON g.id = u.group_id
@@ -69,6 +82,7 @@ export function listUsers(vault: OpenVault): VaultUser[] {
     groupId: row.group_id == null ? null : Number(row.group_id),
     groupName: row.group_name == null ? null : String(row.group_name),
     createdAt: String(row.created_at),
+    signInCheck: Number(row.sign_in_check) === 1,
   }))
 }
 
@@ -77,14 +91,20 @@ export async function createUser(vault: OpenVault, input: NewUserInput): Promise
   if (!isRoleName(input.roleName)) throw new ValidationError('ROLE')
   const email = normalizeEmail(input.email)
   assertEmail(email)
-  assertPassword(input.password)
+  await assertNewPassword(input.password, { email, vaultName: vault.vaultName })
   const groupId = assertGroup(vault, input.groupId, input.roleName)
   const salt = randomBytes(SALT_BYTES)
   const { key, verifier } = await deriveKeyAndVerifier(input.password, salt, CURRENT_KDF)
   const wrapped = await wrapDek(vault.dek, key)
   const userId = crypto.randomUUID()
+  const replaced = openGrantRows(vault.db).filter((grant) => grant.kind === 'INVITE' && grant.email === email)
   try {
     vault.db.withTransaction(() => {
+      const at = new Date().toISOString()
+      for (const grant of replaced) {
+        endGrant(vault.db, grant.id, 'REPLACED', vault.user.id, at)
+        writeAudit(vault.db, vault.user.id, 'INVITE_REVOKED', 'grant', grant.id, { email, reason: 'REPLACED' })
+      }
       vault.db.exec(
         `INSERT INTO users (id, email, password_hash, salt, role_id, group_id, must_change_password, password_changed_at)
          VALUES (?, ?, ?, ?, ?, ?, 1, ?)`,
@@ -100,6 +120,7 @@ export async function createUser(vault: OpenVault, input: NewUserInput): Promise
     if (isUniqueViolation(error)) throw new ValidationError('DUPLICATE_EMAIL')
     throw error
   }
+  for (const grant of replaced) dropEnvelopeGrant(vault, grant.id)
   const wrap: UserWrap = {
     userId,
     email,
@@ -116,10 +137,11 @@ export async function createUser(vault: OpenVault, input: NewUserInput): Promise
 export async function resetUserPassword(vault: OpenVault, userId: string, password: string): Promise<void> {
   if (!canUser(vault.user, Permission.MANAGE_USERS)) throw new ForbiddenError()
   if (userId === vault.user.id) throw new ValidationError('USE_ACCOUNT')
-  assertPassword(password)
   const existing = vault.db.queryOne('SELECT id, email FROM users WHERE id = ?', [userId])
   if (!existing) throw new ValidationError('REQUIRED')
   const email = String(existing.email)
+  await assertNewPassword(password, { email, vaultName: vault.vaultName })
+  const resets = openGrantRows(vault.db).filter((grant) => grant.kind === 'RESET' && grant.userId === userId)
   const salt = randomBytes(SALT_BYTES)
   const { key, verifier } = await deriveKeyAndVerifier(password, salt, CURRENT_KDF)
   const wrapped = await wrapDek(vault.dek, key)
@@ -129,7 +151,14 @@ export async function resetUserPassword(vault: OpenVault, userId: string, passwo
       [verifier, bytesToBase64(salt), new Date().toISOString(), userId],
     )
     writeAudit(vault.db, vault.user.id, 'USER_PASSWORD_RESET', 'user', userId, { email })
+    dropTotp(vault.db, vault.user.id, userId, 'PASSWORD_RESET')
+    const at = new Date().toISOString()
+    for (const grant of resets) {
+      endGrant(vault.db, grant.id, 'REPLACED', vault.user.id, at)
+      writeAudit(vault.db, vault.user.id, 'RESET_REVOKED', 'grant', grant.id, { email, reason: 'REPLACED' })
+    }
   })
+  for (const grant of resets) dropEnvelopeGrant(vault, grant.id)
   const wrap: UserWrap = {
     userId,
     email,
@@ -138,7 +167,7 @@ export async function resetUserPassword(vault: OpenVault, userId: string, passwo
     iv: wrapped.iv,
     wrappedDek: wrapped.cipherText,
   }
-  const index = vault.wraps.findIndex((item) => item.userId === userId || item.email === email)
+  const index = vault.wraps.findIndex((item) => item.userId === userId)
   if (index >= 0) vault.wraps[index] = wrap
   else vault.wraps.push(wrap)
 }
@@ -198,6 +227,7 @@ export function deleteUser(vault: OpenVault, userId: string): void {
   )
   if (records > 0) throw new ValidationError('HAS_RECORDS')
   const email = String(existing.email)
+  const grants = openGrantRows(vault.db).filter((grant) => grant.userId === userId)
   vault.db.withTransaction(() => {
     writeAudit(vault.db, vault.user.id, 'USER_DELETED', 'user', userId, { email })
     vault.db.exec('DELETE FROM safe_events WHERE owner_user_id = ?', [userId])
@@ -206,6 +236,7 @@ export function deleteUser(vault: OpenVault, userId: string): void {
     vault.db.exec('DELETE FROM user_keys WHERE user_id = ?', [userId])
     vault.db.exec('DELETE FROM users WHERE id = ?', [userId])
   })
+  for (const grant of grants) dropEnvelopeGrant(vault, grant.id)
   const index = vault.wraps.findIndex((wrap) => wrap.userId === userId)
   if (index >= 0) vault.wraps.splice(index, 1)
 }

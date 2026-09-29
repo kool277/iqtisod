@@ -12,17 +12,22 @@ import {
   unwrapDek,
   wrapDek,
 } from '../crypto/crypto.service'
-import { migrate, readSchemaVersion } from '../db/migrations'
+import { assertKnownSchema, migrate, readSchemaVersion, type MigrationResult } from '../db/migrations'
 import { seedCategories, seedRoles, syncRolePermissions } from '../db/seed'
 import { getSetting, setSetting } from '../db/settings'
 import { SqlDatabase } from '../db/sqlite'
-import { recordFromSession, wrapsFromRecord, type VaultRecord } from '../db/storage'
+import { grantsFromRecord, recordFromSession, wrapsFromRecord, type VaultRecord } from '../db/storage'
+import { SCHEMA_VERSION } from '../db/versions'
 import { AuthError, ValidationError } from '../domain/errors'
-import { isCurrency, type OpenVault, type SessionUser, type UserWrap } from '../domain/types'
+import { isCurrency, type GrantWrap, type OpenVault, type SessionUser, type UserWrap } from '../domain/types'
+import { assertEmail, normalizeEmail } from '../lib/email'
+import { LIMITS } from '../lib/limits'
+import { assertNewPassword } from '../lib/password-policy'
 import { APP_VERSION } from '../lib/version'
 import { writeAudit } from './audit.service'
+import { CLOCK_KEY, sweepGrants } from './grant-store'
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+export { assertEmail, normalizeEmail }
 
 export type SetupInput = {
   email: string
@@ -31,16 +36,20 @@ export type SetupInput = {
   currency: string
 }
 
-export function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase()
+export function assertDisplayName(value: string): string {
+  const name = value.trim()
+  if (!name) throw new ValidationError('REQUIRED')
+  if (name.length > LIMITS.nameChars) throw new ValidationError('TOO_LONG')
+  return name
 }
 
-export function assertEmail(email: string): void {
-  if (!EMAIL_PATTERN.test(email)) throw new ValidationError('EMAIL')
-}
-
-export function assertPassword(password: string): void {
-  if (password.length < 8) throw new ValidationError('PASSWORD_SHORT')
+/** Spends the same PBKDF2 work as a real attempt so unknown addresses are not faster to reject. */
+export async function spendPasswordWork(password: string): Promise<void> {
+  try {
+    await deriveKeyAndVerifier(password, randomBytes(SALT_BYTES), CURRENT_KDF)
+  } catch {
+    // Timing only.
+  }
 }
 
 function loadUser(db: SqlDatabase, email: string): SessionUser | null {
@@ -76,11 +85,18 @@ function roleId(db: SqlDatabase, name: string): number {
   return Number(value)
 }
 
-async function seal(db: SqlDatabase, dek: CryptoKey, wraps: UserWrap[], createdAt: string | null): Promise<VaultRecord> {
+function recordClock(db: SqlDatabase, now: string): void {
+  const previous = getSetting(db, CLOCK_KEY)
+  if (!previous || previous < now) setSetting(db, CLOCK_KEY, now)
+}
+
+async function seal(db: SqlDatabase, dek: CryptoKey, wraps: UserWrap[], grants: GrantWrap[], createdAt: string | null): Promise<VaultRecord> {
+  if (readSchemaVersion(db) >= 4) recordClock(db, new Date().toISOString())
   const exported = db.export()
   const sealed = await encryptDatabase(exported, dek)
   return recordFromSession({
     wraps,
+    grants,
     iv: sealed.iv,
     ciphertext: sealed.cipherText,
     schemaVersion: readSchemaVersion(db),
@@ -92,9 +108,8 @@ async function seal(db: SqlDatabase, dek: CryptoKey, wraps: UserWrap[], createdA
 export async function createVault(input: SetupInput): Promise<{ vault: OpenVault; record: VaultRecord }> {
   const email = normalizeEmail(input.email)
   assertEmail(email)
-  assertPassword(input.password)
-  const displayName = input.displayName.trim()
-  if (!displayName) throw new ValidationError('REQUIRED')
+  const displayName = assertDisplayName(input.displayName)
+  await assertNewPassword(input.password, { email, vaultName: displayName })
   if (!isCurrency(input.currency)) throw new ValidationError('CURRENCY')
 
   const db = await SqlDatabase.openEmpty()
@@ -124,12 +139,13 @@ export async function createVault(input: SetupInput): Promise<{ vault: OpenVault
     const wrap: UserWrap = { userId, email, kdf, salt, iv: wrapped.iv, wrappedDek: wrapped.cipherText }
     const user = loadUser(db, email)
     if (!user) throw new Error('Admin user was not created')
-    const record = await seal(db, dek, [wrap], createdAt)
+    const record = await seal(db, dek, [wrap], [], createdAt)
     return {
       vault: {
         db,
         dek,
         wraps: [wrap],
+        grants: [],
         user,
         currency: input.currency,
         vaultName: displayName,
@@ -162,11 +178,66 @@ async function strengthenWrap(db: SqlDatabase, dek: CryptoKey, wrap: UserWrap, p
   wrap.wrappedDek = wrapped.cipherText
 }
 
-export async function unlockVault(record: VaultRecord, email: string, password: string): Promise<OpenVault> {
+export function decryptRecordBody(record: VaultRecord, dek: CryptoKey): Promise<Uint8Array> {
+  return decryptDatabase(record.body.ciphertext, dek, new Uint8Array(record.body.iv))
+}
+
+/** Checks the schema is one Moliya wrote, then migrates. The caller owns the returned handle. */
+export async function openRecordDatabase(plain: Uint8Array): Promise<{ db: SqlDatabase; migration: MigrationResult }> {
+  const db = await SqlDatabase.openBytes(plain)
+  try {
+    await assertKnownSchema(db)
+    const migration = migrate(db, { appVersion: APP_VERSION })
+    if (migration.applied.length > 0) await assertKnownSchema(db, SCHEMA_VERSION)
+    syncRolePermissions(db)
+    return { db, migration }
+  } catch (error) {
+    db.close()
+    throw error
+  }
+}
+
+export function recordMigration(db: SqlDatabase, actorId: string, migration: MigrationResult): void {
+  if (migration.applied.length === 0) return
+  writeAudit(db, actorId, 'SCHEMA_MIGRATED', 'vault', 'primary', {
+    from: migration.from,
+    to: migration.to,
+    appVersion: APP_VERSION,
+  })
+}
+
+/** Builds the session and ends grants that expired or lost their envelope wrap. */
+export function buildOpenVault(
+  record: VaultRecord,
+  parts: { db: SqlDatabase; dek: CryptoKey; wraps: UserWrap[]; user: SessionUser; needsSave: boolean },
+  now = new Date(),
+): OpenVault {
+  const { db } = parts
+  const currency = getSetting(db, 'currency')
+  const vault: OpenVault = {
+    db,
+    dek: parts.dek,
+    wraps: parts.wraps,
+    grants: grantsFromRecord(record),
+    user: parts.user,
+    currency: currency && isCurrency(currency) ? currency : 'USD',
+    vaultName: getSetting(db, 'vault_name') ?? 'Moliya',
+    createdAt: record.createdAt ?? getSetting(db, 'vault_created_at'),
+    lastBackupAt: getSetting(db, 'last_backup_at'),
+    needsSave: parts.needsSave,
+  }
+  if (sweepGrants(vault, now) > 0) vault.needsSave = true
+  return vault
+}
+
+export async function unlockVault(record: VaultRecord, email: string, password: string, now = new Date()): Promise<OpenVault> {
   const normalized = normalizeEmail(email)
   const wraps = wrapsFromRecord(record)
   const wrap = wraps.find((item) => item.email.toLowerCase() === normalized)
-  if (!wrap) throw new AuthError()
+  if (!wrap) {
+    await spendPasswordWork(password)
+    throw new AuthError()
+  }
   let dek: CryptoKey
   let plain: Uint8Array
   let verifier: string
@@ -174,38 +245,19 @@ export async function unlockVault(record: VaultRecord, email: string, password: 
     const derived = await deriveKeyAndVerifier(password, wrap.salt, wrap.kdf)
     verifier = derived.verifier
     dek = await unwrapDek(wrap.wrappedDek, derived.key, wrap.iv)
-    plain = await decryptDatabase(record.body.ciphertext, dek, new Uint8Array(record.body.iv))
+    plain = await decryptRecordBody(record, dek)
   } catch {
     throw new AuthError()
   }
-  const db = await SqlDatabase.openBytes(plain)
+  const { db, migration } = await openRecordDatabase(plain)
   try {
-    const migration = migrate(db, { appVersion: APP_VERSION })
-    syncRolePermissions(db)
     const user = loadUser(db, normalized)
     if (!user) throw new AuthError()
-    if (migration.applied.length > 0) {
-      writeAudit(db, user.id, 'SCHEMA_MIGRATED', 'vault', 'primary', {
-        from: migration.from,
-        to: migration.to,
-        appVersion: APP_VERSION,
-      })
-    }
+    recordMigration(db, user.id, migration)
     // A legacy hash was the raw KEK for this salt, so re-salting makes any copy of it useless.
     const strengthen = kdfNeedsUpgrade(wrap.kdf) || db.queryValue('SELECT password_hash FROM users WHERE id = ?', [user.id]) !== verifier
     if (strengthen) await strengthenWrap(db, dek, wrap, password, user.id)
-    const currency = getSetting(db, 'currency')
-    return {
-      db,
-      dek,
-      wraps,
-      user,
-      currency: currency && isCurrency(currency) ? currency : 'USD',
-      vaultName: getSetting(db, 'vault_name') ?? 'Moliya',
-      createdAt: record.createdAt ?? getSetting(db, 'vault_created_at'),
-      lastBackupAt: getSetting(db, 'last_backup_at'),
-      needsSave: migration.applied.length > 0 || strengthen,
-    }
+    return buildOpenVault(record, { db, dek, wraps, user, needsSave: migration.applied.length > 0 || strengthen }, now)
   } catch (error) {
     db.close()
     throw error
@@ -223,7 +275,7 @@ export async function verifyOwnPassword(vault: OpenVault, password: string): Pro
 }
 
 export async function sealVault(vault: OpenVault): Promise<VaultRecord> {
-  return seal(vault.db, vault.dek, vault.wraps, vault.createdAt)
+  return seal(vault.db, vault.dek, vault.wraps, vault.grants, vault.createdAt)
 }
 
 export { loadUser }

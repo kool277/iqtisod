@@ -34,10 +34,21 @@ export type UserWrap = {
   wrappedDek: ArrayBuffer
 }
 
+export type GrantWrap = {
+  id: string
+  kind: 'INVITE' | 'RESET'
+  email: string
+  kdf: KdfParams
+  salt: Uint8Array
+  iv: Uint8Array
+  wrappedDek: ArrayBuffer
+}
+
 export type OpenVault = {
   db: SqlDatabase
   dek: CryptoKey
   wraps: UserWrap[]
+  grants: GrantWrap[]
   user: SessionUser
   currency: string
   vaultName: string
@@ -69,6 +80,7 @@ export type VaultUser = {
   groupId: number | null
   groupName: string | null
   createdAt: string
+  signInCheck: boolean
 }
 
 export type LedgerEntry = {

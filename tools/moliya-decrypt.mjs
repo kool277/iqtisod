@@ -19,7 +19,9 @@ const USAGE = `Usage:
 Decrypts a Moliya backup into a standard SQLite database.
 The password is read from MOLIYA_PASSWORD, or prompted for when unset.
 Password verifiers are blanked, and private-safe rows (1.2.0+, still encrypted with each
-owner's own key) are removed from the output unless --keep-keys is given.`
+owner's own key), sign-in check secrets and invite-code verifiers (1.3.0+) are removed from
+the output unless --keep-keys is given. Invite and reset codes cannot be used here; --list
+shows which are still pending.`
 
 function fail(message, code = 1) {
   process.stderr.write(`moliya-decrypt: ${message}\n`)
@@ -91,8 +93,21 @@ export function readBackup(text) {
       iv: bytes(wrap.iv, `wraps[${index}].iv`),
       wrappedDek: bytes(wrap.wrappedDek, `wraps[${index}].wrappedDek`),
     })),
+    grants: readGrants(file.grants),
     body: { iv: bytes(body?.iv, 'body.iv'), ciphertext: bytes(body?.ciphertext, 'body.ciphertext') },
   }
+}
+
+// 1.3.0+ backups may carry one-time invite and reset wraps. They only unlock with a code, so the
+// tool lists them and never tries them.
+function readGrants(grants) {
+  if (grants == null) return []
+  if (!Array.isArray(grants)) throw new Error('grants is not a list')
+  return grants.map((grant, index) => {
+    if (grant?.kind !== 'INVITE' && grant?.kind !== 'RESET') throw new Error(`grants[${index}].kind is not supported`)
+    if (typeof grant.email !== 'string') throw new Error(`grants[${index}].email is missing`)
+    return { kind: grant.kind, email: grant.email }
+  })
 }
 
 export async function decryptBackup(backup, email, password) {
@@ -132,9 +147,12 @@ async function scrub(path) {
   const db = new DatabaseSync(path)
   try {
     db.exec("UPDATE users SET password_hash = '', salt = ''")
-    const safeTables = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('safe_events', 'secure_items', 'safes', 'user_keys')").all()
-    const present = new Set(safeTables.map((row) => row.name))
-    for (const table of ['safe_events', 'secure_items', 'safes', 'user_keys']) if (present.has(table)) db.exec(`DELETE FROM ${table}`)
+    const tables = db
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('safe_events', 'secure_items', 'safes', 'user_keys', 'user_totp', 'access_grants')")
+      .all()
+    const present = new Set(tables.map((row) => row.name))
+    for (const table of ['safe_events', 'secure_items', 'safes', 'user_keys', 'user_totp']) if (present.has(table)) db.exec(`DELETE FROM ${table}`)
+    if (present.has('access_grants')) db.exec("UPDATE access_grants SET code_verifier = ''")
     db.exec('VACUUM')
     const schema = db.prepare('PRAGMA user_version').get()
     const count = db.prepare('SELECT COUNT(*) AS n FROM transactions').get()
@@ -178,6 +196,7 @@ async function main() {
           schemaVersion: backup.schemaVersion,
           exportedAt: backup.exportedAt,
           users: backup.wraps.map((wrap) => ({ email: wrap.email, kdf: wrap.kdf })),
+          pendingCodes: backup.grants,
         },
         null,
         2,
@@ -200,7 +219,7 @@ async function main() {
     summary = await scrub(out)
     if (!summary) {
       process.stderr.write(
-        'moliya-decrypt: warning: this Node.js has no node:sqlite, so password verifiers and private-safe rows were NOT removed from the output. ' +
+        'moliya-decrypt: warning: this Node.js has no node:sqlite, so password verifiers, private-safe rows and sign-in check secrets were NOT removed from the output. ' +
           'Use Node.js 22.13 or newer, or treat the file as secret.\n',
       )
     }
