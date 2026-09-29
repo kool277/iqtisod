@@ -23,6 +23,8 @@ export type TableOptions<T> = {
   persist: boolean
   defaultSort?: SortRule[]
   defaultPageSize?: PageSize
+  /** Filters in place on the first render, such as a group from a ledger link. Never stored. */
+  initialFilters?: FilterState
   rowKey: (row: T) => string
 }
 
@@ -35,7 +37,7 @@ function useDebounced<V>(value: V, delay: number): V {
   return settled
 }
 
-export function useTableState<T>({ id, rows, columns, locale, persist, defaultSort = [], defaultPageSize = 25, rowKey }: TableOptions<T>) {
+export function useTableState<T>({ id, rows, columns, locale, persist, defaultSort = [], defaultPageSize = 25, initialFilters, rowKey }: TableOptions<T>) {
   const shape = useMemo<PrefsShape>(
     () => ({
       columnIds: columns.map((column) => column.id),
@@ -68,7 +70,7 @@ export function useTableState<T>({ id, rows, columns, locale, persist, defaultSo
 
   const [query, setQuery] = useState('')
   const search = useDebounced(query, SEARCH_DEBOUNCE_MS)
-  const [filters, setFilters] = useState<FilterState>({})
+  const [filters, setFilters] = useState<FilterState>(() => initialFilters ?? {})
   const deferredFilters = useDeferredValue(filters)
   const [page, setPage] = useState(0)
 

@@ -151,6 +151,7 @@ export const uzLatn: CoreMessages = {
     lastActivity: 'Soʻnggi faollik',
     total: 'Barcha guruhlar',
     perCurrency: 'Har bir valyuta alohida qatorda koʻrsatiladi. Turli valyutadagi summalar hech qachon qoʻshilmaydi.',
+    openLedger: 'Shu guruh tranzaksiyalarini koʻrsatish',
   },
   audit: {
     title: 'Audit jurnali',

@@ -1,10 +1,10 @@
 import { ArrowDown, ArrowUp, Equal } from 'lucide-react'
 import { useI18n } from '../../context/I18nContext'
-import type { CurrencySummary, GroupSummaryReport, SummaryTotals } from '../../domain/group-summary'
+import type { CurrencySummary, GroupSummary, SummaryTotals } from '../../domain/group-summary'
 import { formatIsoDate, intlLocale } from '../../lib/money'
 import { formatMinorExact, minorToPlainDecimal } from '../../lib/money-exact'
 
-type Kind = 'income' | 'expense' | 'net'
+export type Kind = 'income' | 'expense' | 'net'
 
 const ICONS = { income: ArrowUp, expense: ArrowDown, net: Equal } as const
 
@@ -73,11 +73,41 @@ export function SummaryFigures({ totals, testId = 'group-summary' }: { totals: S
   )
 }
 
-/** One group's figures, or nothing while the report is unavailable. */
-export function GroupRowSummary({ report, groupId }: { report: GroupSummaryReport | null; groupId: number }) {
-  const summary = report?.groups.find((item) => item.groupId === groupId)
-  if (!summary) return null
-  return <SummaryFigures totals={summary} />
+const MINOR_OF = { income: 'incomeMinor', expense: 'expenseMinor', net: 'netMinor' } as const
+
+export function amountOf(line: CurrencySummary, kind: Kind): bigint {
+  return line[MINOR_OF[kind]]
+}
+
+/** A table cell: one amount per currency, one line each; a dash when the group had no transactions. */
+export function SummaryAmounts({ summary, kind }: { summary: GroupSummary | undefined; kind: Kind }) {
+  const { locale } = useI18n()
+  if (!summary || summary.count === 0) return <span className="text-muted">—</span>
+  return (
+    <span className="grid justify-items-end gap-0.5 @max-3xl:justify-items-start">
+      {summary.currencies.map((line) => {
+        const minor = amountOf(line, kind)
+        const tone = kind === 'income' || (kind === 'net' && minor >= 0n) ? 'text-pine-ink' : 'text-clay-ink'
+        return (
+          <span
+            key={line.currency}
+            data-currency={line.currency}
+            data-testid={`summary-${kind}`}
+            data-amount={minorToPlainDecimal(minor, line.currency)}
+            className={`font-medium tabular-nums [overflow-wrap:anywhere] ${tone}`}
+          >
+            {formatMinorExact(minor, line.currency, locale)}
+          </span>
+        )
+      })}
+    </span>
+  )
+}
+
+/** Plain text for an exported cell, such as `1250.5 USD; -40 EUR`. */
+export function summaryAmountsText(summary: GroupSummary | undefined, kind: Kind): string | null {
+  if (!summary || summary.count === 0) return null
+  return summary.currencies.map((line) => `${minorToPlainDecimal(amountOf(line, kind), line.currency)} ${line.currency}`).join('; ')
 }
 
 /** The strip above the group list: everything the viewer may see, per currency. */

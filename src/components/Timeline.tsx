@@ -1,7 +1,9 @@
 import { Paperclip } from 'lucide-react'
 import { useCallback, useMemo, useState, type FormEvent } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { PeriodPicker } from './PeriodPicker'
 import { DataTable, type Column } from './table/DataTable'
+import type { FilterState } from './table/model'
 import { Button, Field, Notice, controlClass } from './ui'
 import { useI18n } from '../context/I18nContext'
 import { usePeriod } from '../context/PeriodContext'
@@ -11,6 +13,7 @@ import { CURRENCIES } from '../domain/types'
 import { textForError } from '../lib/errors'
 import { toIsoDate } from '../lib/dates'
 import { LIMITS } from '../lib/limits'
+import { LEDGER_GROUP_PARAM, linkedGroup } from '../lib/ledger-link'
 import { formatIsoDate, formatMoney, formatWhen, minorToDecimal } from '../lib/money'
 import { RECEIPT_ACCEPT, RECEIPT_TYPES } from '../lib/receipt'
 import { Permission, canUser } from '../rbac'
@@ -52,6 +55,12 @@ export function Timeline() {
   )
   const categories = useMemo(() => query((vault) => listCategories(vault)), [query, revision])
   const groups = useMemo(() => query((vault) => listGroups(vault)), [query, revision])
+  const [params] = useSearchParams()
+  const linked = linkedGroup(params.get(LEDGER_GROUP_PARAM), groups)
+  const initialFilters = useMemo<FilterState | undefined>(
+    () => (linked == null ? undefined : { group: { kind: 'select', values: [String(linked)] } }),
+    [linked],
+  )
   const canCreate = Boolean(user && canUser(user, Permission.CREATE_TRANSACTION))
   const canEdit = Boolean(user && canUser(user, Permission.UPDATE_TRANSACTION))
   const canDelete = Boolean(user && canUser(user, Permission.DELETE_TRANSACTION))
@@ -293,7 +302,9 @@ export function Timeline() {
         />
       ) : null}
       <DataTable
+        key={linked ?? 'all'}
         id="transactions"
+        initialFilters={initialFilters}
         label={t('timeline.title')}
         rows={entries}
         columns={columns}

@@ -1,9 +1,12 @@
+import { ArrowUpRight } from 'lucide-react'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { Button, Field, Notice, controlClass } from './ui'
 import { useI18n } from '../context/I18nContext'
+import { usePeriod } from '../context/PeriodContext'
 import { useVault } from '../context/VaultContext'
 import { textForError } from '../lib/errors'
-import { formatWhen } from '../lib/money'
+import { formatIsoDate, formatWhen, intlLocale } from '../lib/money'
 import type { MessageKey } from '../i18n'
 import { Permission, canUser } from '../rbac'
 import { listArchives, readArchive, type ArchiveEntry } from '../db/storage'
@@ -15,9 +18,11 @@ import { AUDIT_PAGE_LIMIT, auditIntegrity, listAudit } from '../services/audit.s
 import { ExportPanel } from './ExportPanel'
 import { createGroup, deleteGroup, listGroups } from '../services/group.service'
 import { PeriodPicker } from './PeriodPicker'
-import { GroupRowSummary, GroupSummaryTotals } from './groups/GroupSummary'
+import { GroupSummaryTotals, SummaryAmounts, amountOf, summaryAmountsText, type Kind } from './groups/GroupSummary'
 import { useGroupSummaries } from './groups/useGroupSummaries'
 import type { AuditEntry, Group } from '../domain/types'
+import type { GroupSummary } from '../domain/group-summary'
+import { ledgerPathForGroup } from '../lib/ledger-link'
 import { DataTable, type Column } from './table/DataTable'
 import { optionsFrom } from './table/model'
 
@@ -33,28 +38,90 @@ function Forbidden() {
 }
 
 export function GroupsPage() {
-  const { t } = useI18n()
-  const { user, query, run, revision } = useVault()
+  const { t, locale } = useI18n()
+  const { user, query, run, revision, currency } = useVault()
+  const { range } = usePeriod()
   const [name, setName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const canManage = Boolean(user && canUser(user, Permission.MANAGE_GROUPS))
   const allowed = canManage || Boolean(user && canUser(user, Permission.READ_DASHBOARD))
+  const canOpenLedger = Boolean(user && canUser(user, Permission.READ_TRANSACTIONS))
   const groups = useMemo(() => (allowed ? query((vault) => listGroups(vault)) : []), [allowed, query, revision])
   const summaries = useGroupSummaries()
-  const groupColumns = useMemo<Column<Group>[]>(
-    () => [
+  const byGroup = useMemo(() => new Map((summaries?.groups ?? []).map((summary) => [summary.groupId, summary])), [summaries])
+  const groupColumns = useMemo<Column<Group>[]>(() => {
+    const summaryOf = (group: Group): GroupSummary | undefined => byGroup.get(group.id)
+    // Sorting uses the vault currency only; a group without it counts as zero there. Currencies are never added together.
+    const mainMinor = (group: Group, kind: Kind) => {
+      const line = summaryOf(group)?.currencies.find((item) => item.currency === currency)
+      return { minor: line ? amountOf(line, kind) : 0n, currency }
+    }
+    const amountColumn = (kind: Kind): Column<Group> => ({
+      id: kind,
+      header: t(`groupSummary.${kind}`),
+      align: 'end',
+      cell: (group) => <SummaryAmounts summary={summaryOf(group)} kind={kind} />,
+      sort: { type: 'money', value: (group) => mainMinor(group, kind) },
+      exportAs: { kind: 'text', value: (group) => summaryAmountsText(summaryOf(group), kind) },
+    })
+    const number = new Intl.NumberFormat(intlLocale(locale))
+    return [
       {
         id: 'name',
         header: t('groups.name'),
         hideable: false,
-        cell: (group) => <span className="break-words font-medium">{group.name}</span>,
+        cell: (group) =>
+          canOpenLedger ? (
+            <Link
+              to={ledgerPathForGroup(group.id)}
+              data-testid="group-ledger-link"
+              title={t('groupSummary.openLedger')}
+              className="group/link inline-flex max-w-full items-center gap-1 break-words font-medium hover:text-pine-ink hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine-ink/40"
+            >
+              <span className="min-w-0 break-words">{group.name}</span>
+              <ArrowUpRight size={14} aria-hidden="true" className="shrink-0 opacity-50 group-hover/link:opacity-100" />
+              <span className="sr-only">{t('groupSummary.openLedger')}</span>
+            </Link>
+          ) : (
+            <span className="break-words font-medium">{group.name}</span>
+          ),
         sort: { type: 'text', value: (group) => group.name },
         search: (group) => group.name,
         exportAs: { kind: 'text', value: (group) => group.name },
       },
-    ],
-    [t],
-  )
+      amountColumn('income'),
+      amountColumn('expense'),
+      amountColumn('net'),
+      {
+        id: 'count',
+        header: t('groupSummary.transactions'),
+        align: 'end',
+        cell: (group) => (
+          <span data-testid="summary-count" className="tabular-nums">
+            {number.format(summaryOf(group)?.count ?? 0)}
+          </span>
+        ),
+        sort: { type: 'number', value: (group) => summaryOf(group)?.count ?? 0 },
+        exportAs: { kind: 'number', value: (group) => summaryOf(group)?.count ?? 0 },
+      },
+      {
+        id: 'last',
+        header: t('groupSummary.lastActivity'),
+        cell: (group) => {
+          const last = summaryOf(group)?.lastDate
+          return last ? (
+            <span data-testid="summary-last" data-date={last} className="whitespace-nowrap">
+              {formatIsoDate(last, locale)}
+            </span>
+          ) : (
+            <span className="text-muted">—</span>
+          )
+        },
+        sort: { type: 'date', value: (group) => summaryOf(group)?.lastDate },
+        exportAs: { kind: 'date', value: (group) => summaryOf(group)?.lastDate ?? null },
+      },
+    ]
+  }, [byGroup, canOpenLedger, currency, locale, t])
   if (!allowed) return <Forbidden />
 
   async function onCreate(event: FormEvent) {
@@ -104,11 +171,10 @@ export function GroupsPage() {
         rows={groups}
         columns={groupColumns}
         rowKey={(group) => String(group.id)}
-        rowAttributes={(group) => ({ 'data-testid': 'group-row', 'data-group': group.name })}
-        groupAttributes={(group) => ({ 'data-group-id': String(group.id) })}
+        rowAttributes={(group) => ({ 'data-testid': 'group-row', 'data-group': group.name, 'data-count': String(byGroup.get(group.id)?.count ?? 0) })}
         exportTable="groups"
+        exportScope={{ from: range.start, to: range.end, groupId: null }}
         empty={t('groups.empty')}
-        expanded={(group) => <GroupRowSummary report={summaries} groupId={group.id} />}
         rowActions={
           canManage
             ? (group) => (

@@ -10,7 +10,7 @@ import { ColumnMenu } from './ColumnMenu'
 import { EditableCell } from './EditableCell'
 import { ExportMenu, type ViewSnapshot } from './ExportMenu'
 import { FilterPanel } from './FilterPanel'
-import { fill, optionsFrom, type FilterOption, type SortRule } from './model'
+import { fill, optionsFrom, type FilterOption, type FilterState, type SortRule } from './model'
 import { toolButton } from './Popover'
 import { PAGE_SIZES, isPageSize, type PageSize } from './prefs'
 import { useTableState } from './useTableState'
@@ -46,6 +46,8 @@ export type DataTableProps<T> = {
   searchLabel?: string
   defaultSort?: SortRule[]
   defaultPageSize?: PageSize
+  /** Applied once when the table mounts; remount (change `key`) to apply different ones. */
+  initialFilters?: FilterState
   bulkDelete?: { run: (rows: T[]) => Promise<void>; can?: (row: T) => boolean }
   selection?: Selection
 }
@@ -73,9 +75,10 @@ export function DataTable<T>(props: DataTableProps<T>) {
     persist: props.persist ?? true,
     defaultSort: props.defaultSort,
     defaultPageSize: props.defaultPageSize,
+    initialFilters: props.initialFilters,
     rowKey,
   })
-  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [filtersOpen, setFiltersOpen] = useState(() => Object.keys(props.initialFilters ?? {}).length > 0)
   const [editing, setEditing] = useState<string | null>(null)
   const [ownPicked, setOwnPicked] = useState<ReadonlySet<string>>(new Set())
   const [confirmBulk, setConfirmBulk] = useState(false)

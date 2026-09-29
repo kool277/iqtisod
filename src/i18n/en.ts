@@ -151,6 +151,7 @@ export const en = {
     lastActivity: 'Last activity',
     total: 'All groups',
     perCurrency: 'Each currency is shown on its own line. Amounts in different currencies are never added together.',
+    openLedger: 'Show this group’s transactions',
   },
   audit: {
     title: 'Audit log',
