@@ -111,6 +111,79 @@ test('shows official rates for all six directions and converts exactly', async (
   expect(await violations()).toEqual([])
 })
 
+/** WCAG contrast of each trend badge's text over its tinted pill, composited on the panel background. */
+async function trendContrast(page: Page): Promise<Record<string, number>> {
+  return page.getByTestId('fx-panel').evaluate((panel) => {
+    const canvas = document.createElement('canvas')
+    canvas.width = canvas.height = 1
+    const context = canvas.getContext('2d', { willReadFrequently: true }) as CanvasRenderingContext2D
+    const paint = (...colors: string[]) => {
+      context.clearRect(0, 0, 1, 1)
+      for (const color of colors) {
+        context.fillStyle = color
+        context.fillRect(0, 0, 1, 1)
+      }
+      return [...context.getImageData(0, 0, 1, 1).data.slice(0, 3)]
+    }
+    const luminance = (rgb: number[]) => {
+      const [r, g, b] = rgb.map((value) => {
+        const channel = value / 255
+        return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4
+      })
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b
+    }
+    const card = getComputedStyle(panel).backgroundColor
+    const ratios: Record<string, number> = {}
+    for (const badge of panel.querySelectorAll<HTMLElement>('[data-testid="fx-trend"]')) {
+      const style = getComputedStyle(badge)
+      const [light, dark] = [luminance(paint(card, style.backgroundColor, style.color)), luminance(paint(card, style.backgroundColor))].sort((a, b) => b - a)
+      const ratio = Math.round(((light + 0.05) / (dark + 0.05)) * 100) / 100
+      const trend = badge.dataset.trend as string
+      ratios[trend] = Math.min(ratios[trend] ?? Infinity, ratio)
+    }
+    return ratios
+  })
+}
+
+test('colors each rate change by its own direction, readable in light and dark themes', async ({ page }) => {
+  const violations = await watchViolations(page)
+  await serveRates(page, { body: snapshotAged(0) })
+  await createVault(page)
+  const panel = page.getByTestId('fx-panel')
+  await expect(panel.getByTestId('fx-pair')).toHaveCount(3)
+
+  for (const [base, quote] of [['USD', 'UZS'], ['USD', 'KRW'], ['USD', 'ILS']]) {
+    const forward = panel.getByTestId(`fx-rate-${base}-${quote}`)
+    const inverse = panel.getByTestId(`fx-rate-${quote}-${base}`)
+    const trend = await forward.getByTestId('fx-change').getAttribute('data-trend')
+    expect(['up', 'down']).toContain(trend)
+    await expect(inverse.getByTestId('fx-change')).toHaveAttribute('data-trend', trend === 'up' ? 'down' : 'up')
+  }
+  const falling = panel.getByTestId('fx-rate-USD-UZS')
+  await expect(falling.getByTestId('fx-change')).toHaveAttribute('title', 'Change of this rate vs the previous publication')
+  await expect(falling.getByTestId('fx-trend')).toHaveAttribute('data-trend', 'down')
+  await expect(falling.getByTestId('fx-trend')).toHaveText('Down -0.16%')
+  await expect(falling.getByTestId('fx-trend')).toHaveCSS('color', 'rgb(153, 27, 27)')
+  await expect(falling).toHaveClass(/border-fall\/60/)
+  await expect(panel.getByTestId('fx-rate-UZS-USD').getByTestId('fx-trend')).toHaveCSS('color', 'rgb(22, 101, 52)')
+  await expect(panel.getByTestId('fx-rate-USD-UZS')).toHaveCSS('color', 'rgb(29, 26, 21)')
+  await expect(page.getByTestId('fx-result').locator('span').nth(1)).toHaveCSS('color', 'rgb(22, 101, 52)')
+
+  const light = await trendContrast(page)
+  await page.getByTestId('theme-dark').click()
+  await expect(panel.getByTestId('fx-rate-UZS-USD').getByTestId('fx-trend')).toHaveCSS('color', 'rgb(34, 197, 94)')
+  await expect(falling.getByTestId('fx-trend')).toHaveCSS('color', 'rgb(248, 113, 113)')
+  await expect(page.getByTestId('fx-result').locator('span').nth(1)).toHaveCSS('color', 'rgb(22, 163, 74)')
+  const dark = await trendContrast(page)
+  await page.getByTestId('theme-light').click()
+  console.log(`fx trend contrast light ${JSON.stringify(light)} dark ${JSON.stringify(dark)}`)
+  for (const ratios of [light, dark]) {
+    expect(ratios.up).toBeGreaterThanOrEqual(4.5)
+    expect(ratios.down).toBeGreaterThanOrEqual(4.5)
+  }
+  expect(await violations()).toEqual([])
+})
+
 test('flags rates older than two business days as stale', async ({ page }) => {
   await serveRates(page, { body: snapshotAged(10) })
   await createVault(page)
