@@ -1,0 +1,1 @@
+var e=`group`;function t(t){return`/app/transactions?${e}=${t}`}function n(e,t){if(e==null||!/^[1-9]\d{0,15}$/.test(e))return null;let n=Number(e);return t.some(e=>e.id===n)?n:null}export{t as n,n as r,e as t};
