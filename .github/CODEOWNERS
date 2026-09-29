@@ -1,0 +1,19 @@
+# Changes to key handling, storage, access control, what the browser loads, and CI need the owner's review.
+/src/crypto/                 @kool277
+/src/db/                     @kool277
+/src/services/auth*          @kool277
+/src/services/grant*         @kool277
+/src/services/user*          @kool277
+/src/services/account*       @kool277
+/src/services/totp*          @kool277
+/src/lib/password-policy.ts  @kool277
+/src/lib/throttle.ts         @kool277
+/src/lib/safe-json.ts        @kool277
+/src/lib/limits.ts           @kool277
+/public/                     @kool277
+/index.html                  @kool277
+/vite.config.ts              @kool277
+/tools/moliya-decrypt.mjs    @kool277
+/tests/fixtures/             @kool277
+/package-lock.json           @kool277
+/.github/                    @kool277
