@@ -64,6 +64,33 @@ export class MigrationError extends AppError {
   }
 }
 
+export type SafeErrorCode =
+  | 'SAFES_LOCKED'
+  | 'SAFES_NOT_SET_UP'
+  | 'SAFES_ALREADY_SET_UP'
+  | 'SAFES_STALE'
+  | 'MUST_CHANGE_PASSWORD'
+  | 'REAUTH_REQUIRED'
+  | 'NO_RECOVERY_CODE'
+  | 'SAFE_LIMIT'
+  | 'ITEM_LIMIT'
+  | 'SAFE_NOT_EMPTY'
+  | 'LAST_SAFE'
+  | 'CONFIRM_NAME'
+  | 'CONFIRM_RESET'
+  | 'SAFE_ARCHIVED'
+  | 'SAFE_CLOSED'
+  | 'SAFE_NOT_FOUND'
+  | 'ITEM_NOT_FOUND'
+  | 'ITEM_CONFLICT'
+
+export class SafeError extends AppError {
+  constructor(code: SafeErrorCode) {
+    super(code)
+    this.name = 'SafeError'
+  }
+}
+
 export function isUniqueViolation(error: unknown): boolean {
   return error instanceof Error && /UNIQUE/i.test(error.message)
 }

@@ -17,7 +17,7 @@ export function minorUnitOf(currency: string): number {
   return exponent
 }
 
-function roundHalfEven(numerator: bigint, denominator: bigint): bigint {
+export function roundHalfEven(numerator: bigint, denominator: bigint): bigint {
   const negative = numerator < 0n !== denominator < 0n
   const n = numerator < 0n ? -numerator : numerator
   const d = denominator < 0n ? -denominator : denominator
