@@ -18,7 +18,8 @@ const USAGE = `Usage:
 
 Decrypts a Moliya backup into a standard SQLite database.
 The password is read from MOLIYA_PASSWORD, or prompted for when unset.
-Password verifiers are blanked in the output unless --keep-keys is given.`
+Password verifiers are blanked, and private-safe rows (1.2.0+, still encrypted with each
+owner's own key) are removed from the output unless --keep-keys is given.`
 
 function fail(message, code = 1) {
   process.stderr.write(`moliya-decrypt: ${message}\n`)
@@ -131,6 +132,9 @@ async function scrub(path) {
   const db = new DatabaseSync(path)
   try {
     db.exec("UPDATE users SET password_hash = '', salt = ''")
+    const safeTables = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('safe_events', 'secure_items', 'safes', 'user_keys')").all()
+    const present = new Set(safeTables.map((row) => row.name))
+    for (const table of ['safe_events', 'secure_items', 'safes', 'user_keys']) if (present.has(table)) db.exec(`DELETE FROM ${table}`)
     db.exec('VACUUM')
     const schema = db.prepare('PRAGMA user_version').get()
     const count = db.prepare('SELECT COUNT(*) AS n FROM transactions').get()
@@ -196,7 +200,7 @@ async function main() {
     summary = await scrub(out)
     if (!summary) {
       process.stderr.write(
-        'moliya-decrypt: warning: this Node.js has no node:sqlite, so password verifiers were NOT removed from the output. ' +
+        'moliya-decrypt: warning: this Node.js has no node:sqlite, so password verifiers and private-safe rows were NOT removed from the output. ' +
           'Use Node.js 22.13 or newer, or treat the file as secret.\n',
       )
     }

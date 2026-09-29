@@ -38,9 +38,25 @@ describe.each(readManifest().map((entry) => [entry.path, readFixture(entry)] as 
     try {
       expect(db.queryValue('SELECT COUNT(*) FROM transactions')).toBe(fixture.expected.transactions.length)
       expect(db.queryValue("SELECT COUNT(*) FROM users WHERE password_hash <> '' OR salt <> ''")).toBe(0)
+      if (fixture.schemaVersion >= 3) {
+        for (const table of ['user_keys', 'safes', 'secure_items', 'safe_events']) expect(db.queryValue(`SELECT COUNT(*) FROM ${table}`), table).toBe(0)
+      }
       const column = fixture.schemaVersion === 1 ? 'CAST(round(amount * 100) AS INTEGER)' : 'amount_minor'
       const amounts = new Map(db.query(`SELECT id, ${column} AS minor FROM transactions`).map((row) => [row.id, row.minor]))
       for (const tx of fixture.expected.transactions) expect(amounts.get(tx.id), tx.id).toBe(tx.amountMinor)
+    } finally {
+      db.close()
+    }
+  })
+
+  it.runIf(fixture.schemaVersion >= 3)('keeps the still-encrypted private-safe rows with --keep-keys', async () => {
+    const out = join(work, `${path.replace('/', '-')}-keys.sqlite`)
+    const user = fixture.expected.users[0]
+    await cli([input, '--email', user.email, '--out', out, '--keep-keys'], user.password)
+    const db = await SqlDatabase.openBytes(new Uint8Array(readFileSync(out)))
+    try {
+      expect(Number(db.queryValue('SELECT COUNT(*) FROM secure_items'))).toBeGreaterThan(0)
+      expect(Number(db.queryValue('SELECT COUNT(*) FROM user_keys'))).toBe(fixture.expected.safes?.owners.length)
     } finally {
       db.close()
     }
