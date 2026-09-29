@@ -59,7 +59,7 @@ To narrow the list, use the **All / Income / Expense** filter next to **Add reco
 
 ### A note on currencies
 
-Each vault has one main currency, chosen when it was created and changeable by an Admin. Totals and charts only count records in that currency. A record in another currency is still saved and listed, marked "Other currency — not included in totals". The dashboard lists those records separately under **Other currencies (not in totals)**, with income and expenses per currency, so nothing is hidden. Moliya does not convert between currencies.
+Each vault has one main currency, chosen when it was created and changeable by an Admin. Totals and charts only count records in that currency. A record in another currency is still saved and listed, marked "Other currency — not included in totals". The dashboard lists those records separately under **Other currencies (not in totals)**, with income and expenses per currency, so nothing is hidden. Moliya does not convert records between currencies; the exchange-rate panel on the dashboard is for information and never changes your totals.
 
 ## Reading the dashboard
 
@@ -79,6 +79,23 @@ The charts below them:
 - **Who spent** shows expenses per person in your group. Admins see **Spending by group** instead.
 
 A chart shows "No figures in this range" when the period has no matching records.
+
+## Exchange rates
+
+The **Exchange rates** panel on the dashboard shows official reference rates for the Uzbek soʻm (UZS), the South Korean won (KRW), and the Israeli new shekel (ILS) against the US dollar (USD), in both directions. Each card shows:
+
+- **1 USD = …** and **1 UZS = …** (or KRW, ILS). Rates published by a central bank are shown exactly as published. Rates Moliya derives, such as the reverse direction, are shown to six significant digits.
+- For very small numbers, a readable amount as well, for example **100,000 UZS = 8.47 USD**.
+- The change since the previous official rate, for example **−0.16% vs Sep 26, 2026**.
+- **Rate date**: the day the rate is valid for. The Central Bank of Uzbekistan sets the soʻm rate the evening before, so it can show tomorrow's date.
+- The **source**, which opens the central bank's own rate page. "Cross rate via EUR" means the rate was calculated from two official rates of the same bank; for the won, the European Central Bank's euro rates are used (1 USD = KRW per euro ÷ USD per euro), because the Bank of Korea does not offer rates that can be read without a private key.
+- A **Stale** badge when the rate is more than 2 business days old, for example after a holiday or when the rates could not be updated.
+
+The **Converter** turns an amount into the other currency. Enter the amount (spaces and a comma or dot are fine) and choose the direction, or use the ⇄ button to reverse it. The result is rounded to the currency's smallest unit: cents for USD, tiyin for UZS, agorot for ILS, and whole won for KRW (the won has no smaller unit, so KRW amounts cannot have decimals). **Exact** shows the unrounded value to 20 significant digits.
+
+These are official central-bank reference rates for information only; bank buy/sell rates differ. Use your bank's rate for real transactions.
+
+The panel never holds up the rest of the dashboard. Rates are saved in this browser, so the last rates are still shown when you are offline, with a note and a **Try again** button. If rates have never loaded in this browser, the panel says they are unavailable. Rates are public data: they are not stored in your encrypted vault and loading them does not reveal anything about your ledger.
 
 ## Saving and locking
 

@@ -23,6 +23,7 @@ It suits a household tracking a shared budget, a small business or community gro
 - Income and expense records with category, date, currency, notes, and an optional receipt photo.
 - Timeline filters for today, this week, this month, last month, year to date, or a custom range.
 - Dashboard with net balance, total income, total expenses, savings rate, and four charts: monthly income against expenses, expenses by category, spending over time, and spending by group or by person.
+- Official exchange rates on the dashboard for soʻm, won, and shekel against the US dollar in both directions (UZS↔USD, KRW↔USD, ILS↔USD), from the Central Bank of Uzbekistan, the European Central Bank, and the Bank of Israel, with the rate date, the source, the change since the previous rate, a stale warning, and an exact converter. Rates are fetched and cross-checked once or twice a day by a GitHub Actions job and published on the same site, so the browser never contacts a third party.
 - Admin settings page for the vault name, vault currency, and income and expense categories in all four languages.
 - Collapsible sidebar that remembers its state.
 - Exact money: amounts are stored as whole minor units (cents, tiyin) and never rounded, with per-currency subtotals for records outside the vault currency.
@@ -78,6 +79,7 @@ Open the address Vite prints (usually `http://localhost:5173`), create a vault, 
 | `npm test` | Run unit tests, including every golden backup (Vitest) |
 | `npm run test:e2e` | Run browser tests (Playwright) against the dev server. Run `npx playwright install chromium` once first |
 | `npm run test:e2e:preview` | Build, then run the browser tests against the production bundle, as CI does |
+| `npm run rates:fetch -- --out .fx-data` | Fetch, validate, and write an exchange-rate snapshot (copy `.fx-data/rates` to `public/rates` to see live rates in `npm run dev`) |
 | `npm run decrypt -- <file> --list` | Open a backup without the website (see the [admin guide](docs/admin-guide.md#opening-a-backup-without-the-website)) |
 
 ## Documentation

@@ -20,6 +20,8 @@ Moliya is a static single-page app. The server only serves files. User data neve
 - `coi-config.js` and `coi-serviceworker.js`.
 - `assets/` with hashed files. The first screen loads only the app entry (about 110 KB, 35 KB gzipped) and React (about 260 KB, 80 KB gzipped). Pages, Chart.js (about 180 KB), and SQLite (about 210 KB of JavaScript plus an 870 KB WebAssembly binary, about 400 KB gzipped) load on demand. Serve `.wasm` as `application/wasm`; GitHub Pages and most hosts do this already.
 
+`dist/` does not contain exchange rates. The deploy adds `rates/` from the `fx-data` branch (see [Exchange rates](#exchange-rates)); a release zip opened on its own shows the rates panel as unavailable unless `rates/` is copied next to `index.html`.
+
 Builds are reproducible: the build date comes from `SOURCE_DATE_EPOCH` or the commit date, not the clock, and the commit comes from `git` (or `GITHUB_SHA`).
 
 ## Runtime requirements
@@ -31,7 +33,7 @@ Builds are reproducible: the build date comes from `SOURCE_DATE_EPOCH` or the co
 
   Vite sets them for `npm run dev` and `npm run preview`. On hosts that cannot set headers, `coi-serviceworker.js` adds them in the browser. That causes one automatic reload on a visitor's first load.
 - **Web Locks and IndexedDB** are required. Every supported browser has both.
-- The app loads nothing from third-party origins.
+- The app loads nothing from third-party origins. Exchange rates are read from `rates/latest.json` on the same site.
 
 ## Content Security Policy
 
@@ -45,6 +47,7 @@ manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'
 
 - `'wasm-unsafe-eval'` is needed to compile SQLite. `'unsafe-inline'` for styles is needed by Chart.js and React style attributes; scripts have no inline exception.
 - `data:` images are stored receipts.
+- `connect-src 'self'` covers `version.json` and `rates/latest.json`. Do not add the central banks' domains: the browser never calls them.
 - A `<meta>` policy cannot set `frame-ancestors`, `report-uri`, or `sandbox`. If the host can send headers, send the same policy as a `Content-Security-Policy` header and add `frame-ancestors 'none'`.
 - The development server has no policy, so Vite's hot reload works. `npm run test:e2e:preview` (and CI) run the browser tests against the production build and fail on any policy violation.
 
@@ -58,8 +61,9 @@ All actions are pinned to full commit SHAs with the release tag in a comment. De
 | `deploy.yml` | Push to `main`, manual | Runs `ci.yml`, then publishes the tested `dist` artifact to `gh-pages` in the `production` environment |
 | `release.yml` | Tag `vX.Y.Z` | Runs `ci.yml`, checks the tag equals `package.json`'s version, packages `moliya-X.Y.Z.zip` and `SHA256SUMS`, attests build provenance, and creates a GitHub release with the notes from `CHANGELOG.md` |
 | `codeql.yml` | Push and pull request to `main`, weekly | CodeQL `security-extended` for JavaScript and TypeScript |
+| `fx-rates.yml` | 03:17 UTC daily and 15:47 UTC on weekdays, manual | Fetches, validates, and records official exchange rates on `fx-data`, then publishes `rates/` to `gh-pages`. See [Exchange rates](#exchange-rates) |
 
-The deploy only publishes the exact files CI tested. A failing check stops it, and the last good version stays online. Deploys never cancel each other half-way (`concurrency: pages`, `cancel-in-progress: false`).
+The deploy only publishes the exact files CI tested. A failing check stops it, and the last good version stays online. Deploys and rate updates never overlap or cancel each other half-way (`concurrency: pages`, `cancel-in-progress: false`).
 
 ### One-time GitHub settings
 
@@ -71,6 +75,7 @@ The repository is `kool277/iqtisod`. These settings cannot be committed and must
 4. **Settings → Rules → Rulesets** (or Branches) for `main`: require a pull request, require the status checks **Typecheck, unit tests, audit, build**, **End-to-end tests (production preview)**, and **Analyze (javascript-typescript)**, block force pushes and deletion.
 5. A tag ruleset for `v*`: restrict creation to maintainers and block deletion and updates, so a released tag always points at the same code.
 6. **Settings → Code security**: enable Dependabot alerts, Dependabot security updates, secret scanning with push protection, and code scanning (the CodeQL workflow uploads results once enabled).
+7. **Exchange rates**: after the workflow reaches `main`, run **Actions → Exchange rates → Run workflow** once to create the `fx-data` branch, then re-run **Deploy GitHub Pages** (or push to `main`) so the site and the rates are published together. If rulesets cover all branches, let `github-actions[bot]` push to `fx-data` and `gh-pages` (or exclude those two branches); do not require pull requests or status checks on them. Block deletion and force pushes on `fx-data`: it is the audit trail of every published rate.
 
 The repository also tracks an `iqtisod` entry that is a nested git clone rather than project code. It has no `.gitmodules`, so `actions/checkout` skips it, and CodeQL ignores it. Remove it from the index (`git rm --cached iqtisod`) if it was added by mistake.
 
@@ -81,6 +86,42 @@ The repository also tracks an `iqtisod` entry that is a nested git clone rather 
 3. In **Settings → Pages**, enter the domain and enable **Enforce HTTPS**.
 
 Read [Origin and storage isolation](#origin-and-storage-isolation) before switching. Users' vaults do not follow them to a new address.
+
+## Exchange rates
+
+The dashboard shows official USD rates for UZS, KRW, and ILS. They are fetched server-side by `fx-rates.yml` and served from the site itself, so the browser never contacts a central bank and the CSP stays `connect-src 'self'`. Needs no secrets or API keys.
+
+| Source | Endpoint | Used for |
+| --- | --- | --- |
+| Central Bank of Uzbekistan | `https://cbu.uz/uz/arkhiv-kursov-valyut/json/` (and `json/all/<date>/` for the previous rate) | USD/UZS; fallback cross for KRW and ILS; EUR/USD cross-check |
+| European Central Bank | `https://data-api.ecb.europa.eu/service/data/EXR/D.USD+KRW+ILS.EUR.SP00.A` (CSV) | USD/KRW (cross via EUR); USD/ILS fallback and cross-check |
+| Bank of Israel | `https://edge.boi.gov.il/FusionEdgeServer/sdmx/v2/data/dataflow/BOI.STATISTICS/EXR/1.0/RER_USD_ILS` (CSV) | USD/ILS representative rate |
+
+Schedule: the CBU publishes the next day's rate in the afternoon Tashkent time, the ECB at about 16:00 CET, and the Bank of Israel at about 15:30 Israel time. The 15:47 UTC weekday run picks up all three the same day; the 03:17 UTC daily run is a safety net. GitHub may start scheduled runs late or skip them under load, which the 2-business-day stale threshold absorbs.
+
+Each run:
+
+1. Clones `fx-data` (an orphan branch holding only data) or starts it.
+2. `npm run rates:fetch -- --out fx-data` fetches the three sources (3 attempts each, 20-second timeout), parses them strictly, cross-checks them, and compares with the last published snapshot.
+3. If the official rates changed, writes `rates/latest.json`, `rates/history/YYYY-MM-DD.json`, and the raw responses in `archive/YYYY-MM-DD/`, commits them to `fx-data`, and publishes `rates/` to `gh-pages` (only the `rates/` folder is replaced). If nothing changed, nothing is committed or published.
+
+`deploy.yml` copies `fx-data/rates` into `dist/rates/` before each deploy, because a deploy replaces the whole `gh-pages` branch. Browsers fetch `rates/latest.json` with `cache: 'no-cache'`, verify it, and keep the last good copy in local storage.
+
+### Failure handling
+
+| Situation | What happens | What to do |
+| --- | --- | --- |
+| One source is down or returns something unparseable | The pair uses its fallback source, or keeps its previous rate and date. The snapshot is published, then the run fails with "At least one official source failed" | Nothing, if the next run is green. If it persists, check the source's page and endpoint |
+| Sources disagree beyond tolerance, a rate is outside its plausible range, or all sources for a pair are down with no previous rate | The run fails and publishes nothing. The site keeps the previous rates | Read the error, compare with the central banks' pages. Fix the parser if a format changed |
+| A rate moved more than 10% since the last snapshot | The run fails and publishes nothing | After confirming the move on the official page, run the workflow manually with **allow_large_moves** |
+| `rates/` missing from the site (for example after resetting `gh-pages`) | The panel shows cached rates as stale, or "unavailable" for new visitors | Run the workflow manually with **republish**, or re-run the deploy |
+| No `fx-data` branch yet | The deploy succeeds with a warning and without `rates/` | Run the workflow once, then redeploy |
+| Scheduled runs stopped | GitHub disables schedules in public repositories after 60 days without repository activity | **Actions → Exchange rates → Enable workflow** |
+| A deploy shows as cancelled while a rate run was queued | GitHub keeps one pending run per concurrency group, so a newer pending run replaces an older pending one | Re-run the cancelled workflow |
+
+The dashboard never blocks on rates: a failed fetch shows the cached rates with a notice and a retry button, and the Stale badge appears once a rate is more than 2 business days old.
+
+To reproduce a run locally: `npm run rates:fetch -- --out .fx-data` (live) or `npm run rates:fetch -- --out /tmp/fx --replay tests/fixtures/fx --now 2026-09-29T09:17:48.000Z` (recorded). The exit code is 0 on success, 1 on a validation or fetch failure, and 2 on bad arguments.
 
 ## Versioning and releases
 
@@ -157,6 +198,8 @@ Any static host works. Upload `dist/` and, where possible, set the isolation hea
   Cache-Control: no-cache
 /index.html
   Cache-Control: no-cache
+/rates/*
+  Cache-Control: no-cache
 ```
 
 Cloudflare Pages uses the same `_headers` format.
@@ -181,7 +224,7 @@ server {
     add_header Cross-Origin-Embedder-Policy require-corp always;
   }
 
-  location ~ ^/(index\.html|version\.json|coi-serviceworker\.js|coi-config\.js)$ {
+  location ~ ^/(index\.html|version\.json|coi-serviceworker\.js|coi-config\.js|rates/.*\.json)$ {
     add_header Cache-Control "no-cache";
     add_header Cross-Origin-Opener-Policy same-origin always;
     add_header Cross-Origin-Embedder-Policy require-corp always;
@@ -189,7 +232,9 @@ server {
 }
 ```
 
-Files in `assets/` have content hashes and can be cached forever. Keep `index.html`, `version.json`, and the two `coi-*` scripts uncached or short-lived, so new releases are picked up. GitHub Pages caches everything for about 10 minutes, so a release can take that long to reach everyone; the update check fetches `version.json` with `cache: 'no-store'`.
+Files in `assets/` have content hashes and can be cached forever. Keep `index.html`, `version.json`, `rates/`, and the two `coi-*` scripts uncached or short-lived, so new releases and rates are picked up.
+
+Outside GitHub, publish rates with a scheduled job on any machine with Node.js 22.12+ and the repository: run `npm run rates:fetch -- --out /srv/moliya-fx` at the times above, then copy `/srv/moliya-fx/rates/` into the site's `rates/` folder only when the command exits with 0. Keep `/srv/moliya-fx` between runs; it holds the previous snapshot used for change detection and the jump check. GitHub Pages caches everything for about 10 minutes, so a release can take that long to reach everyone; the update check fetches `version.json` with `cache: 'no-store'`.
 
 ## Monitoring and logging
 
@@ -197,6 +242,7 @@ There is no server-side logging, analytics, or error reporting, by design. Addin
 
 - The Actions tab and the Security tab (CodeQL, Dependabot) for failures and alerts.
 - An uptime check that fetches `version.json`, expects `200`, and compares `version` with the latest tag.
+- A freshness check that fetches `rates/latest.json` and alerts when `generatedAt` is more than 4 days old. Failed **Exchange rates** runs also appear in the Actions tab and in GitHub's failure emails.
 - After each deploy, open the site, create a throwaway vault in a private window, add one record, and check the version in Settings → About.
 
 ## Dependency maintenance
@@ -215,3 +261,4 @@ There is no server-side logging, analytics, or error reporting, by design. Addin
 - [ ] Code scanning, Dependabot alerts, and secret scanning enabled.
 - [ ] No analytics or third-party scripts added to `index.html`; the policy blocks them anyway.
 - [ ] Release zips and `SHA256SUMS` kept for every version.
+- [ ] `fx-data` protected against deletion and force pushes; only the workflow writes to it.
