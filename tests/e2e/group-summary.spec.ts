@@ -28,11 +28,16 @@ async function addRecord(page: Page, group: string, type: 'INCOME' | 'EXPENSE', 
 }
 
 async function expectLine(scope: Locator, currency: string, income: string, expense: string, net: string) {
-  const line = scope.locator(`[data-currency="${currency}"]`)
-  await expect(line.getByTestId('summary-income')).toHaveAttribute('data-amount', income)
-  await expect(line.getByTestId('summary-expense')).toHaveAttribute('data-amount', expense)
-  await expect(line.getByTestId('summary-net')).toHaveAttribute('data-amount', net)
+  // Table cells carry the currency on each figure; the totals strip groups the figures of one currency.
+  const figure = (kind: string) =>
+    scope.locator(`[data-testid="summary-${kind}"][data-currency="${currency}"], [data-currency="${currency}"] [data-testid="summary-${kind}"]`)
+  await expect(figure('income')).toHaveAttribute('data-amount', income)
+  await expect(figure('expense')).toHaveAttribute('data-amount', expense)
+  await expect(figure('net')).toHaveAttribute('data-amount', net)
 }
+
+const ledgerAmounts = (page: Page) =>
+  page.getByTestId('tx-row').evaluateAll((rows) => rows.map((row) => row.getAttribute('data-amount')).sort())
 
 async function lockVault(page: Page) {
   await expect(page.getByTestId('save-state')).toHaveText('Saved', { timeout: 30_000 })
@@ -61,14 +66,22 @@ test('groups page shows income, expenses and net per group and currency, scoped 
   const home = page.locator('[data-testid="group-row"][data-group="Home"]')
   const field = page.locator('[data-testid="group-row"][data-group="Field team"]')
   const total = page.getByTestId('group-summary-total')
-  await expect(home.getByTestId('group-summary')).toHaveAttribute('data-count', '3')
+  await expect(home).toHaveAttribute('data-count', '3')
+  await expect(home.getByTestId('summary-count')).toHaveText('3')
   await expectLine(home, 'USD', '1000', '200', '800')
   await expectLine(home, 'EUR', '0', '50', '-50')
-  await expect(field.getByTestId('group-summary')).toHaveAttribute('data-count', '2')
+  await expect(field).toHaveAttribute('data-count', '2')
   await expectLine(field, 'USD', '300', '450', '-150')
   await expect(field.locator('[data-currency="EUR"]')).toHaveCount(0)
   await expect(field.getByTestId('summary-net')).toHaveClass(/text-clay-ink/)
-  await expect(home.locator('[data-currency="USD"]').getByTestId('summary-net')).toHaveClass(/text-pine-ink/)
+  await expect(home.locator('[data-testid="summary-net"][data-currency="USD"]')).toHaveClass(/text-pine-ink/)
+
+  const rowNames = () => page.getByTestId('group-row').evaluateAll((rows) => rows.map((row) => row.getAttribute('data-group')))
+  await page.getByTestId('sort-groups-net').click()
+  await expect.poll(rowNames).toEqual(['Field team', 'Home'])
+  await page.getByTestId('sort-groups-net').click()
+  await expect.poll(rowNames).toEqual(['Home', 'Field team'])
+  await page.getByTestId('sort-groups-net').click()
   await expect(total).toHaveAttribute('data-count', '5')
   await expectLine(total, 'USD', '1300', '650', '650')
   await expectLine(total, 'EUR', '0', '50', '-50')
@@ -89,9 +102,25 @@ test('groups page shows income, expenses and net per group and currency, scoped 
 
   await page.getByTestId('period-lastMonth').click()
   await expect(total).toHaveAttribute('data-count', '0')
-  await expect(home.getByTestId('group-summary')).toHaveAttribute('data-count', '0')
+  await expect(home).toHaveAttribute('data-count', '0')
   await page.getByTestId('period-month').click()
   await expect(total).toHaveAttribute('data-count', '5')
+
+  const homeLink = home.getByTestId('group-ledger-link')
+  const homeHref = await homeLink.getAttribute('href')
+  expect(homeHref).toMatch(/^#\/app\/transactions\?group=\d+$/)
+  await homeLink.click()
+  await expect(page).toHaveURL(/#\/app\/transactions\?group=\d+$/)
+  await expect.poll(() => ledgerAmounts(page)).toEqual(['1000', '200', '50'])
+  await expect(page.getByTestId('transactions-filters-toggle')).toContainText('1')
+  await expect(page.getByTestId('transactions-summary')).toContainText('filtered from 5')
+  await page.getByTestId('nav-groups').click()
+  await field.getByTestId('group-ledger-link').click()
+  await expect.poll(() => ledgerAmounts(page)).toEqual(['300', '450'])
+  await page.evaluate(() => {
+    window.location.hash = '#/app/transactions?group=999'
+  })
+  await expect.poll(() => ledgerAmounts(page)).toHaveLength(5)
 
   await page.getByTestId('nav-users').click()
   await page.getByTestId('advanced-temp-toggle').click()
@@ -120,10 +149,20 @@ test('groups page shows income, expenses and net per group and currency, scoped 
   await expect(page.getByTestId('group-name')).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Remove' })).toHaveCount(0)
   await expect(total).toHaveCount(0)
-  await expect(field.getByTestId('group-summary')).toHaveAttribute('data-count', '2')
+  await expect(field).toHaveAttribute('data-count', '2')
   await expectLine(field, 'USD', '300', '450', '-150')
   await expect(field.locator('[data-currency="EUR"]')).toHaveCount(0)
   await page.screenshot({ path: `${SCREENS}/groups-manager-light.png`, fullPage: true })
+
+  await field.getByTestId('group-ledger-link').click()
+  await expect.poll(() => ledgerAmounts(page)).toEqual(['300', '450'])
+  // A link to a group the manager cannot see changes nothing: no filter, and still only their own records.
+  await page.evaluate((href) => {
+    window.location.hash = href
+  }, homeHref!)
+  await expect(page).toHaveURL(new RegExp(`${homeHref!.replace(/[?]/g, '\\?')}$`))
+  await expect.poll(() => ledgerAmounts(page)).toEqual(['300', '450'])
+  await expect(page.getByTestId('transactions-filters-toggle')).not.toContainText(/\d/)
 
   expect(await violations()).toEqual([])
 })
