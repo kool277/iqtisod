@@ -3,33 +3,18 @@ import type { OpenVault } from '../../domain/types'
 import type { Locale } from '../../i18n'
 import { toIsoDate } from '../../lib/dates'
 import { minorToFixed } from '../../lib/money'
-import { Permission, canUser, type PermissionName } from '../../rbac'
 import { writeAudit } from '../audit.service'
 import { csvCell } from './csv'
 import { MIME, exportFileName, type ExportResult } from './options'
 import type { PdfFonts } from './pdf-fonts'
 import { currencyHeader, isViewMoney, type ViewCell, type ViewColumn, type ViewKind } from './view-cells'
+import { canExportView, isViewTable, type ViewTable } from './view-tables'
 
 export type { ViewCell, ViewColumn, ViewKind, ViewMoney } from './view-cells'
+export { VIEW_TABLES, canExportView, isViewTable, type ViewTable } from './view-tables'
 
 export const VIEW_FORMATS = ['csv', 'xlsx', 'pdf', 'json'] as const
 export type ViewFormat = (typeof VIEW_FORMATS)[number]
-
-/**
- * Tables whose current view may be exported, with the permission that already guards the page.
- * Private-safe tables are deliberately absent: their contents never leave the safe as a file.
- */
-export const VIEW_TABLES = {
-  transactions: Permission.READ_TRANSACTIONS,
-  users: Permission.MANAGE_USERS,
-  grants: Permission.MANAGE_USERS,
-  groups: Permission.MANAGE_GROUPS,
-  audit: Permission.READ_AUDIT,
-  categories: Permission.MANAGE_SETTINGS,
-  archives: Permission.EXPORT_VAULT,
-} as const satisfies Record<string, PermissionName>
-
-export type ViewTable = keyof typeof VIEW_TABLES
 
 export type ViewExportRequest = {
   table: ViewTable
@@ -48,17 +33,29 @@ export type ViewExportRequest = {
 export type ViewContext = { now?: Date; fonts?: PdfFonts }
 
 export const VIEW_MAX_COLUMNS = 40
+export const VIEW_MAX_ROWS = 100_000
+const VIEW_MAX_TEXT = 32_767
 const COLUMN_ID = /^[a-zA-Z][a-zA-Z0-9-]{0,40}$/
+const CURRENCY = /^[A-Z]{3}$/
 const KINDS: readonly ViewKind[] = ['text', 'number', 'money', 'date', 'when', 'boolean']
 
-export function isViewTable(value: string): value is ViewTable {
-  return Object.hasOwn(VIEW_TABLES, value)
+function validCell(kind: ViewKind, value: unknown): boolean {
+  if (value === null) return true
+  switch (kind) {
+    case 'money':
+      return isViewMoney(value as ViewCell) && CURRENCY.test((value as { currency: string }).currency)
+    case 'number':
+      return typeof value === 'number' && Number.isFinite(value)
+    case 'boolean':
+      return typeof value === 'boolean'
+    default:
+      return typeof value === 'string' && value.length <= VIEW_MAX_TEXT
+  }
 }
 
 export function assertViewExport(user: OpenVault['user'], request: ViewExportRequest): void {
-  if (!canUser(user, Permission.EXPORT_VAULT)) throw new ForbiddenError()
   if (typeof request.table !== 'string' || !isViewTable(request.table)) throw new ValidationError('EXPORT_VIEW')
-  if (!canUser(user, VIEW_TABLES[request.table])) throw new ForbiddenError()
+  if (!canExportView(user, request.table)) throw new ForbiddenError()
   if (!(VIEW_FORMATS as readonly string[]).includes(request.format)) throw new ValidationError('EXPORT_NO_FORMAT')
   if (request.plainConfirmed !== true) throw new ValidationError('EXPORT_PLAIN_UNCONFIRMED')
   const { columns, rows } = request
@@ -69,7 +66,13 @@ export function assertViewExport(user: OpenVault['user'], request: ViewExportReq
     if (typeof column.header !== 'string' || column.header.length > 200) throw new ValidationError('EXPORT_VIEW')
     ids.add(column.id)
   }
-  if (!Array.isArray(rows) || rows.some((row) => !Array.isArray(row) || row.length !== columns.length)) throw new ValidationError('EXPORT_VIEW')
+  if (!Array.isArray(rows) || rows.length > VIEW_MAX_ROWS) throw new ValidationError('EXPORT_VIEW')
+  for (const row of rows) {
+    if (!Array.isArray(row) || row.length !== columns.length) throw new ValidationError('EXPORT_VIEW')
+    for (let index = 0; index < columns.length; index += 1) {
+      if (!validCell(columns[index].kind, row[index])) throw new ValidationError('EXPORT_VIEW')
+    }
+  }
 }
 
 function text(value: ViewCell): string | null {

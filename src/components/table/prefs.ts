@@ -10,10 +10,10 @@ const TABLE_ID = /^[a-z][a-z0-9-]{0,40}$/
 const PREFS_MAX_CHARS = 4096
 
 /**
- * Only layout is stored: which columns are hidden, their order, the page size, and the sort.
+ * Only layout is stored: which columns are hidden, their order, the page size, the sort, and the row density.
  * Search text and filter values are never written, so nothing typed into a table (or derived from a private safe) reaches localStorage.
  */
-export type TablePrefs = { hidden: string[]; order: string[]; pageSize: PageSize; sort: SortRule[] }
+export type TablePrefs = { hidden: string[]; order: string[]; pageSize: PageSize; sort: SortRule[]; dense: boolean }
 
 export type PrefsShape = { columnIds: readonly string[]; hideable: readonly string[]; sortable: readonly string[] }
 
@@ -56,6 +56,7 @@ export function parsePrefs(raw: string | null, shape: PrefsShape, defaults: Tabl
   const hidden = uniqueKnown(record.hidden, shape.hideable) ?? defaults.hidden
   const order = completeOrder(uniqueKnown(record.order, shape.columnIds) ?? defaults.order, shape.columnIds)
   const pageSize = isPageSize(record.pageSize) ? record.pageSize : defaults.pageSize
+  const dense = typeof record.dense === 'boolean' ? record.dense : defaults.dense
   let sort = defaults.sort
   if (Array.isArray(record.sort)) {
     const seen = new Set<string>()
@@ -69,11 +70,11 @@ export function parsePrefs(raw: string | null, shape: PrefsShape, defaults: Tabl
       if (sort.length === MAX_SORT_RULES) break
     }
   }
-  return { hidden, order, pageSize, sort }
+  return { hidden, order, pageSize, sort, dense }
 }
 
 export function serializePrefs(prefs: TablePrefs): string {
-  return JSON.stringify({ v: PREFS_VERSION, hidden: prefs.hidden, order: prefs.order, pageSize: prefs.pageSize, sort: prefs.sort })
+  return JSON.stringify({ v: PREFS_VERSION, hidden: prefs.hidden, order: prefs.order, pageSize: prefs.pageSize, sort: prefs.sort, dense: prefs.dense })
 }
 
 function storage(): Storage | null {
