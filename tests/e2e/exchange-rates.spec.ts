@@ -37,8 +37,8 @@ async function createVault(page: Page) {
   await page.goto('/')
   await page.getByTestId('setup-name').fill('Home')
   await page.getByTestId('setup-email').fill('admin@example.com')
-  await page.getByTestId('setup-password').fill('correct-horse')
-  await page.getByTestId('setup-confirm').fill('correct-horse')
+  await page.getByTestId('setup-password').fill('Correct horse lantern 7')
+  await page.getByTestId('setup-confirm').fill('Correct horse lantern 7')
   await page.getByTestId('setup-submit').click()
   await expect(page.getByTestId('kpi-net')).toBeVisible({ timeout: 30_000 })
 }

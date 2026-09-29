@@ -7,7 +7,7 @@ import { SourceFormatError, parseBoi, parseCbu, parseEcb } from '../../tools/fx-
 const fixture = (name: string) => readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../fixtures/fx', name), 'utf8')
 
 describe('Central Bank of Uzbekistan JSON', () => {
-  it('reads UZS per unit for the currencies Moliya needs', () => {
+  it('reads UZS per unit for the currencies Jaybi needs', () => {
     const table = parseCbu(fixture('cbu-latest.json'))
     expect(table.date).toBe('2026-09-29')
     expect(Object.fromEntries([...table.rates].map(([code, rate]) => [code, rate.toString()]))).toEqual({
