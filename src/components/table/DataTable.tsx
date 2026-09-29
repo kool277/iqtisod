@@ -32,6 +32,8 @@ export type DataTableProps<T> = {
   /** Extra content under a row, such as a confirmation or an edit form. */
   expanded?: (row: T) => ReactNode
   rowAttributes?: (row: T) => DataAttributes
+  /** Wraps each row and its expanded content in its own `<tbody>` carrying these attributes. */
+  groupAttributes?: (row: T) => DataAttributes
   selectedKey?: string | null
   /** Controls shown above the search box, such as a period picker. */
   toolbar?: ReactNode
@@ -52,13 +54,14 @@ const secureProps = { autoComplete: 'off', spellCheck: false, autoCorrect: 'off'
 const narrow = {
   table: '@max-3xl:block',
   body: '@max-3xl:grid @max-3xl:gap-2',
+  group: '@max-3xl:mb-2 @max-3xl:grid @max-3xl:gap-2',
   row: '@max-3xl:grid @max-3xl:grid-cols-2 @max-3xl:gap-x-4 @max-3xl:gap-y-2 @max-3xl:rounded-2xl @max-3xl:border @max-3xl:border-line @max-3xl:bg-card @max-3xl:p-3',
   cell: '@max-3xl:block @max-3xl:min-w-0 @max-3xl:border-0 @max-3xl:p-0 @max-3xl:before:mb-0.5 @max-3xl:before:block @max-3xl:before:text-[11px] @max-3xl:before:uppercase @max-3xl:before:tracking-[0.12em] @max-3xl:before:text-muted @max-3xl:before:content-[attr(data-label)]',
   wide: '@max-3xl:col-span-2',
 }
 
 export function DataTable<T>(props: DataTableProps<T>) {
-  const { id, label, rows, columns, rowKey, rowActions, expanded, rowAttributes, selectedKey, toolbar, exportTable, exportScope, secure = false, empty, bulkDelete } = props
+  const { id, label, rows, columns, rowKey, rowActions, expanded, rowAttributes, groupAttributes, selectedKey, toolbar, exportTable, exportScope, secure = false, empty, bulkDelete } = props
   const { t, locale } = useI18n()
   const { user } = useVault()
   const state = useTableState({
@@ -152,6 +155,9 @@ export function DataTable<T>(props: DataTableProps<T>) {
       setBulkBusy(false)
     }
   }
+
+  const wrapRows = (content: ReactNode[]) =>
+    groupAttributes ? content : content.length > 0 ? <tbody className={narrow.body}>{content}</tbody> : null
 
   const summary =
     state.view.length === 0
@@ -346,8 +352,8 @@ export function DataTable<T>(props: DataTableProps<T>) {
                 ) : null}
               </tr>
             </thead>
-            <tbody className={narrow.body}>
-              {state.view.length === 0 ? (
+            {state.view.length === 0 ? (
+              <tbody className={narrow.body}>
                 <tr className="@max-3xl:block">
                   <td colSpan={columnCount} className="px-4 py-6 text-center text-muted @max-3xl:block">
                     {t('table.noMatches')}{' '}
@@ -363,19 +369,23 @@ export function DataTable<T>(props: DataTableProps<T>) {
                     </button>
                   </td>
                 </tr>
-              ) : null}
-              {state.pageRows.map((row) => {
+              </tbody>
+            ) : null}
+            {wrapRows(
+              state.pageRows.map((row) => {
                 const key = rowKey(row)
                 const extra = expanded?.(row)
                 const isSelected = selectedKey === key
                 const checked = selection?.picked.has(key) ?? false
+                const Group = groupAttributes ? 'tbody' : Fragment
+                const groupProps = groupAttributes ? { ...groupAttributes(row), className: narrow.group } : {}
                 return (
-                  <Fragment key={key}>
+                  <Group key={key} {...groupProps}>
                     <tr
                       {...rowAttributes?.(row)}
                       aria-current={isSelected ? true : undefined}
                       data-selected={checked || undefined}
-                      className={`group/row ${narrow.row} align-middle transition-colors ${isSelected || checked ? 'bg-pine/5 @max-3xl:border-pine-ink' : 'hover:bg-paper/70'}`}
+                      className={`group/row ${narrow.row} ${extra ? '@max-3xl:rounded-b-none @max-3xl:border-b-0' : ''} align-middle transition-colors ${isSelected || checked ? 'bg-pine/5 @max-3xl:border-pine-ink' : 'hover:bg-paper/70'}`}
                     >
                       {selection ? (
                         <td className={`${pad} border-t border-line ${narrow.cell} @max-3xl:before:hidden`}>
@@ -432,10 +442,10 @@ export function DataTable<T>(props: DataTableProps<T>) {
                         </td>
                       </tr>
                     ) : null}
-                  </Fragment>
+                  </Group>
                 )
-              })}
-            </tbody>
+              }),
+            )}
           </table>
         </div>
       )}
