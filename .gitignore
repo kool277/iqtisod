@@ -6,3 +6,4 @@ blob-report
 .DS_Store
 *.local
 *.tsbuildinfo
+/iqtisod/
