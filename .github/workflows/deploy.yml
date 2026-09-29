@@ -1,5 +1,6 @@
 # Publishes dist/ to the gh-pages branch; Settings -> Pages -> Source must stay
-# "Deploy from a branch: gh-pages".
+# "Deploy from a branch: gh-pages". The custom domain travels as dist/CNAME;
+# do not also set the action's cname: input.
 # Optional alternative: actions/upload-pages-artifact + actions/deploy-pages.
 # Only switch after changing Settings -> Pages -> Source to "GitHub Actions";
 # otherwise the live site stops updating.
@@ -35,13 +36,53 @@ jobs:
       contents: write
     environment:
       name: production
-      url: https://kool277.github.io/iqtisod/
+      url: ${{ steps.domain.outputs.url }}
     steps:
       - name: Download dist artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: dist
           path: dist/
+
+      # A CNAME file on gh-pages is the custom domain setting: publishing it switches the site to
+      # jaybi.uz and GitHub redirects the github.io address there, stranding vaults stored at the old
+      # origin. So dist/CNAME (from public/CNAME) ships only once an owner has set the domain in
+      # Settings -> Pages, which commits CNAME to gh-pages. From then on it must ship every time,
+      # because keep_files: false would otherwise delete it. See docs/devops-guide.md.
+      - name: Keep CNAME only once the custom domain is set
+        id: domain
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          wanted="$(tr -d '[:space:]' < dist/CNAME)"
+          live_file="${RUNNER_TEMP}/live-cname"
+          status="$(curl -sS -o "$live_file" -w '%{http_code}' \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github.raw+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/contents/CNAME?ref=gh-pages")"
+          case "$status" in
+            200)
+              live="$(tr -d '[:space:]' < "$live_file")"
+              if [[ "$live" != "$wanted" ]]; then
+                echo "::error::gh-pages serves the custom domain '${live}', but public/CNAME says '${wanted}'. Make them match before deploying."
+                exit 1
+              fi
+              echo "Custom domain ${wanted} is set; publishing CNAME."
+              echo "url=https://${wanted}/" >> "$GITHUB_OUTPUT"
+              ;;
+            404)
+              rm dist/CNAME
+              echo "::notice::No custom domain on gh-pages yet; publishing without CNAME so the site stays at https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}/."
+              echo "url=https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}/" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "::error::Could not read CNAME from gh-pages (HTTP ${status})."
+              exit 1
+              ;;
+          esac
 
       - name: Publish to gh-pages branch
         uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453 # v4.1.0

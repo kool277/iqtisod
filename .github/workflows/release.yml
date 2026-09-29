@@ -53,7 +53,7 @@ jobs:
             exit 1
           fi
 
-          ZIP="moliya-${VERSION}.zip"
+          ZIP="jaybi-${VERSION}.zip"
           (cd dist && zip -r -X "../${ZIP}" .)
 
           sha256sum "$ZIP" > SHA256SUMS
@@ -79,7 +79,7 @@ jobs:
       - name: Attest build provenance
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          subject-path: moliya-*.zip
+          subject-path: jaybi-*.zip
 
       - name: Create GitHub release
         shell: bash
@@ -93,8 +93,8 @@ jobs:
           if [[ "$GITHUB_REF_NAME" == *-* ]]; then
             extra_args+=(--prerelease)
           fi
-          gh release create "$GITHUB_REF_NAME" "moliya-${VERSION}.zip" SHA256SUMS \
-            --title "Moliya ${VERSION}" \
+          gh release create "$GITHUB_REF_NAME" "jaybi-${VERSION}.zip" SHA256SUMS \
+            --title "Jaybi ${VERSION}" \
             --notes-file notes.md \
             --verify-tag \
             "${extra_args[@]}"
