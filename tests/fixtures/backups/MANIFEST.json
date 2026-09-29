@@ -1,0 +1,18 @@
+{
+  "fixtures": [
+    {
+      "path": "v1/household-usd",
+      "producedBy": "1.0.0",
+      "backupFormat": 1,
+      "recordFormat": 1,
+      "schemaVersion": 1
+    },
+    {
+      "path": "v1/business-uzs",
+      "producedBy": "1.0.0",
+      "backupFormat": 1,
+      "recordFormat": 1,
+      "schemaVersion": 1
+    }
+  ]
+}

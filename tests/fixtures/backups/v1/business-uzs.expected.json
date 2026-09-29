@@ -1,0 +1,97 @@
+{
+  "description": "Produced by Moliya 1.0.0 (commit 46105ec): single admin, non-ASCII password, currency switched USD to UZS after the first record.",
+  "producedBy": {
+    "appVersion": "1.0.0",
+    "commit": "46105ec"
+  },
+  "format": {
+    "backup": 1,
+    "schema": 1
+  },
+  "vaultName": "Savdo MChJ",
+  "currency": "UZS",
+  "users": [
+    {
+      "email": "owner@business.test",
+      "password": "пароль-oʻzbek-🔐-v1",
+      "role": "Admin",
+      "group": null
+    }
+  ],
+  "groups": [
+    "Savdo MChJ"
+  ],
+  "customCategories": [],
+  "categoryCount": 14,
+  "transactions": [
+    {
+      "id": "de7417e9-185d-418f-89c9-f277eaa63aec",
+      "type": "EXPENSE",
+      "amountMinor": 2000,
+      "currency": "USD",
+      "category": "Food",
+      "group": "Savdo MChJ",
+      "date": "2026-06-01",
+      "notes": null,
+      "hasReceipt": false,
+      "userEmail": "owner@business.test"
+    },
+    {
+      "id": "c1952e65-54a6-4e6e-b080-f4728a3e5b97",
+      "type": "INCOME",
+      "amountMinor": 1250000075,
+      "currency": "UZS",
+      "category": "Salary",
+      "group": "Savdo MChJ",
+      "date": "2026-06-02",
+      "notes": "Oylik maosh",
+      "hasReceipt": false,
+      "userEmail": "owner@business.test"
+    },
+    {
+      "id": "a969208c-d802-4e42-bfcb-bc4a7d359635",
+      "type": "EXPENSE",
+      "amountMinor": 35000000,
+      "currency": "UZS",
+      "category": "Food",
+      "group": "Savdo MChJ",
+      "date": "2026-06-03",
+      "notes": null,
+      "hasReceipt": false,
+      "userEmail": "owner@business.test"
+    },
+    {
+      "id": "1a2a23ab-9c6a-4653-bfef-5c7d624a65b0",
+      "type": "EXPENSE",
+      "amountMinor": 50,
+      "currency": "UZS",
+      "category": "Transport",
+      "group": "Savdo MChJ",
+      "date": "2026-06-30",
+      "notes": null,
+      "hasReceipt": false,
+      "userEmail": "owner@business.test"
+    }
+  ],
+  "totals": {
+    "range": {
+      "start": "2026-06-01",
+      "end": "2026-06-30"
+    },
+    "admin": {
+      "incomeMinor": 1250000075,
+      "expenseMinor": 35000050,
+      "netMinor": 1215000025,
+      "savingsRate": 97.2
+    }
+  },
+  "auditActions": [
+    "VAULT_CREATED",
+    "TRANSACTION_CREATED",
+    "SETTINGS_UPDATED",
+    "TRANSACTION_CREATED",
+    "TRANSACTION_CREATED",
+    "TRANSACTION_CREATED",
+    "BACKUP_EXPORTED"
+  ]
+}

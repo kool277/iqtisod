@@ -1,0 +1,263 @@
+{
+  "description": "Produced by Moliya 1.0.0 (commit 46105ec) services: vault record v1, backup v1, schema v1 (no user_version), REAL amounts.",
+  "producedBy": {
+    "appVersion": "1.0.0",
+    "commit": "46105ec"
+  },
+  "format": {
+    "backup": 1,
+    "schema": 1
+  },
+  "vaultName": "Golden Household",
+  "currency": "USD",
+  "users": [
+    {
+      "email": "admin@golden.test",
+      "password": "golden-admin-v1",
+      "role": "Admin",
+      "group": null
+    },
+    {
+      "email": "manager@golden.test",
+      "password": "golden-manager-v1",
+      "role": "Manager",
+      "group": "Golden Household"
+    },
+    {
+      "email": "viewer@golden.test",
+      "password": "golden-viewer-v1",
+      "role": "Viewer",
+      "group": "Golden Household"
+    }
+  ],
+  "groups": [
+    "Business",
+    "Golden Household"
+  ],
+  "customCategories": [
+    {
+      "type": "EXPENSE",
+      "nameEn": "Pet care",
+      "nameUzLatn": "Uy hayvonlari",
+      "nameUzCyrl": "Уй ҳайвонлари",
+      "nameRu": "Питомцы"
+    }
+  ],
+  "categoryCount": 15,
+  "transactions": [
+    {
+      "id": "b7ce75d1-6dae-449f-af42-25dd2f69f52e",
+      "type": "INCOME",
+      "amountMinor": 250000,
+      "currency": "USD",
+      "category": "Salary",
+      "group": "Golden Household",
+      "date": "2026-01-05",
+      "notes": "January salary",
+      "hasReceipt": false,
+      "userEmail": "admin@golden.test"
+    },
+    {
+      "id": "c6c8ddc4-03c6-426f-a708-bf95ccfbac5f",
+      "type": "EXPENSE",
+      "amountMinor": 1999,
+      "currency": "USD",
+      "category": "Food",
+      "group": "Golden Household",
+      "date": "2026-01-06",
+      "notes": "Бозор — oʻzbek bozori, “quotes”, emoji 🍞",
+      "hasReceipt": false,
+      "userEmail": "admin@golden.test"
+    },
+    {
+      "id": "f16e5ec1-e3e8-48fb-834d-6a4d22f5d0cb",
+      "type": "EXPENSE",
+      "amountMinor": 10,
+      "currency": "USD",
+      "category": "Food",
+      "group": "Golden Household",
+      "date": "2026-01-07",
+      "notes": null,
+      "hasReceipt": false,
+      "userEmail": "admin@golden.test"
+    },
+    {
+      "id": "0a009c72-cd58-483e-8e50-103d65aae472",
+      "type": "EXPENSE",
+      "amountMinor": 20,
+      "currency": "USD",
+      "category": "Food",
+      "group": "Golden Household",
+      "date": "2026-01-07",
+      "notes": null,
+      "hasReceipt": false,
+      "userEmail": "admin@golden.test"
+    },
+    {
+      "id": "2accd15e-5938-493c-81d3-83d97b50f59e",
+      "type": "EXPENSE",
+      "amountMinor": 123456,
+      "currency": "USD",
+      "category": "Transport",
+      "group": "Business",
+      "date": "2026-02-10",
+      "notes": "Business trip\nline two",
+      "hasReceipt": false,
+      "userEmail": "admin@golden.test"
+    },
+    {
+      "id": "f5b58629-c019-47e5-a023-9b392b08d036",
+      "type": "INCOME",
+      "amountMinor": 100000000,
+      "currency": "UZS",
+      "category": "Freelance",
+      "group": "Golden Household",
+      "date": "2026-02-11",
+      "notes": null,
+      "hasReceipt": false,
+      "userEmail": "admin@golden.test"
+    },
+    {
+      "id": "224d805a-e7f3-4dc1-8aa2-00841f87038c",
+      "type": "EXPENSE",
+      "amountMinor": 4550,
+      "currency": "EUR",
+      "category": "Shopping",
+      "group": "Golden Household",
+      "date": "2026-02-12",
+      "notes": null,
+      "hasReceipt": false,
+      "userEmail": "admin@golden.test"
+    },
+    {
+      "id": "3b8f11ea-9ad5-46f5-bb44-34fa37598273",
+      "type": "INCOME",
+      "amountMinor": 99999999,
+      "currency": "USD",
+      "category": "Investment",
+      "group": "Golden Household",
+      "date": "2026-03-01",
+      "notes": null,
+      "hasReceipt": false,
+      "userEmail": "admin@golden.test"
+    },
+    {
+      "id": "f5825178-8bd0-4528-bb68-9d62bbe26f8b",
+      "type": "EXPENSE",
+      "amountMinor": 3333,
+      "currency": "USD",
+      "category": "Pet care",
+      "group": "Golden Household",
+      "date": "2026-03-02",
+      "notes": "=SUM(A1) csv trap",
+      "hasReceipt": true,
+      "userEmail": "admin@golden.test"
+    },
+    {
+      "id": "3e061d4b-474e-4e7c-be27-af2733a24935",
+      "type": "INCOME",
+      "amountMinor": 1,
+      "currency": "USD",
+      "category": "Other income",
+      "group": "Golden Household",
+      "date": "2026-03-04",
+      "notes": null,
+      "hasReceipt": false,
+      "userEmail": "admin@golden.test"
+    },
+    {
+      "id": "9a2b0d5d-3ed7-4ac2-8411-93f52b00f7f0",
+      "type": "EXPENSE",
+      "amountMinor": 100,
+      "currency": "USD",
+      "category": "Health",
+      "group": "Golden Household",
+      "date": "2026-03-06",
+      "notes": "v1 stored Math.round(1.005*100)/100 = 1",
+      "hasReceipt": false,
+      "userEmail": "admin@golden.test"
+    },
+    {
+      "id": "e85259ad-3427-44d4-956a-504beadf5414",
+      "type": "EXPENSE",
+      "amountMinor": 268,
+      "currency": "USD",
+      "category": "Health",
+      "group": "Golden Household",
+      "date": "2026-03-07",
+      "notes": "v1 stored Math.round(2.675*100)/100 = 2.68 because 2.675*100 is 267.5 in binary floating point",
+      "hasReceipt": false,
+      "userEmail": "admin@golden.test"
+    },
+    {
+      "id": "3755c2b1-dba2-4d2c-853e-e8ef9dbf84be",
+      "type": "EXPENSE",
+      "amountMinor": 1050,
+      "currency": "USD",
+      "category": "Utilities",
+      "group": "Golden Household",
+      "date": "2026-03-05",
+      "notes": "updated from 10 to 10.5",
+      "hasReceipt": false,
+      "userEmail": "admin@golden.test"
+    },
+    {
+      "id": "6eaf7346-b0e1-4a65-abf0-0207c21e135d",
+      "type": "EXPENSE",
+      "amountMinor": 1234,
+      "currency": "USD",
+      "category": "Food",
+      "group": "Golden Household",
+      "date": "2026-03-03",
+      "notes": "added by manager",
+      "hasReceipt": false,
+      "userEmail": "manager@golden.test"
+    }
+  ],
+  "totals": {
+    "range": {
+      "start": "2026-01-01",
+      "end": "2026-03-31"
+    },
+    "admin": {
+      "incomeMinor": 100250000,
+      "expenseMinor": 131470,
+      "netMinor": 100118530,
+      "savingsRate": 99.9
+    },
+    "manager": {
+      "incomeMinor": 100250000,
+      "expenseMinor": 8014,
+      "netMinor": 100241986,
+      "savingsRate": 100
+    }
+  },
+  "auditActions": [
+    "VAULT_CREATED",
+    "GROUP_CREATED",
+    "CATEGORY_CREATED",
+    "CATEGORY_UPDATED",
+    "CATEGORY_CREATED",
+    "CATEGORY_DELETED",
+    "USER_CREATED",
+    "USER_CREATED",
+    "TRANSACTION_CREATED",
+    "TRANSACTION_CREATED",
+    "TRANSACTION_CREATED",
+    "TRANSACTION_CREATED",
+    "TRANSACTION_CREATED",
+    "TRANSACTION_CREATED",
+    "TRANSACTION_CREATED",
+    "TRANSACTION_CREATED",
+    "TRANSACTION_CREATED",
+    "TRANSACTION_CREATED",
+    "TRANSACTION_CREATED",
+    "TRANSACTION_CREATED",
+    "TRANSACTION_CREATED",
+    "TRANSACTION_UPDATED",
+    "TRANSACTION_CREATED",
+    "TRANSACTION_DELETED",
+    "TRANSACTION_CREATED",
+    "BACKUP_EXPORTED"
+  ]
+}
