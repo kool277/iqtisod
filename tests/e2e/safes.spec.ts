@@ -123,8 +123,8 @@ async function screenshot(page: Page, name: string, target?: ReturnType<Page['ge
   mkdirSync(SCREENS, { recursive: true })
   await page.mouse.move(0, 0)
   const path = resolve(SCREENS, `${name}.png`)
-  if (target) await target.screenshot({ path })
-  else await page.screenshot({ path, fullPage: true })
+  if (target) await target.screenshot({ path, animations: 'disabled' })
+  else await page.screenshot({ path, fullPage: true, animations: 'disabled' })
 }
 
 async function overflowing(page: Page): Promise<string[]> {
@@ -256,6 +256,7 @@ test('keeps cards, subscriptions and notes in a private safe with masked secrets
 
   const leaks = consoleText.filter((line) => [...SECRETS, `cvv ${CVV}`].some((secret) => line.includes(secret)))
   expect(leaks).toEqual([])
+  expect(consoleText.filter((line) => /Content Security Policy|Refused to/i.test(line))).toEqual([])
 })
 
 test('a member without a recovery code gets their safes back with the previous password after an admin reset', async ({ page }) => {
