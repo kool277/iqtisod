@@ -12,7 +12,10 @@ import { listAudit } from '../../src/services/audit.service'
 import { sealVault, unlockVault } from '../../src/services/auth.service'
 import { backupFileText, parseBackup } from '../../src/services/backup.service'
 import { listCategories, listTransactions, loadDashboard } from '../../src/services/finance.service'
+import { listGrants, redeemGrant } from '../../src/services/grant.service'
 import { listGroups } from '../../src/services/group.service'
+import { completeTotpChallenge, hasSignInCheck, openTotpChallenge } from '../../src/services/totp.service'
+import { base32Decode, importTotpKey, totpAt } from '../../src/lib/totp'
 import { DecryptError, SAFE_KEY_USAGES, aad, unwrapWithAad } from '../../src/crypto/safe-crypto'
 import { subscriptionSummary } from '../../src/domain/subscriptions'
 import {
@@ -184,6 +187,7 @@ describe.each(fixtures.map((fixture) => [fixture.path, fixture] as const))('gold
     const added = [
       ...(fixture.schemaVersion < SCHEMA_VERSION ? ['SCHEMA_MIGRATED'] : []),
       ...(legacyKdf ? ['CREDENTIALS_UPGRADED'] : []),
+      ...(fixture.expected.addedOnOpen ?? []),
     ]
     expect(actions).toEqual([...fixture.expected.auditActions, ...added])
     expect(vault.needsSave).toBe(added.length > 0)
@@ -247,5 +251,56 @@ describe.each(fixtures.map((fixture) => [fixture.path, fixture] as const))('gold
     expect(decoded.sourceVersion).toBe(1)
     expect(JSON.stringify(storedToBackupJson(raw, '2026-04-01T00:00:00.000Z'))).toBe(fixture.text)
     await expectFixtureContents(decoded.record, fixture)
+  })
+
+  it.runIf(fixture.expected.grants !== undefined)('ends expired codes on open and refuses used, revoked and expired ones', async () => {
+    const grants = fixture.expected.grants!
+    const record = parseBackup(fixture.text).record
+    expect((record.grants ?? []).map((grant) => ({ kind: grant.kind, email: grant.email }))).toEqual(
+      grants.pending.map((grant) => ({ kind: grant.kind, email: grant.email })),
+    )
+    const admin = fixture.expected.users.find((user) => user.role === 'Admin')!
+    const vault = await unlock(record, admin)
+    expect(vault.grants).toEqual([])
+    expect(listGrants(vault)).toEqual([])
+    const ended = vault.db.query('SELECT kind, email, ended_reason FROM access_grants ORDER BY created_at').map((row) => ({ ...row }))
+    expect(ended).toEqual([
+      { kind: 'INVITE', email: grants.used[0].email, ended_reason: 'USED' },
+      { kind: 'RESET', email: grants.revoked[0].email, ended_reason: 'REVOKED' },
+      { kind: 'RESET', email: grants.used[1].email, ended_reason: 'USED' },
+      { kind: 'INVITE', email: grants.pending[0].email, ended_reason: 'EXPIRED' },
+    ])
+    expect(vault.db.queryValue("SELECT COUNT(*) FROM access_grants WHERE length(code_verifier) <> 64")).toBe(0)
+    const password = 'A brand new passphrase for tests'
+    for (const grant of [...grants.used, ...grants.revoked]) {
+      await expect(redeemGrant(record, { ...grant, password })).rejects.toMatchObject({ code: 'INVITE_INVALID' })
+    }
+    const [late] = grants.pending
+    await expect(redeemGrant(record, { ...late, password })).rejects.toMatchObject({ code: 'INVITE_EXPIRED' })
+    await expect(redeemGrant(record, { ...late, password }, new Date(Date.parse(late.expiresAt) - 60 * 60_000))).rejects.toMatchObject({ code: 'CLOCK_BEHIND' })
+  })
+
+  it.runIf(fixture.expected.signInCheck !== undefined)('keeps the sign-in check secret readable only with its owner\'s password', async () => {
+    const check = fixture.expected.signInCheck!
+    const record = parseBackup(fixture.text).record
+    const owner = fixture.expected.users.find((user) => user.email === check.email)!
+    const vault = await unlock(record, owner)
+    expect(hasSignInCheck(vault.db, vault.user.id)).toBe(true)
+    const challenge = (await openTotpChallenge(vault, owner.password))!
+    const now = Date.now()
+    const code = await totpAt(await importTotpKey(base32Decode(check.secret)), now)
+    await expect(completeTotpChallenge(vault, challenge, '000000', now)).rejects.toMatchObject({ code: 'TOTP_INVALID' })
+    await expect(completeTotpChallenge(vault, challenge, code, now)).resolves.toMatchObject({ usedRecovery: false })
+    await expect(completeTotpChallenge(vault, challenge, code, now)).rejects.toMatchObject({ code: 'TOTP_INVALID' })
+    await expect(completeTotpChallenge(vault, challenge, check.recoveryCodes[3], now)).resolves.toEqual({ usedRecovery: true, recoveryLeft: 9 })
+    await expect(completeTotpChallenge(vault, challenge, check.recoveryCodes[3], now)).rejects.toMatchObject({ code: 'TOTP_INVALID' })
+    for (const other of fixture.expected.users.filter((user) => user.email !== check.email)) {
+      const someone = await unlock(record, other)
+      expect(hasSignInCheck(someone.db, someone.user.id)).toBe(false)
+      await expect(openTotpChallenge(someone, other.password)).resolves.toBeNull()
+      const row = someone.db.queryOne('SELECT user_id FROM user_totp')!
+      expect(row.user_id).not.toBe(someone.user.id)
+    }
+    await expect(openTotpChallenge(vault, `${owner.password}!`)).rejects.toBeInstanceOf(AuthError)
   })
 })

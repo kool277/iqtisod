@@ -61,7 +61,14 @@ export type Expected = {
   transactions: ExpectedTransaction[]
   totals: { range: { start: string; end: string } } & Partial<Record<'admin' | 'manager', ExpectedTotals>>
   auditActions: string[]
+  addedOnOpen?: string[]
   safes?: { summaryDate: string; owners: ExpectedSafeOwner[] }
+  grants?: {
+    pending: { kind: 'INVITE' | 'RESET'; email: string; code: string; expiresAt: string }[]
+    used: { kind: 'INVITE' | 'RESET'; email: string; code: string }[]
+    revoked: { kind: 'INVITE' | 'RESET'; email: string; code: string }[]
+  }
+  signInCheck?: { email: string; secret: string; recoveryCodes: string[] }
 }
 
 export type Fixture = ManifestEntry & { text: string; expected: Expected }

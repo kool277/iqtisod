@@ -1,0 +1,139 @@
+{
+  "description": "Produced by Moliya 1.3.0 services: vault record v2, backup v2, schema v4 (one-time invite and reset codes, optional sign-in check).",
+  "producedBy": {
+    "appVersion": "1.3.0",
+    "commit": "5554afcc1fe9"
+  },
+  "format": {
+    "backup": 2,
+    "record": 2,
+    "schema": 4
+  },
+  "vaultName": "Access House",
+  "currency": "UZS",
+  "users": [
+    {
+      "email": "admin@access.test",
+      "password": "Plum orchard admin v4",
+      "role": "Admin",
+      "group": null
+    },
+    {
+      "email": "manager@access.test",
+      "password": "Joined by invite · v4 · Олма",
+      "role": "Manager",
+      "group": "Access House"
+    },
+    {
+      "email": "viewer@access.test",
+      "password": "Viewer after reset code v4",
+      "role": "Viewer",
+      "group": "Access House"
+    }
+  ],
+  "groups": [
+    "Access House"
+  ],
+  "categoryCount": 14,
+  "transactions": [
+    {
+      "id": "b80f0bbb-337b-4442-b887-f1b4e7980a27",
+      "type": "INCOME",
+      "amountMinor": 1250000000,
+      "currency": "UZS",
+      "category": "Salary",
+      "group": "Access House",
+      "date": "2026-02-01",
+      "notes": null,
+      "hasReceipt": false,
+      "userEmail": "admin@access.test"
+    },
+    {
+      "id": "7f80fe7c-e1b9-482a-90c1-1ae3124d0d9c",
+      "type": "EXPENSE",
+      "amountMinor": 18500000,
+      "currency": "UZS",
+      "category": "Food",
+      "group": "Access House",
+      "date": "2026-02-02",
+      "notes": "bozor",
+      "hasReceipt": true,
+      "userEmail": "admin@access.test"
+    }
+  ],
+  "totals": {
+    "range": {
+      "start": "2026-02-01",
+      "end": "2026-02-28"
+    },
+    "admin": {
+      "incomeMinor": 1250000000,
+      "expenseMinor": 18500000,
+      "netMinor": 1231500000,
+      "savingsRate": 98.5
+    }
+  },
+  "auditActions": [
+    "VAULT_CREATED",
+    "TRANSACTION_CREATED",
+    "TRANSACTION_CREATED",
+    "INVITE_CREATED",
+    "INVITE_ACCEPTED",
+    "TOTP_ENABLED",
+    "USER_CREATED",
+    "RESET_ISSUED",
+    "RESET_REVOKED",
+    "RESET_ISSUED",
+    "INVITE_CREATED",
+    "RESET_COMPLETED",
+    "BACKUP_EXPORTED"
+  ],
+  "addedOnOpen": [
+    "INVITE_EXPIRED"
+  ],
+  "grants": {
+    "pending": [
+      {
+        "kind": "INVITE",
+        "email": "late@access.test",
+        "code": "596P-MCBC-04QM-9H29-KD48-J1E0-NBZH",
+        "expiresAt": "2026-02-02T10:45:00.000Z"
+      }
+    ],
+    "used": [
+      {
+        "kind": "INVITE",
+        "email": "manager@access.test",
+        "code": "6ERK-9G1N-7CE3-R1MZ-97F0-R10B-MABD"
+      },
+      {
+        "kind": "RESET",
+        "email": "viewer@access.test",
+        "code": "GG64-DHBE-CE94-XB9C-XM58-PBDR-9CH1"
+      }
+    ],
+    "revoked": [
+      {
+        "kind": "RESET",
+        "email": "viewer@access.test",
+        "code": "31QD-D7ZZ-C16X-C48X-SCYF-RTW8-G11P"
+      }
+    ]
+  },
+  "signInCheck": {
+    "email": "manager@access.test",
+    "secret": "M2PBR47KTZKR6NNRQUWCHEEQIMC3OYNO",
+    "recoveryCodes": [
+      "PAEV-QTYX-G0A4-BXDG",
+      "W6DE-449J-YY7V-XQZE",
+      "8Z4G-GH73-30NW-0KNY",
+      "Q1FR-YWE0-7CTM-QX0F",
+      "P4NS-Q5CC-RNWS-3FQP",
+      "1EBG-JV4M-RYDN-7XFG",
+      "YJBR-S5PD-Q36J-EFV7",
+      "1NCP-K6KJ-R26Z-95BY",
+      "5D7P-FW4G-P94A-RJ0A",
+      "5N19-GJ7W-ACHQ-3FYQ"
+    ]
+  }
+}

@@ -41,7 +41,7 @@ describe('schema migrations', () => {
     const result = migrate(db, APP)
     expect(result).toEqual({ from: 0, to: SCHEMA_VERSION, applied: MIGRATIONS.map((migration) => migration.version) })
     expect(Number(db.queryValue('PRAGMA user_version'))).toBe(SCHEMA_VERSION)
-    expect(db.query('SELECT version FROM schema_migrations ORDER BY version').map((row) => Number(row.version))).toEqual([1, 2, 3])
+    expect(db.query('SELECT version FROM schema_migrations ORDER BY version').map((row) => Number(row.version))).toEqual([1, 2, 3, 4])
     expect(migrate(db, APP).applied).toEqual([])
   })
 
@@ -52,7 +52,7 @@ describe('schema migrations', () => {
     expect(readSchemaVersion(db)).toBe(1)
     expect(columns(db, 'transactions')).toContain('amount')
 
-    expect(migrate(db, APP)).toEqual({ from: 1, to: SCHEMA_VERSION, applied: [2, 3] })
+    expect(migrate(db, APP)).toEqual({ from: 1, to: SCHEMA_VERSION, applied: [2, 3, 4] })
     expect(columns(db, 'transactions')).toContain('amount_minor')
     expect(columns(db, 'transactions')).not.toContain('amount')
     expect(db.queryValue("SELECT COUNT(*) FROM transactions WHERE typeof(amount_minor) <> 'integer'")).toBe(0)
@@ -69,7 +69,7 @@ describe('schema migrations', () => {
     expect(Number(db.queryValue("SELECT COUNT(*) FROM users WHERE length(password_hash) = 64"))).toBeGreaterThan(0)
     const before = db.query('SELECT id, email, role_id, salt FROM users ORDER BY id')
 
-    expect(migrate(db, APP)).toEqual({ from: 2, to: SCHEMA_VERSION, applied: [3] })
+    expect(migrate(db, APP)).toEqual({ from: 2, to: SCHEMA_VERSION, applied: [3, 4] })
     expect(columns(db, 'users')).toEqual(expect.arrayContaining(['must_change_password', 'password_changed_at']))
     expect(db.queryValue("SELECT COUNT(*) FROM users WHERE password_hash <> ''")).toBe(0)
     expect(db.queryValue('SELECT COUNT(*) FROM users WHERE must_change_password <> 0 OR password_changed_at IS NOT NULL')).toBe(0)
