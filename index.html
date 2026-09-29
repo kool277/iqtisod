@@ -1,6 +1,8 @@
 <!doctype html>
 <html lang="en">
   <head>
+    <meta http-equiv="Content-Security-Policy" content="default-src &#39;self&#39;; script-src &#39;self&#39; &#39;wasm-unsafe-eval&#39;; style-src &#39;self&#39; &#39;unsafe-inline&#39;; img-src &#39;self&#39; data: blob:; font-src &#39;self&#39;; connect-src &#39;self&#39;; worker-src &#39;self&#39; blob:; manifest-src &#39;self&#39;; object-src &#39;none&#39;; base-uri &#39;self&#39;; form-action &#39;none&#39;">
+
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
@@ -8,12 +10,14 @@
       content="Moliya is a private, encrypted personal finance ledger that stays in your browser."
     />
     <title>Moliya</title>
-    <script>
-      window.coi = { quiet: true }
-    </script>
+    <script src="./coi-config.js"></script>
     <script src="./coi-serviceworker.js"></script>
-    <script type="module" crossorigin src="./assets/index-CcFtFsef.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-BGYZsWdI.css">
+    <script type="module" crossorigin src="./assets/index-IC3yyCVU.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/rolldown-runtime-CbXtAM7H.js">
+    <link rel="modulepreload" crossorigin href="./assets/react-wDRxA_U4.js">
+    <link rel="stylesheet" crossorigin href="./assets/index-IkXMU_CP.css">
+    <meta name="referrer" content="no-referrer">
+    <meta name="moliya-version" content="1.1.0+e4e0c63810bd">
   </head>
   <body>
     <div id="root"></div>
