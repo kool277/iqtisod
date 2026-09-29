@@ -148,12 +148,13 @@ export async function createVault(input: SetupInput): Promise<{ vault: OpenVault
 async function strengthenWrap(db: SqlDatabase, dek: CryptoKey, wrap: UserWrap, password: string, userId: string): Promise<void> {
   const salt = randomBytes(SALT_BYTES)
   const kdf = { ...CURRENT_KDF }
+  const kdfChanged = kdfNeedsUpgrade(wrap.kdf)
   const { key, verifier } = await deriveKeyAndVerifier(password, salt, kdf)
   const wrapped = await wrapDek(dek, key)
   await unwrapDek(wrapped.cipherText, key, wrapped.iv)
   db.withTransaction(() => {
     db.exec('UPDATE users SET password_hash = ?, salt = ? WHERE id = ?', [verifier, bytesToBase64(salt), userId])
-    writeAudit(db, userId, 'CREDENTIALS_UPGRADED', 'user', userId, { from: wrap.kdf, to: kdf })
+    if (kdfChanged) writeAudit(db, userId, 'CREDENTIALS_UPGRADED', 'user', userId, { from: wrap.kdf, to: kdf })
   })
   wrap.kdf = kdf
   wrap.salt = salt
@@ -190,14 +191,9 @@ export async function unlockVault(record: VaultRecord, email: string, password: 
         appVersion: APP_VERSION,
       })
     }
-    const strengthen = kdfNeedsUpgrade(wrap.kdf)
-    let verifierUpgraded = false
-    if (strengthen) {
-      await strengthenWrap(db, dek, wrap, password, user.id)
-    } else if (db.queryValue('SELECT password_hash FROM users WHERE id = ?', [user.id]) !== verifier) {
-      db.exec('UPDATE users SET password_hash = ? WHERE id = ?', [verifier, user.id])
-      verifierUpgraded = true
-    }
+    // A legacy hash was the raw KEK for this salt, so re-salting makes any copy of it useless.
+    const strengthen = kdfNeedsUpgrade(wrap.kdf) || db.queryValue('SELECT password_hash FROM users WHERE id = ?', [user.id]) !== verifier
+    if (strengthen) await strengthenWrap(db, dek, wrap, password, user.id)
     const currency = getSetting(db, 'currency')
     return {
       db,
@@ -208,7 +204,7 @@ export async function unlockVault(record: VaultRecord, email: string, password: 
       vaultName: getSetting(db, 'vault_name') ?? 'Moliya',
       createdAt: record.createdAt ?? getSetting(db, 'vault_created_at'),
       lastBackupAt: getSetting(db, 'last_backup_at'),
-      needsSave: migration.applied.length > 0 || strengthen || verifierUpgraded,
+      needsSave: migration.applied.length > 0 || strengthen,
     }
   } catch (error) {
     db.close()

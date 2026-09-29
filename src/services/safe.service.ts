@@ -791,7 +791,9 @@ export async function rotateSafeKey(vault: OpenVault, keyring: SafeKeyring, safe
   assertKeyring(vault, keyring)
   assertRecentAuth(keyring)
   const row = safeRow(vault.db, keyring.userId, safeId)
+  if (row.deletedAt) throw new SafeError('SAFE_NOT_FOUND')
   const meta = await readSafeMeta(keyring, row)
+  if (!isOpen(keyring, safeId, meta)) throw new SafeError('SAFE_CLOSED')
   const items = vault.db.query('SELECT * FROM secure_items WHERE owner_user_id = ? AND safe_id = ?', [keyring.userId, safeId]).map(toItemRow)
   const version = row.keyVersion + 1
   const material = await newSafeMaterial(keyring.userId, keyring.personalKey, safeId, { ...meta, updatedAt: nowIso() }, version)
