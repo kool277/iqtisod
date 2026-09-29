@@ -130,11 +130,6 @@ export function isStale(rateDate: string, today: string): boolean {
   return businessDaysBetween(rateDate, today) > STALE_AFTER_BUSINESS_DAYS
 }
 
-export function localIsoDate(now: Date): string {
-  const pad = (value: number) => String(value).padStart(2, '0')
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
-}
-
 export function crossRate(numerator: Decimal, denominator: Decimal): Decimal {
   return numerator.divideToPrecision(denominator, CROSS_PRECISION)
 }
