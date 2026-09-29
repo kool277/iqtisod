@@ -6,6 +6,10 @@ Data formats are versioned separately from the app. Each release lists the forma
 
 ## [Unreleased]
 
+### Added
+
+- **Groups** shows each group's income, expenses, net, transaction count, and latest activity for the selected period, one line per currency, with an **All groups** strip above the list. Managers and Viewers can now open **Groups** and see only their own group's summary; adding and removing groups stays Admin-only. No data format changes.
+
 ## [1.3.1] - 2026-09-29
 
 Reads backup and record versions 1–2 and schema versions 1–4. Writes backup 2, record 2, schema 4, and export format 1, the same as 1.3.0. No data format changes.

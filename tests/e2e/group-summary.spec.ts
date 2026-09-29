@@ -119,9 +119,10 @@ test('groups page shows income, expenses and net per group and currency, scoped 
   await expect(page.getByTestId('group-row')).toHaveAttribute('data-group', 'Field team')
   await expect(page.getByTestId('group-name')).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Remove' })).toHaveCount(0)
-  await expect(total).toHaveAttribute('data-count', '2')
-  await expectLine(total, 'USD', '300', '450', '-150')
-  await expect(total.locator('[data-currency="EUR"]')).toHaveCount(0)
+  await expect(total).toHaveCount(0)
+  await expect(field.getByTestId('group-summary')).toHaveAttribute('data-count', '2')
+  await expectLine(field, 'USD', '300', '450', '-150')
+  await expect(field.locator('[data-currency="EUR"]')).toHaveCount(0)
   await page.screenshot({ path: `${SCREENS}/groups-manager-light.png`, fullPage: true })
 
   expect(await violations()).toEqual([])

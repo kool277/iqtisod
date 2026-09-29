@@ -78,7 +78,7 @@ export function GroupsPage() {
           </Button>
         </form>
       ) : null}
-      {summaries && groups.length > 0 ? <GroupSummaryTotals totals={summaries.total} /> : null}
+      {summaries && groups.length > 1 ? <GroupSummaryTotals totals={summaries.total} /> : null}
       {groups.length === 0 ? <p className="text-muted">{t('groups.empty')}</p> : null}
       <ul className="grid gap-3">
         {groups.map((group) => (
