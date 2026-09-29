@@ -1,11 +1,14 @@
-import sqlite3InitModule, { type Database, type Sqlite3Static, type SqlValue as WasmSqlValue } from '@sqlite.org/sqlite-wasm'
+import type { Database, Sqlite3Static, SqlValue as WasmSqlValue } from '@sqlite.org/sqlite-wasm'
 
 export type SqlValue = string | number | null
 
 let modulePromise: Promise<Sqlite3Static> | null = null
 
-function loadModule(): Promise<Sqlite3Static> {
-  modulePromise ??= sqlite3InitModule()
+export function loadModule(): Promise<Sqlite3Static> {
+  modulePromise ??= import('@sqlite.org/sqlite-wasm').then((module) => module.default())
+  modulePromise.catch(() => {
+    modulePromise = null
+  })
   return modulePromise
 }
 

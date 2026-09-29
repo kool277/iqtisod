@@ -1,22 +1,25 @@
 import { bytesToBase64 } from '../crypto/encoding'
 import {
+  CURRENT_KDF,
   SALT_BYTES,
   decryptDatabase,
   deriveKey,
   deriveKeyAndVerifier,
   encryptDatabase,
   generateDek,
+  kdfNeedsUpgrade,
   randomBytes,
   unwrapDek,
   wrapDek,
 } from '../crypto/crypto.service'
-import { applySchema } from '../db/schema'
+import { migrate, readSchemaVersion } from '../db/migrations'
 import { seedCategories, seedRoles, syncRolePermissions } from '../db/seed'
 import { getSetting, setSetting } from '../db/settings'
 import { SqlDatabase } from '../db/sqlite'
 import { recordFromSession, wrapsFromRecord, type VaultRecord } from '../db/storage'
 import { AuthError, ValidationError } from '../domain/errors'
 import { isCurrency, type OpenVault, type SessionUser, type UserWrap } from '../domain/types'
+import { APP_VERSION } from '../lib/version'
 import { writeAudit } from './audit.service'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -72,13 +75,15 @@ function roleId(db: SqlDatabase, name: string): number {
   return Number(value)
 }
 
-async function seal(db: SqlDatabase, dek: CryptoKey, wraps: UserWrap[]): Promise<VaultRecord> {
+async function seal(db: SqlDatabase, dek: CryptoKey, wraps: UserWrap[], createdAt: string | null): Promise<VaultRecord> {
   const exported = db.export()
   const sealed = await encryptDatabase(exported, dek)
   return recordFromSession({
     wraps,
     iv: sealed.iv,
     ciphertext: sealed.cipherText,
+    schemaVersion: readSchemaVersion(db),
+    createdAt,
     updatedAt: new Date().toISOString(),
   })
 }
@@ -93,15 +98,17 @@ export async function createVault(input: SetupInput): Promise<{ vault: OpenVault
 
   const db = await SqlDatabase.openEmpty()
   try {
-    applySchema(db)
+    migrate(db, { appVersion: APP_VERSION })
     seedRoles(db)
     seedCategories(db)
     db.exec('INSERT INTO groups (name) VALUES (?)', [displayName])
     const userId = crypto.randomUUID()
     const salt = randomBytes(SALT_BYTES)
-    const { key, verifier } = await deriveKeyAndVerifier(input.password, salt)
+    const kdf = { ...CURRENT_KDF }
+    const { key, verifier } = await deriveKeyAndVerifier(input.password, salt, kdf)
     const dek = await generateDek()
     const wrapped = await wrapDek(dek, key)
+    const createdAt = new Date().toISOString()
     db.withTransaction(() => {
       db.exec(
         `INSERT INTO users (id, email, password_hash, salt, role_id, group_id)
@@ -110,18 +117,13 @@ export async function createVault(input: SetupInput): Promise<{ vault: OpenVault
       )
       setSetting(db, 'currency', input.currency)
       setSetting(db, 'vault_name', displayName)
-      writeAudit(db, userId, 'VAULT_CREATED', 'vault', 'primary', { email })
+      setSetting(db, 'vault_created_at', createdAt)
+      writeAudit(db, userId, 'VAULT_CREATED', 'vault', 'primary', { email, appVersion: APP_VERSION })
     })
-    const wrap: UserWrap = {
-      userId,
-      email,
-      salt,
-      iv: wrapped.iv,
-      wrappedDek: wrapped.cipherText,
-    }
+    const wrap: UserWrap = { userId, email, kdf, salt, iv: wrapped.iv, wrappedDek: wrapped.cipherText }
     const user = loadUser(db, email)
     if (!user) throw new Error('Admin user was not created')
-    const record = await seal(db, dek, [wrap])
+    const record = await seal(db, dek, [wrap], createdAt)
     return {
       vault: {
         db,
@@ -130,6 +132,9 @@ export async function createVault(input: SetupInput): Promise<{ vault: OpenVault
         user,
         currency: input.currency,
         vaultName: displayName,
+        createdAt,
+        lastBackupAt: null,
+        needsSave: false,
       },
       record,
     }
@@ -139,40 +144,71 @@ export async function createVault(input: SetupInput): Promise<{ vault: OpenVault
   }
 }
 
+async function strengthenWrap(db: SqlDatabase, dek: CryptoKey, wrap: UserWrap, password: string, userId: string): Promise<void> {
+  const salt = randomBytes(SALT_BYTES)
+  const kdf = { ...CURRENT_KDF }
+  const { key, verifier } = await deriveKeyAndVerifier(password, salt, kdf)
+  const wrapped = await wrapDek(dek, key)
+  await unwrapDek(wrapped.cipherText, key, wrapped.iv)
+  db.withTransaction(() => {
+    db.exec('UPDATE users SET password_hash = ?, salt = ? WHERE id = ?', [verifier, bytesToBase64(salt), userId])
+    writeAudit(db, userId, 'CREDENTIALS_UPGRADED', 'user', userId, { from: wrap.kdf, to: kdf })
+  })
+  wrap.kdf = kdf
+  wrap.salt = salt
+  wrap.iv = wrapped.iv
+  wrap.wrappedDek = wrapped.cipherText
+}
+
 export async function unlockVault(record: VaultRecord, email: string, password: string): Promise<OpenVault> {
   const normalized = normalizeEmail(email)
-  const stored = record.wraps.find((wrap) => wrap.email.toLowerCase() === normalized)
-  if (!stored) throw new AuthError()
+  const wraps = wrapsFromRecord(record)
+  const wrap = wraps.find((item) => item.email.toLowerCase() === normalized)
+  if (!wrap) throw new AuthError()
+  let dek: CryptoKey
+  let plain: Uint8Array
   try {
-    const wraps = wrapsFromRecord(record)
-    const wrap = wraps.find((item) => item.email.toLowerCase() === normalized)
-    if (!wrap) throw new AuthError()
-    const kek = await deriveKey(password, wrap.salt)
-    const dek = await unwrapDek(wrap.wrappedDek, kek, wrap.iv)
-    const plain = await decryptDatabase(record.payload.ciphertext, dek, new Uint8Array(record.payload.iv))
-    const db = await SqlDatabase.openBytes(plain)
+    const kek = await deriveKey(password, wrap.salt, wrap.kdf)
+    dek = await unwrapDek(wrap.wrappedDek, kek, wrap.iv)
+    plain = await decryptDatabase(record.body.ciphertext, dek, new Uint8Array(record.body.iv))
+  } catch {
+    throw new AuthError()
+  }
+  const db = await SqlDatabase.openBytes(plain)
+  try {
+    const migration = migrate(db, { appVersion: APP_VERSION })
     syncRolePermissions(db)
     const user = loadUser(db, normalized)
-    if (!user) {
-      db.close()
-      throw new AuthError()
+    if (!user) throw new AuthError()
+    if (migration.applied.length > 0) {
+      writeAudit(db, user.id, 'SCHEMA_MIGRATED', 'vault', 'primary', {
+        from: migration.from,
+        to: migration.to,
+        appVersion: APP_VERSION,
+      })
     }
+    const strengthen = kdfNeedsUpgrade(wrap.kdf)
+    if (strengthen) await strengthenWrap(db, dek, wrap, password, user.id)
+    const currency = getSetting(db, 'currency')
     return {
       db,
       dek,
       wraps,
       user,
-      currency: getSetting(db, 'currency') ?? 'USD',
+      currency: currency && isCurrency(currency) ? currency : 'USD',
       vaultName: getSetting(db, 'vault_name') ?? 'Moliya',
+      createdAt: record.createdAt ?? getSetting(db, 'vault_created_at'),
+      lastBackupAt: getSetting(db, 'last_backup_at'),
+      needsSave: migration.applied.length > 0 || strengthen,
     }
   } catch (error) {
-    if (error instanceof AuthError) throw error
-    throw new AuthError()
+    db.close()
+    throw error
   }
 }
 
 export async function sealVault(vault: OpenVault): Promise<VaultRecord> {
-  return seal(vault.db, vault.dek, vault.wraps)
+  return seal(vault.db, vault.dek, vault.wraps, vault.createdAt)
 }
 
 export { loadUser }

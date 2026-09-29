@@ -1,12 +1,45 @@
 import { bytesToHex, copyToBuffer } from './encoding'
 
-export const PBKDF2_ITERATIONS = 200_000
+export type KdfHash = 'SHA-256' | 'SHA-384' | 'SHA-512'
+
+export type KdfParams = {
+  name: 'PBKDF2'
+  hash: KdfHash
+  iterations: number
+}
+
+export const LEGACY_KDF: KdfParams = { name: 'PBKDF2', hash: 'SHA-256', iterations: 200_000 }
+export const CURRENT_KDF: KdfParams = { name: 'PBKDF2', hash: 'SHA-256', iterations: 600_000 }
+export const KDF_ITERATION_BOUNDS = { min: 100_000, max: 10_000_000 } as const
+export const KDF_HASHES: readonly KdfHash[] = ['SHA-256', 'SHA-384', 'SHA-512']
+
 export const SALT_BYTES = 32
+export const SALT_BOUNDS = { min: 16, max: 64 } as const
 export const IV_BYTES = 12
+export const DEK_BYTES = 32
+export const GCM_TAG_BYTES = 16
+export const WRAPPED_DEK_BYTES = DEK_BYTES + GCM_TAG_BYTES
 
 export type CipherPayload = {
   cipherText: ArrayBuffer
   iv: Uint8Array
+}
+
+export function isKdfParams(value: unknown): value is KdfParams {
+  if (typeof value !== 'object' || value === null) return false
+  const kdf = value as Record<string, unknown>
+  return (
+    kdf.name === 'PBKDF2' &&
+    typeof kdf.hash === 'string' &&
+    (KDF_HASHES as readonly string[]).includes(kdf.hash) &&
+    Number.isSafeInteger(kdf.iterations) &&
+    (kdf.iterations as number) >= KDF_ITERATION_BOUNDS.min &&
+    (kdf.iterations as number) <= KDF_ITERATION_BOUNDS.max
+  )
+}
+
+export function kdfNeedsUpgrade(kdf: KdfParams): boolean {
+  return kdf.name !== CURRENT_KDF.name || kdf.hash !== CURRENT_KDF.hash || kdf.iterations < CURRENT_KDF.iterations
 }
 
 export function randomBytes(length: number): Uint8Array {
@@ -19,14 +52,15 @@ async function importPassphrase(passphrase: string): Promise<CryptoKey> {
   return crypto.subtle.importKey('raw', new TextEncoder().encode(passphrase), 'PBKDF2', false, ['deriveBits'])
 }
 
-async function deriveRaw(passphrase: string, salt: Uint8Array): Promise<Uint8Array> {
+async function deriveRaw(passphrase: string, salt: Uint8Array, kdf: KdfParams): Promise<Uint8Array> {
+  if (!isKdfParams(kdf)) throw new Error('Unsupported key derivation parameters')
   const material = await importPassphrase(passphrase)
   const bits = await crypto.subtle.deriveBits(
     {
       name: 'PBKDF2',
       salt: copyToBuffer(salt),
-      iterations: PBKDF2_ITERATIONS,
-      hash: 'SHA-256',
+      iterations: kdf.iterations,
+      hash: kdf.hash,
     },
     material,
     256,
@@ -41,8 +75,9 @@ async function importAesKey(raw: Uint8Array, usages: KeyUsage[]): Promise<Crypto
 export async function deriveKeyAndVerifier(
   passphrase: string,
   salt: Uint8Array,
+  kdf: KdfParams = CURRENT_KDF,
 ): Promise<{ key: CryptoKey; verifier: string }> {
-  const raw = await deriveRaw(passphrase, salt)
+  const raw = await deriveRaw(passphrase, salt, kdf)
   try {
     const verifier = bytesToHex(raw)
     const key = await importAesKey(raw, ['wrapKey', 'unwrapKey'])
@@ -52,13 +87,13 @@ export async function deriveKeyAndVerifier(
   }
 }
 
-export async function deriveKey(passphrase: string, salt: Uint8Array): Promise<CryptoKey> {
-  const { key } = await deriveKeyAndVerifier(passphrase, salt)
+export async function deriveKey(passphrase: string, salt: Uint8Array, kdf: KdfParams = CURRENT_KDF): Promise<CryptoKey> {
+  const { key } = await deriveKeyAndVerifier(passphrase, salt, kdf)
   return key
 }
 
-export async function passwordVerifier(passphrase: string, salt: Uint8Array): Promise<string> {
-  const { verifier } = await deriveKeyAndVerifier(passphrase, salt)
+export async function passwordVerifier(passphrase: string, salt: Uint8Array, kdf: KdfParams = CURRENT_KDF): Promise<string> {
+  const { verifier } = await deriveKeyAndVerifier(passphrase, salt, kdf)
   return verifier
 }
 

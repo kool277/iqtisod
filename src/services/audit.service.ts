@@ -1,3 +1,4 @@
+import { insertAuditLink, verifyAuditChain, type ChainReport } from '../db/audit-chain'
 import type { SqlDatabase } from '../db/sqlite'
 import { ForbiddenError } from '../domain/errors'
 import type { AuditEntry, OpenVault } from '../domain/types'
@@ -11,18 +12,15 @@ export function writeAudit(
   entityId: string | null,
   details?: unknown,
 ): void {
-  db.exec(
-    `INSERT INTO audit_logs (id, actor_id, action, entity_type, entity_id, details)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [
-      crypto.randomUUID(),
-      actorId,
-      action,
-      entityType,
-      entityId,
-      details == null ? null : JSON.stringify(details),
-    ],
-  )
+  insertAuditLink(db, {
+    id: crypto.randomUUID(),
+    actorId,
+    action,
+    entityType,
+    entityId,
+    details: details == null ? null : JSON.stringify(details),
+    createdAt: new Date().toISOString(),
+  })
 }
 
 export function listAudit(vault: OpenVault): AuditEntry[] {
@@ -31,7 +29,7 @@ export function listAudit(vault: OpenVault): AuditEntry[] {
     `SELECT a.id, a.actor_id, u.email AS actor_email, a.action, a.entity_type, a.entity_id, a.details, a.created_at
      FROM audit_logs a
      LEFT JOIN users u ON u.id = a.actor_id
-     ORDER BY a.created_at DESC
+     ORDER BY a.seq DESC
      LIMIT 200`,
   )
   return rows.map((row) => ({
@@ -44,4 +42,9 @@ export function listAudit(vault: OpenVault): AuditEntry[] {
     details: row.details == null ? null : String(row.details),
     createdAt: String(row.created_at),
   }))
+}
+
+export function auditIntegrity(vault: OpenVault): ChainReport {
+  if (!canUser(vault.user, Permission.READ_AUDIT)) throw new ForbiddenError()
+  return verifyAuditChain(vault.db)
 }

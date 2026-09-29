@@ -11,7 +11,7 @@ import type {
   TransactionInput,
 } from '../domain/types'
 import { eachMonth, isIsoDate } from '../lib/dates'
-import { roundMoney } from '../lib/money'
+import { parseAmount, percentOf } from '../lib/money'
 import { Permission, canUser } from '../rbac'
 import { isCurrency } from '../domain/types'
 import { writeAudit } from './audit.service'
@@ -48,7 +48,7 @@ function mapEntry(row: Record<string, SqlValue>): LedgerEntry {
   return {
     id: String(row.id),
     type: row.type === 'INCOME' ? 'INCOME' : 'EXPENSE',
-    amount: Number(row.amount),
+    amountMinor: Number(row.amount_minor),
     currency: String(row.currency),
     categoryId: Number(row.category_id),
     userId: String(row.user_id),
@@ -93,10 +93,12 @@ function assertEntryAccess(user: SessionUser, groupId: number): void {
   if (user.groupId !== groupId) throw new ForbiddenError()
 }
 
-function validateInput(vault: OpenVault, input: TransactionInput): TransactionInput {
+type ValidEntry = Omit<TransactionInput, 'amount'> & { amountMinor: number; receiptData: string | null }
+
+function validateInput(vault: OpenVault, input: TransactionInput): ValidEntry {
   if (input.type !== 'INCOME' && input.type !== 'EXPENSE') throw new ValidationError('TYPE')
-  if (!Number.isFinite(input.amount) || input.amount <= 0) throw new ValidationError('AMOUNT')
   if (!isCurrency(input.currency)) throw new ValidationError('CURRENCY')
+  const amountMinor = parseAmount(String(input.amount), input.currency)
   if (!isIsoDate(input.date)) throw new ValidationError('DATE')
   const category = vault.db.queryOne('SELECT id, type FROM categories WHERE id = ?', [input.categoryId])
   if (!category || category.type !== input.type) throw new ValidationError('CATEGORY')
@@ -114,15 +116,54 @@ function validateInput(vault: OpenVault, input: TransactionInput): TransactionIn
     receiptData = null
   }
   return {
-    ...input,
-    amount: roundMoney(input.amount),
+    type: input.type,
+    currency: input.currency,
+    categoryId: input.categoryId,
+    groupId: input.groupId,
+    date: input.date,
+    amountMinor,
     notes,
     receiptData,
   }
 }
 
+function snapshot(entry: {
+  type: unknown
+  amountMinor: unknown
+  currency: unknown
+  date: unknown
+  categoryId: unknown
+  groupId: unknown
+  notes: unknown
+}) {
+  return {
+    type: entry.type,
+    amountMinor: Number(entry.amountMinor),
+    currency: entry.currency,
+    date: entry.date,
+    categoryId: Number(entry.categoryId),
+    groupId: Number(entry.groupId),
+    notes: entry.notes ?? null,
+  }
+}
+
+const SNAPSHOT_SELECT = `SELECT type, amount_minor, currency, transaction_date, category_id, group_id, notes, user_id
+  FROM transactions WHERE id = ?`
+
+function snapshotRow(row: Record<string, SqlValue>) {
+  return snapshot({
+    type: row.type,
+    amountMinor: row.amount_minor,
+    currency: row.currency,
+    date: row.transaction_date,
+    categoryId: row.category_id,
+    groupId: row.group_id,
+    notes: row.notes,
+  })
+}
+
 const ENTRY_SELECT = `SELECT
-  t.id, t.type, t.amount, t.currency, t.category_id, t.user_id, t.group_id,
+  t.id, t.type, t.amount_minor, t.currency, t.category_id, t.user_id, t.group_id,
   t.transaction_date, t.notes, t.receipt_data, t.created_at, t.updated_at,
   c.name_en, c.name_uz_latn, c.name_uz_cyrl, c.name_ru,
   u.email AS user_email, g.name AS group_name
@@ -157,12 +198,12 @@ export function createTransaction(vault: OpenVault, input: TransactionInput): st
   vault.db.withTransaction(() => {
     vault.db.exec(
       `INSERT INTO transactions (
-         id, type, amount, currency, category_id, user_id, group_id, transaction_date, notes, receipt_data, created_at, updated_at
+         id, type, amount_minor, currency, category_id, user_id, group_id, transaction_date, notes, receipt_data, created_at, updated_at
        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         entry.type,
-        entry.amount,
+        entry.amountMinor,
         entry.currency,
         entry.categoryId,
         vault.user.id,
@@ -174,30 +215,26 @@ export function createTransaction(vault: OpenVault, input: TransactionInput): st
         now,
       ],
     )
-    writeAudit(vault.db, vault.user.id, 'TRANSACTION_CREATED', 'transaction', id, {
-      type: entry.type,
-      amount: entry.amount,
-      currency: entry.currency,
-    })
+    writeAudit(vault.db, vault.user.id, 'TRANSACTION_CREATED', 'transaction', id, snapshot(entry))
   })
   return id
 }
 
 export function updateTransaction(vault: OpenVault, id: string, input: TransactionInput): void {
   if (!canUser(vault.user, Permission.UPDATE_TRANSACTION)) throw new ForbiddenError()
-  const existing = vault.db.queryOne('SELECT group_id FROM transactions WHERE id = ?', [id])
+  const existing = vault.db.queryOne(SNAPSHOT_SELECT, [id])
   if (!existing) throw new ValidationError('REQUIRED')
   assertEntryAccess(vault.user, Number(existing.group_id))
   const entry = validateInput(vault, input)
   vault.db.withTransaction(() => {
     vault.db.exec(
       `UPDATE transactions
-       SET type = ?, amount = ?, currency = ?, category_id = ?, group_id = ?, transaction_date = ?,
+       SET type = ?, amount_minor = ?, currency = ?, category_id = ?, group_id = ?, transaction_date = ?,
            notes = ?, receipt_data = ?, updated_at = ?
        WHERE id = ?`,
       [
         entry.type,
-        entry.amount,
+        entry.amountMinor,
         entry.currency,
         entry.categoryId,
         entry.groupId,
@@ -209,21 +246,21 @@ export function updateTransaction(vault: OpenVault, id: string, input: Transacti
       ],
     )
     writeAudit(vault.db, vault.user.id, 'TRANSACTION_UPDATED', 'transaction', id, {
-      type: entry.type,
-      amount: entry.amount,
+      before: snapshotRow(existing),
+      after: snapshot(entry),
     })
   })
 }
 
 export function deleteTransaction(vault: OpenVault, id: string): void {
   if (!canUser(vault.user, Permission.DELETE_TRANSACTION)) throw new ForbiddenError()
-  const existing = vault.db.queryOne('SELECT group_id, type, amount FROM transactions WHERE id = ?', [id])
+  const existing = vault.db.queryOne(SNAPSHOT_SELECT, [id])
   if (!existing) throw new ValidationError('REQUIRED')
   assertEntryAccess(vault.user, Number(existing.group_id))
   vault.db.withTransaction(() => {
     writeAudit(vault.db, vault.user.id, 'TRANSACTION_DELETED', 'transaction', id, {
-      type: existing.type,
-      amount: existing.amount,
+      ...snapshotRow(existing),
+      userId: existing.user_id,
     })
     vault.db.exec('DELETE FROM transactions WHERE id = ?', [id])
   })
@@ -235,8 +272,8 @@ export function loadDashboard(vault: OpenVault, range: DateRange, locale: Locale
   const currency = vault.currency
   const totals = vault.db.queryOne(
     `SELECT
-       COALESCE(SUM(CASE WHEN t.type = 'INCOME' THEN t.amount END), 0) AS income,
-       COALESCE(SUM(CASE WHEN t.type = 'EXPENSE' THEN t.amount END), 0) AS expense
+       COALESCE(SUM(CASE WHEN t.type = 'INCOME' THEN t.amount_minor END), 0) AS income,
+       COALESCE(SUM(CASE WHEN t.type = 'EXPENSE' THEN t.amount_minor END), 0) AS expense
      FROM transactions t
      WHERE t.transaction_date >= ? AND t.transaction_date <= ?
        AND t.currency = ?
@@ -246,7 +283,7 @@ export function loadDashboard(vault: OpenVault, range: DateRange, locale: Locale
   const income = Number(totals?.income ?? 0)
   const expense = Number(totals?.expense ?? 0)
   const monthly = vault.db.query(
-    `SELECT substr(t.transaction_date, 1, 7) AS month, t.type AS type, SUM(t.amount) AS total
+    `SELECT substr(t.transaction_date, 1, 7) AS month, t.type AS type, SUM(t.amount_minor) AS total
      FROM transactions t
      WHERE t.transaction_date >= ? AND t.transaction_date <= ?
        AND t.currency = ?
@@ -268,7 +305,7 @@ export function loadDashboard(vault: OpenVault, range: DateRange, locale: Locale
     locale === 'uz-Latn' ? 'c.name_uz_latn' : locale === 'uz-Cyrl' ? 'c.name_uz_cyrl' : locale === 'ru' ? 'c.name_ru' : 'c.name_en'
   const categories = vault.db
     .query(
-      `SELECT ${nameColumn} AS label, SUM(t.amount) AS total
+      `SELECT ${nameColumn} AS label, SUM(t.amount_minor) AS total
        FROM transactions t
        JOIN categories c ON c.id = t.category_id
        WHERE t.type = 'EXPENSE'
@@ -282,7 +319,7 @@ export function loadDashboard(vault: OpenVault, range: DateRange, locale: Locale
     .map((row) => ({ label: String(row.label), total: Number(row.total) }))
   const trend = vault.db
     .query(
-      `SELECT t.transaction_date AS date, SUM(t.amount) AS total
+      `SELECT t.transaction_date AS date, SUM(t.amount_minor) AS total
        FROM transactions t
        WHERE t.type = 'EXPENSE'
          AND t.transaction_date >= ? AND t.transaction_date <= ?
@@ -297,7 +334,7 @@ export function loadDashboard(vault: OpenVault, range: DateRange, locale: Locale
   const breakdown =
     breakdownMode === 'group'
       ? vault.db.query(
-          `SELECT g.name AS label, SUM(t.amount) AS total
+          `SELECT g.name AS label, SUM(t.amount_minor) AS total
            FROM transactions t
            JOIN groups g ON g.id = t.group_id
            WHERE t.type = 'EXPENSE'
@@ -309,7 +346,7 @@ export function loadDashboard(vault: OpenVault, range: DateRange, locale: Locale
           [range.start, range.end, currency, ...group.params],
         )
       : vault.db.query(
-          `SELECT u.email AS label, SUM(t.amount) AS total
+          `SELECT u.email AS label, SUM(t.amount_minor) AS total
            FROM transactions t
            JOIN users u ON u.id = t.user_id
            WHERE t.type = 'EXPENSE'
@@ -320,11 +357,25 @@ export function loadDashboard(vault: OpenVault, range: DateRange, locale: Locale
            ORDER BY total DESC`,
           [range.start, range.end, currency, ...group.params],
         )
+  const otherCurrencies = vault.db
+    .query(
+      `SELECT t.currency AS currency,
+         COALESCE(SUM(CASE WHEN t.type = 'INCOME' THEN t.amount_minor END), 0) AS income,
+         COALESCE(SUM(CASE WHEN t.type = 'EXPENSE' THEN t.amount_minor END), 0) AS expense
+       FROM transactions t
+       WHERE t.transaction_date >= ? AND t.transaction_date <= ?
+         AND t.currency <> ?
+         AND ${group.sql}
+       GROUP BY t.currency
+       ORDER BY t.currency`,
+      [range.start, range.end, currency, ...group.params],
+    )
+    .map((row) => ({ currency: String(row.currency), income: Number(row.income), expense: Number(row.expense) }))
   return {
     income,
     expense,
-    net: roundMoney(income - expense),
-    savingsRate: income > 0 ? ((income - expense) / income) * 100 : 0,
+    net: income - expense,
+    savingsRate: income > 0 ? percentOf(income - expense, income, 1) : 0,
     months,
     incomeByMonth,
     expenseByMonth,
@@ -332,5 +383,6 @@ export function loadDashboard(vault: OpenVault, range: DateRange, locale: Locale
     trend,
     breakdown: breakdown.map((row) => ({ label: String(row.label), total: Number(row.total) })),
     breakdownMode,
+    otherCurrencies,
   }
 }

@@ -1,3 +1,4 @@
+import type { KdfParams } from '../crypto/crypto.service'
 import type { SqlDatabase } from '../db/sqlite'
 
 export type RoleName = 'Admin' | 'Manager' | 'Viewer'
@@ -26,6 +27,7 @@ export type SessionUser = {
 export type UserWrap = {
   userId: string
   email: string
+  kdf: KdfParams
   salt: Uint8Array
   iv: Uint8Array
   wrappedDek: ArrayBuffer
@@ -38,6 +40,9 @@ export type OpenVault = {
   user: SessionUser
   currency: string
   vaultName: string
+  createdAt: string | null
+  lastBackupAt: string | null
+  needsSave: boolean
 }
 
 export type Category = {
@@ -68,7 +73,7 @@ export type VaultUser = {
 export type LedgerEntry = {
   id: string
   type: EntryType
-  amount: number
+  amountMinor: number
   currency: string
   categoryId: number
   userId: string
@@ -88,7 +93,7 @@ export type LedgerEntry = {
 
 export type TransactionInput = {
   type: EntryType
-  amount: number
+  amount: string
   currency: string
   categoryId: number
   groupId: number
@@ -125,4 +130,5 @@ export type DashboardData = {
   trend: { date: string; total: number }[]
   breakdown: { label: string; total: number }[]
   breakdownMode: 'group' | 'user'
+  otherCurrencies: { currency: string; income: number; expense: number }[]
 }

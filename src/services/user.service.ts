@@ -1,5 +1,5 @@
 import { bytesToBase64 } from '../crypto/encoding'
-import { SALT_BYTES, deriveKeyAndVerifier, randomBytes, wrapDek } from '../crypto/crypto.service'
+import { CURRENT_KDF, SALT_BYTES, deriveKeyAndVerifier, randomBytes, wrapDek } from '../crypto/crypto.service'
 import { ForbiddenError, ValidationError, isUniqueViolation } from '../domain/errors'
 import { isRoleName, type OpenVault, type RoleName, type UserWrap, type VaultUser } from '../domain/types'
 import { Permission, canUser } from '../rbac'
@@ -80,7 +80,7 @@ export async function createUser(vault: OpenVault, input: NewUserInput): Promise
   assertPassword(input.password)
   const groupId = assertGroup(vault, input.groupId, input.roleName)
   const salt = randomBytes(SALT_BYTES)
-  const { key, verifier } = await deriveKeyAndVerifier(input.password, salt)
+  const { key, verifier } = await deriveKeyAndVerifier(input.password, salt, CURRENT_KDF)
   const wrapped = await wrapDek(vault.dek, key)
   const userId = crypto.randomUUID()
   try {
@@ -103,6 +103,7 @@ export async function createUser(vault: OpenVault, input: NewUserInput): Promise
   const wrap: UserWrap = {
     userId,
     email,
+    kdf: { ...CURRENT_KDF },
     salt,
     iv: wrapped.iv,
     wrappedDek: wrapped.cipherText,
@@ -119,7 +120,7 @@ export async function resetUserPassword(vault: OpenVault, userId: string, passwo
   if (!existing) throw new ValidationError('REQUIRED')
   const email = String(existing.email)
   const salt = randomBytes(SALT_BYTES)
-  const { key, verifier } = await deriveKeyAndVerifier(password, salt)
+  const { key, verifier } = await deriveKeyAndVerifier(password, salt, CURRENT_KDF)
   const wrapped = await wrapDek(vault.dek, key)
   vault.db.withTransaction(() => {
     vault.db.exec('UPDATE users SET password_hash = ?, salt = ? WHERE id = ?', [
@@ -132,6 +133,7 @@ export async function resetUserPassword(vault: OpenVault, userId: string, passwo
   const wrap: UserWrap = {
     userId,
     email,
+    kdf: { ...CURRENT_KDF },
     salt,
     iv: wrapped.iv,
     wrappedDek: wrapped.cipherText,
