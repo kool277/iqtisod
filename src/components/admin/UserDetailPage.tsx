@@ -3,14 +3,13 @@ import { useCallback, useMemo, useState, type FormEvent, type ReactNode } from '
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { IssuedCode } from './IssuedCode'
 import { RoleGroupFields, selectedGroupFor } from './RoleGroupFields'
-import { Forbidden, PeopleStrings, StatusBadge, ValiditySelect, roleLabel } from './shared'
+import { Forbidden, PeopleStrings, peopleErrorText, StatusBadge, ValiditySelect, roleLabel } from './shared'
 import { auditLabel } from '../audit-label'
 import { Dialog } from '../Dialog'
 import { Button, Field, Notice, controlClass } from '../ui'
 import { useI18n } from '../../context/I18nContext'
 import { useVault } from '../../context/VaultContext'
 import type { RoleName, VaultUser } from '../../domain/types'
-import { textForError } from '../../lib/errors'
 import { LIMITS } from '../../lib/limits'
 import { formatIsoDate, formatWhen } from '../../lib/money'
 import { formatMinorExact, minorToPlainDecimal } from '../../lib/money-exact'
@@ -392,7 +391,7 @@ function useGuard() {
       setError(null)
       setWorking(true)
       action()
-        .catch((caught: unknown) => setError(textForError(caught, t)))
+        .catch((caught: unknown) => setError(peopleErrorText(caught, t)))
         .finally(() => setWorking(false))
     },
     [t],

@@ -46,19 +46,9 @@ function isSecurityErrorKey(code: string): code is SecurityErrorKey {
   return Object.hasOwn(en.securityErrors, code)
 }
 
-type PeopleErrorKey = keyof Messages['people']['errors']
-
-const PEOPLE_ERROR_CODES: readonly PeopleErrorKey[] = ['USER_SUSPENDED', 'USER_FORMER', 'NOT_SUSPENDED', 'USER_CODE_OPEN', 'REASSIGN_TARGET', 'CONFIRM_EMAIL']
-
-function isPeopleErrorKey(code: string): code is PeopleErrorKey {
-  return (PEOPLE_ERROR_CODES as readonly string[]).includes(code)
-}
-
 export function errorText(code: string, t: (key: MessageKey) => string): string {
   if (isSafeErrorKey(code)) return t(`safeErrors.${code}`)
   if (isSecurityErrorKey(code)) return t(`securityErrors.${code}`)
-  // Only the People pages raise these, and they load the `people` strings first.
-  if (isPeopleErrorKey(code)) return t(`people.errors.${code}`)
   switch (code) {
     case 'BAD_CREDENTIALS':
       return t('login.badCredentials')

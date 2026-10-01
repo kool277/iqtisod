@@ -2,13 +2,12 @@ import { useCallback, useMemo, useState, type FormEvent } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { AddUserDialog } from './AddUserDialog'
 import { IssuedCode } from './IssuedCode'
-import { Forbidden, PeopleStrings, ROLES, StatusBadge, ValiditySelect, roleLabel } from './shared'
+import { Forbidden, PeopleStrings, peopleErrorText, ROLES, StatusBadge, ValiditySelect, roleLabel } from './shared'
 import { UsersOverview } from './UsersOverview'
 import { Button, Field, Notice, controlClass } from '../ui'
 import { useI18n } from '../../context/I18nContext'
 import { useVault } from '../../context/VaultContext'
 import type { RoleName, UserStatus, VaultUser } from '../../domain/types'
-import { textForError } from '../../lib/errors'
 import { LIMITS } from '../../lib/limits'
 import { formatWhen } from '../../lib/money'
 import { Permission, canUser, seesMembers } from '../../rbac'
@@ -28,6 +27,8 @@ import { fill } from '../table/model'
 import { listGroups } from '../../services/group.service'
 import { clearUserTotp } from '../../services/totp.service'
 import { bulkUpdateUsers, listUsers, resetUserPassword, usersOverview, type BulkChange } from '../../services/user.service'
+
+export { UserDetailPage } from './UserDetailPage'
 
 const STATUSES: UserStatus[] = ['ACTIVE', 'SUSPENDED', 'FORMER']
 
@@ -295,7 +296,7 @@ function UsersView() {
       try {
         await action()
       } catch (caught) {
-        setError(textForError(caught, t))
+        setError(peopleErrorText(caught, t))
       }
     },
     [t],

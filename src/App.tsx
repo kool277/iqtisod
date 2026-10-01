@@ -15,7 +15,7 @@ const Dashboard = lazy(() => import('./components/Dashboard').then((module) => (
 const Timeline = lazy(() => import('./components/Timeline').then((module) => ({ default: module.Timeline })))
 const SettingsPage = lazy(() => import('./components/SettingsPage').then((module) => ({ default: module.SettingsPage })))
 const UsersPage = lazy(() => import('./components/admin/UsersPage').then((module) => ({ default: module.UsersPage })))
-const UserDetailPage = lazy(() => import('./components/admin/UserDetailPage').then((module) => ({ default: module.UserDetailPage })))
+const UserDetailPage = lazy(() => import('./components/admin/UsersPage').then((module) => ({ default: module.UserDetailPage })))
 const GroupsPage = lazy(() => import('./components/AdminPages').then((module) => ({ default: module.GroupsPage })))
 const AuditPage = lazy(() => import('./components/AdminPages').then((module) => ({ default: module.AuditPage })))
 const BackupPage = lazy(() => import('./components/AdminPages').then((module) => ({ default: module.BackupPage })))

@@ -1,13 +1,12 @@
 import { useState, type FormEvent } from 'react'
 import { RoleGroupFields, selectedGroupFor } from './RoleGroupFields'
-import { ValiditySelect } from './shared'
+import { ValiditySelect, peopleErrorText } from './shared'
 import { PasswordHint } from '../auth/AuthBits'
 import { Dialog } from '../Dialog'
 import { Button, Field, Notice, controlClass } from '../ui'
 import { useI18n } from '../../context/I18nContext'
 import { useVault } from '../../context/VaultContext'
 import type { Group, RoleName } from '../../domain/types'
-import { textForError } from '../../lib/errors'
 import { LIMITS } from '../../lib/limits'
 import { DEFAULT_GRANT_VALIDITY, createInvite, type GrantValidity, type IssuedGrant } from '../../services/grant.service'
 import { createUser } from '../../services/user.service'
@@ -48,7 +47,7 @@ export function AddUserDialog({
       mode === 'invite'
         ? run((vault) => createInvite(vault, { email, validity, ...target }), { dirty: true }).then(onIssued)
         : run((vault) => createUser(vault, { email, password, displayName, ...target }), { dirty: true }).then(onCreated)
-    action.catch((caught: unknown) => setError(textForError(caught, t))).finally(() => setWorking(false))
+    action.catch((caught: unknown) => setError(peopleErrorText(caught, t))).finally(() => setWorking(false))
   }
 
   const tab = (value: Mode, label: string, testId: string) => (

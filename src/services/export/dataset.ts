@@ -7,7 +7,7 @@ import type { SessionUser } from '../../domain/types'
 import { minorToFixed } from '../../lib/money'
 import { BUILD } from '../../lib/version'
 import { Permission, canUser, seesAllGroups } from '../../rbac'
-import { AUDIT_ACTOR_EMAIL } from '../audit.service'
+import { AUDIT_ACTOR_EMAIL } from '../audit-log'
 
 export const PAGE_SIZE = 1000
 

@@ -4,6 +4,9 @@ import { useI18n } from '../../context/I18nContext'
 import { useLazyCatalog } from '../../context/useLazyCatalog'
 import type { RoleName, UserStatus } from '../../domain/types'
 import { hasPeopleMessages, loadPeopleMessages, type MessageKey } from '../../i18n'
+import type { PeopleMessages } from '../../i18n/people/en'
+import { AppError } from '../../domain/errors'
+import { textForError } from '../../lib/errors'
 import { GRANT_VALIDITY, isGrantValidity, type GrantValidity } from '../../services/grant.service'
 
 const VALIDITY_LABELS: Record<GrantValidity, MessageKey> = {
@@ -79,4 +82,14 @@ export function PeopleStrings({ children }: { children: ReactNode }) {
     )
   }
   return children
+}
+
+type PeopleErrorKey = keyof PeopleMessages['errors']
+
+const PEOPLE_ERRORS: readonly string[] = ['USER_SUSPENDED', 'USER_FORMER', 'NOT_SUSPENDED', 'USER_CODE_OPEN', 'REASSIGN_TARGET', 'CONFIRM_EMAIL'] satisfies PeopleErrorKey[]
+
+/** Like `textForError`, plus the codes only the People pages raise; their strings live in the lazy `people` catalog. */
+export function peopleErrorText(error: unknown, t: (key: MessageKey) => string): string {
+  if (error instanceof AppError && PEOPLE_ERRORS.includes(error.code)) return t(`people.errors.${error.code as PeopleErrorKey}`)
+  return textForError(error, t)
 }
