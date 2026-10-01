@@ -133,6 +133,11 @@ describe('help markdown', () => {
     expect(doc.sections[0].text).toContain('Second continues here')
   })
 
+  it('leaves no comment behind when removing one joins the text around it into another', () => {
+    const doc = parseGuide('Before <!<!-- a -->-- hidden --> after', { locale: 'en' })
+    expect(doc.intro).toEqual([{ t: 'p', v: [{ t: 'text', v: 'Before  after' }] }])
+  })
+
   it('refuses pictures from another language or outside the images folder', () => {
     expect(() => parseGuide('![x](images/ru/a.webp)', { locale: 'en' })).toThrow(/another language/)
     expect(() => parseGuide('![x](https://example.org/a.webp)', { locale: 'en' })).toThrow(/images/)

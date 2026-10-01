@@ -98,8 +98,19 @@ function slug(text: string): string {
 
 type Draft = { id: string; title: string; blocks: HelpBlock[] }
 
+/** Repeated until nothing changes, because removing one comment can join the pieces around it into a new `<!--`. */
+function stripComments(text: string): string {
+  let out = text
+  let previous: string
+  do {
+    previous = out
+    out = out.replace(/<!--[\s\S]*?-->/g, '')
+  } while (out !== previous)
+  return out
+}
+
 export function parseGuide(markdown: string, options: ParseOptions): HelpDoc {
-  const lines = markdown.replace(/\r\n?/g, '\n').replace(/<!--[\s\S]*?-->/g, '').split('\n')
+  const lines = stripComments(markdown.replace(/\r\n?/g, '\n')).split('\n')
   let title = ''
   const intro: HelpBlock[] = []
   const sections: Draft[] = []
