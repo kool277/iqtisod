@@ -1,12 +1,14 @@
 import { execFile } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import { afterAll, describe, expect, it } from 'vitest'
 import { SqlDatabase } from '../../src/db/sqlite'
-import { FIXTURE_ROOT, readFixture, readManifest } from '../support/fixtures'
+import { createVault, sealVault } from '../../src/services/auth.service'
+import { backupFileText } from '../../src/services/backup.service'
+import { FIXTURE_ROOT, fixtureByPath, readFixture, readManifest } from '../support/fixtures'
 
 const run = promisify(execFile)
 const CLI = resolve(dirname(fileURLToPath(import.meta.url)), '../../tools/moliya-decrypt.mjs')
@@ -87,6 +89,74 @@ describe.each(readManifest().map((entry) => [entry.path, readFixture(entry)] as 
   it('rejects a wrong password without writing anything', async () => {
     const user = fixture.expected.users[0]
     await expect(cli([input, '--email', user.email, '--out', join(work, 'wrong.sqlite')], 'nope')).rejects.toMatchObject({
+      stderr: expect.stringContaining('wrong email or password'),
+    })
+  })
+})
+
+describe('moliya-decrypt hardening', () => {
+  const path = 'v2/ledger-v2'
+  const fixture = fixtureByPath(path)
+  const user = fixture.expected.users[0]
+  const original = JSON.parse(readFileSync(resolve(FIXTURE_ROOT, `${path}.moliya`), 'utf8'))
+
+  function variant(name: string, change: (file: typeof original) => void): string {
+    const file = structuredClone(original)
+    change(file)
+    const target = join(work, `${name}.moliya`)
+    writeFileSync(target, JSON.stringify(file))
+    return target
+  }
+
+  it('refuses key derivation above the app’s 2,000,000 iterations', async () => {
+    const input = variant('slow', (file) => {
+      file.wraps[0].kdf.iterations = 2_000_001
+    })
+    await expect(cli([input, '--list'])).rejects.toMatchObject({ stderr: expect.stringContaining('unsupported key derivation parameters') })
+  })
+
+  it('gives the same message for a damaged body as for a wrong password, and writes nothing', async () => {
+    const input = variant('damaged', (file) => {
+      const body = Buffer.from(file.body.ciphertext, 'base64')
+      body[body.length - 1] ^= 1
+      file.body.ciphertext = body.toString('base64')
+    })
+    const damagedOut = join(work, 'damaged.sqlite')
+    const damaged = await cli([input, '--email', user.email, '--out', damagedOut], user.password).catch((error: { stderr: string }) => error)
+    const wrong = await cli([input, '--email', user.email, '--out', damagedOut], 'not the password').catch((error: { stderr: string }) => error)
+    expect(damaged).toMatchObject({ stderr: 'moliya-decrypt: wrong email or password, or the backup is damaged\n' })
+    expect(wrong).toMatchObject({ stderr: (damaged as { stderr: string }).stderr })
+    expect(existsSync(damagedOut)).toBe(false)
+  })
+
+  it('decrypts a backup whose wraps are bound to their person (1.4.2+), scrubbing in a removed temporary directory', async () => {
+    const password = 'Cobalt window anchor 61'
+    const created = await createVault({ email: 'bound@example.com', password, displayName: 'Bound', currency: 'USD' })
+    let text: string
+    try {
+      text = backupFileText(await sealVault(created.vault))
+    } finally {
+      created.vault.db.close()
+    }
+    expect(JSON.parse(text).wraps[0].aad).toBe('moliya/wrap/v1')
+    const input = join(work, 'bound.moliya')
+    writeFileSync(input, text)
+    const leftovers = () => readdirSync(tmpdir()).filter((name) => name.startsWith('moliya-decrypt-')).length
+    const before = leftovers()
+    const out = join(work, 'bound.sqlite')
+    await cli([input, '--email', 'bound@example.com', '--out', out], password)
+    expect(leftovers()).toBe(before)
+    const db = await SqlDatabase.openBytes(new Uint8Array(readFileSync(out)))
+    try {
+      expect(db.queryValue("SELECT COUNT(*) FROM users WHERE password_hash <> '' OR salt <> ''")).toBe(0)
+    } finally {
+      db.close()
+    }
+    const relabelled = join(work, 'relabelled.moliya')
+    const file = JSON.parse(text)
+    file.wraps[0].userId = 'someone-else'
+    writeFileSync(relabelled, JSON.stringify(file))
+    await expect(cli([relabelled, '--email', 'bound@example.com', '--out', join(work, 'relabelled.sqlite')], password)).rejects.toMatchObject({
       stderr: expect.stringContaining('wrong email or password'),
     })
   })

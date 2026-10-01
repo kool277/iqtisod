@@ -58,7 +58,7 @@ Readers accept any KDF parameter set in these bounds, so a file written with str
 
 - `name`: `PBKDF2`
 - `hash`: `SHA-256`, `SHA-384`, or `SHA-512`
-- `iterations`: an integer from 100,000 to 2,000,000 in the app from 1.3.0 (10,000,000 in 1.1.0 and 1.2.0). The recovery tool accepts up to 10,000,000.
+- `iterations`: an integer from 100,000 to 2,000,000 in the app from 1.3.0 (10,000,000 in 1.1.0 and 1.2.0, which never wrote more than 600,000). The recovery tool accepts up to 10,000,000 until 1.4.1 and up to 2,000,000 from 1.4.2.
 
 Anything outside the bounds is rejected as damaged, which also stops a tampered file from forcing a trivially weak or a denial-of-service iteration count. Every released version wrote 200,000 or 600,000, so the lower app ceiling rejects no real file. The same bounds apply to `grants[]`, `user_keys.kdf`, and `user_totp.kdf`.
 
@@ -627,11 +627,11 @@ MOLIYA_PASSWORD='…' node tools/moliya-decrypt.mjs backup.moliya --email admin@
 sqlite3 ledger.sqlite "SELECT transaction_date, type, amount_minor / 100.0, currency, notes FROM transactions ORDER BY 1"
 ```
 
-The password comes from `MOLIYA_PASSWORD`, or the tool prompts for it. Without `--out` the output is the backup's name with `.sqlite`; an existing file is only overwritten with `--force`. `--help` prints the usage. Exit code 2 means bad arguments.
+The password comes from `MOLIYA_PASSWORD`, or the tool prompts for it. A wrong password and a damaged wrap or body give the same message, `wrong email or password, or the backup is damaged` (from 1.4.2). Without `--out` the output is the backup's name with `.sqlite`; an existing file is only overwritten with `--force`. `--help` prints the usage. Exit code 2 means bad arguments.
 
 For schema version 1 files the amount column is `amount` instead of `amount_minor`. The tool is about 240 lines of dependency-free JavaScript and doubles as a reference implementation of this document. Any language with PBKDF2 and AES-GCM can do the same in three steps: derive the KEK, decrypt `wrappedDek` to get the DEK, decrypt `body.ciphertext`.
 
-With Node.js 22.13 or newer, the tool blanks `users.password_hash` and `users.salt`, deletes every row of `safe_events`, `secure_items`, `safes`, `user_keys`, and `user_totp`, and blanks `access_grants.code_verifier` in the output before vacuuming it. `--keep-keys` skips this step, which keeps the verifiers, salts, the private safe rows, and the sign-in check rows, still encrypted with each owner's keys. On older Node.js versions without `node:sqlite` nothing is removed and the tool prints a warning.
+With Node.js 22.13 or newer, the tool blanks `users.password_hash` and `users.salt`, deletes every row of `safe_events`, `secure_items`, `safes`, `user_keys`, and `user_totp`, and blanks `access_grants.code_verifier` before vacuuming (with `secure_delete` on). From 1.4.2 it does this on a copy in a fresh `0700` temporary directory, which it overwrites and removes afterwards, so the output path only ever receives the scrubbed database; until 1.4.1 it wrote the full plaintext to the output first and scrubbed it in place. `--keep-keys` skips this step, which keeps the verifiers, salts, the private safe rows, and the sign-in check rows, still encrypted with each owner's keys. On older Node.js versions without `node:sqlite` nothing is removed and the tool prints a warning.
 
 The tool only opens a backup with a person's password. It never tries invite or reset codes. `--list` prints the people and their KDF parameters and, as `pendingCodes`, the kind and email of every entry in `grants[]` (never the code, which the file does not contain).
 

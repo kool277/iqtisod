@@ -38,7 +38,7 @@ Implemented in `src/crypto/crypto.service.ts`, orchestrated in `src/services/aut
 - **Re-wrap on login**: when `kdfNeedsUpgrade(wrap.kdf)` or the stored verifier differs, `unlockVault` wraps the same DEK with a fresh salt and `CURRENT_KDF` and verifies the new wrap. It writes `CREDENTIALS_UPGRADED` only when the KDF parameters change. The session is marked `needsSave` and saved immediately.
 - **Wraps**: `wrapDek` and `unwrapDek` use AES-GCM `wrapKey('raw')` with a fresh 12-byte IV.
 - **Snapshot**: `sqlite3_js_db_export` gives the database bytes, which are encrypted with `encryptDatabase` (fresh 12-byte IV per save).
-- **Bounds**: `KDF_ITERATION_BOUNDS` is 100,000 to 2,000,000 from 1.3.0 (it was 10,000,000), so a crafted file cannot make the importer's own browser run PBKDF2 for minutes. The recovery CLI keeps 10,000,000.
+- **Bounds**: `KDF_ITERATION_BOUNDS` is 100,000 to 2,000,000 from 1.3.0 (it was 10,000,000), so a crafted file cannot make the importer's own browser run PBKDF2 for minutes. The recovery CLI uses the same 2,000,000 bound from 1.4.2 (10,000,000 before).
 - **Equal timing**: `unlockVault` (unknown email) and `redeemGrant` (no matching grant) call `spendPasswordWork`, one real PBKDF2 derivation with a random salt, so an unknown address fails as slowly as a wrong password. Emails are plaintext in the envelope anyway; this only removes the obvious timing difference.
 
 ### One-time codes and the sign-in check
