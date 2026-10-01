@@ -145,6 +145,7 @@ test('admin creates a manager and a viewer, and the viewer stays read-only', asy
   await createVault(page)
   await addRecord(page, 'EXPENSE', '40')
   await page.getByTestId('nav-users').click()
+  await page.getByTestId('user-add').click()
   await page.getByTestId('advanced-temp-toggle').click()
 
   await page.getByTestId('user-email').fill('manager@example.com')
@@ -153,6 +154,8 @@ test('admin creates a manager and a viewer, and the viewer stays read-only', asy
   await page.getByTestId('user-save').click()
   await expect(page.getByText('manager@example.com')).toBeVisible({ timeout: 30_000 })
 
+  await page.getByTestId('user-add').click()
+  await page.getByTestId('advanced-temp-toggle').click()
   await page.getByTestId('user-email').fill('viewer@example.com')
   await page.getByTestId('user-password').fill('Temporary lamp words 22')
   await page.getByTestId('user-role').selectOption('Viewer')

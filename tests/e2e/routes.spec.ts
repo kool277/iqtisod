@@ -159,6 +159,7 @@ test('every route renders for an admin and for a member, and unknown routes say 
   await createVault(page)
 
   await page.getByTestId('nav-users').click()
+  await page.getByTestId('user-add').click()
   await page.getByTestId('advanced-temp-toggle').click()
   await page.getByTestId('user-email').fill(MEMBER.email)
   await page.getByTestId('user-password').fill(MEMBER.temporary)

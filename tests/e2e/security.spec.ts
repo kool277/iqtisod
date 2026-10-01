@@ -93,6 +93,7 @@ function totpCode(secret: string, offsetMs = 0): Promise<string> {
 
 async function issueInvite(page: Page, email: string, validity?: string): Promise<string> {
   await page.getByTestId('nav-users').click()
+  await page.getByTestId('user-add').click()
   await page.getByTestId('invite-email').fill(email)
   if (validity) await page.getByTestId('invite-validity').selectOption(validity)
   await page.getByTestId('invite-role').selectOption('Manager')
@@ -294,6 +295,7 @@ test('a reset code replaces a password that someone else may know', async ({ pag
   const member = { email: 'member@example.com', temporary: 'Temporary lamp words 22', next: 'Member picks own words 4' }
   await createVault(page)
   await page.getByTestId('nav-users').click()
+  await page.getByTestId('user-add').click()
   await page.getByTestId('advanced-temp-toggle').click()
   await page.getByTestId('user-email').fill(member.email)
   await page.getByTestId('user-password').fill(member.temporary)

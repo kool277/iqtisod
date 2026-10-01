@@ -78,6 +78,7 @@ test('the health check runs before sign-in, for an admin and for a viewer, and i
   await expect(page).toHaveURL(/#\/app\/account$/)
 
   await page.getByTestId('nav-users').click()
+  await page.getByTestId('user-add').click()
   await page.getByTestId('advanced-temp-toggle').click()
   await page.getByTestId('user-email').fill(VIEWER.email)
   await page.getByTestId('user-password').fill(VIEWER.temporary)

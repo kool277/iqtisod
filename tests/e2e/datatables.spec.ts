@@ -148,6 +148,7 @@ test('admin tables keep their actions and a member only sees their own group in 
   await expect(page.getByTestId('dashboard-group').locator('option:checked')).toHaveText('Travel')
 
   await page.getByTestId('nav-users').click()
+  await page.getByTestId('user-add').click()
   await page.getByTestId('advanced-temp-toggle').click()
   await page.getByTestId('user-email').fill(member.email)
   await page.getByTestId('user-password').fill(member.temporary)

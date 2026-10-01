@@ -402,6 +402,7 @@ for (const locale of LOCALES) {
 
     // People.
     await page.getByTestId('nav-users').click()
+    await page.getByTestId('user-add').click()
     await page.getByTestId('advanced-temp-toggle').click()
     await page.getByTestId('user-email').fill(MEMBER.email)
     await page.getByTestId('user-password').fill(MEMBER.temporary)
@@ -411,6 +412,7 @@ for (const locale of LOCALES) {
     await page.getByTestId('user-save').click()
     const member = page.getByTestId('person-row').filter({ hasText: MEMBER.email })
     await expect(member).toBeVisible({ timeout: 30_000 })
+    await page.getByTestId('user-add').click()
     await page.getByTestId('invite-email').fill(INVITED.email)
     await page.getByTestId('invite-role').selectOption('Viewer')
     await page.getByTestId('invite-create').click()
