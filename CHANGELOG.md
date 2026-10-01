@@ -6,6 +6,17 @@ Data formats are versioned separately from the app. Each release lists the forma
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-10-01
+
+Reads backup and record versions 1–2 and schema versions 1–4. Writes backup 2, record 2, schema 4, and export format 1, the same as 1.4.0. No data format changes.
+
+### Fixed
+
+- **Links to a page no longer end on "404".** Opening, refreshing, or sharing an address written as a path, such as `https://jaybi.uz/app/transactions`, `https://jaybi.uz/register`, or an old link that still has `/iqtisod/` in it, showed GitHub's "404 File not found". The site now has its own 404 page that opens the same page in the app (`https://jaybi.uz/#/app/transactions`), keeping a filter such as `?group=3`. It only ever opens a page of this site: anything unusual in the address (other characters, `..`, `//`, a very long path) opens the start page instead, and a missing file such as an old `assets/` script still answers "not found".
+- **After signing in you are back on the page you asked for.** A link to a page while the vault was locked, and a vault locked by **Lock** or by inactivity, used to show the dashboard after sign-in. Sign-in now returns to that page (`#/login?next=…`, which only accepts pages inside the app).
+- **Unknown addresses say so.** An address inside the app that matches no page used to jump to the dashboard without a word; it now shows **Page not found** with a button back to the dashboard, in all four languages.
+- **Skip to content** (the first Tab stop) moved to the dashboard instead of to the page's content.
+
 ## [1.4.0] - 2026-09-29
 
 Reads backup and record versions 1–2 and schema versions 1–4. Writes backup 2, record 2, schema 4, and export format 1, the same as 1.3.1. No data format changes: 1.3.0 and 1.3.1 open everything 1.4.0 saves. The new table export is a separate write-only file described under [Exports](docs/data-format.md#table-view-exports).
@@ -213,7 +224,8 @@ Writes backup, record, and schema version 1.
 - Audit log, encrypted `.moliya` backups, day and night themes, and a collapsible sidebar.
 - Deployment to GitHub Pages.
 
-[Unreleased]: https://github.com/kool277/iqtisod/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/kool277/iqtisod/compare/v1.4.1...HEAD
+[1.4.1]: https://github.com/kool277/iqtisod/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/kool277/iqtisod/compare/v1.3.1...v1.4.0
 [1.3.1]: https://github.com/kool277/iqtisod/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/kool277/iqtisod/compare/v1.2.0...v1.3.0

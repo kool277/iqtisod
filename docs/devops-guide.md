@@ -10,8 +10,8 @@ Jaybi is a static single-page app. The server only serves files. User data never
 | Install | `npm ci --ignore-scripts` (requires the committed `package-lock.json`; no locked package needs an install script) |
 | Build | `npm run build`, which runs `tsc --noEmit` then `vite build` |
 | Output | `dist/` |
-| Base path | `./` (relative), so the same build works at a domain root or under a sub-path |
-| Routing | Hash-based (`#/app`), so no rewrite or 404 fallback rules are needed |
+| Base path | `./` (relative), so the same build works at a domain root or under a sub-path. Only `404.html` uses root-absolute URLs (`/assets/…`) |
+| Routing | Hash-based (`#/app`). `404.html` sends path-style addresses to their hash route (see [SPA fallback](#spa-fallback-404html)); no rewrite rules are needed |
 
 `dist/` contains:
 
@@ -19,6 +19,20 @@ Jaybi is a static single-page app. The server only serves files. User data never
 - `version.json` with `version`, `commit`, and `builtAt`. Running apps poll it to detect a new deployment.
 - `coi-config.js` and `coi-serviceworker.js`. `coi-config.js` runs first: it records whether the page is framed, creates the Trusted Types `default` policy, and configures the service worker.
 - `assets/` with hashed files. The first screen loads only the app entry (about 100 KB, 30 KB gzipped), the interface strings in four languages (about 150 KB, 46 KB gzipped), React (about 260 KB, 80 KB gzipped), and a few small shared chunks: about 545 KB, 170 KB gzipped in all. Pages, Chart.js (about 180 KB), and SQLite (about 210 KB of JavaScript plus an 870 KB WebAssembly binary, about 400 KB gzipped) load on demand. Serve `.wasm` as `application/wasm`; GitHub Pages and most hosts do this already.
+
+### SPA fallback (404.html)
+
+GitHub Pages answers every address without a file of its own with `404.html` (status 404). Built from the root `404.html` and `src/spa-fallback.ts`, that page turns the address into the app's hash route and calls `location.replace`:
+
+| Address | Opens |
+| --- | --- |
+| `/app/transactions?group=3` | `/#/app/transactions?group=3` |
+| `/app/groups/` | `/#/app/groups` |
+| `/iqtisod/app/audit`, `/iqtisod/#/app/backup` (old base path) | `/#/app/audit`, `/#/app/backup` |
+| `//evil.com`, `/%5Cevil`, `/app/../x`, anything over 512 characters | `/#/` (start page) |
+| `/assets/gone.js`, `/rates/x.json`, any name with a file extension | Stays on the 404 page |
+
+The rules live in `src/lib/spa-fallback.ts` (tested in `tests/unit/spa-fallback.test.ts`): every path segment must be `A–Z a–z 0–9 . _ ~ -` after decoding once, `.` and `..` are refused, a query is kept only if it uses the same characters plus `= & + %XX`, and the target always starts with `/#/`, so it cannot leave the origin. The page loads one same-origin module under the same Content Security Policy as `index.html`, with no inline script, and does not load the isolation service worker; the app page it opens does. Real files are served before the fallback is consulted, so `index.html`, `version.json`, `rates/`, `CNAME`, and `assets/` are unaffected. `vite dev` and `vite preview` serve `404.html` for unknown paths the same way (the `moliya-pages-fallback` plugin, `appType: 'mpa'`), so `tests/e2e/routes.spec.ts` exercises it on both. When the app runs under a sub-path (for example `kool277.github.io/iqtisod/` during a [recovery](#recovering-a-vault-left-at-the-old-address)), path-style links are not redirected; use `#/` links there. On other hosts, either serve `404.html` for missing paths or skip it: `#/` links work without it.
 
 `dist/` does not contain exchange rates. The deploy adds `rates/` from the `fx-data` branch (see [Exchange rates](#exchange-rates)); a release zip opened on its own shows the rates panel as unavailable unless `rates/` is copied next to `index.html`.
 
@@ -175,6 +189,7 @@ curl https://jaybi.uz/version.json            # the version and commit that were
 
 - **Exchange rates.** Once the deploy works, run **Actions → Exchange rates → Run workflow** once, then run **Deploy GitHub Pages** again (or push to `main`), so the site includes `rates/latest.json`. After that, the scheduled rate runs and every deploy keep `rates/` in place. Check with `curl -sI https://jaybi.uz/rates/latest.json` (expect `200`).
 - **Version.** `curl https://jaybi.uz/version.json` must show the version and commit you just deployed. GitHub Pages caches for about 10 minutes.
+- **Fallback.** `curl -s https://jaybi.uz/app/transactions` must return the 404 page (it contains `notFound-`), and opening that address in a browser must end on `https://jaybi.uz/#/app/transactions` or the sign-in screen.
 - Open `https://jaybi.uz`, expect one automatic reload on the first visit (the isolation service worker), and check the version in Settings → About.
 
 #### Recovering a vault left at the old address
@@ -383,6 +398,7 @@ server {
   root /var/www/jaybi;
 
   include snippets/jaybi-headers.conf;
+  error_page 404 /404.html;
 
   location /assets/ {
     include snippets/jaybi-headers.conf;
