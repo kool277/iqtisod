@@ -6,6 +6,20 @@ Data formats are versioned separately from the app. Each release lists the forma
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-01
+
+Reads backup and record versions 1–2 and schema versions 1–4. Writes backup 2, record 2, schema 4, and export format 1, the same as 1.4.2. No stored format changed, so 1.4.2 opens everything 1.5.0 saves.
+
+### Added
+
+- **Health check** (**Health check** in the menu, and a link on the sign-in and setup screens). It runs 35 checks on this device and shows each as passed, needing attention, failed, or for information, with a plain explanation and what to do. The checks cover the browser (encryption, IndexedDB, WebAssembly, tab locks, cross-origin isolation, the service worker, secure context, Trusted Types, cookies, private mode), storage (a test write, free space, persistent storage with a button to ask for it, local storage, the stored vault), the app (version against the deployed one, build, matching files), the vault (format, size against the 48 MB limit, saving, last backup, sign-in check, password strength, clock check), exchange rates (age and fingerprint), and site security (Content Security Policy, framing, address). Admins also see earlier copies, the audit log's chain and head, and the member limit, marked **Admin**; other people never see them. Before sign-in, only checks that need no vault run. **Copy report** copies a plain-text summary with no names, emails, vault name, or amounts, for sending to whoever helps you; **Run again** repeats the checks. Nothing leaves the device.
+- **Help.** The user guide is built into the app (**Help** in the menu, a **?** button in the header that opens the section for the current page, help icons on **Private safes**, **Backup**, and **Health check**, and a link before sign-in). It follows the chosen language, can be searched, and its buttons open the screens it describes. Pictures load only when scrolled to and are not part of the app's code.
+- **Illustrated user guides in four languages.** [docs/user-guide.md](docs/user-guide.md) is rewritten as a step-by-step tutorial for every role, from creating a vault to safes, backups, moving to another browser, security tips, troubleshooting, an FAQ, and a glossary, and is translated into [Russian](docs/ru/user-guide.md), [Uzbek (Latin)](docs/uz-Latn/user-guide.md), and [Uzbek (Cyrillic)](docs/uz-Cyrl/user-guide.md). Each guide has its own screenshots of the app in its language (light and dark, desktop and phone), produced by an opt-in browser test (`DOCS_SCREENS=1 npx playwright test tests/e2e/docs-screenshots.spec.ts`) from a demo vault.
+
+### Changed
+
+- The first download grows by about 1.5 KB (gzip) for the new menu entries, routes, and help buttons; the health and help pages and their texts load only when opened.
+
 ## [1.4.2] - 2026-10-01
 
 Reads backup and record versions 1–2 and schema versions 1–4. Writes backup 2, record 2, schema 4, and export format 1, the same version numbers as 1.4.1. Every vault and backup made by an earlier version opens. Records and backups gain optional fields (a binding label on new password copies, an expiry on new codes, the audit head); see the [version matrix](docs/data-format.md#version-matrix). **1.4.1 cannot open password copies or codes created by 1.4.2**, so roll back only to a backup made before the upgrade.
@@ -276,7 +290,8 @@ Writes backup, record, and schema version 1.
 - Audit log, encrypted `.moliya` backups, day and night themes, and a collapsible sidebar.
 - Deployment to GitHub Pages.
 
-[Unreleased]: https://github.com/kool277/iqtisod/compare/v1.4.2...HEAD
+[Unreleased]: https://github.com/kool277/iqtisod/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/kool277/iqtisod/compare/v1.4.2...v1.5.0
 [1.4.2]: https://github.com/kool277/iqtisod/compare/v1.4.1...v1.4.2
 [1.4.1]: https://github.com/kool277/iqtisod/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/kool277/iqtisod/compare/v1.3.1...v1.4.0

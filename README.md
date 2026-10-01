@@ -41,6 +41,8 @@ It suits a household tracking a shared budget, a small business or community gro
 - Data exports for Admins, for spreadsheets, accountants, and long-term archiving: CSV, JSON, JSON Lines, Excel, PDF report, and SQLite, for all data or one period and group. Exports are encrypted by default (AES-256 ZIP or an SQLCipher 4 database) with an export password of at least 14 characters that must differ from the sign-in password and pass the same common-password and vault-name/email checks as sign-in passwords. ZIP needs a strong password (its key derivation is fixed and fast), so the form starts with a generated 120-bit one. Private safes are never exported.
 - Versioned data formats: every vault and backup made by any release keeps opening in every later release, and a standalone tool opens backups without the website.
 - In-app version display and a prompt to reload when a new version is deployed.
+- Health check for everyone, also before signing in: 35 local checks of the browser, storage, app version, vault, exchange rates, and site security, each with a plain explanation and a fix, plus a report to copy that holds no names, emails, or vault data. Admins also see the audit log, earlier copies, and the member limit.
+- Built-in help: the illustrated user guide in all four languages, searchable, with links into the app and a help button on every page.
 - Day, night, and system themes. Language and theme choices are remembered.
 
 ## How it works
@@ -96,7 +98,7 @@ Open the address Vite prints (usually `http://localhost:5173`), create a vault, 
 
 ## Documentation
 
-- [User guide](docs/user-guide.md) is for Managers and Viewers who record and review money, and for anyone using private safes.
+- [User guide](docs/user-guide.md) is an illustrated tutorial for everyone who uses a vault: signing in, records, tables, groups, people, private safes, backups, the health check, and troubleshooting. It is also available in [Russian](docs/ru/user-guide.md), [Uzbek (Latin)](docs/uz-Latn/user-guide.md), and [Uzbek (Cyrillic)](docs/uz-Cyrl/user-guide.md), each with screenshots in its own language, and inside the app under **Help**.
 - [Admin guide](docs/admin-guide.md) covers setting up a vault, settings and categories, people, groups, backups, and recovery.
 - [Developer guide](docs/developer-guide.md) covers architecture, code layout, conventions, and how to extend the app.
 - [DevOps guide](docs/devops-guide.md) covers building, CI, releases, GitHub Pages, the jaybi.uz domain and DNS, exchange rates, other hosts, and operational risks.
@@ -116,7 +118,7 @@ React 19, TypeScript, Vite, Tailwind CSS 4, Chart.js, Lucide icons, `@sqlite.org
 
 ## Status
 
-Version 1.4.0, in production since 1.0.0 and served from [jaybi.uz](https://jaybi.uz) since 1.3.0. The core features work and are covered by unit tests, browser tests, and golden backups from every release. Known gaps and suggested next steps are listed in the [developer guide](docs/developer-guide.md#known-gaps-and-next-steps).
+Version 1.5.0, in production since 1.0.0 and served from [jaybi.uz](https://jaybi.uz) since 1.3.0. The core features work and are covered by unit tests, browser tests, and golden backups from every release. Known gaps and suggested next steps are listed in the [developer guide](docs/developer-guide.md#known-gaps-and-next-steps).
 
 ## License
 
