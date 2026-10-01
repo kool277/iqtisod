@@ -58,7 +58,9 @@ async function buildFormat(format: ExportFormat, { dataset, source, request, con
     }
     case 'sqlite': {
       const bytes = await buildExportDatabase(source, dataset.meta, { reserveBytes: 0 })
-      return [{ name: 'jaybi.sqlite', blob: new Blob([bytes as BlobPart], { type: MIME.sqlite }) }]
+      const blob = new Blob([bytes as BlobPart], { type: MIME.sqlite })
+      bytes.fill(0)
+      return [{ name: 'jaybi.sqlite', blob }]
     }
   }
 }
@@ -94,7 +96,13 @@ export async function runExport(vault: OpenVault, input: ExportRequest, context:
 
   const now = context.now ?? new Date()
   const source = vault.db.export()
-  const snapshot = await SqlDatabase.openBytes(source)
+  let snapshot: SqlDatabase
+  try {
+    snapshot = await SqlDatabase.openBytes(source)
+  } catch (error) {
+    source.fill(0)
+    throw error
+  }
   try {
     const dataset = createDataset(snapshot, scope, { user: vault.user, now, app: context.app })
     const date = toIsoDate(now)
@@ -105,8 +113,12 @@ export async function runExport(vault: OpenVault, input: ExportRequest, context:
       const plain = await buildExportDatabase(source, dataset.meta, { reserveBytes: SQLCIPHER_RESERVE_BYTES })
       throwIfAborted(signal)
       onProgress?.({ stage: 'encrypting' })
-      const encrypted = await encryptSqlcipher4(plain, request.password ?? '', context.random)
-      plain.fill(0)
+      let encrypted: Uint8Array
+      try {
+        encrypted = await encryptSqlcipher4(plain, request.password ?? '', context.random)
+      } finally {
+        plain.fill(0)
+      }
       throwIfAborted(signal)
       onProgress?.({ stage: 'done' })
       return { blob: new Blob([encrypted as BlobPart], { type: MIME.sqlite }), fileName: name('-encrypted.sqlite'), mime: MIME.sqlite }
@@ -136,6 +148,7 @@ export async function runExport(vault: OpenVault, input: ExportRequest, context:
     return { blob, fileName: name(request.protection === 'zip' ? '-encrypted.zip' : '.zip'), mime: MIME.zip }
   } finally {
     snapshot.close()
+    source.fill(0)
   }
 }
 

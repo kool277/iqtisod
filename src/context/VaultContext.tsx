@@ -7,6 +7,7 @@ import { AppError, AuthError, ConflictError, ForbiddenError, ValidationError, Va
 import { observeClock } from '../lib/device-clock'
 import { readIdleMinutes, storeIdleMinutes, watchIdle, type IdleMinutes } from '../lib/idle'
 import { LIMITS } from '../lib/limits'
+import { clearLockNotice, lockUrl, peekLockNotice, rememberLockNotice } from '../lib/lock-reload'
 import { passwordProblem } from '../lib/password-policy'
 import { requestPersistence } from '../lib/persistence'
 import { acquireSessionLock } from '../lib/session-lock'
@@ -131,7 +132,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const [checkFailuresSeen, setCheckFailuresSeen] = useState(0)
   const [vaultBytes, setVaultBytes] = useState(0)
   const [idleMinutes, setIdleMinutesState] = useState<IdleMinutes>(() => readIdleMinutes())
-  const [lockReason, setLockReason] = useState<VaultLockReason | null>(null)
+  const [lockReason, setLockReason] = useState<VaultLockReason | null>(() => peekLockNotice())
 
   const syncState = useCallback((vault: OpenVault) => {
     setUser(snapshotUser(vault.user))
@@ -370,7 +371,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       await throttle.ready
       const wait = throttle.wait('code', input.email)
       if (wait > 0) throw new ThrottledError(wait)
-      const loaded = await readFreshVault()
+      // Not pruned first: an expired code should say so. It is pruned right after, and at every load.
+      const loaded = await readVault()
       if (!loaded) throw new ValidationError('NO_VAULT')
       const release = await acquireSessionLock()
       if (!release) throw new VaultInUseError()
@@ -379,6 +381,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         vault = await redeemGrant(loaded.record, input)
       } catch (error) {
         release()
+        if (error instanceof AppError && error.code === 'INVITE_EXPIRED') await readFreshVault().catch(() => null)
         if (isCodeFailure(error)) {
           const next = throttle.fail('code', input.email)
           if (next > 0) throw new ThrottledError(next)
@@ -418,7 +421,15 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     setRecoveryLeft(null)
     setFailuresSeen(0)
     setCheckFailuresSeen(0)
-    setLockReason(vault ? reason : null)
+    if (vault) {
+      // A reload drops the JavaScript heap and the SQLite WASM memory, so no decrypted data outlives the session.
+      rememberLockNotice(reason)
+      setStatus('checking')
+      window.history.replaceState(null, '', lockUrl(window.location, reason))
+      window.location.reload()
+      return
+    }
+    setLockReason(null)
     setStatus('locked')
   }, [enqueuePersist, releaseSession, cancelSignInCheck])
 
@@ -497,6 +508,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     storeIdleMinutes(minutes)
     setIdleMinutesState(minutes)
   }, [])
+
+  useEffect(() => clearLockNotice(), [])
 
   useEffect(() => {
     let cancelled = false

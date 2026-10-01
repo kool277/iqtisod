@@ -756,7 +756,7 @@ export const uzLatn: CoreMessages = {
     PASSWORD_COMMON: 'Bu parol juda keng tarqalgan yoki oson topiladi. Bir-biriga bogʻliq boʻlmagan bir nechta soʻzni sinab koʻring.',
     PASSWORD_CONTEXT: 'Parolni pochtangiz yoki seyf nomidan tuzmang.',
     INVITE_CODE: 'Kod toʻliq emas yoki unda xato bor. Tekshirib, qayta urinib koʻring.',
-    INVITE_INVALID: 'Bu pochta va kod hech qaysi faol taklifga mos kelmadi.',
+    INVITE_INVALID: 'Bu pochta va kod hech qaysi faol taklifga mos kelmadi. Kodlar muddati tugagach yoki ishlatilgach ishlamaydi; kerak boʻlsa, yangisini soʻrang.',
     INVITE_EXPIRED: 'Bu kodning muddati tugagan. Administratordan yangisini soʻrang.',
     CLOCK_BEHIND: 'Bu qurilmaning soati koʻrilgan eng soʻnggi vaqtdan orqada. Sana va vaqtni toʻgʻrilab, qayta urinib koʻring. Soat toʻgʻri boʻlsa, administrator «Odamlar» sahifasida soat tekshiruvini qayta oʻrnatishi mumkin.',
     INVITE_LIMIT: 'Faol kodlar juda koʻp. Avval ulardan baʼzilarini bekor qiling.',

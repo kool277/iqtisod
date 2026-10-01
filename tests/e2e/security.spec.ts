@@ -377,6 +377,21 @@ test('replacing a vault with a backup needs the password and the vault name', as
   expect(await watcher.violations()).toEqual([])
 })
 
+test('locking reloads the page, so nothing from the unlocked session stays in memory', async ({ page }) => {
+  const watcher = await watch(page)
+  await createVault(page)
+  await page.evaluate(() => {
+    ;(window as unknown as { __unlockedRealm?: boolean }).__unlockedRealm = true
+  })
+  await lock(page)
+  expect(await page.evaluate(() => (window as unknown as { __unlockedRealm?: boolean }).__unlockedRealm ?? null)).toBeNull()
+  await expect(page).toHaveURL(/#\/login$/)
+  await expect(page.getByTestId('idle-locked')).toHaveCount(0)
+  await signIn(page, ADMIN.email, ADMIN.password)
+  await expect(page.getByTestId('kpi-net')).toBeVisible({ timeout: 30_000 })
+  expect(await watcher.violations()).toEqual([])
+})
+
 test('the vault locks itself after the chosen idle time', async ({ page }) => {
   const watcher = await watch(page)
   await page.clock.install()

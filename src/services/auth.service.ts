@@ -107,7 +107,12 @@ async function seal(db: SqlDatabase, dek: CryptoKey, wraps: UserWrap[], grants: 
   observeClock(now)
   if (readSchemaVersion(db) >= 4) recordClock(db, now)
   const exported = db.export()
-  const sealed = await encryptDatabase(exported, dek)
+  let sealed: Awaited<ReturnType<typeof encryptDatabase>>
+  try {
+    sealed = await encryptDatabase(exported, dek)
+  } finally {
+    exported.fill(0)
+  }
   return recordFromSession({
     wraps,
     grants,

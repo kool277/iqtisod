@@ -79,7 +79,12 @@ export class SqlDatabase {
     if (db.pointer == null) throw new Error('SQLite handle is not open')
     const copy = new Uint8Array(bytes.byteLength)
     copy.set(bytes)
-    const pointer = sqlite3.wasm.allocFromTypedArray(copy)
+    let pointer: number
+    try {
+      pointer = sqlite3.wasm.allocFromTypedArray(copy)
+    } finally {
+      copy.fill(0)
+    }
     const flags =
       sqlite3.capi.SQLITE_DESERIALIZE_FREEONCLOSE | sqlite3.capi.SQLITE_DESERIALIZE_RESIZEABLE
     const rc = sqlite3.capi.sqlite3_deserialize(
@@ -136,7 +141,8 @@ export class SqlDatabase {
   export(): Uint8Array {
     if (this.db.pointer == null) throw new Error('SQLite handle is not open')
     const exported = this.sqlite3.capi.sqlite3_js_db_export(this.db.pointer)
-    return new Uint8Array(exported)
+    // Already a fresh copy out of the WASM heap; copying again would leave one more plaintext behind.
+    return exported instanceof Uint8Array ? exported : new Uint8Array(exported)
   }
 
   close(): void {

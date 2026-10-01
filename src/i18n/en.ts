@@ -757,7 +757,7 @@ export const en = {
     PASSWORD_COMMON: 'This password is too common or too easy to guess. Try a few unrelated words.',
     PASSWORD_CONTEXT: 'Do not build the password from your email or the vault name.',
     INVITE_CODE: 'That code is not complete or has a typo. Check it and try again.',
-    INVITE_INVALID: 'That email and code do not match an open invitation.',
+    INVITE_INVALID: 'That email and code do not match an open invitation. Codes stop working once they expire or are used; ask for a new one if needed.',
     INVITE_EXPIRED: 'This code has expired. Ask your administrator for a new one.',
     CLOCK_BEHIND: 'This device’s clock is behind the latest time seen. Correct the date and time and try again. If the clock is right, an Admin can reset the clock check on the People page.',
     INVITE_LIMIT: 'Too many open codes. Revoke some first.',

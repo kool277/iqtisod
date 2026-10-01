@@ -124,12 +124,13 @@ export async function generateDek(): Promise<CryptoKey> {
 
 export async function encryptDatabase(data: Uint8Array, key: CryptoKey): Promise<CipherPayload> {
   const iv = randomBytes(IV_BYTES)
-  const cipherText = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv: copyToBuffer(iv) },
-    key,
-    copyToBuffer(data),
-  )
-  return { cipherText, iv }
+  const plain = copyToBuffer(data)
+  try {
+    const cipherText = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: copyToBuffer(iv) }, key, plain)
+    return { cipherText, iv }
+  } finally {
+    new Uint8Array(plain).fill(0)
+  }
 }
 
 export async function decryptDatabase(
