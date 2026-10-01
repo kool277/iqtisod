@@ -19,6 +19,7 @@ import { SafeProvider } from '../context/SafeContext'
 import { useI18n } from '../context/I18nContext'
 import { useVault } from '../context/VaultContext'
 import type { MessageKey } from '../i18n'
+import { readPreference, writePreference } from '../lib/preference'
 import { BUILD } from '../lib/version'
 import { Permission, canUser } from '../rbac'
 import { backupReminder } from '../services/backup.service'
@@ -51,7 +52,7 @@ const ACCOUNT_PATH = '/app/account'
 export function AppShell() {
   const { t } = useI18n()
   const { user, vaultName, lock, saveState, query, revision, lastBackupAt, weakPassword, storageNearLimit, recoveryLeft, clearRecoveryNotice, failuresSeen, checkFailuresSeen, clearFailuresSeen, auditWarning, dismissAuditWarning, acceptAuditLog } = useVault()
-  const [collapsed, setCollapsed] = useState(() => localStorage.getItem(SIDEBAR_KEY) === 'collapsed')
+  const [collapsed, setCollapsed] = useState(() => readPreference(SIDEBAR_KEY) === 'collapsed')
   const [reminderDismissed, setReminderDismissed] = useState(false)
   const reminder = useMemo(() => (user ? query((vault) => backupReminder(vault)) : null), [user, query, revision, lastBackupAt])
   const location = useLocation()
@@ -61,7 +62,7 @@ export function AppShell() {
 
   const toggleSidebar = () => {
     const next = !collapsed
-    localStorage.setItem(SIDEBAR_KEY, next ? 'collapsed' : 'expanded')
+    writePreference(SIDEBAR_KEY, next ? 'collapsed' : 'expanded')
     setCollapsed(next)
   }
   const ToggleIcon = collapsed ? PanelLeftOpen : PanelLeftClose

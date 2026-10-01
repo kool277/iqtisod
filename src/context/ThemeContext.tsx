@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { readPreference, writePreference } from '../lib/preference'
 
 export type ThemeSetting = 'light' | 'dark' | 'system'
 
@@ -27,7 +28,7 @@ function applyTheme(resolved: 'light' | 'dark'): void {
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [setting, setSettingState] = useState<ThemeSetting>(() => {
-    const saved = localStorage.getItem(THEME_KEY)
+    const saved = readPreference(THEME_KEY)
     return isTheme(saved) ? saved : 'system'
   })
   const [resolved, setResolved] = useState<'light' | 'dark'>(() => (setting === 'system' ? systemTheme() : setting))
@@ -48,7 +49,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [setting])
 
   const setSetting = (next: ThemeSetting) => {
-    localStorage.setItem(THEME_KEY, next)
+    writePreference(THEME_KEY, next)
     setSettingState(next)
   }
 

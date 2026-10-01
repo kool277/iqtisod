@@ -1,3 +1,4 @@
+import { readPreference } from '../lib/preference'
 import { en, type CoreMessages, type Messages } from './en'
 import type { ExportMessages } from './export/en'
 import type { TableMessages } from './table/en'
@@ -71,8 +72,7 @@ export function isLocale(value: unknown): value is Locale {
 }
 
 export function detectLocale(): Locale {
-  if (typeof localStorage === 'undefined') return 'en'
-  const saved = localStorage.getItem(LOCALE_KEY)
+  const saved = readPreference(LOCALE_KEY)
   if (isLocale(saved)) return saved
   if (typeof navigator === 'undefined') return 'en'
   const language = navigator.language.toLowerCase()
