@@ -70,7 +70,7 @@ Things to know:
 
 - **Backups made before the code is used contain it.** Jaybi shows this warning with every code: "Backups made before the code is used also contain it. Anyone with such a backup and the code can join until it expires. Revoke the code if it was shared by mistake." Expiry and revocation are checked by the app on the device that holds the copy. Someone with an old backup, the code, and a computer clock set back could still open that old copy after the code expired. Use short validity, and do not hand out backups while codes are open.
 - **One open code per email.** Creating another code for the same email is refused until you revoke the first. At most 20 invites can be open at once.
-- **The device clock matters.** Codes use this device's clock. If it is more than 5 minutes behind the latest time the vault has seen, creating and using codes is refused with "This device’s clock is behind…". Correct the date and time.
+- **The device clock matters.** Codes use this device's clock. If it is more than 5 minutes behind the latest time the vault or this browser has seen, creating and using codes is refused with "This device’s clock is behind…". Correct the date and time. If a clock that was wrong in the future pushed that time ahead, the refusals continue for up to two days after the clock is corrected (each save or visit can move it forward by at most two days); an Admin can end them at once under **People → Clock check for codes → Reset to the current time**, with their password. This is recorded as "Clock check reset".
 - **Failed attempts are limited.** Wrong codes count like wrong passwords (see [Security limits](#security-limits-to-know)).
 
 ### Open codes
@@ -179,7 +179,9 @@ From 1.3.0 it also shows:
 | Password reset with code | Someone set a new password with a reset code |
 | Code expired | An invite or reset code passed its time unused. Written at the next sign-in, with no person attached |
 | Vault replaced by a backup | An Admin replaced the vault. Written into the old vault, which is kept as **Before import** |
-| Failed sign-in attempts seen | Someone signed in after failed attempts for their email in this browser, with the count |
+| Failed sign-in attempts seen | Someone completed a sign-in after failed attempts for their email in this browser, with the count. From 1.4.2 it also counts sign-ins where the password was right but the sign-in check was not passed (wrong code, cancelled, or timed out); the person sees both counts in a banner |
+| Clock check reset | An Admin reset the clock check for codes to the current time |
+| Audit log accepted after a warning | An Admin accepted the audit log after Jaybi warned that it was shorter or different than this browser last saw it, with the warning's details |
 | Sign-in check turned on / Sign-in check turned off | A person turned their own sign-in check on or off |
 | Sign-in check removed | An Admin turned off someone's sign-in check, or a password reset turned it off |
 | Sign-in recovery code used | Someone signed in with a sign-in recovery code |
