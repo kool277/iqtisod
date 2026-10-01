@@ -40,6 +40,13 @@ function fail(message: string): never {
   throw new SourceFormatError(message)
 }
 
+/** Upstream text in an error message: quoted, printable ASCII only, and short, so it cannot forge log lines or workflow commands. */
+export function shown(value: unknown): string {
+  const text = typeof value === 'string' ? value : String(value)
+  const clipped = text.length > 40 ? `${text.slice(0, 40)}…` : text
+  return JSON.stringify(clipped).replace(/[^\x20-\x7e]/g, '?')
+}
+
 function rate(text: string, label: string): Decimal {
   try {
     return parseRate(text, label)
@@ -72,10 +79,10 @@ export function parseCbu(text: string): CbuTable {
     if (typeof Ccy !== 'string' || !/^[A-Z]{3}$/.test(Ccy)) fail('CBU: invalid currency code')
     if (!CBU_CURRENCIES.includes(Ccy)) continue
     if (typeof Rate !== 'string') fail(`CBU ${Ccy}: rate is not a string`)
-    if (typeof Nominal !== 'string' || !/^10*$/.test(Nominal)) fail(`CBU ${Ccy}: nominal ${String(Nominal)} is not a power of ten`)
+    if (typeof Nominal !== 'string' || !/^10*$/.test(Nominal)) fail(`CBU ${Ccy}: nominal ${shown(Nominal)} is not a power of ten`)
     const match = typeof day === 'string' ? /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(day) : null
     const iso = match ? `${match[3]}-${match[2]}-${match[1]}` : null
-    if (!isIsoDate(iso)) fail(`CBU ${Ccy}: invalid date ${String(day)}`)
+    if (!isIsoDate(iso)) fail(`CBU ${Ccy}: invalid date ${shown(day)}`)
     if (date !== null && date !== iso) fail('CBU: rows carry different dates')
     date = iso
     rates.set(Ccy, perUnit(rate(Rate, `CBU ${Ccy}`), Nominal.length - 1))
@@ -136,10 +143,10 @@ export function parseEcb(text: string): Map<string, FxObservation[]> {
   const rows = parseCsv(text, 'ECB', ['FREQ', 'CURRENCY', 'CURRENCY_DENOM', 'EXR_TYPE', 'TIME_PERIOD', 'OBS_VALUE'])
   const series = new Map<string, FxObservation[]>()
   for (const row of rows) {
-    const label = `ECB ${row.CURRENCY}`
-    if (row.FREQ !== 'D' || row.CURRENCY_DENOM !== 'EUR' || row.EXR_TYPE !== 'SP00') fail(`${label}: unexpected series ${row.KEY ?? ''}`)
     if (!/^[A-Z]{3}$/.test(row.CURRENCY)) fail('ECB: invalid currency code')
-    if (!isIsoDate(row.TIME_PERIOD)) fail(`${label}: invalid date ${row.TIME_PERIOD}`)
+    const label = `ECB ${row.CURRENCY}`
+    if (row.FREQ !== 'D' || row.CURRENCY_DENOM !== 'EUR' || row.EXR_TYPE !== 'SP00') fail(`${label}: unexpected series ${shown(row.KEY ?? '')}`)
+    if (!isIsoDate(row.TIME_PERIOD)) fail(`${label}: invalid date ${shown(row.TIME_PERIOD)}`)
     rate(row.OBS_VALUE, label)
     series.set(row.CURRENCY, [...(series.get(row.CURRENCY) ?? []), { rate: row.OBS_VALUE, date: row.TIME_PERIOD }])
   }
@@ -151,10 +158,10 @@ export function parseBoi(text: string): FxObservation[] {
   const rows = parseCsv(text, 'BOI', ['SERIES_CODE', 'BASE_CURRENCY', 'COUNTER_CURRENCY', 'UNIT_MULT', 'TIME_PERIOD', 'OBS_VALUE'])
   const observations = rows.map((row): FxObservation => {
     if (row.SERIES_CODE !== 'RER_USD_ILS' || row.BASE_CURRENCY !== 'USD' || row.COUNTER_CURRENCY !== 'ILS') {
-      fail(`BOI: unexpected series ${row.SERIES_CODE}`)
+      fail(`BOI: unexpected series ${shown(row.SERIES_CODE)}`)
     }
-    if (!/^\d$/.test(row.UNIT_MULT)) fail(`BOI: invalid unit multiplier ${row.UNIT_MULT}`)
-    if (!isIsoDate(row.TIME_PERIOD)) fail(`BOI: invalid date ${row.TIME_PERIOD}`)
+    if (!/^\d$/.test(row.UNIT_MULT)) fail(`BOI: invalid unit multiplier ${shown(row.UNIT_MULT)}`)
+    if (!isIsoDate(row.TIME_PERIOD)) fail(`BOI: invalid date ${shown(row.TIME_PERIOD)}`)
     const value = perUnit(rate(row.OBS_VALUE, 'BOI USD/ILS'), '0123456789'.indexOf(row.UNIT_MULT))
     return { rate: value.toString(), date: row.TIME_PERIOD }
   })
