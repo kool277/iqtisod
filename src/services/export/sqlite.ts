@@ -1,4 +1,4 @@
-import { loadModule, type SqlValue } from '../../db/sqlite'
+import { hardenConnection, loadModule, type SqlValue } from '../../db/sqlite'
 import { auditFilter, transactionFilter, type ExportMeta, type ExportScope } from './dataset'
 
 export const EXPORT_PAGE_SIZE = 4096
@@ -113,6 +113,7 @@ export async function buildExportDatabase(
   const db = new sqlite3.oo1.DB(':memory:', 'c')
   try {
     if (db.pointer == null) throw new Error('SQLite handle is not open')
+    hardenConnection(sqlite3, db, 1)
     db.exec(`PRAGMA page_size = ${EXPORT_PAGE_SIZE}`)
     if (options.reserveBytes > 0) {
       const pointer = wasm.alloc(4)
@@ -126,7 +127,12 @@ export async function buildExportDatabase(
     db.exec("ATTACH ':memory:' AS src")
     const copy = new Uint8Array(source.byteLength)
     copy.set(source)
-    const pointer = wasm.allocFromTypedArray(copy)
+    let pointer: number
+    try {
+      pointer = wasm.allocFromTypedArray(copy)
+    } finally {
+      copy.fill(0)
+    }
     db.checkRc(
       capi.sqlite3_deserialize(
         db.pointer,

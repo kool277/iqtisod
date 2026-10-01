@@ -91,7 +91,6 @@ export function assertMigrationsMatchSchemaVersion(): void {
 
 type Schema = Map<string, string | null>
 
-const CODE_OBJECTS = new Set(['trigger', 'view'])
 const expectedSchemas = new Map<number, Promise<Schema>>()
 
 function readSchema(db: SqlDatabase): Schema {
@@ -128,6 +127,6 @@ export async function assertKnownSchema(db: SqlDatabase, version = readSchemaVer
   if (actual.size !== expected.size) throw new ValidationError('SCHEMA_UNKNOWN')
   for (const [key, sql] of actual) {
     if (!expected.has(key)) throw new ValidationError('SCHEMA_UNKNOWN')
-    if (CODE_OBJECTS.has(key.split(':')[0]) && expected.get(key) !== sql) throw new ValidationError('SCHEMA_UNKNOWN')
+    if (expected.get(key) !== sql) throw new ValidationError('SCHEMA_UNKNOWN')
   }
 }

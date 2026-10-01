@@ -28,6 +28,19 @@ function normalizeRow(row: Record<string, WasmSqlValue>): Record<string, SqlValu
   return result
 }
 
+/** Every connection, including the export's scratch one: no schema-supplied side effects, no oversized values, no extra databases beyond `attached`. */
+export function hardenConnection(sqlite3: Sqlite3Static, db: Database, attached = 0): void {
+  const { capi } = sqlite3
+  const pointer = db.pointer
+  if (pointer == null) throw new Error('SQLite handle is not open')
+  db.checkRc(capi.sqlite3_db_config(pointer, capi.SQLITE_DBCONFIG_DEFENSIVE, 1, 0))
+  db.checkRc(capi.sqlite3_db_config(pointer, capi.SQLITE_DBCONFIG_TRUSTED_SCHEMA, 0, 0))
+  capi.sqlite3_limit(pointer, capi.SQLITE_LIMIT_LENGTH, SQLITE_VALUE_LIMIT)
+  capi.sqlite3_limit(pointer, capi.SQLITE_LIMIT_ATTACHED, attached)
+  db.exec('PRAGMA trusted_schema = OFF')
+  db.exec('PRAGMA cell_size_check = ON')
+}
+
 export class SqlDatabase {
   private constructor(
     private readonly sqlite3: Sqlite3Static,
@@ -43,15 +56,7 @@ export class SqlDatabase {
   }
 
   private configure(): void {
-    const { capi } = this.sqlite3
-    const pointer = this.db.pointer
-    if (pointer == null) throw new Error('SQLite handle is not open')
-    this.db.checkRc(capi.sqlite3_db_config(pointer, capi.SQLITE_DBCONFIG_DEFENSIVE, 1, 0))
-    this.db.checkRc(capi.sqlite3_db_config(pointer, capi.SQLITE_DBCONFIG_TRUSTED_SCHEMA, 0, 0))
-    capi.sqlite3_limit(pointer, capi.SQLITE_LIMIT_LENGTH, SQLITE_VALUE_LIMIT)
-    capi.sqlite3_limit(pointer, capi.SQLITE_LIMIT_ATTACHED, 0)
-    this.exec('PRAGMA trusted_schema = OFF')
-    this.exec('PRAGMA cell_size_check = ON')
+    hardenConnection(this.sqlite3, this.db)
     this.exec('PRAGMA foreign_keys = ON')
     this.exec('PRAGMA secure_delete = ON')
   }
