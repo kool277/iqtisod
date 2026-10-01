@@ -645,7 +645,7 @@ MOLIYA_PASSWORD='…' node tools/moliya-decrypt.mjs backup.moliya --email admin@
 sqlite3 ledger.sqlite "SELECT transaction_date, type, amount_minor / 100.0, currency, notes FROM transactions ORDER BY 1"
 ```
 
-The password comes from `MOLIYA_PASSWORD`, or the tool prompts for it. A wrong password and a damaged wrap or body give the same message, `wrong email or password, or the backup is damaged` (from 1.4.2). Without `--out` the output is the backup's name with `.sqlite`; an existing file is only overwritten with `--force`. `--help` prints the usage. Exit code 2 means bad arguments.
+The password comes from `MOLIYA_PASSWORD`, or the tool prompts for it. A wrong password and a damaged wrap or body give the same message, `wrong email or password, or the backup is damaged` (from 1.4.2). Without `--out` the output is the backup's name with `.sqlite`; an existing file is only replaced with `--force`. The output is always created new with mode 0600 and never through a symbolic link (from 1.4.2). `--help` prints the usage. Exit code 2 means bad arguments.
 
 For schema version 1 files the amount column is `amount` instead of `amount_minor`. The tool is about 240 lines of dependency-free JavaScript and doubles as a reference implementation of this document. Any language with PBKDF2 and AES-GCM can do the same in three steps: derive the KEK, decrypt `wrappedDek` to get the DEK, decrypt `body.ciphertext`.
 

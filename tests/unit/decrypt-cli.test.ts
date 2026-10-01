@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, lstatSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -127,6 +127,28 @@ describe('moliya-decrypt hardening', () => {
     expect(damaged).toMatchObject({ stderr: 'moliya-decrypt: wrong email or password, or the backup is damaged\n' })
     expect(wrong).toMatchObject({ stderr: (damaged as { stderr: string }).stderr })
     expect(existsSync(damagedOut)).toBe(false)
+  })
+
+  it('only writes a new 0600 file: refuses an existing one, and with --force replaces it or a symlink without following it', async () => {
+    const input = resolve(FIXTURE_ROOT, `${path}.moliya`)
+    const out = join(work, 'existing.sqlite')
+    writeFileSync(out, 'old', { mode: 0o644 })
+    await expect(cli([input, '--email', user.email, '--out', out], user.password)).rejects.toMatchObject({
+      stderr: expect.stringContaining('exists; pass --force to overwrite'),
+    })
+    expect(readFileSync(out, 'utf8')).toBe('old')
+    await cli([input, '--email', user.email, '--out', out, '--force'], user.password)
+    expect(readFileSync(out).subarray(0, 15).toString('latin1')).toBe('SQLite format 3')
+    expect(statSync(out).mode & 0o777).toBe(0o600)
+
+    const target = join(work, 'link-target.txt')
+    const link = join(work, 'link.sqlite')
+    writeFileSync(target, 'untouched')
+    symlinkSync(target, link)
+    await cli([input, '--email', user.email, '--out', link, '--force'], user.password)
+    expect(readFileSync(target, 'utf8')).toBe('untouched')
+    expect(lstatSync(link).isSymbolicLink()).toBe(false)
+    expect(statSync(link).mode & 0o777).toBe(0o600)
   })
 
   it('decrypts a backup whose wraps are bound to their person (1.4.2+), scrubbing in a removed temporary directory', async () => {

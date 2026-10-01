@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Standalone recovery tool for Moliya backups. Depends only on Node.js (22+) so it keeps
 // working without the app, its build, or npm. Specification: docs/data-format.md.
-import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { chmodSync, closeSync, existsSync, fstatSync, mkdtempSync, openSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import { createInterface } from 'node:readline'
@@ -199,10 +199,38 @@ export async function scrubbed(plain) {
     return { bytes: new Uint8Array(readFileSync(path)), summary }
   } finally {
     try {
-      if (existsSync(path)) writeFileSync(path, new Uint8Array(statSync(path).size))
+      zeroFile(path)
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
+  }
+}
+
+// Through one descriptor, so the zeros land in the same file whose size was read.
+function zeroFile(path) {
+  let fd
+  try {
+    fd = openSync(path, 'r+')
+  } catch (error) {
+    if (error?.code === 'ENOENT') return
+    throw error
+  }
+  try {
+    writeFileSync(fd, new Uint8Array(fstatSync(fd).size))
+  } finally {
+    closeSync(fd)
+  }
+}
+
+// 'wx' (O_CREAT | O_EXCL) never follows a symlink or reuses a file, so the output is always a new 0600 file
+// even if something appears at that path after the early check; --force removes the old one first.
+function writeOutput(out, data, force) {
+  if (force) rmSync(out, { force: true })
+  try {
+    writeFileSync(out, data, { mode: 0o600, flag: 'wx' })
+  } catch (error) {
+    if (error?.code === 'EEXIST') throw new Error(`${out} exists; pass --force to overwrite`)
+    throw error
   }
 }
 
@@ -262,8 +290,11 @@ async function main() {
     const clean = options.keepKeys ? null : await scrubbed(plain)
     if (clean) {
       summary = clean.summary
-      writeFileSync(out, clean.bytes, { mode: 0o600 })
-      clean.bytes.fill(0)
+      try {
+        writeOutput(out, clean.bytes, options.force)
+      } finally {
+        clean.bytes.fill(0)
+      }
     } else {
       if (!options.keepKeys) {
         process.stderr.write(
@@ -271,7 +302,7 @@ async function main() {
             'Use Node.js 22.13 or newer, or treat the file as secret.\n',
         )
       }
-      writeFileSync(out, plain, { mode: 0o600 })
+      writeOutput(out, plain, options.force)
     }
   } finally {
     plain.fill(0)
