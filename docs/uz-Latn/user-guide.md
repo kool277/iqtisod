@@ -1,362 +1,749 @@
-# User guide
+# Jaybi foydalanuvchi qoʻllanmasi
 
-This guide is for people who use a Jaybi vault day to day: **Managers**, who record income and expenses, and **Viewers**, who review them. Everyone, whatever their role, can keep their own [private safes](#private-safes). Admins can do everything here too. Their extra tasks are in the [admin guide](admin-guide.md).
+[English](../user-guide.md) · [Русский](../ru/user-guide.md) · **Oʻzbekcha** · [Ўзбекча](../uz-Cyrl/user-guide.md)
 
-## Before you start
+Jaybi — butunlay brauzeringizda ishlaydigan, oila va kichik biznes uchun shaxsiy daftar. Yozuvlaringiz, shaxsiy seyflaringiz va sozlamalaringiz oʻz qurilmangizda shifrlanadi va hech qayerga yuborilmaydi. Bu qoʻllanma sizni har bir ekran boʻylab qadamma-qadam, rasmlar bilan olib oʻtadi. Administratorlar bu yerda oʻzlarining qoʻshimcha vazifalarini ham topadi: odamlarni taklif qilish, zaxira nusxalar, sozlamalar va audit jurnali. Joylashtirish va tiklash boʻyicha texnik tafsilotlar alohida qoʻllanmada: [administrator qoʻllanmasi](../admin-guide.md).
 
-Your admin gives you the address of the app, your email, and usually a **one-time code**. You use the code once to [join the vault](#joining-with-a-code) and choose your own password, so nobody else ever knows it. Some admins give a starting password instead; then Jaybi asks you to replace it the first time you sign in (see [Your account](#your-account)).
+<a id="contents"></a>
+## Mundarija
 
-Jaybi has no "forgot password" link. If you forget your password, ask your admin for a reset code, but read [After an admin resets your password](#after-an-admin-resets-your-password) first if you use private safes.
+- [Boshlash](#start)
+- [Kirish va qulflash](#sign-in)
+- [Ilovada yoʻl topish](#around)
+- [Rollar: kim nima qila oladi](#roles)
+- [Boshqaruv sahifasi](#dashboard)
+- [Pulni yozib borish](#transactions)
+- [Jadvallar bilan ishlash](#tables)
+- [Guruhlar](#groups)
+- [Odamlar va takliflar](#users)
+- [Shaxsiy seyflar](#safes)
+- [Zaxira nusxalar va boshqa qurilmaga koʻchish](#backup)
+- [Seyf sozlamalari](#settings)
+- [Hisobingiz](#account)
+- [Audit jurnali](#audit)
+- [Holat tekshiruvi](#health)
+- [Bu yordamdan foydalanish](#help)
+- [Yangilanishlar va versiyalar](#updates)
+- [Xavfsizlik boʻyicha maslahatlar](#security)
+- [Muammolarni hal qilish](#troubleshooting)
+- [Savol va javoblar](#faq)
+- [Atamalar lugʻati](#glossary)
 
-Jaybi was called Moliya before version 1.3.0, and it now lives at [https://jaybi.uz](https://jaybi.uz). The old address, `kool277.github.io/iqtisod`, forwards there. Sign in at `jaybi.uz` with your usual email and password. If it shows **Create your vault** instead, your vault is still stored under the old address in this browser and has not been moved yet: do not create a new vault, and ask your admin (see [Moving to jaybi.uz](admin-guide.md#moving-to-jaybiuz)).
+<a id="start"></a>
+## Boshlash
 
-The vault lives inside one browser on one device. If your admin set it up on a shared computer, use that computer and that browser. Opening the app on your own phone will show an empty setup screen, because that browser has no vault yet. Your admin can move a copy there with a backup file.
+<a id="where-data-lives"></a>
+### Maʼlumotlaringiz qayerda saqlanadi
 
-## Joining with a code
+Jaybi butun daftarni bitta shifrlangan faylda — **seyf** ichida — bitta qurilmadagi bitta brauzerda saqlaydi. Serverdagi hisob ham, bulutdagi nusxa ham yoʻq. Buning boshidanoq bilishingiz kerak boʻlgan uchta oqibati bor:
 
-A code has seven groups of four letters and digits, like `XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX`. It works once, for your email only, and only until the time your admin chose (24 hours unless they picked another time).
+- Jaybini har safar oʻsha brauzerda, oʻsha qurilmada oching. Boshqa brauzer, boshqa brauzer profili, maxfiy oyna yoki boshqa telefon boʻsh sozlash ekranini koʻrsatadi, chunki seyf u yerda yoʻq.
+- Asosiy parolni siz uchun hech kim tiklay olmaydi va maʼlumotlaringizni siz uchun hech kim oʻqiy olmaydi, hatto Jaybini yaratganlar ham.
+- Brauzer maʼlumotlari oʻchirilsa, saqlanib qoladigan yagona nusxa — **zaxira nusxa fayli**. Administratorlar uni muntazam yuklab olishi kerak ([Zaxira nusxalar](#backup) boʻlimiga qarang).
 
-1. Open the app in the browser where the vault is stored. On **Unlock vault**, choose **Have a one-time code? Join the vault**. If your admin sent you a link, opening it fills in your email and the code for you.
-2. Check **Your email**, and type or paste the **One-time code**. Capital or small letters, spaces, and dashes do not matter; the letter O counts as zero, and I and L count as one.
-3. Enter a password under **Choose a password** and again under **Confirm password**. See [Choosing a password](#choosing-a-password).
-4. Choose **Join vault**. You are signed in.
+Jaybi kompyuter va telefonlarda Chrome, Edge, Firefox va Safari brauzerlarining joriy versiyalarida ishlaydi. Uni [https://jaybi.uz](https://jaybi.uz) manzilida oching. 1.3.0 versiyasigacha Jaybi Moliya deb atalgan; eski `kool277.github.io/iqtisod` manzili jaybi.uz saytiga yoʻnaltiradi.
 
-A code works only in the browser where the vault is stored, because that is where the vault is. If Jaybi says "There is no vault in this browser yet", you are on the wrong device or browser. Open the app where your admin set it up, or first choose **Import a backup** if your admin gave you a backup file.
+<a id="create-vault"></a>
+### Seyf yaratish (birinchi administrator)
 
-If Jaybi says the code has expired or does not match, ask your admin for a new one. Keep the code private until you have used it: anyone with the code and your email can join as you while it is open.
+Seyfni yaratgan odam uning birinchi **Administrator**i boʻladi.
 
-## Signing in
+1. Jaybini oching. Yuqori oʻng burchakda til va mavzuni tanlang.
+2. **Seyf yarating** ostida **Seyf nomi**ni (masalan, oilangiz yoki biznesingiz nomi), **Administrator pochtasi**ni va **Asosiy parol**ni kiriting, soʻng **Parolni tasdiqlang** maydoniga oʻsha parolni yana yozing.
+3. Jami summalar hisoblanadigan **Valyuta**ni tanlang. Uni keyinroq [Seyf sozlamalari](#settings) boʻlimida oʻzgartirishingiz mumkin.
+4. **Shifrlangan seyf yaratish** tugmasini bosing. Shifrlash bir necha soniya davom etadi.
 
-1. Open the app. You will see **Unlock vault**.
-2. Enter your email and password, then choose **Unlock**.
+![Nomi, pochta, parol va valyuta toʻldirilgan «Seyf yarating» ekrani](../images/uz-Latn/setup.webp)
 
-Unlocking takes a moment, because your password is deliberately stretched to make guessing slow. If you see "Email or password is incorrect", check both. The message is the same for either mistake on purpose.
+Asosiy parolni ehtiyotkorlik bilan tanlang: u seyfni shifrlaydi va **uni tiklab boʻlmaydi**. [Parol tanlash](#choosing-a-password) boʻlimiga qarang.
 
-After five wrong tries for the same email, Jaybi shows **Too many attempts. Try again in** with a countdown, and the wait doubles with each further mistake, up to 15 minutes. Codes and the sign-in check are limited the same way. Wait for the countdown to finish; refreshing the page does not shorten it. After you sign in, Jaybi tells you how many failed attempts there were for your account in this browser since your last sign-in. If you did not make them, change your password.
+Seyf tayyor boʻlgach, boshqaruv sahifasiga tushasiz. Kimdir pul harakatini yozmaguncha u boʻsh turadi.
 
-This limit slows down someone guessing at this screen. It does not protect a copy of the vault or a backup: someone with a copy can guess without any limit, and only a long, uncommon password stops them.
+![Seyf yaratilgandan keyingi boʻsh boshqaruv sahifasi](../images/uz-Latn/dashboard-empty.webp)
 
-### The second step
+Agar boshqa qurilmadan olingan zaxira nusxangiz boʻlsa, yangi seyf yaratmang: oʻsha ekranning pastidagi **Yoki zaxira nusxani import qiling** bandidan foydalaning ([Boshqa qurilmaga koʻchish](#moving) boʻlimiga qarang).
 
-If you turned on the [sign-in check](#sign-in-check), Jaybi asks for a second step after your password: "Enter the 6-digit code from your authenticator app, or one of your recovery codes." Type the code into **Code** and choose **Continue**. Each code works once. If you wait more than 5 minutes, or choose **Cancel**, you go back to **Unlock vault**.
+<a id="joining"></a>
+### Bir martalik kod bilan seyfga qoʻshilish
 
-If you sign in with a recovery code, a bar shows **You used a recovery code. Codes left:** with the number. When few are left, turn the sign-in check off and on again in **Account** to get new ones.
+Birinchi administratordan boshqa hamma administrator bergan **bir martalik kod** bilan qoʻshiladi. Kod `XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX` koʻrinishida boʻladi va bir marta, faqat sizning pochtangiz uchun hamda faqat administrator tanlagan vaqtgacha ishlaydi.
 
-### If Jaybi shows "For your safety, Jaybi does not run inside another page."
+1. Jaybini seyf saqlangan brauzerda oching. Administrator sizga havola yuborgan boʻlsa, uni oching: u pochtangiz va kodni oʻzi toʻldiradi.
+2. Aks holda **Seyfni ochish** ekranida **Bir martalik kodingiz bormi? Seyfga qoʻshiling** havolasini bosing.
+3. **Pochtangiz** va **Bir martalik kod** maydonlarini tekshiring. Katta-kichik harflar, boʻsh joylar va chiziqchalarning ahamiyati yoʻq.
+4. **Parol tanlang** maydoniga parol kiriting va uni **Parolni tasdiqlang** maydoniga yana yozing, soʻng **Seyfga qoʻshilish** tugmasini bosing.
 
-Jaybi refuses to run inside another website's page, because that page could trick you into clicking or typing. Choose **Open Jaybi in its own tab**, and check that the address is the one your admin gave you.
+![Pochta, kod va yangi parol toʻldirilgan «Seyfga qoʻshilish» ekrani](../images/uz-Latn/register.webp)
 
-### Resetting your password with a code
+Siz darhol tizimga kirasiz. Parolingizni boshqa hech kim, hatto administrator ham bilmaydi.
 
-If your admin gives you a reset code:
+Agar Jaybi «Bu brauzerda hali seyf yoʻq» desa, siz notoʻgʻri qurilma yoki brauzerdasiz: kod faqat seyf saqlangan joyda ishlaydi. Agar kod muddati tugagan yoki mos kelmayapti desa, administratordan yangisini soʻrang.
 
-1. On **Unlock vault**, choose **Have a reset code?** (or open the link your admin sent).
-2. Enter **Your email**, the **One-time code**, and your new password twice.
-3. Choose **Set new password**. You are signed in with the new password.
+<a id="sign-in"></a>
+## Kirish va qulflash
 
-Like an invite code, a reset code works once, only until it expires, and only in the browser where the vault is stored. Your old password stops working when you use the code, and sooner if your admin chose to stop it at once. Setting a new password this way also turns off your [sign-in check](#sign-in-check); turn it on again in **Account** if you use it. If you use private safes, read [After an admin resets your password](#after-an-admin-resets-your-password).
+<a id="unlock"></a>
+### Seyfni ochish
 
-## Finding your way around
+1. Jaybini oching. **Seyfni ochish** ekrani chiqadi.
+2. **Pochta** va **Parol**ni kiriting, soʻng **Ochish** tugmasini bosing.
 
-The menu on the left (along the top on a phone) shows only what your role allows:
+![Qoʻshilish, parolni yangilash, Yordam va Holat tekshiruvi havolalari bor «Seyfni ochish» ekrani](../images/uz-Latn/sign-in.webp)
 
-| Role | Dashboard and Groups | Transactions | Add, edit, delete records | Private safes and Account |
-| --- | --- | --- | --- | --- |
-| Manager | Yes | Yes | Yes, for your group | Yes, your own |
-| Viewer | Yes | Yes | No | Yes, your own |
+Ochish ataylab biroz vaqt oladi: parolingiz uni taxmin qilish sekin boʻlishi uchun maxsus «choʻziladi». «Pochta yoki parol notoʻgʻri» xabari ikkala xato uchun ham bir xil chiqadi, shuning uchun qaysi pochtalar mavjudligini hech kim bila olmaydi.
 
-You only see records that belong to your group. The top bar shows the vault name, the save status, the language and theme switches, and the **Lock** button.
+Bir pochta uchun beshta notoʻgʻri urinishdan keyin Jaybi teskari sanoq bilan **Urinishlar juda koʻp. Qayta urinishgacha:** xabarini koʻrsatadi va har bir keyingi xatoda kutish vaqti 15 daqiqagacha oshib boradi. Sahifani yangilash uni qisqartirmaydi. Tizimga kirganingizdan soʻng Jaybi oxirgi tashrifingizdan beri shu brauzerda hisobingizga nechta muvaffaqiyatsiz urinish boʻlganini aytadi. Agar ularni siz qilmagan boʻlsangiz, parolingizni oʻzgartiring.
 
-The button at the far left of the top bar collapses the menu. On a computer the menu shrinks to icons, and pointing at an icon shows its name. On a phone the menu row is hidden. Choose the button again to bring the menu back. Jaybi remembers your choice in this browser.
+Shakl ostidagi havolalar hamma uchun: **Bir martalik kodingiz bormi? Seyfga qoʻshiling**, **Parol yangilash kodingiz bormi?**, **Yordam** (shu qoʻllanma) va **Holat tekshiruvi** — u tizimga kira olmaganingizda ham brauzerni tekshiradi.
 
-## Choosing a period
+<a id="second-step"></a>
+### Ikkinchi qadam (kirish tekshiruvi)
 
-The dashboard, the ledger, and **Groups** use the same period buttons, and your choice carries over between them:
+Agar [kirish tekshiruvi](#sign-in-check)ni yoqqan boʻlsangiz, Jaybi paroldan keyin autentifikator ilovangizdagi 6 xonali kodni soʻraydi. Uni **Kod** maydoniga yozing va **Davom etish** tugmasini bosing. Bu yerda tiklash kodi ham bir marta ishlaydi. 5 daqiqadan koʻproq kutsangiz yoki **Bekor qilish** tugmasini bossangiz, **Seyfni ochish** ekraniga qaytasiz.
 
-- **Today**
-- **This week** (Monday to Sunday)
-- **This month** (the default)
-- **Last month**
-- **Year to date** (1 January to today)
-- **Custom**, which opens From and To date fields. If you enter them backwards, Jaybi swaps them.
+![6 xonali kodni soʻrayotgan kirish tekshiruvi qadami](../images/uz-Latn/sign-in-totp.webp)
 
-## Working with tables
+<a id="reset-code"></a>
+### Parolni unutdingizmi? Parol yangilash kodidan foydalaning
 
-Transactions, the private-safe lists, and the admin pages show their rows in tables that work the same way:
+Jaybida «parolni unutdim» xati yoʻq, chunki server yoʻq. Administratordan **parol yangilash kodi**ni soʻrang, soʻng:
 
-- **Sort**: choose a column heading. Choose it again for the other direction, and a third time to go back to the original order. Hold Shift while choosing to sort by up to three columns; small numbers next to the headings show the order. Amounts sort exactly within each currency, and names sort in the order of your language. On a phone, use **Sort by** above the cards.
-- **Search this table**: type any part of what you see in the visible columns. Case, accents, apostrophes, and the alphabet do not matter, so `taksi` finds "Такси" and `ozbek` finds "Oʻzbek". Esc clears the search.
-- **Filters**: opens a box with one filter per column: text, a list to tick one or more values, a From–To date range, or a Min–Max amount. The button shows how many filters are on, and **Clear filters** turns them all off. Amount filters compare the exact amount; they do not convert currencies.
-- **Columns**: tick the columns to show, move them up or down, choose **Compact rows**, or **Reset layout**. Columns that identify a row, such as the date or amount, always stay.
-- **Rows** at the bottom: 10, 25, 50, 100, or all. The line next to it says which rows you see, for example "Showing 1–25 of 140 (filtered from 900)".
+1. **Seyfni ochish** ekranida **Parol yangilash kodingiz bormi?** havolasini bosing (yoki administrator yuborgan havolani oching).
+2. **Pochtangiz**, **Bir martalik kod** va yangi parolingizni ikki marta kiriting.
+3. **Yangi parolni oʻrnatish** tugmasini bosing. Siz yangi parol bilan tizimga kirasiz.
 
-Jaybi remembers the columns, their order, the sort, the row count, and compact rows for each table in this browser. It never stores what you searched for or filtered, and nothing from your private safes.
+Parol yangilash kodi kirish tekshiruvingizni ham oʻchiradi; uni [Hisobingiz](#account) boʻlimida qayta yoqing. Shaxsiy seyflardan foydalansangiz, avval [Administrator parolingizni yangilagandan keyin](#after-reset) boʻlimini oʻqing.
 
-Where you are allowed to change a record, a small pencil appears next to the value. Choose it, type the new value, and press Enter to save or Esc to cancel. If the value is not accepted, the reason shows under the field and nothing changes.
+<a id="locking"></a>
+### Qulflash
 
-## Recording money (Managers)
+Joyingizdan turganingizda har safar yuqori paneldagi **Qulflash** tugmasini bosing. Qulflash, sahifani yangilash yoki varaqni yopish deshifrlangan maʼlumotlarni xotiradan oʻchiradi va keyingi odam tizimga qayta kirishi kerak boʻladi. 15 daqiqa faollik boʻlmasa, Jaybi oʻzi ham qulflanadi; buni **Hisob → Avtomatik qulflash** boʻlimida oʻzgartiring. Shunda kirish ekranida «Faollik boʻlmagani uchun seyf qulflandi.» degan yozuv chiqadi.
 
-1. Open **Transactions** and choose **Add record**.
-2. Fill in the form:
-   - **Type**: Income or Expense. The category list changes to match.
-   - **Amount**: a number above zero, with up to two decimals (for example `1250`, `1250.5`, or `1 250,50`). A dot or a comma both work as the decimal mark, and spaces between thousands are ignored. Jaybi stores the exact amount and never rounds it; if you type more decimals than the currency has, it asks you to fix the amount instead of guessing.
-   - **Category**: for example Salary, Food, or Transport.
-   - **Date**: defaults to today.
-   - **Currency**: defaults to the vault currency. See the note on currencies below.
-   - **Group**: only shown if you can see more than one group.
-   - **Notes**: optional, up to 2,000 characters.
-   - **Receipt**: optional PNG, JPEG, WebP, or GIF image, up to 1.5 MB. Other file types, including SVG, are refused. Use **View receipt** to check it, or **Remove receipt** to drop it.
-3. Choose **Save**.
+Seyf bir vaqtda faqat bitta varaqda ochiq boʻlishi mumkin. Agar Jaybi u boshqa varaq yoki oynada allaqachon ochiq desa, oʻsha varaqqa oʻting yoki avval u yerda qulflang.
 
-To change a record, choose **Edit** on it, adjust the fields, and choose **Update record**. For a quick fix, choose the pencil next to the date, category, group, amount, or notes and change just that value (see [Working with tables](#working-with-tables)). To delete, choose **Delete**, then confirm. To delete several records, tick them and choose **Delete selected**, then confirm. Deleting cannot be undone, but each deletion is recorded in the admin's audit log.
+<a id="saving"></a>
+### Saqlash
 
-To narrow the list, use the period buttons and the **All / Income / Expense** filter above the table, or the table's search and filters. Hidden columns such as **Currency**, **Recorded by**, **Receipt**, **Created**, and **Updated** can be turned on under **Columns**.
+Seyf uchun saqlash tugmasi yoʻq. Yuqori paneldagi yordam tugmasi yonidagi soʻz nima boʻlayotganini koʻrsatadi:
 
-### A note on currencies
+- **Saqlandi**: hamma narsa shifrlangan va shu brauzerda saqlangan.
+- **Saqlanmagan** yoki **Shifrlanmoqda…**: oʻzgarish saqlanmoqda. Odatda bu bir soniyacha davom etadi.
+- **Saqlab boʻlmadi**: brauzer maʼlumotlarni saqlashni rad etdi, masalan, disk toʻlgani uchun. Varaqni ochiq qoldiring va [Holat tekshiruvi](#health)ni oʻtkazing.
+- **Saqlanmadi: boshqa joyda oʻzgartirilgan**: seyf boshqa varaqda oʻzgartirilgan. Qulflang, qayta kiring va oxirgi oʻzgarishingizni takrorlang.
 
-Each vault has one main currency, chosen when it was created and changeable by an Admin. Totals and charts only count records in that currency. A record in another currency is still saved and listed, marked "Other currency — not included in totals". The dashboard lists those records separately under **Other currencies (not in totals)**, with income and expenses per currency, so nothing is hidden. Jaybi does not convert records between currencies; the exchange-rate panel on the dashboard is for information and never changes your totals.
+<a id="around"></a>
+## Ilovada yoʻl topish
 
-## Reading the dashboard
+Chapdagi menyu faqat rolingiz ruxsat bergan narsalarni koʻrsatadi. Yuqori panelda seyf nomi, saqlash holati, shu qoʻllanmaning joriy sahifaga oid qismini ochadigan **?** tugmasi, til va mavzu almashtirgichlari hamda **Qulflash** tugmasi bor.
 
-The list next to the period buttons picks the group: **All groups** or one group. It changes the four figures, the charts, and the list of other currencies, but not the exchange rates. You only see groups you belong to, so for most people the list has **All groups** and their own group, which show the same figures. Jaybi remembers the choice in this browser.
+![Chapda menyu va tepada yuqori panel koʻrinib turgan boshqaruv sahifasi](../images/uz-Latn/dashboard.webp)
 
-The four figures at the top cover the selected period and group:
+![Yuqori panel: saqlash holati, yordam tugmasi, til, mavzu va Qulflash](../images/uz-Latn/preferences.webp)
 
-- **Net balance**: income minus expenses.
-- **Total income** and **Total expenses**.
-- **Savings rate**: the share of income left after expenses, rounded to one decimal. It shows 0% when there is no income in the period, and it can be negative if you spent more than you earned.
+Yuqori panelning eng chap chetidagi tugma menyuni faqat belgilar qolguncha yigʻadi; nomlarni qaytarish uchun uni yana bosing. Jaybi tanlovingizni shu brauzerda eslab qoladi.
 
-All totals are calculated exactly, to the cent (or tiyin), in the vault currency.
+<a id="phone"></a>
+### Telefonda
 
-The charts below them:
+Telefonda menyu tepada yonga surib koʻriladigan qatorga aylanadi, sahifalar esa bitta ustunga terilib joylashadi. Jadvallar kartochkalarga aylanadi.
 
-- **Income and expenses** compares each month in the period.
-- **Expenses by category** shows where the money went.
-- **Spending over time** shows daily expense totals.
-- **Who spent** shows expenses per person in your group. Admins see **Spending by group** instead, unless they picked one group.
+![Telefondagi boshqaruv sahifasi](../images/uz-Latn/mobile-dashboard.webp)
 
-A chart shows "No figures in this range" when the period has no matching records.
+![Telefondagi menyu qatori](../images/uz-Latn/mobile-menu.webp)
 
-## Group summaries
+![Telefonda kartochkalar koʻrinishidagi daftar](../images/uz-Latn/mobile-transactions.webp)
 
-**Groups** shows your group with its **Income** (↑), **Expenses** (↓), and **Net** (income minus expenses) for the selected period, plus the number of transactions and the date of the latest one. Net is green when it is zero or more and red when it is below zero. Each currency gets its own line; amounts in different currencies are never added together or converted. A group with no records in the period shows "No transactions in this period."
+![Telefondagi shaxsiy seyflar](../images/uz-Latn/mobile-safes.webp)
 
-On a wide screen the figures are columns of the **Groups** table, so you can sort by income, expenses, net, number of transactions, or last activity; amounts sort by the vault currency. On a phone each group is a card with the same figures.
+<a id="theme"></a>
+### Til va mavzu
 
-Choose a group's name to open **Transactions** with only that group's records, for the same period. The group filter is already set; choose **Clear filters** to see every record you can see again.
+Til menyusidan tilni tanlang: Oʻzbekcha, Ўзбекча, Русский yoki English. **Kun**, **Tun** yoki qurilmangizga moslashadigan **Tizim** mavzusini tanlang. Ikkala tanlov ham shu brauzerda eslab qolinadi va ularni tizimga kirishdan oldin ham oʻzgartirish mumkin.
 
-You only see your own group. Admins see every group and, with two or more groups, an **All groups** strip above the table with the combined figures, still one line per currency.
+![Tun mavzusidagi boshqaruv sahifasi](../images/uz-Latn/dark-dashboard.webp)
 
-## Exchange rates
+![Tun mavzusidagi daftar](../images/uz-Latn/dark-transactions.webp)
 
-The **Exchange rates** panel on the dashboard shows official reference rates for the Uzbek soʻm (UZS), the South Korean won (KRW), and the Israeli new shekel (ILS) against the US dollar (USD), in both directions. Each card shows:
+![Tun mavzusida shaxsiy seyfdagi karta](../images/uz-Latn/dark-safe.webp)
 
-- **1 USD = …** and **1 UZS = …** (or KRW, ILS). Rates published by a central bank are shown exactly as published. Rates Jaybi derives, such as the reverse direction, are shown to six significant digits.
-- For very small numbers, a readable amount as well, for example **100,000 UZS = 8.47 USD**.
-- The change since the previous official rate, for example **−0.16% vs Sep 26, 2026**.
-- **Rate date**: the day the rate is valid for. The Central Bank of Uzbekistan sets the soʻm rate the evening before, so it can show tomorrow's date.
-- The **source**, which opens the central bank's own rate page. "Cross rate via EUR" means the rate was calculated from two official rates of the same bank; for the won, the European Central Bank's euro rates are used (1 USD = KRW per euro ÷ USD per euro), because the Bank of Korea does not offer rates that can be read without a private key.
-- A **Stale** badge when the rate is more than 2 business days old, for example after a holiday or when the rates could not be updated.
+![Tun mavzusidagi Holat tekshiruvi](../images/uz-Latn/dark-health.webp)
 
-The **Converter** turns an amount into the other currency. Enter the amount (spaces and a comma or dot are fine) and choose the direction, or use the ⇄ button to reverse it. The result is rounded to the currency's smallest unit: cents for USD, tiyin for UZS, agorot for ILS, and whole won for KRW (the won has no smaller unit, so KRW amounts cannot have decimals). **Exact** shows the unrounded value to 20 significant digits.
+<a id="roles"></a>
+## Rollar: kim nima qila oladi
 
-These are official central-bank reference rates for information only; bank buy/sell rates differ. Use your bank's rate for real transactions.
+Seyfdagi har bir odamning bitta roli bor. Menejer va kuzatuvchilar bitta **guruh**ga tegishli boʻladi va faqat oʻsha guruh yozuvlarini koʻradi.
 
-The panel never holds up the rest of the dashboard. Rates are saved in this browser, so the last rates are still shown when you are offline, with a note and a **Try again** button. If rates have never loaded in this browser, the panel says they are unavailable. Rates are public data: they are not stored in your encrypted vault and loading them does not reveal anything about your ledger.
+| Nima | Administrator | Menejer | Kuzatuvchi |
+| --- | --- | --- | --- |
+| Boshqaruv, Guruhlar va Daftar | Barcha guruhlar | Oʻz guruhi | Oʻz guruhi |
+| Yozuv qoʻshish, tahrirlash va oʻchirish | Barcha guruhlar | Oʻz guruhi | Yoʻq |
+| Jadval va maʼlumotlarni eksport qilish | Ha | Yoʻq | Yoʻq |
+| Odamlar, takliflar va parol yangilash kodlari | Ha | Yoʻq | Yoʻq |
+| Zaxira nusxa, maʼlumotlar eksporti, seyfni almashtirish | Ha | Yoʻq | Yoʻq |
+| Seyf sozlamalari va toifalar | Ha | Yoʻq | Yoʻq |
+| Audit jurnali | Ha | Yoʻq | Yoʻq |
+| Shaxsiy seyflar, Hisob, Holat tekshiruvi, Yordam | Ha, oʻziniki | Ha, oʻziniki | Ha, oʻziniki |
 
-## Saving and locking
+Kuzatuvchining menyusi qisqa: Boshqaruv, Tranzaksiyalar, Shaxsiy seyflar, Guruhlar, Hisob, Holat tekshiruvi va Yordam.
 
-You never need to press a save button for the vault itself. The status next to the language switch tells you what is happening:
+![Kuzatuvchi koʻradigan boshqaruv sahifasi](../images/uz-Latn/viewer-dashboard.webp)
 
-- **Saved**: everything is encrypted and stored.
-- **Unsaved** or **Encrypting…**: a change is being stored. This normally takes about a second.
-- **Could not save**: the browser refused to store data, for example because the disk is full or storage is blocked. Keep the tab open and tell your admin.
-- **Not saved: changed elsewhere**: the vault was changed in another tab or window. Jaybi stops saving here rather than overwrite that change. Lock, unlock again, and redo your last change.
+<a id="dashboard"></a>
+## Boshqaruv sahifasi
 
-The vault can be unlocked in only one tab at a time. If you see "already unlocked in another tab or window", switch to that tab or lock it there first.
+Boshqaruv sahifasi tanlangan davr va guruh boʻyicha pul harakatini jamlab koʻrsatadi.
 
-Choose **Lock** when you step away. Locking, refreshing, or closing the tab removes the decrypted data from memory, and the next person must sign in. Jaybi also locks the vault by itself after 15 minutes without activity; you can change this under **Account → Lock automatically**. When that happens, the sign-in screen says "The vault was locked after a period of inactivity." Your private safes lock with the vault.
+[Boshqaruv sahifasini ochish](https://jaybi.uz/#/app)
 
-If a bar says **The vault is close to its size limit. Remove large receipts to make room.**, tell your admin. Receipts take most of the space, and once the vault is full no new receipts can be added.
+<a id="figures"></a>
+### Toʻrtta koʻrsatkich
 
-## Your account
+- **Sof qoldiq**: daromad minus xarajat.
+- **Jami daromad** va **Jami xarajat**.
+- **Jamgʻarma ulushi**: xarajatlardan keyin qolgan daromad ulushi. Daromad boʻlmasa, u 0% boʻladi, topganingizdan koʻproq sarflagan boʻlsangiz esa manfiy boʻlishi mumkin.
 
-Open **Account** in the menu. Everyone has this page, whatever their role.
+![Toʻrtta koʻrsatkich: sof qoldiq, jami daromad, jami xarajat va jamgʻarma ulushi](../images/uz-Latn/dashboard-kpis.webp)
 
-### Changing your password
+Jami summalar sentgacha (yoki tiyingacha) aniq va faqat **seyf valyutasi**dagi yozuvlarni hisoblaydi. Boshqa valyutadagi yozuvlar **Boshqa valyutalar (jamiga kirmaydi)** ostida har bir valyuta boʻyicha alohida koʻrsatiladi, shuning uchun hech narsa yashirilmaydi. Jaybi yozuvlaringizni hech qachon konvertatsiya qilmaydi.
 
-Enter your **current password**, then the **new password** twice (different from the current one; see [Choosing a password](#choosing-a-password)), and choose **Change password**. If you have set up private safes, and if you use the sign-in check, they move to the new password at the same time.
+<a id="period"></a>
+### Davrni tanlash
 
-If your admin gave you a starting or temporary password, the password was chosen by them. Jaybi then asks you to choose a new one before you can use anything else: every page leads back to **Account** until you do.
+Boshqaruv sahifasi, daftar va **Guruhlar** bir xil davr tugmalaridan foydalanadi va tanlovingiz ular orasida saqlanib qoladi: **Bugun**, **Shu hafta** (dushanbadan yakshanbagacha), **Shu oy** (odatiy), **Oʻtgan oy**, **Yil boshidan** va **Oraliq**.
 
-If a bar says **Your password is shorter or more common than Jaybi now allows. Please choose a new one.**, your password still works, but it would not be accepted today. Choose **Change password** and pick a better one.
+![«Yil boshidan» tanlangan davr tugmalari](../images/uz-Latn/period-presets.webp)
 
-### Choosing a password
+**Oraliq** tugmasi **Dan** va **Gacha** sana maydonlarini ochadi. Ularni teskari kiritsangiz, Jaybi ularning oʻrnini almashtiradi.
 
-Jaybi shows the hint "At least 12 characters. A few unrelated words work well." A new password must:
+![Dan va Gacha maydonlari bor «Oraliq» davri](../images/uz-Latn/period-custom.webp)
 
-- be 12 to 256 characters long;
-- not be a commonly used password, even with digits or symbols added before or after it (Jaybi checks a built-in list, without sending anything anywhere);
-- not be mostly your email or the vault name;
-- not use three or fewer different characters, repeat a short pattern, or follow a run of keys such as `qwertyuiop` or `1234567890`.
+<a id="group-filter"></a>
+### Guruhni tanlash
 
-Four or five unrelated words, with spaces if you like, are easy to remember and hard to guess. Do not reuse a password from another site. Your password is what protects copies of the vault and backups; nothing else does.
+Davr tugmalari yonidagi roʻyxatdan **Barcha guruhlar** yoki bitta guruh tanlanadi. U koʻrsatkichlarni, diagrammalarni va boshqa valyutalar roʻyxatini oʻzgartiradi. Siz faqat oʻzingiz aʼzo boʻlgan guruhlarni koʻrasiz.
 
-### Sign-in check
+![«Oilaviy biznes» guruhi boʻyicha filtrlangan boshqaruv sahifasi](../images/uz-Latn/dashboard-group-filter.webp)
 
-The sign-in check asks for a 6-digit code from an authenticator app (such as Google Authenticator, Microsoft Authenticator, Aegis, or 1Password) after your password. It is optional. Jaybi shows this note next to it:
+<a id="charts"></a>
+### Diagrammalar
 
-> This adds a second step to signing in to the app. It does not add encryption: anyone with a copy of the vault and your password can still open it with the recovery tool.
+Koʻrsatkichlar ostida:
 
-So it helps if someone learns your password and tries it in this browser. It does not replace a strong password.
+- **Daromad va xarajat** davrdagi har bir oyni solishtiradi.
+- **Xarajatlar toifa boʻyicha** pul qayerga ketganini koʻrsatadi.
+- **Xarajatlar vaqt boʻyicha** kunlik xarajat summalarini koʻrsatadi.
+- **Kim sarfladi** guruhingizdagi har bir odamning xarajatlarini koʻrsatadi; administratorlar uning oʻrniga **Xarajatlar guruh boʻyicha** diagrammasini koʻradi.
 
-To turn it on:
+Davrda mos yozuvlar boʻlmasa, diagrammada «Bu oraliqda raqamlar yoʻq» yozuvi chiqadi.
 
-1. Choose **Set up sign-in check**.
-2. Scan the QR code with your authenticator app, or type the **Setup key** into it (**Copy key** copies it; the clipboard is cleared after 60 seconds).
-3. Enter the current **Code from the app** and **Your password**, then choose **Confirm and turn on**.
-4. Jaybi shows 10 **Recovery codes**. Each works once in place of an app code if you lose your phone. Choose **Download codes** or write them down, keep them away from this device, and choose **I have saved these codes**. They are not shown again.
+<a id="rates"></a>
+### Valyuta kurslari va konvertor
 
-If you set it up before 1.3.0, your authenticator app lists the entry as "Moliya". It keeps working; there is no need to set it up again.
+**Valyuta kurslari** paneli oʻzbek soʻmi (UZS), Janubiy Koreya voni (KRW) va Isroil yangi shekelining (ILS) AQSH dollariga nisbatan markaziy banklar eʼlon qilgan rasmiy maʼlumotnoma kurslarini ikkala yoʻnalishda koʻrsatadi: oldingi kursdan beri oʻzgarish, **Kurs sanasi** va manba bankka havola bilan. Kurs 2 ish kunidan eski boʻlsa, **Eskirgan** belgisi chiqadi.
 
-To turn it off, choose **Turn off sign-in check** and enter your password. To get new recovery codes, turn it off and on again; the old codes then stop working, and you must add the new setup key to your app.
+![UZS, KRW va ILS uchun valyuta kursi kartochkalari](../images/uz-Latn/exchange-rates.webp)
 
-If you lose both your authenticator and your recovery codes, ask your admin to turn off the sign-in check for you. Resetting your password with a reset code also turns it off.
+**Konvertor** summani boshqa valyutaga oʻtkazadi. Summani yozing, yoʻnalishni tanlang yoki uni almashtirish uchun ⇄ tugmasidan foydalaning. **Aniq** yaxlitlanmagan qiymatni koʻrsatadi.
 
-### Lock automatically
+![100 AQSH dollarini soʻmga oʻtkazayotgan konvertor](../images/uz-Latn/converter.webp)
 
-Choose how long the vault stays open without activity: **5 minutes**, **15 minutes** (the default), **30 minutes**, or **1 hour**. The setting belongs to this browser, not to your account. Clicking, typing, scrolling, or touching the screen anywhere in Jaybi counts as activity, including inside your safes. If the tab was in the background longer than the chosen time, the vault locks as soon as you return to it. Your private safes have no timer of their own: they lock when the vault does.
+Bu kurslar faqat maʼlumot uchun; banklar boshqa kurslarda sotib oladi va sotadi. Ular jami summalaringizni hech qachon oʻzgartirmaydi. Kurslar brauzerda saqlanadi, shuning uchun internet boʻlmaganda ham oxirgi kurslar koʻrinib turadi.
 
-### Other settings on this page
+<a id="transactions"></a>
+## Pulni yozib borish
 
-The sign-in check and **Lock automatically** are hidden until you have replaced a starting or temporary password.
+Menejer va administratorlar daromad va xarajatlarni **Daftar** sahifasida (**Tranzaksiyalar** menyu bandi) yozib boradi. Kuzatuvchilar uni oʻqiy oladi, lekin oʻzgartira olmaydi.
 
-- **Private safes**: how long shown values stay visible and how long copied values stay in the clipboard. Open your safes first to change these.
-- **Recovery code**: create one, or replace the one you have.
-- **Start over**: **Reset private safes**, described below.
+[Daftarni ochish](https://jaybi.uz/#/app/transactions)
 
-## Private safes
+![Bir necha oylik yozuvlar bor daftar](../images/uz-Latn/transactions.webp)
 
-A private safe is a place for things you want to keep to yourself: payment cards, subscriptions, and notes. It is not a money account, and nothing in it appears on the dashboard or in the ledger.
+<a id="add-record"></a>
+### Yozuv qoʻshish
 
-Only you can open your safes. Your admin cannot see them, cannot see their names or what kind of items they hold, and cannot open or recover them for you, even with the whole database or a backup. Other people in the vault each have their own safes, which you cannot see either.
+1. **Yozuv qoʻshish** tugmasini bosing.
+2. Shaklni toʻldiring (quyidagi jadvalga qarang).
+3. **Saqlash** tugmasini bosing.
 
-### Setting up
+![Kechki ovqat xarajati uchun toʻldirilgan «Yozuv qoʻshish» shakli](../images/uz-Latn/transaction-add.webp)
 
-1. Open **Private safes** in the menu and choose **Create my safes**.
-2. Enter your password.
-3. Choose whether to create a **recovery code** (see below).
-4. Choose **Create my safes**. You get one empty safe called **Personal**.
+| Maydon | Nima kiritiladi |
+| --- | --- |
+| **Turi** | Daromad yoki Xarajat. Toifalar roʻyxati shunga mos oʻzgaradi. |
+| **Summa** | Noldan katta son, masalan, `1250`, `1250.5` yoki `1 250,50`. Kasr belgisi sifatida nuqta ham, vergul ham ishlaydi. Jaybi hech qachon yaxlitlamaydi: valyutada boridan koʻproq kasr raqami yozsangiz, summani tuzatishni soʻraydi. |
+| **Toifa** | Masalan, Maosh, Oziq-ovqat yoki Transport. Roʻyxatni administratorlar [Seyf sozlamalari](#settings) boʻlimida boshqaradi. |
+| **Sana** | Oʻzgartirmasangiz, bugungi sana. |
+| **Valyuta** | Oʻzgartirmasangiz, seyf valyutasi. [Valyutalar](#currencies) boʻlimiga qarang. |
+| **Guruh** | Faqat bir nechta guruhni koʻra olsangiz chiqadi. |
+| **Izoh** | Ixtiyoriy, 2 000 tagacha belgi. |
+| **Chek** | Ixtiyoriy, 1,5 MB gacha PNG, JPEG, WebP yoki GIF rasm. **Chekni koʻrish** uni tekshirishga, **Chekni olib tashlash** esa olib tashlashga yordam beradi. |
 
-### The recovery code
+<a id="edit-record"></a>
+### Oʻzgartirish va oʻchirish
 
-A recovery code is a backup key for your safes, 25 characters in five groups, like `XXXXX-XXXXX-XXXXX-XXXXX-XXXXX`. It matters in one situation: your admin resets your password and you no longer remember the password you had before. Without the code, your safes are then lost for good.
+Butun yozuvni oʻzgartirish uchun uning qatoridagi **Tahrirlash** tugmasini bosing, maydonlarni toʻgʻrilang va **Yozuvni yangilash** tugmasini bosing.
 
-- **Create a recovery code (recommended)**: the code is shown once. Write it down or print it and keep it away from this device. Type its last 4 characters to confirm you saved it.
-- **Skip for now**: you must tick "I understand my safes can be lost forever if an admin resets my password and I forget my old one". You can create a code later under **Account → Recovery code**.
+Tezkor tuzatish uchun sana, toifa, guruh, summa yoki izoh yonidagi kichik qalamchani bosing, yangi qiymatni yozing va Enter tugmasini bosing (Esc bekor qiladi). Qiymat qabul qilinmasa, sababi maydon ostida chiqadi va hech narsa oʻzgarmaydi.
 
-Anyone who has your recovery code and your current password can open your safes, so keep the code as private as the password. Creating a new code in **Account** makes the old one stop working. When typing a code, capital or small letters, spaces, and dashes do not matter, the letter O counts as zero, and I and L count as one.
+![Summani toʻgʻridan-toʻgʻri jadvalda oʻzgartirish](../images/uz-Latn/transaction-inline-edit.webp)
 
-### Opening and locking
+Oʻchirish uchun **Oʻchirish** tugmasini bosing va tasdiqlang. Bir nechta yozuvni oʻchirish uchun ularni belgilang va **Tanlanganlarni oʻchirish** tugmasini bosing. Oʻchirishni qaytarib boʻlmaydi, lekin har bir oʻchirish administratorning audit jurnaliga yoziladi.
 
-Signing in to the vault does not open your safes. Choose **Open safes** and enter your password again. After opening, Jaybi shows when your safes were **previously opened**; if you do not recognise that time, someone else may have used your password.
+![Yozuvni oʻchirishni tasdiqlash](../images/uz-Latn/transaction-delete.webp)
 
-Once open, your safes stay open while you work, including while you switch to another tab or window. They lock again:
+<a id="currencies"></a>
+### Valyutalar
 
-- when you choose **Lock safes**;
-- when the vault locks: when you choose **Lock**, refresh or close the tab, or after the time under **Account → Lock automatically** without activity (15 minutes unless you changed it).
+Har bir seyfning bitta asosiy valyutasi bor. Jami summalar va diagrammalar faqat shu valyutadagi yozuvlarni hisoblaydi. Boshqa valyutadagi yozuv saqlanadi va «Boshqa valyuta — jami summaga kirmaydi.» degan izoh bilan roʻyxatda koʻrsatiladi. Boshqaruv sahifasi bu summalarni alohida koʻrsatadi. Jaybi valyutalarni bir-biriga konvertatsiya qilmaydi.
 
-Before 1.3.1 safes also locked after 5 minutes of their own and when the tab was hidden for a minute. They no longer do.
+<a id="tables"></a>
+## Jadvallar bilan ishlash
 
-### Safes
+Daftar, odamlar roʻyxati, guruhlar, toifalar, shaxsiy seyf roʻyxatlari va audit jurnali — bularning barchasi bir xil ishlaydigan jadvallar.
 
-Choose **New safe** to add one. Each safe has a name (up to 60 characters), an optional description, one of eight icons, and one of four colours. In **Safe settings** you can also:
+- **Saralash**: ustun sarlavhasini bosing. Teskari tartib uchun uni yana bosing, asl tartibga qaytish uchun uchinchi marta bosing. Uchtagacha ustun boʻyicha saralash uchun Shift tugmasini bosib turing. Telefonda kartochkalar ustidagi **Saralash** tugmasidan foydalaning.
+- **Jadvaldan qidirish**: koʻrib turgan narsangizning istalgan qismini yozing. Katta-kichik harflar, urgʻu belgilari, apostroflar va hatto alifbo ham ahamiyatsiz, shuning uchun `taksi` soʻzi «Такси»ni ham topadi. Esc qidiruvni tozalaydi.
+- Pastdagi **Qatorlar**: 10, 25, 50, 100 yoki hammasi, yonida «140 tadan 1–25 koʻrsatilmoqda» kabi satr bilan.
 
-- **Ask for my password every time this safe is opened**: the safe stays closed, even when your other safes are open, until you enter your password for it. While closed it is left out of search, totals, and upcoming payments.
-- **Make default**: the safe new items go to first.
-- **Archive**: the safe becomes read-only and is left out of search, totals, upcoming payments, and expiring cards. **Show archived** lists it again, and **Unarchive** undoes it.
-- **Change encryption key**: encrypts everything in the safe again with a new key. Use it if you think the old key might have been exposed.
-- **Delete safe**: moves it to the trash. If it still has items, move them to another safe first or choose to delete them with it. You always keep at least one safe.
+![Daftardan «istanbul» soʻzini qidirish mehmonxona va aviachiptani topadi](../images/uz-Latn/transactions-search.webp)
 
-You can have up to 50 safes and 5,000 items (1,000 per safe), counting what is in the trash.
+**Filtrlar** har bir ustun uchun bitta filtr ochadi: matn, belgilanadigan roʻyxat, Dan–Gacha sana oraligʻi yoki Min.–Maks. summa. Tugmada nechta filtr yoqilgani koʻrinadi; **Qidiruv va filtrlarni tozalash** ularni oʻchiradi.
 
-### Cards
+![Daftarning filtrlar paneli](../images/uz-Latn/transactions-filters.webp)
 
-Choose **Add card** and fill in the cardholder name, the card number, the brand, the expiry month and year, the bank, and notes. Jaybi detects the brand from the number; you can change it.
+**Ustunlar** orqali ustunlarni koʻrsatish yoki yashirish, ularning oʻrnini almashtirish, ixcham qatorlarni tanlash yoki koʻrinishni tiklash mumkin. Jaybi har bir jadval koʻrinishini shu brauzerda eslab qoladi, lekin nimani qidirganingizni hech qachon eslab qolmaydi.
 
-- The number is checked with the usual check digit. For Visa, Mastercard, American Express, and Mir a failed check is an error. For UzCard, Humo, UnionPay, and Other it is only a warning, because some local cards do not follow the rule.
-- The **security code (CVV)** is optional and hidden behind **Add security code**. Banks advise against keeping it; leave it empty unless you really need it.
-- There is no place for a PIN. Never store your card PIN, here or anywhere else.
+![Daftarning «Ustunlar» menyusi](../images/uz-Latn/transactions-columns.webp)
 
-Cards are listed with only the last four digits and the expiry date. Expired cards are marked, and cards that expire within 60 days are marked **Expires soon** and listed on the safes page.
+**Eksport** (faqat administratorlar uchun) aynan koʻrib turgan qator va ustunlaringizni CSV, Excel, PDF yoki boshqa formatlarda yuklab beradi. Fayl shifrlanmagani uchun Jaybi avval tasdiqlashingizni soʻraydi.
 
-### Subscriptions
+![Format tanlovlari bor «Eksport» menyusi](../images/uz-Latn/transactions-export.webp)
 
-Choose **Add subscription** and enter the service name, the price and currency, the billing cycle (weekly, monthly, every 3 months, yearly, or every N days), one past or upcoming payment date, and the status (active, paused, or cancelled). You can also add a trial end date, how many days before a payment to remind you, the card it is paid with, the website, the account or login, and notes.
+<a id="groups"></a>
+## Guruhlar
 
-The safes page shows what your active subscriptions cost **per month** and **per year**, for each currency separately. Currencies are not converted, so a USD total and a UZS total are listed side by side. **Upcoming payments** lists what is due in the next 30 days and highlights those within your reminder time or near the end of a trial.
+**Guruh** — seyfning oʻz yozuvlari va odamlari bor qismi, masalan, uy xoʻjaligi yonidagi oilaviy biznes. Har kim oʻz guruhini koʻradi; administratorlar hammasini koʻradi.
 
-### Notes
+[Guruhlarni ochish](https://jaybi.uz/#/app/groups)
 
-Choose **Add note** for anything else, up to 10,000 characters. Notes are plain text.
+**Guruhlar** sahifasi tanlangan davr uchun har bir guruhning **Daromad**, **Xarajat** va **Sof natija** koʻrsatkichlarini tranzaksiyalar soni va eng soʻnggisining sanasi bilan birga koʻrsatadi. Har bir valyuta alohida qatorda boʻladi; valyutalar hech qachon bir-biriga qoʻshilmaydi. Ikki yoki undan ortiq guruh boʻlsa, administratorlar umumiy koʻrsatkichlar bilan **Barcha guruhlar** qatorini ham koʻradi.
 
-### Showing and copying card numbers
+![Har bir guruh uchun daromad, xarajat va sof natija koʻrsatilgan Guruhlar sahifasi](../images/uz-Latn/groups.webp)
 
-Card numbers and security codes are hidden. **Show** and **Copy** ask for your password unless you entered it in the last 2 minutes.
+Guruh nomini bossangiz, daftar oʻsha davr uchun faqat shu guruh yozuvlari bilan ochiladi. Guruh filtri allaqachon oʻrnatilgan boʻladi; hammasini qayta koʻrish uchun **Qidiruv va filtrlarni tozalash** tugmasini bosing.
 
-- A shown value hides again after 15 seconds (15, 30, or 60 in **Account**), or when you close the item or your safes lock. Switching to another tab does not hide it, so do not leave a shown value on screen.
-- A copied value is cleared from the clipboard after 30 seconds (10, 30, or 60 in **Account**), when your safes lock, and when you leave the page. Browsers do not always allow this, so paste it promptly and do not rely on it.
+![«Sayohat» guruhidan ochilgan, uning ikkita yozuvi boʻyicha filtrlangan daftar](../images/uz-Latn/group-ledger-link.webp)
 
-Permanent deletes, changing a safe's encryption key, resetting your safes, and creating a recovery code also need your password within the last 2 minutes.
+Administratorlar guruhni **Guruh nomi**ni yozib, **Guruh qoʻshish** tugmasini bosish orqali qoʻshadi. Guruhni faqat unda odamlar ham, yozuvlar ham boʻlmaganda olib tashlash mumkin.
 
-### Moving, copying, and favourites
+<a id="users"></a>
+## Odamlar va takliflar
 
-Select items to **Move to…** or **Copy to…** another safe. They are encrypted again with the other safe's key. Mark items you use often as favourites; **Favourites** filters them. **Search open safes** searches every open, non-archived safe.
+Administratorlar seyfni kim ocha olishini **Odamlar** sahifasida (**Foydalanuvchilar** menyu bandi) boshqaradi. Har bir odam oʻsha bitta seyfni oʻz paroli bilan ochadi.
 
-Inside a safe, items are listed in a table (see [Working with tables](#working-with-tables)) with the title, kind, details, status, and subscription amount; **Favourite**, **Updated**, and **Created** can be turned on under **Columns**. Search matches the title and the details shown in the list, such as the card brand, the last four digits, the price, or the next payment date, but never the full card number, the CVV, or the text of a note. Trash and Activity use the same tables. Safe tables have no export and no editing in place, and Jaybi never stores what you searched or filtered in them.
+[Odamlar sahifasini ochish](https://jaybi.uz/#/app/users)
 
-### Trash
+![Tepasida taklif shakli bor Odamlar sahifasi](../images/uz-Latn/users.webp)
 
-Deleted safes and items go to **Trash** and stay there for 30 days. You can **Restore** them, or **Delete permanently** (for a safe, type its name to confirm). After 30 days they are removed for good the next time you open your safes.
+<a id="invite"></a>
+### Odamni taklif qilish (tavsiya etiladi)
 
-Deleted data is also overwritten in the database, but copies stay in older backups and in the earlier copies the browser keeps. It is gone completely only when those are gone too.
+1. **Odam taklif qilish** ostida **Uning pochtasi**ni kiriting, **Rol** va **Guruh**ni tanlang hamda kod qancha vaqt ishlashini **Amal qilish muddati** maydonida belgilang.
+2. **Taklif kodini yaratish** tugmasini bosing.
+3. Jaybi kodni bir marta koʻrsatadi. **Kodni nusxalash** yoki **Havolani nusxalash** tugmasini bosing va kodni odamga shaxsan yoki ishonchli kanal orqali bering, soʻng **Tayyor** tugmasini bosing.
 
-### Activity
+![Faqat bir marta koʻrsatiladigan yangi taklif kodi, «Kodni nusxalash» va «Havolani nusxalash» tugmalari bilan](../images/uz-Latn/invite-code.webp)
 
-**Activity** lists what happened in your safes: when they were opened, and when safes and items were added, changed, moved, deleted, or restored. Only you can read it; it is encrypted like your safes and never appears in the admin's audit log. It shows the kind of action and the time, not names or values.
+Shundan soʻng odam shu brauzerda [kod bilan qoʻshiladi](#joining) va oʻz parolini tanlaydi. U shunday qilmaguncha kod **Faol kodlar** roʻyxatida turadi, u yerda **Bekor qilish** tugmasi kodni bekor qiladi.
 
-### After an admin resets your password
+<a id="temporary-password"></a>
+### Odamni vaqtinchalik parol bilan qoʻshish
 
-If your admin resets your password:
+**Qoʻshimcha: oʻrniga vaqtinchalik parol oʻrnatish** ostida pochta, vaqtinchalik parol, rol va guruhni kiriting va **Foydalanuvchi qoʻshish** tugmasini bosing. Odam birinchi kirishda parolni almashtirishi kerak. Taklif kodi xavfsizroq, chunki unda parolni faqat uning oʻzi biladi.
 
-1. Use the reset code they give you to [set a new password](#resetting-your-password-with-a-code). If they gave you a temporary password instead, sign in with it; Jaybi asks you to choose a new password in **Account**.
-2. Open **Private safes**. Jaybi says your password changed since you last opened your safes.
-3. Enter the **previous password**: the one you chose yourself before the reset, not a temporary one from the admin. Or choose **Use recovery code instead** and enter your code. Also enter your current password.
-4. Your safes open, and from now on your current password opens them. If you used the recovery code, create a new one.
+![Menejerni vaqtinchalik parol bilan qoʻshish](../images/uz-Latn/user-create.webp)
 
-Never type the temporary password from your admin as your previous password. Your safes are never unlocked with a password that someone else chose; that is what keeps them private from the admin.
+<a id="reset-for-someone"></a>
+### Boshqa odamning parolini yangilash
 
-If you remember neither your previous password nor your recovery code, nobody can open your safes. Under **Account → Start over**, **Reset private safes** destroys them and everything in them and gives you a new, empty safe. Type `RESET` and your password to confirm.
+Odamning qatorida **Parol yangilash kodini berish** tugmasini bosing, kod qancha vaqt ishlashini tanlang va **Uning joriy parolini hoziroq bekor qilish** kerakmi-yoʻqmi, hal qiling (parolni boshqa kimdir bilishi mumkin boʻlsa, shuni tanlang). **Parol yangilash kodini berish** tugmasini yana bosing va kodni unga bering. **Oʻrniga vaqtinchalik parol oʻrnatish** — eskiroq usul.
 
-## Updates and version
+![Aʼzo uchun parol yangilash kodini berish](../images/uz-Latn/user-reset-code.webp)
 
-When a new version of Jaybi is published, a bar appears at the top: **A new version of Jaybi is available.** Choose **Reload** when convenient. Your work is saved and the vault is locked first, so sign in again afterwards. The first sign-in after an update may take a few seconds longer while Jaybi upgrades the data or strengthens your password protection. This happens once.
+Parolni yangilashdan oldin sariq ogohlantirishni oʻqing: uning shaxsiy seyflari oldingi paroli yoki tiklash kodi kiritilmaguncha qulflangan qoladi. Siz hech kimning seyflarini ocha ham, tiklay ham olmaysiz.
 
-The version you are using is shown at the bottom of the menu and on the sign-in screen. Mention it when you report a problem.
+Oʻsha qatordagi **Kirish tekshiruvini oʻchirish** autentifikatorini ham, tiklash kodlarini ham yoʻqotgan odamga yordam beradi, **Olib tashlash** esa odamni seyfdan chiqaradi. Odamni olib tashlash uning shaxsiy seyflarini ham butunlay yoʻq qiladi, hali yozuvlari bor odamni esa olib tashlab boʻlmaydi. Seyfda doim kamida bitta administrator qoladi.
 
-## Language and theme
+<a id="clock"></a>
+### Kodlar uchun soat tekshiruvi
 
-Pick a language from the language menu: Oʻzbekcha, Ўзбекча, Русский, or English. Pick **Day**, **Night**, or **System** to follow your device. Both choices are remembered in this browser.
+Agar bu qurilmaning soati seyf koʻrgan eng soʻnggi vaqtdan orqada boʻlsa, kodlar rad etiladi, shuning uchun soatni orqaga surish muddati oʻtgan kodni qayta tiriltirmaydi. Agar notoʻgʻri soat bu vaqtni kelajakka surib yuborgan boʻlsa, soatni toʻgʻrilang, **Kodlar uchun soat tekshiruvi**ni oching, parolingizni kiriting va **Joriy vaqtga qaytarish** tugmasini bosing.
 
-## Getting your data out
+![«Kodlar uchun soat tekshiruvi» paneli](../images/uz-Latn/clock-floor.webp)
 
-Need your records in a spreadsheet or a PDF report? Only Admins can export data, so ask your admin. They can export one group or one period, as CSV, Excel, PDF, and other formats, usually as an encrypted file with a separate export password. Private safes are never part of an export.
+![Odamlar sahifasi toʻliq koʻrinishda](../images/uz-Latn/users-full.webp)
 
-## Good habits
+<a id="safes"></a>
+## Shaxsiy seyflar
 
-- Lock the vault before leaving a shared device.
-- Do not clear this site's browsing data. Doing so deletes the vault from this browser. Only a backup can bring it back.
-- Use a password that is long and not used anywhere else.
-- Use a one-time code soon after you get it, and tell your admin if someone else may have seen it before you used it.
-- If you use private safes, create a recovery code and keep it offline.
-- Lock your safes when you are done with them, even if you keep the vault open.
+Shaxsiy seyf — faqat oʻzingiz uchun saqlaydigan narsalaringiz joyi: toʻlov kartalari, obunalar va qaydlar. Bu pul hisobi emas; undagi hech narsa boshqaruv sahifasida yoki daftarda koʻrinmaydi.
+
+Seyflaringizni faqat siz ocha olasiz. Administratorlar ularni ham, ularning nomlarini ham koʻra olmaydi va hatto zaxira nusxa bilan ham ularni ocha yoki tiklay olmaydi. Seyfdan foydalanadigan har bir odamning oʻz shaxsiy seyflari bor.
+
+[Shaxsiy seyflarni ochish](https://jaybi.uz/#/app/safes)
+
+<a id="safes-setup"></a>
+### Sozlash
+
+1. **Shaxsiy seyflar** boʻlimini oching va **Parolingiz** maydoniga parolingizni kiriting.
+2. **Tiklash kodini yaratish (tavsiya etiladi)** yoki **Hozircha oʻtkazib yuborish** variantini tanlang.
+3. **Seyflarimni yaratish** tugmasini bosing.
+
+![Tiklash kodi tanlovi bilan shaxsiy seyflarni sozlash](../images/uz-Latn/safes-setup.webp)
+
+Tiklash kodini tanlagan boʻlsangiz, Jaybi uni bir marta koʻrsatadi. Uni yozib oling yoki chop eting, bu qurilmadan uzoqda saqlang va tasdiqlash uchun uning oxirgi 4 belgisini kiriting.
+
+![Bir marta koʻrsatiladigan tiklash kodi va tasdiqlash maydoni](../images/uz-Latn/safes-recovery-code.webp)
+
+Sizda **Shaxsiy** nomli bitta boʻsh seyf paydo boʻladi.
+
+<a id="recovery-code"></a>
+### Tiklash kodi nega muhim
+
+Tiklash kodi bitta holatda muhim: administrator parolingizni yangilaydi, siz esa oldingi parolingizni eslay olmaysiz. Kod boʻlmasa, bunday holatda seyflaringiz butunlay yoʻqoladi. Uni keyinroq **Hisob → Tiklash kodi** boʻlimida yaratishingiz yoki almashtirishingiz mumkin. Uni parolingiz kabi sir tuting.
+
+<a id="cards"></a>
+### Kartalar
+
+Seyfni oching va **Karta qoʻshish** tugmasini bosing. Nomi, karta raqami, karta egasining ismi, amal qilish muddati, bank va izohni kiriting. Jaybi toʻlov tizimini raqamdan aniqlaydi va nazorat raqamini tekshiradi. **Xavfsizlik kodi (CVV)** ixtiyoriy va **Xavfsizlik kodini qoʻshish** ortida yashiringan; banklar uni saqlamaslikni maslahat beradi. PIN-kod uchun joy yoʻq: PIN-kodni hech qachon, hech qayerda saqlamang.
+
+![4111 1111 1111 1111 sinov raqami bilan karta qoʻshish](../images/uz-Latn/safe-add-card.webp)
+
+Karta raqamlari faqat oxirgi toʻrt raqami bilan koʻrsatiladi.
+
+![Raqami yashirilgan saqlangan karta](../images/uz-Latn/safe-card.webp)
+
+**Koʻrsatish** va **Nusxalash** soʻnggi 2 daqiqada parol kiritmagan boʻlsangiz, parolingizni soʻraydi. Koʻrsatilgan qiymat 15 soniyadan keyin yana yashiriladi; nusxalangan qiymat 30 soniyadan keyin buferdan tozalanadi. Ikkala vaqtni **Hisob** sahifasida oʻzgartirishingiz mumkin.
+
+![«Koʻrsatish» bosilgandan keyin 15 soniya koʻrinib turadigan karta raqami](../images/uz-Latn/safe-card-revealed.webp)
+
+<a id="subscriptions"></a>
+### Obunalar
+
+**Obuna qoʻshish** tugmasini bosing va xizmat, narx va valyuta, toʻlov davri, toʻlov sanasi va holatini kiriting. Shuningdek, toʻlov qilinadigan kartani, saytni, hisobni, eslatma va izohni ham qoʻshishingiz mumkin.
+
+![Oilaviy karta bilan toʻlanadigan oylik Netflix obunasini qoʻshish](../images/uz-Latn/safe-add-subscription.webp)
+
+![Keyingi toʻlov sanasi koʻrsatilgan saqlangan obuna](../images/uz-Latn/safe-subscription.webp)
+
+<a id="notes"></a>
+### Qaydlar
+
+Boshqa har qanday narsa uchun **Qayd qoʻshish** tugmasini bosing: 10 000 tagacha belgili oddiy matn, masalan, Wi-Fi paroli. Tez-tez ishlatadigan narsalarni **Sevimlilarga qoʻshish** bilan belgilang.
+
+![Karta, obuna va ikkita qayd bor seyf](../images/uz-Latn/safe-view.webp)
+
+<a id="many-safes"></a>
+### Koʻproq seyflar
+
+Yangi seyf qoʻshish uchun **Yangi seyf** tugmasini bosing va uning nomi, tavsifi, belgisi va rangini tanlang. Siz soʻramaguningizcha yopiq turishi kerak boʻlgan seyf uchun **Bu seyf har safar ochilganda parolim soʻralsin** katagini belgilang.
+
+![Har safar parol soʻraydigan seyf yaratish](../images/uz-Latn/safe-create.webp)
+
+Seyflar sahifasida seyflaringiz, faol obunalaringiz oyiga va yiliga qanchaga tushishi, **Yaqin toʻlovlar (30 kun)**, muddati tez orada tugaydigan kartalar va sevimlilaringiz koʻrsatiladi. **Ochiq seyflardan qidirish** barcha ochiq seyflardan qidiradi.
+
+![Ikkita seyf, obunalar xulosasi va yaqin toʻlov koʻrsatilgan shaxsiy seyflar sahifasi](../images/uz-Latn/safes-home.webp)
+
+Parol soʻraydigan seyf ichidagilar oʻrniga parol maydonini koʻrsatadi.
+
+![Parol soʻrayotgan yopiq seyf](../images/uz-Latn/safe-open-password.webp)
+
+**Seyf sozlamalari**da seyfni asosiy qilish, arxivlash, uning shifrlash kalitini almashtirish yoki uni oʻchirish ham mumkin.
+
+<a id="safes-lock"></a>
+### Seyflarni ochish va qulflash
+
+Tizimga kirish seyflaringizni ochmaydi. **Seyflarni ochish** tugmasini bosing va parolingizni yana kiriting. Jaybi seyflaringiz qachon ochilganini **Oldingi ochilish** ostida koʻrsatadi; agar bu vaqt sizga tanish boʻlmasa, parolingizdan boshqa kimdir foydalangan boʻlishi mumkin.
+
+![Seyflaringiz qulflangan: ularni ochish uchun parolni kiriting](../images/uz-Latn/safes-unlock.webp)
+
+Seyflar siz ishlayotganingizda ochiq turadi va **Seyflarni qulflash** tugmasini bosganingizda yoki butun seyf qulflanganda yana qulflanadi.
+
+<a id="trash"></a>
+### Savat va Faollik
+
+Oʻchirilgan seyflar va yozuvlar 30 kunga **Savat**ga tushadi. **Tiklash** ularni qaytaradi; **Butunlay oʻchirish** ularni darhol yoʻq qiladi.
+
+![Oʻchirilgan qayd turgan savat](../images/uz-Latn/safes-trash.webp)
+
+**Faollik** seyflaringizda nima va qachon boʻlganini koʻrsatadi: ochildi, qoʻshildi, oʻzgartirildi, koʻchirildi, oʻchirildi yoki tiklandi. Uni faqat siz oʻqiy olasiz.
+
+![Shaxsiy seyflarning «Faollik» roʻyxati](../images/uz-Latn/safes-activity.webp)
+
+<a id="after-reset"></a>
+### Administrator parolingizni yangilagandan keyin
+
+1. Parol yangilash kodi bilan yangi parol oʻrnating (yoki vaqtinchalik parol bilan kirib, yangisini tanlang).
+2. **Shaxsiy seyflar** boʻlimini oching. Jaybi seyflar oxirgi marta ochilgandan beri parolingiz oʻzgarganini aytadi.
+3. **Oldingi parol**ni, yaʼni parol yangilanishidan oldin oʻzingiz tanlagan parolni kiriting yoki tiklash kodidan foydalanishni tanlang. Joriy parolingizni ham kiriting.
+4. Seyflaringiz ochiladi va bundan buyon ularni joriy parolingiz ochadi.
+
+Administrator bergan vaqtinchalik parolni hech qachon oldingi parol sifatida yozmang. Agar oldingi parolingizni ham, tiklash kodingizni ham eslay olmasangiz, seyflaringizni hech kim ocha olmaydi; **Hisob → Qaytadan boshlash → Shaxsiy seyflarni noldan boshlash** sizga yangi, boʻsh seyflar beradi.
+
+<a id="backup"></a>
+## Zaxira nusxalar va boshqa qurilmaga koʻchish
+
+Zaxira nusxani faqat administratorlar oladi. Zaxira nusxa — butun seyfning bitta `.moliya` faylidagi shifrlangan nusxasi. Uni seyfga tegishli istalgan parol ochadi va bu brauzer maʼlumotlari yoʻqolsa, u seyfni qaytarishning **yagona** yoʻli.
+
+[Zaxira nusxa sahifasini ochish](https://jaybi.uz/#/app/backup)
+
+Yozuvlar bor-u, hali zaxira nusxa olinmagan boʻlsa yoki oxirgisi 7 kundan eski boʻlsa, har bir sahifada eslatma chiqadi.
+
+![Hali zaxira nusxa yuklab olinmagani haqidagi eslatma](../images/uz-Latn/backup-reminder.webp)
+
+<a id="download-backup"></a>
+### Zaxira nusxani yuklab olish
+
+1. **Zaxira nusxa** sahifasini oching.
+2. **Nusxani yuklab olish** tugmasini bosing.
+3. Faylni shu qurilmadan boshqa joyda saqlang: USB fleshkada, boshqa kompyuterda yoki bulutli xotirada. U shifrlangan holda qoladi.
+
+![«Shifrlangan zaxira» sahifasi: oxirgi nusxa, saqlash holati, nusxani yuklab olish, seyfni almashtirish, maʼlumotlarni eksport qilish va oldingi nusxalar](../images/uz-Latn/backup-full.webp)
+
+Sahifada **Bu brauzerdagi saqlash** holati ham koʻrsatiladi. «Himoyalanmagan» joy yetishmaganda brauzer maʼlumotlarni oʻchirib yuborishi mumkinligini bildiradi; [Holat tekshiruvi](#health) brauzerdan ularni saqlab qolishni soʻray oladi.
+
+**Bu brauzerdagi oldingi nusxalar** Jaybi har bir format yangilanishi va har bir importdan oldin saqlaydigan nusxalarni koʻrsatadi. Orqaga qaytish kerak boʻlsa, ulardan birini yuklab oling.
+
+<a id="export-data"></a>
+### Boshqa ilovalar uchun maʼlumotlarni eksport qilish
+
+**Maʼlumotlarni eksport qilish** yozuvlaringizni CSV, JSON, Excel, PDF hisobot yoki SQLite maʼlumotlar bazasi sifatida — barcha maʼlumotlar yoki tanlangan davr uchun, bitta yoki barcha guruhlar boʻyicha — yuklab beradi. Odatda fayl alohida eksport paroli bilan himoyalangan **Shifrlangan ZIP (AES-256)** boʻladi; kuchli parol uchun **Yaratish** tugmasidan foydalaning. Zaxira nusxa Jaybini tiklash uchun, eksport esa boshqa dasturlar uchun.
+
+![Formatlar, davr, guruh va himoya tanlovlari bor «Maʼlumotlarni eksport qilish» paneli](../images/uz-Latn/backup-export.webp)
+
+<a id="restore"></a>
+### Zaxira nusxani shu brauzerda tiklash
+
+**Bu seyfni zaxira nusxa bilan almashtirish** ostida zaxira faylini tanlang, parolingizni kiriting va tasdiqlash uchun seyf nomini yozing, soʻng **Seyfni almashtirish** tugmasini bosing. Joriy seyf nusxasi **Bu brauzerdagi oldingi nusxalar** boʻlimida saqlanib qoladi.
+
+![Seyfni zaxira fayli bilan almashtirish](../images/uz-Latn/backup-import.webp)
+
+<a id="moving"></a>
+### Boshqa qurilmaga koʻchish
+
+1. Eski qurilmada zaxira nusxani yuklab oling.
+2. Yangi qurilmada [https://jaybi.uz](https://jaybi.uz) saytini oching. U **Seyf yarating** ekranini koʻrsatadi: uni toʻldirmang.
+3. **Yoki zaxira nusxani import qiling** ostida zaxira faylini tanlang va **Seyfni almashtirish** tugmasini bosing.
+4. Odatdagi pochta va parolingiz bilan tizimga kiring.
+
+![Yangi qurilmada, sozlash ekranida zaxira nusxani import qilish](../images/uz-Latn/move-import.webp)
+
+Seyfdagi har bir odam yangi qurilmada oʻz paroli bilan kira oladi. Seyf sinxronlanmaydi: koʻchgandan keyin faqat yangi qurilmadan foydalaning yoki seyfni xuddi shu usulda qaytarib koʻchiring.
+
+<a id="settings"></a>
+## Seyf sozlamalari
+
+Administratorlar butun seyf uchun parametrlarni **Sozlamalar** sahifasida oʻzgartiradi.
+
+[Sozlamalarni ochish](https://jaybi.uz/#/app/settings)
+
+- **Seyf nomi** va **Seyf valyutasi**, soʻng **Sozlamalarni saqlash**. Jami summalar faqat seyf valyutasidagi yozuvlarni hisoblaydi.
+- **Toifalar**: daromad va xarajat toifalarini har bir tildagi nomi bilan qoʻshish, qayta nomlash yoki olib tashlash. Boʻsh tarjima oʻrniga inglizcha nom ishlatiladi. Yozuvlarda ishlatilgan toifani olib tashlab boʻlmaydi.
+- **Versiya haqida**: ilova versiyasi, yigʻma, maʼlumotlar formati va seyf qachon yaratilgani. Muammo haqida xabar berganda shularni aytib oʻting.
+
+![Seyf nomi, valyutasi va toifalari bor Sozlamalar sahifasi](../images/uz-Latn/settings.webp)
+
+<a id="account"></a>
+## Hisobingiz
+
+Har kimda faqat oʻziga tegishli sozlamalar boʻlgan **Hisob** sahifasi bor.
+
+[Hisob sahifasini ochish](https://jaybi.uz/#/app/account)
+
+![Hisob sahifasi: parol, kirish tekshiruvi, avtomatik qulflash, seyflar, tiklash kodi va qaytadan boshlash](../images/uz-Latn/account-full.webp)
+
+<a id="change-password"></a>
+### Parolni oʻzgartirish
+
+**Joriy parol**ni, soʻng **Yangi parol** va **Yangi parolni tasdiqlang** maydonlarini toʻldiring va **Parolni oʻzgartirish** tugmasini bosing. Shaxsiy seyflaringiz va kirish tekshiruvingiz ham shu zahoti yangi parolga oʻtadi.
+
+Agar parolingizni administrator tanlagan boʻlsa, Jaybi hamma narsadan oldin yangisini tanlashni soʻraydi: shunday qilmaguningizcha har bir sahifa sizni **Hisob** sahifasiga olib boradi.
+
+<a id="choosing-a-password"></a>
+### Parol tanlash
+
+Yangi parol 12 tadan 256 tagacha belgidan iborat boʻlishi, keng tarqalgan parol boʻlmasligi, pochtangiz yoki seyf nomidan tuzilmasligi va `qwertyuiop` kabi oddiy naqsh boʻlmasligi kerak. Bir-biriga bogʻliq boʻlmagan toʻrt-besh soʻz (xohlasangiz, boʻsh joylar bilan) eslab qolishga oson, taxmin qilishga esa qiyin. Boshqa saytdagi parolni qayta ishlatmang: seyf nusxalarini aynan parolingiz himoya qiladi.
+
+<a id="sign-in-check"></a>
+### Kirish tekshiruvi (autentifikator ilovasi)
+
+Kirish tekshiruvi paroldan keyin autentifikator ilovasidagi (Google Authenticator, Microsoft Authenticator, Aegis, 1Password va shunga oʻxshashlar) 6 xonali kodni soʻraydi. Kimdir parolingizni bilib olib, uni shu brauzerda sinab koʻrsa, u sizni himoya qiladi. U shifrlashni kuchaytirmaydi.
+
+1. **Kirish tekshiruvini sozlash** tugmasini bosing.
+2. QR kodni ilovangiz bilan skanerlang yoki **Sozlash kaliti**ni qoʻlda kiriting.
+3. **Ilovadagi kod** va **Parolingiz** maydonlarini toʻldiring, soʻng **Tasdiqlash va yoqish** tugmasini bosing.
+4. Jaybi 10 ta tiklash kodini (**Tiklash kodlari**) koʻrsatadi. Telefoningizni yoʻqotsangiz, ularning har biri bir marta ishlaydi. **Kodlarni yuklab olish** tugmasini bosing yoki ularni yozib oling, bu qurilmadan uzoqda saqlang va **Kodlarni saqlab qoʻydim** tugmasini bosing.
+
+![QR kod va sozlash kaliti bilan kirish tekshiruvini sozlash](../images/uz-Latn/account-totp.webp)
+
+![Faqat bir marta koʻrsatiladigan oʻnta tiklash kodi](../images/uz-Latn/account-totp-recovery.webp)
+
+Uni oʻchirish uchun **Kirish tekshiruvini oʻchirish** tugmasini bosing va parolingizni kiriting. Yangi tiklash kodlarini olish uchun uni oʻchirib, qayta yoqing.
+
+<a id="auto-lock"></a>
+### Avtomatik qulflash va seyf taymerlari
+
+**Avtomatik qulflash** shu qurilmada faollik boʻlmaganda seyf qancha vaqt ochiq turishini belgilaydi: 5 daqiqa, 15 daqiqa (odatiy), 30 daqiqa yoki 1 soat. **Shaxsiy seyflar** ostida nusxalangan qiymatlar buferda qancha turishini va koʻrsatilgan qiymatlar qancha vaqt koʻrinib turishini tanlaysiz.
+
+<a id="audit"></a>
+## Audit jurnali
+
+**Audit jurnali** kim nima va qachon qilganini koʻrsatadi: qoʻshilgan, oʻzgartirilgan va oʻchirilgan yozuvlar, qoʻshilgan yoki olib tashlangan odamlar, parol yangilashlar, zaxira nusxalar, eksportlar, sozlamalar va boshqalar. Uni faqat administratorlar koʻradi. Unda hech qachon summalar, izohlar yoki shaxsiy seyflar ichidagi narsalar koʻrsatilmaydi.
+
+[Audit jurnalini ochish](https://jaybi.uz/#/app/audit)
+
+![Butunlik qatori bor audit jurnali](../images/uz-Latn/audit.webp)
+
+Har bir yozuv oʻzidan oldingisi bilan bogʻlangan. Ilovadan tashqarida hech narsa oʻzgartirilmagan boʻlsa, **Butunlik** qatorida «Buzilmagan: har bir yozuv oldingisi bilan bogʻlangan» deb yoziladi. Agar yozuvlar oʻzgartirilgan yoki oʻchirilgan boʻlsa, Jaybi har bir sahifada qizil chiziq koʻrsatadi va Holat tekshiruvi bu haqda xabar beradi. Agar bu oʻzgarishni kutgan boʻlsangiz, masalan, eskiroq zaxira nusxani import qilgandan keyin, **Jurnalni boricha qabul qilish** tugmasini bosing; aks holda yaqindagi zaxira nusxani tiklang va parollarni oʻzgartiring.
+
+<a id="health"></a>
+## Holat tekshiruvi
+
+**Holat tekshiruvi** shu brauzerni, uning saqlash joyini, ilova versiyasini, seyfingizni va valyuta kurslarini koʻrib chiqadi hamda nima joyida va nima eʼtibor talab qilishini oddiy soʻzlar bilan tushuntiradi. Hammasi shu qurilmada bajariladi; hech narsa hech qayerga yuborilmaydi.
+
+[Holat tekshiruvini oʻtkazish](https://jaybi.uz/#/app/health)
+
+![Xulosa va brauzer tekshiruvlari koʻrsatilgan Holat tekshiruvi sahifasi](../images/uz-Latn/health.webp)
+
+Har bir qator qisqa izoh bilan **Joyida**, **Ogohlantirish**, **Muammo bor** yoki **Eslatma** deb belgilanadi. Eʼtibor talab qiladigan qatorda **Qanday tuzatish mumkin** boʻlimi ham chiqadi va kerak boʻlganda **Maʼlumotlarni saqlashni soʻrash** yoki **“Zaxira nusxa” sahifasini ochish** kabi tugma ham boʻladi.
+
+![Ogohlantirish: hali zaxira nusxa yuklab olinmagan, tuzatish yoʻli va Zaxira nusxa sahifasini ochish tugmasi bilan](../images/uz-Latn/health-warning.webp)
+
+<a id="health-checks"></a>
+### Nimalar tekshiriladi
+
+| Boʻlim | Tekshiruvlar |
+| --- | --- |
+| **Brauzer imkoniyatlari** | Shifrlash, brauzer maʼlumotlar bazasi, WebAssembly, bir vaqtda bitta varaq, sahifani ajratish, service worker, xavfsiz ulanish, Trusted Types, cookie va sayt maʼlumotlari, maxfiy oyna |
+| **Saqlash joyi** | Saqlash joyiga yozish mumkinmi, boʻsh joy, joy kamayganda brauzer maʼlumotlarni saqlab qoladimi, kichik sozlamalar uchun joy, bu yerda seyf saqlanganmi |
+| **Ilova va versiya** | Yangiroq versiya chiqqanmi, yigʻma va kerak boʻlganda yuklanadigan sahifalar ishlayotgan versiyaga mosmi |
+| **Seyf** | Maʼlumotlar formati, 48 MB chegaraga nisbatan seyf hajmi, saqlash, zaxira nusxa qanchalik eskiligi, oldingi nusxalar, audit jurnalining butunligi, qurilma soati, kirish tekshiruvingiz, parolingiz va odamlar soni |
+| **Valyuta kurslari** | Kurslar joriymi va nazorat yigʻindisiga mosmi |
+| **Xavfsizlik** | Kontent xavfsizlik siyosati, boshqa sahifa ichida ishlamaslik va manzil |
+
+**Faqat administrator uchun** deb belgilangan qatorlar faqat administratorlarga koʻrinadi: audit jurnali qatorlari, oldingi nusxalar va odamlar soni. Administratorlar zaxira nusxa sanalari va soat belgilarini ham koʻradi. Boshqalar brauzer va oʻz hisobi haqidagi qisqaroq roʻyxatni koʻradi; zaxira nusxa qatori ularga faqat zaxira nusxalarni administrator olishini eslatadi.
+
+![Kuzatuvchi koʻradigan Holat tekshiruvi](../images/uz-Latn/viewer-health.webp)
+
+<a id="health-report"></a>
+### Hisobot bilan boʻlishish
+
+**Hisobotni nusxalash** sizga yordam beradigan odamga yoziladigan xabarga qoʻyish uchun oddiy matnli xulosani nusxalaydi. Unda versiyalar, hajmlar, sanalar va har bir tekshiruv natijasi boʻladi, parollar, kodlar, pochta manzillari, ismlar yoki summalar esa hech qachon boʻlmaydi. **Qayta tekshirish** biror narsani tuzatganingizdan keyin tekshiruvlarni takrorlaydi.
+
+<a id="health-signed-out"></a>
+### Tizimga kira olmaganingizda
+
+Kirish ekranidagi **Holat tekshiruvi** havolasi brauzer, saqlash joyi va versiya tekshiruvlarini tizimga kirmasdan bajaradi. Agar Jaybi umuman ishga tushmasa, xato ekrani ham xuddi shu tekshiruvni taklif qiladi.
+
+![Kirish ekranidan ochilgan Holat tekshiruvi](../images/uz-Latn/health-signed-out.webp)
+
+![Telefondagi Holat tekshiruvi](../images/uz-Latn/mobile-health.webp)
+
+<a id="help"></a>
+## Bu yordamdan foydalanish
+
+Bu qoʻllanma Jaybi ichiga ham oʻrnatilgan. Menyudagi **Yordam** boʻlimini, yuqori paneldagi **?** tugmasini (u joriy sahifaga oid qismni ochadi) yoki kirish ekranidagi **Yordam** havolasini oching. Qoʻllanma siz tanlagan tilda koʻrsatiladi.
+
+![Jaybi ichidagi shu qoʻllanma, chapda mundarija bilan](../images/uz-Latn/help.webp)
+
+Tizimga kirishdan oldin **Yordam** xuddi shu qoʻllanmani alohida sahifada, kirish ekraniga qaytish havolasi bilan ochadi.
+
+![Kirish ekranidan ochilgan qoʻllanma](../images/uz-Latn/help-signed-out.webp)
+
+Faqat biror soʻz uchraydigan qismlarni koʻrsatish uchun **Qoʻllanmadan qidirish** maydoniga oʻsha soʻzni yozing. **Ochish** tugmalari sizni tasvirlanayotgan ekranga toʻgʻridan-toʻgʻri olib boradi.
+
+![Ichki qoʻllanmadan qidirish](../images/uz-Latn/help-search.webp)
+
+<a id="updates"></a>
+## Yangilanishlar va versiyalar
+
+Jaybining yangi versiyasi chiqqanda **Jaybining yangi versiyasi chiqdi.** degan chiziq paydo boʻladi. Qulay paytda **Yangilash** tugmasini bosing: ishingiz saqlanadi va avval seyf qulflanadi, shuning uchun keyin qayta kiring. Yangilanishdan keyingi birinchi kirish Jaybi maʼlumotlarni yangilayotgani uchun bir necha soniya uzoqroq davom etishi mumkin. Bu bir marta boʻladi.
+
+![Yangi versiya haqidagi chiziq va «Yangilash» tugmasi](../images/uz-Latn/update-banner.webp)
+
+Foydalanayotgan versiyangiz menyuning pastida, kirish ekranida va Holat tekshiruvida koʻrsatiladi. Muammo haqida xabar berganda uni aytib oʻting.
+
+<a id="security"></a>
+## Xavfsizlik boʻyicha maslahatlar
+
+- Boshqa hech qayerda ishlatmaydigan uzun parol tanlang. Seyf nusxalarini faqat u himoya qiladi.
+- Umumiy qurilmadan ketishdan oldin seyfni qulflang, shaxsiy seyflaringiz bilan ishingiz tugagach, ularni ham qulflang.
+- Kirish tekshiruvini yoqing va tiklash kodlarini bu qurilmadan uzoqda saqlang.
+- Administratorlar: zaxira nusxani kamida haftada bir marta yuklab oling va uni bu qurilmadan tashqarida saqlang.
+- Bu saytning brauzer maʼlumotlarini tozalamang: bu seyfni brauzerdan oʻchirib yuboradi.
+- Bir martalik kodlardan tezroq foydalaning va kodingizni boshqa kimdir koʻrgan boʻlishi mumkin boʻlsa, administratorga ayting.
+- Shaxsiy seyflaringiz uchun tiklash kodini yarating va uni oflayn saqlang.
+- Manzilni doim tekshiring: rasmiy manzil — `jaybi.uz`. Jaybi boshqa sayt sahifasi ichida ishlashni rad etadi.
+- Karta PIN-kodlarini hech qachon saqlamang. CVV kodni faqat juda zarur boʻlsa saqlang.
+
+<a id="troubleshooting"></a>
+## Muammolarni hal qilish
+
+[Holat tekshiruvi](#health)dan boshlang: aksariyat muammolar u yerda yechimi bilan birga koʻrinadi.
+
+[Holat tekshiruvini oʻtkazish](https://jaybi.uz/#/app/health)
+
+| Nimani koʻryapsiz | Nima qilish kerak |
+| --- | --- |
+| Seyfingiz boʻlsa ham **Seyf yarating** ekrani chiqyapti | Siz boshqa brauzer, profil, maxfiy oyna yoki manzildasiz. Jaybini seyfni yaratgan joyingizda oching yoki zaxira nusxani import qiling. Yangi seyf yaratmang. |
+| «Pochta yoki parol notoʻgʻri» | Ikkalasini ham tekshiring. Bir necha urinishdan keyin teskari sanoq tugashini kuting. Parolni unutgan boʻlsangiz, administratordan parol yangilash kodini soʻrang. |
+| **Urinishlar juda koʻp** | Teskari sanoq tugashini kuting; sahifani yangilash yordam bermaydi. |
+| **Saqlab boʻlmadi** | Brauzer maʼlumotlarni saqlashni rad etdi. Varaqni ochiq qoldiring, diskda joy boʻshating, soʻng Holat tekshiruvini oʻtkazing. |
+| **Saqlanmadi: boshqa joyda oʻzgartirilgan** | Seyf boshqa varaqda ochiq. Qulflang, qayta kiring va oxirgi oʻzgarishingizni takrorlang. |
+| «boshqa varaq yoki oynada allaqachon ochiq» | Oʻsha varaqqa oʻting yoki u yerda qulflang. |
+| Kod rad etildi | Uning muddati tugagan, u ishlatilgan yoki boshqa pochta uchun boʻlishi mumkin. Yangisini soʻrang. Soat tekshiruvi tilga olinsa, qurilma soatini toʻgʻrilang. |
+| Valyuta kurslari yoʻq yoki **Eskirgan** | Internet aloqasini tekshiring. Bayram kunlaridan keyin banklar yangi kurs eʼlon qilmagan boʻlishi mumkin. |
+| Yangilanishdan keyin sahifa boʻsh qolyapti | Sahifani qayta yuklang. |
+| Audit jurnali haqida qizil chiziq | [Audit jurnali](#audit) boʻlimiga qarang. |
+| Seyf hajmi chegarasiga yaqinlashdi | Eski yozuvlardagi katta cheklarni olib tashlang. |
+
+<a id="not-found"></a>
+### Sahifa topilmadi
+
+Eski yoki xato yozilgan havola **Sahifa topilmadi** ekranini koʻrsatadi. **Boshqaruv sahifasiga oʻtish** tugmasini bosing.
+
+![«Sahifa topilmadi» ekrani](../images/uz-Latn/not-found.webp)
+
+<a id="faq"></a>
+## Savol va javoblar
+
+**Jaybidan telefonimda va kompyuterimda bir vaqtda foydalana olamanmi?** Yoʻq. Seyf bitta brauzerda turadi. Uni zaxira nusxa orqali koʻchirishingiz mumkin, lekin ikki nusxa oʻzaro sinxronlanmaydi.
+
+**Administrator shaxsiy seyflarimni oʻqiy oladimi?** Yoʻq. Seyflar faqat parolingiz yoki tiklash kodingiz ochadigan kalit bilan shifrlangan.
+
+**Parolimni unutdim. Uni kimdir tiklay oladimi?** Uni hech kim koʻra olmaydi, lekin administrator sizga parol yangilash kodini bera oladi. Agar yagona administrator parolini unutsa, uni hech kim yangilab bera olmaydi, shuning uchun ikkita administrator boʻlgani maʼqul.
+
+**Jaybi maʼlumotlarimni biror joyga yuboradimi?** Yoʻq. Ilovaning oʻzidan tashqari Jaybi faqat ochiq valyuta kurslarini va eʼlon qilingan versiya raqamini yuklaydi.
+
+**Nega baʼzi yozuvlar jami summaga kirmagan?** Ular boshqa valyutada. Ular **Boshqa valyutalar (jamiga kirmaydi)** ostida koʻrsatiladi.
+
+**Zaxira nusxalar qayerda saqlanadi?** Yuklab olingan faylni qayerga saqlasangiz, oʻsha yerda. Jaybi siz uchun zaxira nusxalarni saqlab bermaydi.
+
+**Kirish tekshiruvi kuchli parol oʻrnini bosadimi?** Yoʻq. U faqat ilova orqali kirishda bitta qadam qoʻshadi.
+
+<a id="glossary"></a>
+## Atamalar lugʻati
+
+- **Seyf**: daftar, odamlar va ularning shaxsiy seyflari saqlanadigan, bitta brauzerda turadigan shifrlangan fayl.
+- **Asosiy parol**: seyf yaratilganda tanlangan birinchi administrator paroli.
+- **Guruh**: seyfning oʻz yozuvlari va odamlari bor qismi.
+- **Yozuv**: daftardagi bitta daromad yoki xarajat.
+- **Seyf valyutasi**: jami summalar va diagrammalar hisoblanadigan valyuta.
+- **Bir martalik kod**: administrator beradigan, bir marta ishlaydigan va muddati tugaydigan taklif yoki parol yangilash kodi.
+- **Kirish tekshiruvi**: paroldan keyin soʻraladigan, autentifikator ilovasidagi 6 xonali kod.
+- **Tiklash kodlari**: autentifikatorni yoʻqotsangiz, uning oʻrnini bosadigan oʻnta bir martalik kod.
+- **Shaxsiy seyf**: kartalar, obunalar va qaydlar uchun oʻzingizning shifrlangan joyingiz.
+- **Tiklash kodi (seyflar)**: shaxsiy seyflaringizning zaxira kaliti.
+- **Zaxira nusxa**: butun seyf saqlangan shifrlangan `.moliya` fayli.
+- **Audit jurnali**: kim nima va qachon qilganini koʻrsatadigan, administratorga moʻljallangan oʻzaro bogʻlangan roʻyxat.
+- **Holat tekshiruvi**: brauzer, saqlash joyi, versiya, seyf va kurslarni tekshiradigan sahifa.

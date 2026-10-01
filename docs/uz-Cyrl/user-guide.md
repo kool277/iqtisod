@@ -1,362 +1,749 @@
-# User guide
+# Жайби: фойдаланувчи қўлланмаси
 
-This guide is for people who use a Jaybi vault day to day: **Managers**, who record income and expenses, and **Viewers**, who review them. Everyone, whatever their role, can keep their own [private safes](#private-safes). Admins can do everything here too. Their extra tasks are in the [admin guide](admin-guide.md).
+[English](../user-guide.md) · [Русский](../ru/user-guide.md) · [Oʻzbekcha](../uz-Latn/user-guide.md) · **Ўзбекча**
 
-## Before you start
+Жайби — бутунлай браузерингизда ишлайдиган, оила ва кичик бизнес учун шахсий молия дафтари. Ёзувларингиз, шахсий сейфларингиз ва созламаларингиз ўз қурилмангизда шифрланади ва ҳеч қаерга юборилмайди. Бу қўлланма ҳар бир экранни расмлар билан, қадамма-қадам тушунтиради. Администраторлар ҳам ўз қўшимча вазифаларини шу ерда топади: одамларни таклиф қилиш, захира нусхалар, созламалар ва аудит журнали. Жойлаштириш ва тиклаш бўйича техник тафсилотлар учун қаранг: [администратор қўлланмаси](../admin-guide.md).
 
-Your admin gives you the address of the app, your email, and usually a **one-time code**. You use the code once to [join the vault](#joining-with-a-code) and choose your own password, so nobody else ever knows it. Some admins give a starting password instead; then Jaybi asks you to replace it the first time you sign in (see [Your account](#your-account)).
+<a id="contents"></a>
+## Мундарижа
 
-Jaybi has no "forgot password" link. If you forget your password, ask your admin for a reset code, but read [After an admin resets your password](#after-an-admin-resets-your-password) first if you use private safes.
+- [Бошлаш](#start)
+- [Кириш ва қулфлаш](#sign-in)
+- [Иловада йўл топиш](#around)
+- [Роллар: ким нима қила олади](#roles)
+- [Бошқарув саҳифаси](#dashboard)
+- [Пулни ёзиб бориш](#transactions)
+- [Жадваллар билан ишлаш](#tables)
+- [Гуруҳлар](#groups)
+- [Одамлар ва таклифлар](#users)
+- [Шахсий сейфлар](#safes)
+- [Захира нусхалар ва бошқа қурилмага кўчиш](#backup)
+- [Сейф созламалари](#settings)
+- [Ҳисобингиз](#account)
+- [Аудит журнали](#audit)
+- [Ҳолат текшируви](#health)
+- [Ушбу ёрдамдан фойдаланиш](#help)
+- [Янгиланишлар ва версиялар](#updates)
+- [Хавфсизлик бўйича маслаҳатлар](#security)
+- [Муаммоларни ҳал қилиш](#troubleshooting)
+- [Савол ва жавоблар](#faq)
+- [Атамалар луғати](#glossary)
 
-Jaybi was called Moliya before version 1.3.0, and it now lives at [https://jaybi.uz](https://jaybi.uz). The old address, `kool277.github.io/iqtisod`, forwards there. Sign in at `jaybi.uz` with your usual email and password. If it shows **Create your vault** instead, your vault is still stored under the old address in this browser and has not been moved yet: do not create a new vault, and ask your admin (see [Moving to jaybi.uz](admin-guide.md#moving-to-jaybiuz)).
+<a id="start"></a>
+## Бошлаш
 
-The vault lives inside one browser on one device. If your admin set it up on a shared computer, use that computer and that browser. Opening the app on your own phone will show an empty setup screen, because that browser has no vault yet. Your admin can move a copy there with a backup file.
+<a id="where-data-lives"></a>
+### Маълумотларингиз қаерда сақланади
 
-## Joining with a code
+Жайби бутун дафтарни битта шифрланган файлда — **сейф**да — битта қурилмадаги битта браузер ичида сақлайди. Серверда ҳисоб ҳам, булутда нусха ҳам йўқ. Бунинг учта оқибатини бошиданоқ билиб қўйинг:
 
-A code has seven groups of four letters and digits, like `XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX`. It works once, for your email only, and only until the time your admin chose (24 hours unless they picked another time).
+- Жайби иловасини ҳар доим бир хил браузерда, бир хил қурилмада очинг. Бошқа браузер, бошқа браузер профили, махфий ойна ёки бошқа телефон бўш созлаш экранини кўрсатади, чунки сейф у ерда йўқ.
+- Асосий паролни сиз учун ҳеч ким янгилай олмайди ва маълумотларингизни сиз учун ҳеч ким ўқий олмайди, ҳатто Жайби яратувчилари ҳам.
+- Браузер маълумотлари ўчирилса, фақат **захира нусха файли** сақланиб қолади. Администраторлар уни мунтазам юклаб олиб туриши керак ([Захира нусхалар](#backup) бўлимига қаранг).
 
-1. Open the app in the browser where the vault is stored. On **Unlock vault**, choose **Have a one-time code? Join the vault**. If your admin sent you a link, opening it fills in your email and the code for you.
-2. Check **Your email**, and type or paste the **One-time code**. Capital or small letters, spaces, and dashes do not matter; the letter O counts as zero, and I and L count as one.
-3. Enter a password under **Choose a password** and again under **Confirm password**. See [Choosing a password](#choosing-a-password).
-4. Choose **Join vault**. You are signed in.
+Жайби компьютер ва телефонлардаги Chrome, Edge, Firefox ва Safari браузерларининг жорий версияларида ишлайди. Уни [https://jaybi.uz](https://jaybi.uz) манзилида очинг. 1.3.0 версиясигача Жайби иловаси Moliya деб аталган; эски `kool277.github.io/iqtisod` манзили jaybi.uz манзилига йўналтиради.
 
-A code works only in the browser where the vault is stored, because that is where the vault is. If Jaybi says "There is no vault in this browser yet", you are on the wrong device or browser. Open the app where your admin set it up, or first choose **Import a backup** if your admin gave you a backup file.
+<a id="create-vault"></a>
+### Сейф яратиш (биринчи администратор)
 
-If Jaybi says the code has expired or does not match, ask your admin for a new one. Keep the code private until you have used it: anyone with the code and your email can join as you while it is open.
+Сейфни яратган одам унинг биринчи **Администратор**и бўлади.
 
-## Signing in
+1. Жайби иловасини очинг. Юқори ўнг бурчакда тил ва мавзуни танланг.
+2. **Сейф яратинг** бўлимида **Сейф номи** (масалан, оилангиз ёки бизнесингиз номи), **Администратор почтаси** ва **Асосий парол**ни киритинг, сўнг ўша паролни **Паролни тасдиқланг** майдонига яна киритинг.
+3. Жами суммалар ҳисобланадиган **Валюта**ни танланг. Уни кейинроқ [Сейф созламалари](#settings) бўлимида ўзгартиришингиз мумкин.
+4. **Шифрланган сейф яратиш** тугмасини босинг. Шифрлаш бир неча сония давом этади.
 
-1. Open the app. You will see **Unlock vault**.
-2. Enter your email and password, then choose **Unlock**.
+![Номи, почта, парол ва валюта тўлдирилган «Сейф яратинг» экрани](../images/uz-Cyrl/setup.webp)
 
-Unlocking takes a moment, because your password is deliberately stretched to make guessing slow. If you see "Email or password is incorrect", check both. The message is the same for either mistake on purpose.
+Асосий паролни эҳтиёткорлик билан танланг: у сейфни шифрлайди ва **уни тиклаб бўлмайди**. [Парол танлаш](#choosing-a-password) бўлимига қаранг.
 
-After five wrong tries for the same email, Jaybi shows **Too many attempts. Try again in** with a countdown, and the wait doubles with each further mistake, up to 15 minutes. Codes and the sign-in check are limited the same way. Wait for the countdown to finish; refreshing the page does not shorten it. After you sign in, Jaybi tells you how many failed attempts there were for your account in this browser since your last sign-in. If you did not make them, change your password.
+Сейф тайёр бўлгач, бошқарув саҳифаси очилади. Кимдир пул ёзмагунча у бўш туради.
 
-This limit slows down someone guessing at this screen. It does not protect a copy of the vault or a backup: someone with a copy can guess without any limit, and only a long, uncommon password stops them.
+![Сейф яратилгандан кейинги бўш бошқарув саҳифаси](../images/uz-Cyrl/dashboard-empty.webp)
 
-### The second step
+Агар бошқа қурилмада олинган захира нусхангиз бўлса, янги сейф яратманг: шу экраннинг пастидаги **Ёки захира нусхани импорт қилинг** бандидан фойдаланинг ([Бошқа қурилмага кўчиш](#moving) бўлимига қаранг).
 
-If you turned on the [sign-in check](#sign-in-check), Jaybi asks for a second step after your password: "Enter the 6-digit code from your authenticator app, or one of your recovery codes." Type the code into **Code** and choose **Continue**. Each code works once. If you wait more than 5 minutes, or choose **Cancel**, you go back to **Unlock vault**.
+<a id="joining"></a>
+### Бир марталик код билан сейфга қўшилиш
 
-If you sign in with a recovery code, a bar shows **You used a recovery code. Codes left:** with the number. When few are left, turn the sign-in check off and on again in **Account** to get new ones.
+Биринчи администратордан бошқа ҳамма администратор берган **бир марталик код** билан қўшилади. Код `XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX` кўринишида бўлади ва бир марта, фақат сизнинг почтангиз учун ҳамда фақат администратор танлаган вақтгача ишлайди.
 
-### If Jaybi shows "For your safety, Jaybi does not run inside another page."
+1. Жайби иловасини сейф сақланган браузерда очинг. Агар администратор ҳавола юборган бўлса, уни очинг: почтангиз ва код ўзи тўлдирилади.
+2. Акс ҳолда, **Сейфни очиш** экранида **Бир марталик кодингиз борми? Сейфга қўшилинг** ҳаволасини босинг.
+3. **Почтангиз** ва **Бир марталик код**ни текширинг. Катта-кичик ҳарфлар, бўш жойлар ва чизиқчаларнинг аҳамияти йўқ.
+4. **Парол танланг** майдонига парол киритинг ва уни **Паролни тасдиқланг** майдонига яна киритинг, сўнг **Сейфга қўшилиш** тугмасини босинг.
 
-Jaybi refuses to run inside another website's page, because that page could trick you into clicking or typing. Choose **Open Jaybi in its own tab**, and check that the address is the one your admin gave you.
+![Почта, код ва янги парол тўлдирилган «Сейфга қўшилиш» экрани](../images/uz-Cyrl/register.webp)
 
-### Resetting your password with a code
+Сиз дарҳол тизимга кирасиз. Паролингизни бошқа ҳеч ким, ҳатто администратор ҳам билмайди.
 
-If your admin gives you a reset code:
+Агар Жайби «Бу браузерда ҳали сейф йўқ» деса, сиз нотўғри қурилма ёки браузердасиз: код фақат сейф сақланган жойда ишлайди. Агар коднинг муддати тугагани ёки у мос келмаслиги айтилса, администратордан янги код сўранг.
 
-1. On **Unlock vault**, choose **Have a reset code?** (or open the link your admin sent).
-2. Enter **Your email**, the **One-time code**, and your new password twice.
-3. Choose **Set new password**. You are signed in with the new password.
+<a id="sign-in"></a>
+## Кириш ва қулфлаш
 
-Like an invite code, a reset code works once, only until it expires, and only in the browser where the vault is stored. Your old password stops working when you use the code, and sooner if your admin chose to stop it at once. Setting a new password this way also turns off your [sign-in check](#sign-in-check); turn it on again in **Account** if you use it. If you use private safes, read [After an admin resets your password](#after-an-admin-resets-your-password).
+<a id="unlock"></a>
+### Сейфни очиш
 
-## Finding your way around
+1. Жайби иловасини очинг. **Сейфни очиш** экрани кўринади.
+2. **Почта** ва **Парол**ни киритинг, сўнг **Очиш** тугмасини босинг.
 
-The menu on the left (along the top on a phone) shows only what your role allows:
+![Қўшилиш, парол янгилаш, Ёрдам ва Ҳолат текшируви ҳаволалари бор «Сейфни очиш» экрани](../images/uz-Cyrl/sign-in.webp)
 
-| Role | Dashboard and Groups | Transactions | Add, edit, delete records | Private safes and Account |
-| --- | --- | --- | --- | --- |
-| Manager | Yes | Yes | Yes, for your group | Yes, your own |
-| Viewer | Yes | Yes | No | Yes, your own |
+Сейфни очиш атайлаб бироз вақт олади: паролни тахмин қилиш секин бўлиши учун у махсус тарзда «чўзилади». «Почта ёки парол нотўғри» хабари иккала хатода ҳам бир хил чиқади, шунинг учун ҳеч ким қайси почталар мавжудлигини билиб ололмайди.
 
-You only see records that belong to your group. The top bar shows the vault name, the save status, the language and theme switches, and the **Lock** button.
+Бир почта учун беш марта нотўғри уринишдан кейин Жайби тескари санаш билан **Уринишлар жуда кўп. Қайта уринишгача:** хабарини кўрсатади, ҳар бир кейинги хатода эса кутиш вақти 15 дақиқагача ортиб боради. Саҳифани янгилаш уни қисқартирмайди. Киргандан кейин Жайби охирги ташрифингиздан бери шу браузерда ҳисобингизга нечта муваффақиятсиз уриниш бўлганини айтади. Агар уларни сиз қилмаган бўлсангиз, паролингизни ўзгартиринг.
 
-The button at the far left of the top bar collapses the menu. On a computer the menu shrinks to icons, and pointing at an icon shows its name. On a phone the menu row is hidden. Choose the button again to bring the menu back. Jaybi remembers your choice in this browser.
+Форма остидаги ҳаволалар ҳамма учун: **Бир марталик кодингиз борми? Сейфга қўшилинг**, **Парол янгилаш кодингиз борми?**, **Ёрдам** (шу қўлланма) ва **Ҳолат текшируви** — у тизимга кира олмаганингизда ҳам браузерни текширади.
 
-## Choosing a period
+<a id="second-step"></a>
+### Иккинчи қадам (кириш текшируви)
 
-The dashboard, the ledger, and **Groups** use the same period buttons, and your choice carries over between them:
+Агар [кириш текшируви](#sign-in-check)ни ёққан бўлсангиз, Жайби паролдан кейин аутентификатор иловангиздаги 6 хонали кодни сўрайди. Уни **Код** майдонига киритинг ва **Давом этиш** тугмасини босинг. Бу ерда тиклаш коди ҳам бир марта ишлайди. 5 дақиқадан кўп кутсангиз ёки **Бекор қилиш** тугмасини боссангиз, **Сейфни очиш** экранига қайтасиз.
 
-- **Today**
-- **This week** (Monday to Sunday)
-- **This month** (the default)
-- **Last month**
-- **Year to date** (1 January to today)
-- **Custom**, which opens From and To date fields. If you enter them backwards, Jaybi swaps them.
+![6 хонали кодни сўраётган кириш текшируви қадами](../images/uz-Cyrl/sign-in-totp.webp)
 
-## Working with tables
+<a id="reset-code"></a>
+### Паролни унутдингизми? Парол янгилаш кодидан фойдаланинг
 
-Transactions, the private-safe lists, and the admin pages show their rows in tables that work the same way:
+Жайби «паролни унутдим» хатини юбормайди, чунки сервер йўқ. Администратордан **парол янгилаш коди**ни сўранг, сўнг:
 
-- **Sort**: choose a column heading. Choose it again for the other direction, and a third time to go back to the original order. Hold Shift while choosing to sort by up to three columns; small numbers next to the headings show the order. Amounts sort exactly within each currency, and names sort in the order of your language. On a phone, use **Sort by** above the cards.
-- **Search this table**: type any part of what you see in the visible columns. Case, accents, apostrophes, and the alphabet do not matter, so `taksi` finds "Такси" and `ozbek` finds "Oʻzbek". Esc clears the search.
-- **Filters**: opens a box with one filter per column: text, a list to tick one or more values, a From–To date range, or a Min–Max amount. The button shows how many filters are on, and **Clear filters** turns them all off. Amount filters compare the exact amount; they do not convert currencies.
-- **Columns**: tick the columns to show, move them up or down, choose **Compact rows**, or **Reset layout**. Columns that identify a row, such as the date or amount, always stay.
-- **Rows** at the bottom: 10, 25, 50, 100, or all. The line next to it says which rows you see, for example "Showing 1–25 of 140 (filtered from 900)".
+1. **Сейфни очиш** экранида **Парол янгилаш кодингиз борми?** ҳаволасини босинг (ёки администратор юборган ҳаволани очинг).
+2. **Почтангиз**, **Бир марталик код** ва янги паролингизни икки марта киритинг.
+3. **Янги паролни ўрнатиш** тугмасини босинг. Сиз янги парол билан тизимга кирасиз.
 
-Jaybi remembers the columns, their order, the sort, the row count, and compact rows for each table in this browser. It never stores what you searched for or filtered, and nothing from your private safes.
+Парол янгилаш коди кириш текширувингизни ҳам ўчиради; уни [Ҳисобингиз](#account) бўлимида қайта ёқинг. Агар шахсий сейфлардан фойдалансангиз, аввал [Администратор паролингизни янгилагандан кейин](#after-reset) бўлимини ўқинг.
 
-Where you are allowed to change a record, a small pencil appears next to the value. Choose it, type the new value, and press Enter to save or Esc to cancel. If the value is not accepted, the reason shows under the field and nothing changes.
+<a id="locking"></a>
+### Қулфлаш
 
-## Recording money (Managers)
+Жойингиздан турганингизда юқори панелдаги **Қулфлаш** тугмасини босинг. Қулфлаш, саҳифани янгилаш ёки варақни ёпиш дешифрланган маълумотларни хотирадан ўчиради ва кейинги одам қайта кириши керак бўлади. Жайби 15 дақиқа фаоллик бўлмаганда ҳам ўзи қулфланади; буни **Ҳисоб → Автоматик қулфлаш** бўлимида ўзгартиринг. Шунда кириш экранида «Фаоллик бўлмагани учун сейф қулфланди.» деган ёзув чиқади.
 
-1. Open **Transactions** and choose **Add record**.
-2. Fill in the form:
-   - **Type**: Income or Expense. The category list changes to match.
-   - **Amount**: a number above zero, with up to two decimals (for example `1250`, `1250.5`, or `1 250,50`). A dot or a comma both work as the decimal mark, and spaces between thousands are ignored. Jaybi stores the exact amount and never rounds it; if you type more decimals than the currency has, it asks you to fix the amount instead of guessing.
-   - **Category**: for example Salary, Food, or Transport.
-   - **Date**: defaults to today.
-   - **Currency**: defaults to the vault currency. See the note on currencies below.
-   - **Group**: only shown if you can see more than one group.
-   - **Notes**: optional, up to 2,000 characters.
-   - **Receipt**: optional PNG, JPEG, WebP, or GIF image, up to 1.5 MB. Other file types, including SVG, are refused. Use **View receipt** to check it, or **Remove receipt** to drop it.
-3. Choose **Save**.
+Сейфни бир вақтда фақат битта варақда очиш мумкин. Агар Жайби сейф бошқа варақ ёки ойнада аллақачон очиқлигини айтса, ўша варақга ўтинг ёки аввал уни у ерда қулфланг.
 
-To change a record, choose **Edit** on it, adjust the fields, and choose **Update record**. For a quick fix, choose the pencil next to the date, category, group, amount, or notes and change just that value (see [Working with tables](#working-with-tables)). To delete, choose **Delete**, then confirm. To delete several records, tick them and choose **Delete selected**, then confirm. Deleting cannot be undone, but each deletion is recorded in the admin's audit log.
+<a id="saving"></a>
+### Сақлаш
 
-To narrow the list, use the period buttons and the **All / Income / Expense** filter above the table, or the table's search and filters. Hidden columns such as **Currency**, **Recorded by**, **Receipt**, **Created**, and **Updated** can be turned on under **Columns**.
+Сейф учун сақлаш тугмаси йўқ. Юқори панелдаги ёрдам тугмаси ёнидаги сўз нима бўлаётганини кўрсатади:
 
-### A note on currencies
+- **Сақланди**: ҳамма нарса шифрланган ва шу браузерда сақланган.
+- **Сақланмаган** ёки **Шифрланмоқда…**: ўзгариш сақланмоқда. Одатда бу тахминан бир сония олади.
+- **Сақлаб бўлмади**: браузер маълумотларни сақлашни рад этди, масалан, диск тўлгани учун. Варақни ёпманг ва [Ҳолат текшируви](#health)ни ишга туширинг.
+- **Сақланмади: бошқа жойда ўзгартирилган**: сейф бошқа варақда ўзгартирилган. Қулфланг, қайта киринг ва охирги ўзгаришингизни такрорланг.
 
-Each vault has one main currency, chosen when it was created and changeable by an Admin. Totals and charts only count records in that currency. A record in another currency is still saved and listed, marked "Other currency — not included in totals". The dashboard lists those records separately under **Other currencies (not in totals)**, with income and expenses per currency, so nothing is hidden. Jaybi does not convert records between currencies; the exchange-rate panel on the dashboard is for information and never changes your totals.
+<a id="around"></a>
+## Иловада йўл топиш
 
-## Reading the dashboard
+Чапдаги менюда фақат ролингиз рухсат берган бўлимлар кўринади. Юқори панелда сейф номи, сақлаш ҳолати, шу қўлланманинг жорий саҳифага оид қисмини очадиган **?** тугмаси, тил ва мавзу алмаштиргичлари ҳамда **Қулфлаш** тугмаси бор.
 
-The list next to the period buttons picks the group: **All groups** or one group. It changes the four figures, the charts, and the list of other currencies, but not the exchange rates. You only see groups you belong to, so for most people the list has **All groups** and their own group, which show the same figures. Jaybi remembers the choice in this browser.
+![Чапда менюси ва юқори панели бор бошқарув саҳифаси](../images/uz-Cyrl/dashboard.webp)
 
-The four figures at the top cover the selected period and group:
+![Юқори панел: сақлаш ҳолати, ёрдам тугмаси, тил, мавзу ва «Қулфлаш»](../images/uz-Cyrl/preferences.webp)
 
-- **Net balance**: income minus expenses.
-- **Total income** and **Total expenses**.
-- **Savings rate**: the share of income left after expenses, rounded to one decimal. It shows 0% when there is no income in the period, and it can be negative if you spent more than you earned.
+Юқори панелнинг энг чапидаги тугма менюни фақат белгиларгача йиғади; ёзувларни қайтариш учун уни яна босинг. Жайби танловингизни шу браузерда эслаб қолади.
 
-All totals are calculated exactly, to the cent (or tiyin), in the vault currency.
+<a id="phone"></a>
+### Телефонда
 
-The charts below them:
+Телефонда меню юқоридаги, ён томонга суриладиган қаторга айланади, саҳифалар эса битта устунга тизилади. Жадваллар карточкаларга айланади.
 
-- **Income and expenses** compares each month in the period.
-- **Expenses by category** shows where the money went.
-- **Spending over time** shows daily expense totals.
-- **Who spent** shows expenses per person in your group. Admins see **Spending by group** instead, unless they picked one group.
+![Телефондаги бошқарув саҳифаси](../images/uz-Cyrl/mobile-dashboard.webp)
 
-A chart shows "No figures in this range" when the period has no matching records.
+![Телефондаги меню қатори](../images/uz-Cyrl/mobile-menu.webp)
 
-## Group summaries
+![Телефондаги дафтар, карточкалар кўринишида](../images/uz-Cyrl/mobile-transactions.webp)
 
-**Groups** shows your group with its **Income** (↑), **Expenses** (↓), and **Net** (income minus expenses) for the selected period, plus the number of transactions and the date of the latest one. Net is green when it is zero or more and red when it is below zero. Each currency gets its own line; amounts in different currencies are never added together or converted. A group with no records in the period shows "No transactions in this period."
+![Телефондаги шахсий сейфлар](../images/uz-Cyrl/mobile-safes.webp)
 
-On a wide screen the figures are columns of the **Groups** table, so you can sort by income, expenses, net, number of transactions, or last activity; amounts sort by the vault currency. On a phone each group is a card with the same figures.
+<a id="theme"></a>
+### Тил ва мавзу
 
-Choose a group's name to open **Transactions** with only that group's records, for the same period. The group filter is already set; choose **Clear filters** to see every record you can see again.
+Тил менюсидан тилни танланг: Oʻzbekcha, Ўзбекча, Русский ёки English. **Кун**, **Тун** ёки қурилмангизга мослашиш учун **Тизим**ни танланг. Иккала танлов ҳам шу браузерда эслаб қолинади, уларни тизимга киришдан олдин ҳам ўзгартириш мумкин.
 
-You only see your own group. Admins see every group and, with two or more groups, an **All groups** strip above the table with the combined figures, still one line per currency.
+![Тун мавзусидаги бошқарув саҳифаси](../images/uz-Cyrl/dark-dashboard.webp)
 
-## Exchange rates
+![Тун мавзусидаги дафтар](../images/uz-Cyrl/dark-transactions.webp)
 
-The **Exchange rates** panel on the dashboard shows official reference rates for the Uzbek soʻm (UZS), the South Korean won (KRW), and the Israeli new shekel (ILS) against the US dollar (USD), in both directions. Each card shows:
+![Тун мавзусида шахсий сейфдаги карта](../images/uz-Cyrl/dark-safe.webp)
 
-- **1 USD = …** and **1 UZS = …** (or KRW, ILS). Rates published by a central bank are shown exactly as published. Rates Jaybi derives, such as the reverse direction, are shown to six significant digits.
-- For very small numbers, a readable amount as well, for example **100,000 UZS = 8.47 USD**.
-- The change since the previous official rate, for example **−0.16% vs Sep 26, 2026**.
-- **Rate date**: the day the rate is valid for. The Central Bank of Uzbekistan sets the soʻm rate the evening before, so it can show tomorrow's date.
-- The **source**, which opens the central bank's own rate page. "Cross rate via EUR" means the rate was calculated from two official rates of the same bank; for the won, the European Central Bank's euro rates are used (1 USD = KRW per euro ÷ USD per euro), because the Bank of Korea does not offer rates that can be read without a private key.
-- A **Stale** badge when the rate is more than 2 business days old, for example after a holiday or when the rates could not be updated.
+![Тун мавзусидаги Ҳолат текшируви](../images/uz-Cyrl/dark-health.webp)
 
-The **Converter** turns an amount into the other currency. Enter the amount (spaces and a comma or dot are fine) and choose the direction, or use the ⇄ button to reverse it. The result is rounded to the currency's smallest unit: cents for USD, tiyin for UZS, agorot for ILS, and whole won for KRW (the won has no smaller unit, so KRW amounts cannot have decimals). **Exact** shows the unrounded value to 20 significant digits.
+<a id="roles"></a>
+## Роллар: ким нима қила олади
 
-These are official central-bank reference rates for information only; bank buy/sell rates differ. Use your bank's rate for real transactions.
+Сейфдаги ҳар бир одамнинг битта роли бор. Менежер ва Кузатувчилар битта **гуруҳ**га тегишли бўлади ва фақат шу гуруҳ ёзувларини кўради.
 
-The panel never holds up the rest of the dashboard. Rates are saved in this browser, so the last rates are still shown when you are offline, with a note and a **Try again** button. If rates have never loaded in this browser, the panel says they are unavailable. Rates are public data: they are not stored in your encrypted vault and loading them does not reveal anything about your ledger.
+| Нима | Администратор | Менежер | Кузатувчи |
+| --- | --- | --- | --- |
+| Бошқарув, Гуруҳлар ва Дафтар | Барча гуруҳлар | Ўз гуруҳи | Ўз гуруҳи |
+| Ёзувларни қўшиш, таҳрирлаш ва ўчириш | Барча гуруҳлар | Ўз гуруҳи | Йўқ |
+| Жадваллар ва маълумотларни экспорт қилиш | Ҳа | Йўқ | Йўқ |
+| Одамлар, таклифлар ва парол янгилаш кодлари | Ҳа | Йўқ | Йўқ |
+| Захира нусха, маълумотлар экспорти, сейфни алмаштириш | Ҳа | Йўқ | Йўқ |
+| Сейф созламалари ва тоифалар | Ҳа | Йўқ | Йўқ |
+| Аудит журнали | Ҳа | Йўқ | Йўқ |
+| Шахсий сейфлар, Ҳисоб, Ҳолат текшируви, Ёрдам | Ҳа, ўзиники | Ҳа, ўзиники | Ҳа, ўзиники |
 
-## Saving and locking
+Кузатувчининг менюси қисқа: Бошқарув, Транзакциялар, Шахсий сейфлар, Гуруҳлар, Ҳисоб, Ҳолат текшируви ва Ёрдам.
 
-You never need to press a save button for the vault itself. The status next to the language switch tells you what is happening:
+![Кузатувчи кўрадиган бошқарув саҳифаси](../images/uz-Cyrl/viewer-dashboard.webp)
 
-- **Saved**: everything is encrypted and stored.
-- **Unsaved** or **Encrypting…**: a change is being stored. This normally takes about a second.
-- **Could not save**: the browser refused to store data, for example because the disk is full or storage is blocked. Keep the tab open and tell your admin.
-- **Not saved: changed elsewhere**: the vault was changed in another tab or window. Jaybi stops saving here rather than overwrite that change. Lock, unlock again, and redo your last change.
+<a id="dashboard"></a>
+## Бошқарув саҳифаси
 
-The vault can be unlocked in only one tab at a time. If you see "already unlocked in another tab or window", switch to that tab or lock it there first.
+Бошқарув саҳифаси танланган давр ва гуруҳ бўйича пулни жамлаб кўрсатади.
 
-Choose **Lock** when you step away. Locking, refreshing, or closing the tab removes the decrypted data from memory, and the next person must sign in. Jaybi also locks the vault by itself after 15 minutes without activity; you can change this under **Account → Lock automatically**. When that happens, the sign-in screen says "The vault was locked after a period of inactivity." Your private safes lock with the vault.
+[Бошқарув саҳифасини очиш](https://jaybi.uz/#/app)
 
-If a bar says **The vault is close to its size limit. Remove large receipts to make room.**, tell your admin. Receipts take most of the space, and once the vault is full no new receipts can be added.
+<a id="figures"></a>
+### Тўртта кўрсаткич
 
-## Your account
+- **Соф қолдиқ**: даромаддан харажатлар айирмаси.
+- **Жами даромад** ва **Жами харажат**.
+- **Жамғарма улуши**: харажатлардан кейин қолган даромад улуши. Даромад бўлмаса, у 0% бўлади, топганингиздан кўп сарфлаган бўлсангиз эса манфий бўлиши мумкин.
 
-Open **Account** in the menu. Everyone has this page, whatever their role.
+![Тўртта кўрсаткич: соф қолдиқ, жами даромад, жами харажат ва жамғарма улуши](../images/uz-Cyrl/dashboard-kpis.webp)
 
-### Changing your password
+Жами суммалар центгача (ёки тийингача) аниқ ва фақат **сейф валютаси**даги ёзувларни ҳисоблайди. Бошқа валютадаги ёзувлар **Бошқа валюталар (жамига кирмайди)** бўлимида ҳар бир валюта бўйича алоҳида кўрсатилади, шунинг учун ҳеч нарса яширилмайди. Жайби ёзувларингизни ҳеч қачон бошқа валютага ўгирмайди.
 
-Enter your **current password**, then the **new password** twice (different from the current one; see [Choosing a password](#choosing-a-password)), and choose **Change password**. If you have set up private safes, and if you use the sign-in check, they move to the new password at the same time.
+<a id="period"></a>
+### Даврни танлаш
 
-If your admin gave you a starting or temporary password, the password was chosen by them. Jaybi then asks you to choose a new one before you can use anything else: every page leads back to **Account** until you do.
+Бошқарув саҳифаси, дафтар ва **Гуруҳлар** бир хил давр тугмаларидан фойдаланади ва танловингиз улар орасида сақланиб қолади: **Бугун**, **Шу ҳафта** (душанбадан якшанбагача), **Шу ой** (стандарт), **Ўтган ой**, **Йил бошидан** ва **Оралиқ**.
 
-If a bar says **Your password is shorter or more common than Jaybi now allows. Please choose a new one.**, your password still works, but it would not be accepted today. Choose **Change password** and pick a better one.
+![«Йил бошидан» танланган давр тугмалари](../images/uz-Cyrl/period-presets.webp)
 
-### Choosing a password
+**Оралиқ** **Дан** ва **Гача** сана майдонларини очади. Агар уларни тескари киритсангиз, Жайби уларнинг ўрнини алмаштиради.
 
-Jaybi shows the hint "At least 12 characters. A few unrelated words work well." A new password must:
+![«Дан» ва «Гача» майдонлари бор «Оралиқ» даври](../images/uz-Cyrl/period-custom.webp)
 
-- be 12 to 256 characters long;
-- not be a commonly used password, even with digits or symbols added before or after it (Jaybi checks a built-in list, without sending anything anywhere);
-- not be mostly your email or the vault name;
-- not use three or fewer different characters, repeat a short pattern, or follow a run of keys such as `qwertyuiop` or `1234567890`.
+<a id="group-filter"></a>
+### Гуруҳни танлаш
 
-Four or five unrelated words, with spaces if you like, are easy to remember and hard to guess. Do not reuse a password from another site. Your password is what protects copies of the vault and backups; nothing else does.
+Давр тугмалари ёнидаги рўйхатдан **Барча гуруҳлар** ёки битта гуруҳни танлайсиз. У кўрсаткичлар, диаграммалар ва бошқа валюталар рўйхатини ўзгартиради. Сиз фақат ўзингиз аъзо бўлган гуруҳларни кўрасиз.
 
-### Sign-in check
+![«Оилавий бизнес» гуруҳи бўйича сараланган бошқарув саҳифаси](../images/uz-Cyrl/dashboard-group-filter.webp)
 
-The sign-in check asks for a 6-digit code from an authenticator app (such as Google Authenticator, Microsoft Authenticator, Aegis, or 1Password) after your password. It is optional. Jaybi shows this note next to it:
+<a id="charts"></a>
+### Диаграммалар
 
-> This adds a second step to signing in to the app. It does not add encryption: anyone with a copy of the vault and your password can still open it with the recovery tool.
+Кўрсаткичлар остида:
 
-So it helps if someone learns your password and tries it in this browser. It does not replace a strong password.
+- **Даромад ва харажат** даврдаги ҳар бир ойни солиштиради.
+- **Харажатлар тоифа бўйича** пул қаерга кетганини кўрсатади.
+- **Харажатлар вақт бўйича** кунлик харажатлар йиғиндисини кўрсатади.
+- **Ким сарфлади** гуруҳингиздаги ҳар бир одамнинг харажатини кўрсатади; администраторлар унинг ўрнига **Харажатлар гуруҳ бўйича** диаграммасини кўради.
 
-To turn it on:
+Даврда мос ёзувлар бўлмаса, диаграммада «Бу оралиқда рақамлар йўқ» деган ёзув чиқади.
 
-1. Choose **Set up sign-in check**.
-2. Scan the QR code with your authenticator app, or type the **Setup key** into it (**Copy key** copies it; the clipboard is cleared after 60 seconds).
-3. Enter the current **Code from the app** and **Your password**, then choose **Confirm and turn on**.
-4. Jaybi shows 10 **Recovery codes**. Each works once in place of an app code if you lose your phone. Choose **Download codes** or write them down, keep them away from this device, and choose **I have saved these codes**. They are not shown again.
+<a id="rates"></a>
+### Валюта курслари ва конвертор
 
-If you set it up before 1.3.0, your authenticator app lists the entry as "Moliya". It keeps working; there is no need to set it up again.
+**Валюта курслари** панели ўзбек сўми (UZS), Жанубий Корея вони (KRW) ва Исроил янги шекелининг (ILS) АҚШ долларига нисбатан марказий банклар эълон қилган расмий маълумотнома курсларини икки йўналишда кўрсатади: олдинги курсга нисбатан ўзгариш, **Курс санаси** ва манба банкка ҳавола билан. Курс 2 иш кунидан эски бўлса, **Эскирган** белгиси пайдо бўлади.
 
-To turn it off, choose **Turn off sign-in check** and enter your password. To get new recovery codes, turn it off and on again; the old codes then stop working, and you must add the new setup key to your app.
+![UZS, KRW ва ILS валюта курслари карточкалари](../images/uz-Cyrl/exchange-rates.webp)
 
-If you lose both your authenticator and your recovery codes, ask your admin to turn off the sign-in check for you. Resetting your password with a reset code also turns it off.
+**Конвертор** суммани бошқа валютага ўгиради. Суммани киритинг, йўналишни танланг ёки уни алмаштириш учун ⇄ тугмасидан фойдаланинг. **Аниқ** яхлитланмаган қийматни кўрсатади.
 
-### Lock automatically
+![100 АҚШ долларини сўмга ўгираётган конвертор](../images/uz-Cyrl/converter.webp)
 
-Choose how long the vault stays open without activity: **5 minutes**, **15 minutes** (the default), **30 minutes**, or **1 hour**. The setting belongs to this browser, not to your account. Clicking, typing, scrolling, or touching the screen anywhere in Jaybi counts as activity, including inside your safes. If the tab was in the background longer than the chosen time, the vault locks as soon as you return to it. Your private safes have no timer of their own: they lock when the vault does.
+Бу курслар фақат маълумот учун; банклар бошқа курсларда сотиб олади ва сотади. Улар жами суммаларингизни ҳеч қачон ўзгартирмайди. Курслар браузерда сақланади, шунинг учун интернет алоқаси бўлмаганда ҳам охирги курслар кўриниб туради.
 
-### Other settings on this page
+<a id="transactions"></a>
+## Пулни ёзиб бориш
 
-The sign-in check and **Lock automatically** are hidden until you have replaced a starting or temporary password.
+Менежер ва Администраторлар даромад ва харажатларни **Дафтар** саҳифасида (**Транзакциялар** менюси) ёзиб боради. Кузатувчилар уни ўқий олади, лекин ўзгартира олмайди.
 
-- **Private safes**: how long shown values stay visible and how long copied values stay in the clipboard. Open your safes first to change these.
-- **Recovery code**: create one, or replace the one you have.
-- **Start over**: **Reset private safes**, described below.
+[Дафтарни очиш](https://jaybi.uz/#/app/transactions)
 
-## Private safes
+![Бир неча ойлик ёзувлар бор дафтар](../images/uz-Cyrl/transactions.webp)
 
-A private safe is a place for things you want to keep to yourself: payment cards, subscriptions, and notes. It is not a money account, and nothing in it appears on the dashboard or in the ledger.
+<a id="add-record"></a>
+### Ёзув қўшиш
 
-Only you can open your safes. Your admin cannot see them, cannot see their names or what kind of items they hold, and cannot open or recover them for you, even with the whole database or a backup. Other people in the vault each have their own safes, which you cannot see either.
+1. **Ёзув қўшиш** тугмасини босинг.
+2. Формани тўлдиринг (қуйидаги жадвалга қаранг).
+3. **Сақлаш** тугмасини босинг.
 
-### Setting up
+![Кечки овқат харажати учун тўлдирилган «Ёзув қўшиш» формаси](../images/uz-Cyrl/transaction-add.webp)
 
-1. Open **Private safes** in the menu and choose **Create my safes**.
-2. Enter your password.
-3. Choose whether to create a **recovery code** (see below).
-4. Choose **Create my safes**. You get one empty safe called **Personal**.
+| Майдон | Нима киритилади |
+| --- | --- |
+| **Тури** | Даромад ёки Харажат. Тоифалар рўйхати шунга мос ўзгаради. |
+| **Сумма** | Нолдан катта сон, масалан, `1250`, `1250.5` ёки `1 250,50`. Каср белгиси сифатида нуқта ҳам, вергул ҳам ишлайди. Жайби ҳеч қачон яхлитламайди: валютадагидан кўпроқ каср рақам киритсангиз, суммани тузатишни сўрайди. |
+| **Тоифа** | Масалан, Маош, Озиқ-овқат ёки Транспорт. Рўйхатни администраторлар [Сейф созламалари](#settings) бўлимида бошқаради. |
+| **Сана** | Ўзгартирмасангиз, бугунги сана. |
+| **Валюта** | Ўзгартирмасангиз, сейф валютаси. [Валюталар](#currencies) бўлимига қаранг. |
+| **Гуруҳ** | Фақат биттадан ортиқ гуруҳни кўра олсангиз кўрсатилади. |
+| **Изоҳ** | Ихтиёрий, 2 000 тагача белги. |
+| **Чек** | Ихтиёрий, 1,5 MB гача бўлган PNG, JPEG, WebP ёки GIF расм. **Чекни кўриш** уни текширишга, **Чекни олиб ташлаш** уни олиб ташлашга ёрдам беради. |
 
-### The recovery code
+<a id="edit-record"></a>
+### Ўзгартириш ва ўчириш
 
-A recovery code is a backup key for your safes, 25 characters in five groups, like `XXXXX-XXXXX-XXXXX-XXXXX-XXXXX`. It matters in one situation: your admin resets your password and you no longer remember the password you had before. Without the code, your safes are then lost for good.
+Бутун ёзувни ўзгартириш учун унинг қаторидаги **Таҳрирлаш** тугмасини босинг, майдонларни тузатинг ва **Ёзувни янгилаш** тугмасини босинг.
 
-- **Create a recovery code (recommended)**: the code is shown once. Write it down or print it and keep it away from this device. Type its last 4 characters to confirm you saved it.
-- **Skip for now**: you must tick "I understand my safes can be lost forever if an admin resets my password and I forget my old one". You can create a code later under **Account → Recovery code**.
+Тез тузатиш учун сана, тоифа, гуруҳ, сумма ёки изоҳ ёнидаги кичик қаламчани босинг, янги қийматни киритинг ва Enter тугмасини босинг (Esc бекор қилади). Қиймат қабул қилинмаса, сабаби майдон остида кўрсатилади ва ҳеч нарса ўзгармайди.
 
-Anyone who has your recovery code and your current password can open your safes, so keep the code as private as the password. Creating a new code in **Account** makes the old one stop working. When typing a code, capital or small letters, spaces, and dashes do not matter, the letter O counts as zero, and I and L count as one.
+![Суммани тўғридан-тўғри жадвалда ўзгартириш](../images/uz-Cyrl/transaction-inline-edit.webp)
 
-### Opening and locking
+Ўчириш учун **Ўчириш** тугмасини босинг ва тасдиқланг. Бир нечта ёзувни ўчириш учун уларни белгиланг ва **Танланганларни ўчириш** тугмасини босинг. Ўчиришни қайтариб бўлмайди, лекин ҳар бир ўчириш администраторнинг аудит журналига ёзилади.
 
-Signing in to the vault does not open your safes. Choose **Open safes** and enter your password again. After opening, Jaybi shows when your safes were **previously opened**; if you do not recognise that time, someone else may have used your password.
+![Ёзувни ўчиришни тасдиқлаш](../images/uz-Cyrl/transaction-delete.webp)
 
-Once open, your safes stay open while you work, including while you switch to another tab or window. They lock again:
+<a id="currencies"></a>
+### Валюталар
 
-- when you choose **Lock safes**;
-- when the vault locks: when you choose **Lock**, refresh or close the tab, or after the time under **Account → Lock automatically** without activity (15 minutes unless you changed it).
+Ҳар бир сейфнинг битта асосий валютаси бор. Жами суммалар ва диаграммалар фақат шу валютадаги ёзувларни ҳисоблайди. Бошқа валютадаги ёзув сақланади ва рўйхатда «Бошқа валюта — жами суммага кирмайди.» деган изоҳ билан кўрсатилади. Бошқарув саҳифаси бу суммаларни алоҳида кўрсатади. Жайби валюталарни бир-бирига ўгирмайди.
 
-Before 1.3.1 safes also locked after 5 minutes of their own and when the tab was hidden for a minute. They no longer do.
+<a id="tables"></a>
+## Жадваллар билан ишлаш
 
-### Safes
+Дафтар, одамлар рўйхати, гуруҳлар, тоифалар, шахсий сейф рўйхатлари ва аудит журнали — буларнинг барчаси бир хил ишлайдиган жадваллар.
 
-Choose **New safe** to add one. Each safe has a name (up to 60 characters), an optional description, one of eight icons, and one of four colours. In **Safe settings** you can also:
+- **Саралаш**: устун сарлавҳасини босинг. Тескари тартиб учун уни яна босинг, асл тартибга қайтиш учун учинчи марта босинг. Учтагача устун бўйича саралаш учун Shift тугмасини босиб туринг. Телефонда карточкалар устидаги **Саралаш** тугмасидан фойдаланинг.
+- **Жадвалдан қидириш**: кўриб турганингизнинг исталган қисмини киритинг. Катта-кичик ҳарфлар, урғу белгилари, тутуқ белгилари ва ҳатто алифбонинг аҳамияти йўқ, шунинг учун `taksi` «Такси»ни топади. Esc қидирувни тозалайди.
+- Пастдаги **Қаторлар**: 10, 25, 50, 100 ёки ҳаммаси, «140 тадан 1–25 кўрсатилмоқда» каби сатр билан.
 
-- **Ask for my password every time this safe is opened**: the safe stays closed, even when your other safes are open, until you enter your password for it. While closed it is left out of search, totals, and upcoming payments.
-- **Make default**: the safe new items go to first.
-- **Archive**: the safe becomes read-only and is left out of search, totals, upcoming payments, and expiring cards. **Show archived** lists it again, and **Unarchive** undoes it.
-- **Change encryption key**: encrypts everything in the safe again with a new key. Use it if you think the old key might have been exposed.
-- **Delete safe**: moves it to the trash. If it still has items, move them to another safe first or choose to delete them with it. You always keep at least one safe.
+![Дафтардан «истанбул» қидирилганда меҳмонхона ва авиачипталар топилади](../images/uz-Cyrl/transactions-search.webp)
 
-You can have up to 50 safes and 5,000 items (1,000 per safe), counting what is in the trash.
+**Филтрлар** ҳар бир устун учун биттадан филтр очади: матн, белгилаш учун рўйхат, Дан–Гача сана оралиғи ёки Мин.–Макс. сумма. Тугмада нечта филтр ёқилгани кўрсатилади; **Қидирув ва филтрларни тозалаш** уларни ўчиради.
 
-### Cards
+![Дафтарнинг филтрлар панели](../images/uz-Cyrl/transactions-filters.webp)
 
-Choose **Add card** and fill in the cardholder name, the card number, the brand, the expiry month and year, the bank, and notes. Jaybi detects the brand from the number; you can change it.
+**Устунлар** устунларни кўрсатиш ёки яшириш, уларнинг ўрнини алмаштириш, ихчам қаторларни танлаш ёки кўринишни тиклаш имконини беради. Жайби ҳар бир жадвалнинг кўринишини шу браузерда эслаб қолади, лекин нимани қидирганингизни ҳеч қачон эсламайди.
 
-- The number is checked with the usual check digit. For Visa, Mastercard, American Express, and Mir a failed check is an error. For UzCard, Humo, UnionPay, and Other it is only a warning, because some local cards do not follow the rule.
-- The **security code (CVV)** is optional and hidden behind **Add security code**. Banks advise against keeping it; leave it empty unless you really need it.
-- There is no place for a PIN. Never store your card PIN, here or anywhere else.
+![Дафтарнинг «Устунлар» менюси](../images/uz-Cyrl/transactions-columns.webp)
 
-Cards are listed with only the last four digits and the expiry date. Expired cards are marked, and cards that expire within 60 days are marked **Expires soon** and listed on the safes page.
+**Экспорт** (фақат администраторлар учун) айнан кўриб турган қатор ва устунларингизни CSV, Excel, PDF ёки бошқа форматларда юклаб беради. Файл шифрланмагани учун Жайби аввал тасдиқлашингизни сўрайди.
 
-### Subscriptions
+![Формат танловлари бор «Экспорт» менюси](../images/uz-Cyrl/transactions-export.webp)
 
-Choose **Add subscription** and enter the service name, the price and currency, the billing cycle (weekly, monthly, every 3 months, yearly, or every N days), one past or upcoming payment date, and the status (active, paused, or cancelled). You can also add a trial end date, how many days before a payment to remind you, the card it is paid with, the website, the account or login, and notes.
+<a id="groups"></a>
+## Гуруҳлар
 
-The safes page shows what your active subscriptions cost **per month** and **per year**, for each currency separately. Currencies are not converted, so a USD total and a UZS total are listed side by side. **Upcoming payments** lists what is due in the next 30 days and highlights those within your reminder time or near the end of a trial.
+**Гуруҳ** — сейфнинг ўз ёзувлари ва одамлари бор қисми, масалан, уй хўжалиги ёнидаги оилавий бизнес. Ҳар ким ўз гуруҳини кўради; администраторлар ҳаммасини кўради.
 
-### Notes
+[Гуруҳларни очиш](https://jaybi.uz/#/app/groups)
 
-Choose **Add note** for anything else, up to 10,000 characters. Notes are plain text.
+**Гуруҳлар** саҳифаси танланган давр учун ҳар бир гуруҳнинг **Даромад**, **Харажат** ва **Соф натижа** кўрсаткичларини транзакциялар сони ва охирги транзакция санаси билан кўрсатади. Ҳар бир валюта алоҳида қаторда бўлади; валюталар ҳеч қачон бир-бирига қўшилмайди. Икки ва ундан ортиқ гуруҳ бўлса, администраторлар умумий кўрсаткичлар билан **Барча гуруҳлар** қаторини ҳам кўради.
 
-### Showing and copying card numbers
+![Ҳар бир гуруҳнинг даромади, харажати ва соф натижаси кўрсатилган «Гуруҳлар» саҳифаси](../images/uz-Cyrl/groups.webp)
 
-Card numbers and security codes are hidden. **Show** and **Copy** ask for your password unless you entered it in the last 2 minutes.
+Гуруҳ номини боссангиз, дафтар шу гуруҳнинг ўша даврдаги ёзувлари билан очилади. Гуруҳ филтри аллақачон ўрнатилган бўлади; ҳаммасини яна кўриш учун **Қидирув ва филтрларни тозалаш** тугмасини босинг.
 
-- A shown value hides again after 15 seconds (15, 30, or 60 in **Account**), or when you close the item or your safes lock. Switching to another tab does not hide it, so do not leave a shown value on screen.
-- A copied value is cleared from the clipboard after 30 seconds (10, 30, or 60 in **Account**), when your safes lock, and when you leave the page. Browsers do not always allow this, so paste it promptly and do not rely on it.
+![«Саёҳат» гуруҳидан очилган, унинг иккита ёзуви бўйича сараланган дафтар](../images/uz-Cyrl/group-ledger-link.webp)
 
-Permanent deletes, changing a safe's encryption key, resetting your safes, and creating a recovery code also need your password within the last 2 minutes.
+Администраторлар гуруҳни **Гуруҳ номи**ни киритиб, **Гуруҳ қўшиш** тугмасини босиш орқали қўшади. Гуруҳни фақат унда одамлар ва ёзувлар бўлмаганда олиб ташлаш мумкин.
 
-### Moving, copying, and favourites
+<a id="users"></a>
+## Одамлар ва таклифлар
 
-Select items to **Move to…** or **Copy to…** another safe. They are encrypted again with the other safe's key. Mark items you use often as favourites; **Favourites** filters them. **Search open safes** searches every open, non-archived safe.
+Сейфни ким оча олишини администраторлар **Одамлар** саҳифасида (**Фойдаланувчилар** менюси) бошқаради. Ҳар ким бир хил сейфни ўз пароли билан очади.
 
-Inside a safe, items are listed in a table (see [Working with tables](#working-with-tables)) with the title, kind, details, status, and subscription amount; **Favourite**, **Updated**, and **Created** can be turned on under **Columns**. Search matches the title and the details shown in the list, such as the card brand, the last four digits, the price, or the next payment date, but never the full card number, the CVV, or the text of a note. Trash and Activity use the same tables. Safe tables have no export and no editing in place, and Jaybi never stores what you searched or filtered in them.
+[Одамлар саҳифасини очиш](https://jaybi.uz/#/app/users)
 
-### Trash
+![Юқорисида таклиф формаси бор «Одамлар» саҳифаси](../images/uz-Cyrl/users.webp)
 
-Deleted safes and items go to **Trash** and stay there for 30 days. You can **Restore** them, or **Delete permanently** (for a safe, type its name to confirm). After 30 days they are removed for good the next time you open your safes.
+<a id="invite"></a>
+### Одамни таклиф қилиш (тавсия этилади)
 
-Deleted data is also overwritten in the database, but copies stay in older backups and in the earlier copies the browser keeps. It is gone completely only when those are gone too.
+1. **Одам таклиф қилиш** бўлимида **Унинг почтаси**ни киритинг, **Рол** ва **Гуруҳ**ни ҳамда коднинг **Амал қилиш муддати**ни танланг.
+2. **Таклиф кодини яратиш** тугмасини босинг.
+3. Жайби кодни бир марта кўрсатади. **Кодни нусхалаш** ёки **Ҳаволани нусхалаш** тугмасини босинг ва уни одамга шахсан ёки ишончли канал орқали беринг, сўнг **Тайёр** тугмасини босинг.
 
-### Activity
+![Фақат бир марта кўрсатиладиган янги таклиф коди, «Кодни нусхалаш» ва «Ҳаволани нусхалаш» тугмалари билан](../images/uz-Cyrl/invite-code.webp)
 
-**Activity** lists what happened in your safes: when they were opened, and when safes and items were added, changed, moved, deleted, or restored. Only you can read it; it is encrypted like your safes and never appears in the admin's audit log. It shows the kind of action and the time, not names or values.
+Сўнг у одам шу браузерда [код билан қўшилади](#joining) ва ўз паролини танлайди. У буни қилмагунча код **Фаол кодлар** рўйхатида туради, у ердаги **Бекор қилиш** тугмаси кодни бекор қилади.
 
-### After an admin resets your password
+<a id="temporary-password"></a>
+### Одамни вақтинчалик парол билан қўшиш
 
-If your admin resets your password:
+**Қўшимча: ўрнига вақтинчалик парол ўрнатиш** бўлимида почта, вақтинчалик парол, рол ва гуруҳни киритинг ва **Фойдаланувчи қўшиш** тугмасини босинг. У одам биринчи киришда паролни алмаштириши керак. Таклиф коди хавфсизроқ, чунки бунда паролни фақат унинг ўзи билади.
 
-1. Use the reset code they give you to [set a new password](#resetting-your-password-with-a-code). If they gave you a temporary password instead, sign in with it; Jaybi asks you to choose a new password in **Account**.
-2. Open **Private safes**. Jaybi says your password changed since you last opened your safes.
-3. Enter the **previous password**: the one you chose yourself before the reset, not a temporary one from the admin. Or choose **Use recovery code instead** and enter your code. Also enter your current password.
-4. Your safes open, and from now on your current password opens them. If you used the recovery code, create a new one.
+![Менежерни вақтинчалик парол билан қўшиш](../images/uz-Cyrl/user-create.webp)
 
-Never type the temporary password from your admin as your previous password. Your safes are never unlocked with a password that someone else chose; that is what keeps them private from the admin.
+<a id="reset-for-someone"></a>
+### Бировнинг паролини янгилаш
 
-If you remember neither your previous password nor your recovery code, nobody can open your safes. Under **Account → Start over**, **Reset private safes** destroys them and everything in them and gives you a new, empty safe. Type `RESET` and your password to confirm.
+Одамнинг қаторида **Парол янгилаш кодини бериш** тугмасини босинг, код қанча вақт ишлашини танланг ва **Унинг жорий паролини ҳозироқ бекор қилиш** бандини белгилаш керакми-йўқми, ҳал қилинг (паролни бошқа кимдир билиши мумкин бўлса, шуни танланг). Яна **Парол янгилаш кодини бериш** тугмасини босинг ва кодни унга беринг. **Ўрнига вақтинчалик парол ўрнатиш** — эскироқ усул.
 
-## Updates and version
+![Аъзо учун парол янгилаш кодини бериш](../images/uz-Cyrl/user-reset-code.webp)
 
-When a new version of Jaybi is published, a bar appears at the top: **A new version of Jaybi is available.** Choose **Reload** when convenient. Your work is saved and the vault is locked first, so sign in again afterwards. The first sign-in after an update may take a few seconds longer while Jaybi upgrades the data or strengthens your password protection. This happens once.
+Паролни янгилашдан олдин сариқ изоҳни ўқинг: унинг шахсий сейфлари у олдинги паролини ёки тиклаш кодини киритмагунча қулфланган қолади. Сиз бировнинг сейфларини оча ҳам, тиклай ҳам олмайсиз.
 
-The version you are using is shown at the bottom of the menu and on the sign-in screen. Mention it when you report a problem.
+Ўша қаторда **Кириш текширувини ўчириш** аутентификаторини ҳам, тиклаш кодларини ҳам йўқотган одамга ёрдам беради, **Олиб ташлаш** эса одамни сейфдан чиқаради. Одамни олиб ташлаш унинг шахсий сейфларини ҳам бутунлай йўқ қилади, ёзувлари бор одамни эса олиб ташлаб бўлмайди. Сейфда ҳар доим камида битта администратор қолади.
 
-## Language and theme
+<a id="clock"></a>
+### Кодлар учун соат текшируви
 
-Pick a language from the language menu: Oʻzbekcha, Ўзбекча, Русский, or English. Pick **Day**, **Night**, or **System** to follow your device. Both choices are remembered in this browser.
+Агар бу қурилманинг соати сейф кўрган энг сўнгги вақтдан орқада бўлса, кодлар рад этилади, шунинг учун соатни орқага суриш муддати ўтган кодни қайта тирилтирмайди. Агар нотўғри соат бу вақтни келажакка суриб юборган бўлса, соатни тўғриланг, **Кодлар учун соат текшируви** бўлимини очинг, паролингизни киритинг ва **Жорий вақтга қайтариш** тугмасини босинг.
 
-## Getting your data out
+![«Кодлар учун соат текшируви» панели](../images/uz-Cyrl/clock-floor.webp)
 
-Need your records in a spreadsheet or a PDF report? Only Admins can export data, so ask your admin. They can export one group or one period, as CSV, Excel, PDF, and other formats, usually as an encrypted file with a separate export password. Private safes are never part of an export.
+![«Одамлар» саҳифасининг тўлиқ кўриниши](../images/uz-Cyrl/users-full.webp)
 
-## Good habits
+<a id="safes"></a>
+## Шахсий сейфлар
 
-- Lock the vault before leaving a shared device.
-- Do not clear this site's browsing data. Doing so deletes the vault from this browser. Only a backup can bring it back.
-- Use a password that is long and not used anywhere else.
-- Use a one-time code soon after you get it, and tell your admin if someone else may have seen it before you used it.
-- If you use private safes, create a recovery code and keep it offline.
-- Lock your safes when you are done with them, even if you keep the vault open.
+Шахсий сейф — ўзингизга тегишли нарсаларни сақлайдиган жой: тўлов карталари, обуналар ва қайдлар. Бу пул ҳисоби эмас; ундаги ҳеч нарса бошқарув саҳифасида ёки дафтарда кўринмайди.
+
+Сейфларингизни фақат сиз оча оласиз. Администраторлар уларни кўра олмайди, номларини ҳам кўрмайди ва ҳатто захира нусха билан ҳам уларни оча ёки тиклай олмайди. Сейфдаги ҳар бир одамнинг ўз шахсий сейфлари бор.
+
+[Шахсий сейфларни очиш](https://jaybi.uz/#/app/safes)
+
+<a id="safes-setup"></a>
+### Созлаш
+
+1. **Шахсий сейфлар** бўлимини очинг ва **Паролингиз**ни киритинг.
+2. **Тиклаш кодини яратиш (тавсия этилади)** ёки **Ҳозирча ўтказиб юбориш**ни танланг.
+3. **Сейфларимни яратиш** тугмасини босинг.
+
+![Тиклаш коди танлови билан шахсий сейфларни созлаш](../images/uz-Cyrl/safes-setup.webp)
+
+Агар тиклаш кодини танлаган бўлсангиз, Жайби уни бир марта кўрсатади. Уни ёзиб олинг ёки чоп этинг, шу қурилмадан узоқда сақланг ва тасдиқлаш учун унинг охирги 4 белгисини киритинг.
+
+![Бир марта кўрсатиладиган тиклаш коди ва тасдиқлаш майдони](../images/uz-Cyrl/safes-recovery-code.webp)
+
+Сизда **Шахсий** номли битта бўш сейф пайдо бўлади.
+
+<a id="recovery-code"></a>
+### Тиклаш коди нега муҳим
+
+Тиклаш коди битта ҳолатда муҳим: администратор паролингизни янгилайди, сиз эса олдинги паролингизни эслай олмайсиз. Бундай пайтда код бўлмаса, сейфларингиз бутунлай йўқолади. Уни кейинроқ **Ҳисоб → Тиклаш коди** бўлимида яратишингиз ёки алмаштиришингиз мумкин. Уни паролингиз каби сир сақланг.
+
+<a id="cards"></a>
+### Карталар
+
+Сейфни очинг ва **Карта қўшиш** тугмасини босинг. Номи, карта рақами, карта эгасининг исми, амал қилиш муддати, банк ва изоҳни киритинг. Жайби тўлов тизимини рақамдан аниқлайди ва назорат рақамини текширади. **Хавфсизлик коди (CVV)** ихтиёрий ва **Хавфсизлик кодини қўшиш** тугмаси ортида яширинган; банклар уни сақламасликни маслаҳат беради. PIN-код учун жой йўқ: PIN-кодни ҳеч қачон ҳеч қаерда сақламанг.
+
+![4111 1111 1111 1111 синов рақами билан карта қўшиш](../images/uz-Cyrl/safe-add-card.webp)
+
+Карта рақамлари фақат охирги тўртта рақами билан кўрсатилади.
+
+![Рақами яширилган сақланган карта](../images/uz-Cyrl/safe-card.webp)
+
+**Кўрсатиш** ва **Нусхалаш** тугмалари, агар сўнгги 2 дақиқада паролингизни киритмаган бўлсангиз, уни сўрайди. Кўрсатилган қиймат 15 сониядан кейин яна яширинади; нусхаланган қиймат 30 сониядан кейин буфердан тозаланади. Иккала вақтни ҳам **Ҳисоб** саҳифасида ўзгартиришингиз мумкин.
+
+![«Кўрсатиш» босилгандан кейин 15 сонияга кўрсатилган карта рақами](../images/uz-Cyrl/safe-card-revealed.webp)
+
+<a id="subscriptions"></a>
+### Обуналар
+
+**Обуна қўшиш** тугмасини босинг ва хизмат, нарх ва валюта, тўлов даври, тўлов санаси ва ҳолатни киритинг. Шунингдек, тўлов қилинадиган картани, сайтни, ҳисобни, эслатмани ва изоҳни қўшишингиз мумкин.
+
+![Оилавий карта билан тўланадиган ойлик Netflix обунасини қўшиш](../images/uz-Cyrl/safe-add-subscription.webp)
+
+![Кейинги тўлов санаси кўрсатилган сақланган обуна](../images/uz-Cyrl/safe-subscription.webp)
+
+<a id="notes"></a>
+### Қайдлар
+
+Бошқа ҳар қандай нарса учун **Қайд қўшиш** тугмасидан фойдаланинг: 10 000 тагача белгили оддий матн, масалан, Wi-Fi пароли. Тез-тез ишлатадиган нарсаларни **Севимлиларга қўшиш** билан белгиланг.
+
+![Битта карта, битта обуна ва иккита қайд бор сейф](../images/uz-Cyrl/safe-view.webp)
+
+<a id="many-safes"></a>
+### Кўпроқ сейфлар
+
+Янги сейф қўшиш учун **Янги сейф** тугмасини босинг ва унинг номи, тавсифи, белгиси ва рангини танланг. Ўзингиз сўрамагунча ёпиқ туриши керак бўлган сейф учун **Бу сейф ҳар сафар очилганда паролим сўралсин** бандини белгиланг.
+
+![Ҳар сафар парол сўрайдиган сейф яратиш](../images/uz-Cyrl/safe-create.webp)
+
+Сейфлар саҳифасида сейфларингиз, фаол обуналарингиз ойига ва йилига қанча туриши, **Яқин тўловлар (30 кун)** рўйхати, муддати яқинда тугайдиган карталар ва севимлиларингиз кўрсатилади. **Очиқ сейфлардан қидириш** барча очиқ сейфлардан қидиради.
+
+![Иккита сейф, обуналар хулосаси ва яқин тўлов кўрсатилган шахсий сейфлар саҳифаси](../images/uz-Cyrl/safes-home.webp)
+
+Парол сўрайдиган сейф ичидагилар ўрнига парол майдонини кўрсатади.
+
+![Парол сўраётган ёпиқ сейф](../images/uz-Cyrl/safe-open-password.webp)
+
+**Сейф созламалари**да сейфни асосий қилиш, архивлаш, унинг шифрлаш калитини алмаштириш ёки уни ўчириш ҳам мумкин.
+
+<a id="safes-lock"></a>
+### Сейфларни очиш ва қулфлаш
+
+Тизимга кириш сейфларингизни очмайди. **Сейфларни очиш** тугмасини босинг ва паролингизни яна киритинг. Жайби сейфларингиз охирги марта қачон очилганини кўрсатади (**Олдинги очилиш**); агар бу вақтни танимасангиз, паролингиздан бошқа кимдир фойдаланган бўлиши мумкин.
+
+![Сейфларингиз қулфланган: уларни очиш учун паролни киритинг](../images/uz-Cyrl/safes-unlock.webp)
+
+Сейфлар сиз ишлаётганда очиқ қолади ва **Сейфларни қулфлаш** тугмасини босганингизда ёки бутун сейф қулфланганда яна қулфланади.
+
+<a id="trash"></a>
+### Сават ва Фаоллик
+
+Ўчирилган сейфлар ва ёзувлар 30 кунга **Сават**га тушади. **Тиклаш** уларни қайтаради; **Бутунлай ўчириш** уларни дарҳол йўқ қилади.
+
+![Ўчирилган қайд турган сават](../images/uz-Cyrl/safes-trash.webp)
+
+**Фаоллик** сейфларингизда нима ва қачон бўлганини кўрсатади: очилди, қўшилди, ўзгартирилди, кўчирилди, ўчирилди ёки тикланди. Уни фақат сиз ўқий оласиз.
+
+![Шахсий сейфларнинг «Фаоллик» рўйхати](../images/uz-Cyrl/safes-activity.webp)
+
+<a id="after-reset"></a>
+### Администратор паролингизни янгилагандан кейин
+
+1. Парол янгилаш коди билан янги паролингизни ўрнатинг (ёки вақтинчалик парол билан кириб, янгисини танланг).
+2. **Шахсий сейфлар** бўлимини очинг. Жайби сейфларни охирги марта очганингиздан бери паролингиз ўзгарганини айтади.
+3. **Олдинги парол**ингизни — янгилашдан олдин ўзингиз танлаган паролни — киритинг ёки тиклаш кодидан фойдаланишни танланг. Жорий паролингизни ҳам киритинг.
+4. Сейфларингиз очилади ва бундан буён уларни жорий паролингиз очади.
+
+Администратор берган вақтинчалик паролни ҳеч қачон олдинги парол сифатида киритманг. Агар олдинги паролингизни ҳам, тиклаш кодингизни ҳам эслай олмасангиз, сейфларингизни ҳеч ким оча олмайди; **Ҳисоб → Қайтадан бошлаш → Шахсий сейфларни нолдан бошлаш** сизга янги, бўш сейфлар беради.
+
+<a id="backup"></a>
+## Захира нусхалар ва бошқа қурилмага кўчиш
+
+Захира нусхани фақат администраторлар олади. Захира нусха — бутун сейфнинг битта `.moliya` файлидаги шифрланган нусхаси. У сейфга тегишли исталган парол билан очилади ва шу браузер маълумотлари йўқолса, қайтишнинг **ягона** йўли шу.
+
+[«Захира нусха» саҳифасини очиш](https://jaybi.uz/#/app/backup)
+
+Ёзувлар бўлиб, ҳали захира нусха олинмаган бўлса ёки охиргиси 7 кундан эски бўлса, ҳар бир саҳифада эслатма пайдо бўлади.
+
+![Ҳали захира нусха юклаб олинмагани ҳақидаги эслатма](../images/uz-Cyrl/backup-reminder.webp)
+
+<a id="download-backup"></a>
+### Захира нусхани юклаб олиш
+
+1. **Захира нусха** бўлимини очинг.
+2. **Нусхани юклаб олиш** тугмасини босинг.
+3. Файлни шу қурилмадан бошқа жойда сақланг: флешкада, бошқа компьютерда ёки булутли хотирада. У шифрланган ҳолда қолади.
+
+![«Шифрланган захира» саҳифаси: охирги нусха, сақлаш ҳолати, нусхани юклаб олиш, сейфни алмаштириш, маълумотларни экспорт қилиш ва олдинги нусхалар](../images/uz-Cyrl/backup-full.webp)
+
+Саҳифада **Бу браузердаги сақлаш** ҳолати ҳам кўрсатилади. «Ҳимояланмаган» ёзуви жой етишмаганда браузер маълумотларни ўчириши мумкинлигини билдиради; [Ҳолат текшируви](#health) браузердан уларни сақлаб қолишни сўраши мумкин.
+
+**Бу браузердаги олдинги нусхалар** рўйхатида Жайби ҳар бир формат янгиланиши ва ҳар бир импортдан олдин сақлаб қўядиган нусхалар бор. Орқага қайтиш керак бўлса, улардан бирини юклаб олинг.
+
+<a id="export-data"></a>
+### Маълумотларни бошқа иловалар учун экспорт қилиш
+
+**Маълумотларни экспорт қилиш** ёзувларингизни CSV, JSON, Excel, PDF ҳисобот ёки SQLite маълумотлар базаси кўринишида, барча маълумотлар ёки танланган давр учун, битта ёки барча гуруҳлар бўйича юклаб беради. Стандарт ҳолатда файл алоҳида экспорт пароли билан **Шифрланган ZIP (AES-256)** бўлади; кучли парол учун **Яратиш** тугмасидан фойдаланинг. Захира нусха Жайби иловасини тиклаш учун, экспорт эса бошқа дастурлар учун керак.
+
+![Форматлар, давр, гуруҳ ва ҳимоя танловлари бор «Маълумотларни экспорт қилиш» панели](../images/uz-Cyrl/backup-export.webp)
+
+<a id="restore"></a>
+### Шу браузерда захира нусхани тиклаш
+
+**Бу сейфни захира нусха билан алмаштириш** бўлимида захира файлни танланг, паролингизни киритинг ва тасдиқлаш учун сейф номини ёзинг, сўнг **Сейфни алмаштириш** тугмасини босинг. Жорий сейфнинг нусхаси **Бу браузердаги олдинги нусхалар** бўлимида сақланади.
+
+![Сейфни захира файл билан алмаштириш](../images/uz-Cyrl/backup-import.webp)
+
+<a id="moving"></a>
+### Бошқа қурилмага кўчиш
+
+1. Эски қурилмада захира нусхани юклаб олинг.
+2. Янги қурилмада [https://jaybi.uz](https://jaybi.uz) манзилини очинг. У **Сейф яратинг** экранини кўрсатади: уни тўлдирманг.
+3. **Ёки захира нусхани импорт қилинг** бўлимида захира файлни танланг ва **Сейфни алмаштириш** тугмасини босинг.
+4. Одатдаги почта ва паролингиз билан киринг.
+
+![Янги қурилмада, сейф яратиш экранида захира нусхани импорт қилиш](../images/uz-Cyrl/move-import.webp)
+
+Сейфдаги ҳар ким янги қурилмада ўз пароли билан кира олади. Сейф синхронлашмайди: кўчгандан кейин фақат янги қурилмадан фойдаланинг ёки уни худди шу йўл билан қайтариб кўчиринг.
+
+<a id="settings"></a>
+## Сейф созламалари
+
+Администраторлар бутун сейф учун параметрларни **Созламалар** саҳифасида ўзгартиради.
+
+[Созламаларни очиш](https://jaybi.uz/#/app/settings)
+
+- **Сейф номи** ва **Сейф валютаси**, сўнг **Созламаларни сақлаш**. Жами суммалар фақат сейф валютасидаги ёзувларни ҳисоблайди.
+- **Тоифалар**: даромад ва харажат тоифаларини ҳар бир тилдаги номи билан қўшинг, қайта номланг ёки олиб ташланг. Бўш таржима ўрнига инглизча ном ишлатилади. Ёзувларда ишлатилган тоифани олиб ташлаб бўлмайди.
+- **Версия ҳақида**: илова версияси, йиғма, маълумотлар формати ва сейф қачон яратилгани. Муаммо ҳақида хабар берганда шуларни кўрсатинг.
+
+![Сейф номи, валюта ва тоифалар кўрсатилган «Созламалар» саҳифаси](../images/uz-Cyrl/settings.webp)
+
+<a id="account"></a>
+## Ҳисобингиз
+
+Ҳар кимда фақат ўзига тегишли созламалар жойлашган **Ҳисоб** саҳифаси бор.
+
+[«Ҳисоб» саҳифасини очиш](https://jaybi.uz/#/app/account)
+
+![«Ҳисоб» саҳифаси: парол, кириш текшируви, автоматик қулфлаш, сейфлар, тиклаш коди ва «Қайтадан бошлаш»](../images/uz-Cyrl/account-full.webp)
+
+<a id="change-password"></a>
+### Паролни ўзгартириш
+
+**Жорий парол**ни, сўнг **Янги парол** ва **Янги паролни тасдиқланг** майдонларини тўлдиринг ва **Паролни ўзгартириш** тугмасини босинг. Шахсий сейфларингиз ва кириш текширувингиз ҳам шу заҳоти янги паролга ўтади.
+
+Агар паролингизни администратор танлаган бўлса, Жайби ҳар нарсадан олдин янгисини танлашингизни сўрайди: буни қилмагунингизча ҳар бир саҳифа **Ҳисоб** саҳифасига олиб боради.
+
+<a id="choosing-a-password"></a>
+### Парол танлаш
+
+Янги парол 12 дан 256 гача белгидан иборат бўлиши, кенг тарқалган парол бўлмаслиги, почтангиз ёки сейф номидан тузилмаслиги ва `qwertyuiop` каби оддий кетма-кетлик бўлмаслиги керак. Бир-бирига боғлиқ бўлмаган тўрт-беш сўз, хоҳласангиз бўш жой билан, эслаб қолишга осон ва топишга қийин. Бошқа сайтдаги паролни қайта ишлатманг: сейф нусхаларини айнан паролингиз ҳимоя қилади.
+
+<a id="sign-in-check"></a>
+### Кириш текшируви (аутентификатор иловаси)
+
+Кириш текшируви паролингиздан кейин аутентификатор иловасидаги (Google Authenticator, Microsoft Authenticator, Aegis, 1Password ва шу кабилар) 6 хонали кодни сўрайди. Агар кимдир паролингизни билиб олиб, уни шу браузерда синаб кўрса, у сизни ҳимоя қилади. Шифрлашни эса кучайтирмайди.
+
+1. **Кириш текширувини созлаш** тугмасини босинг.
+2. QR кодни иловангиз билан сканерланг ёки **Созлаш калити**ни қўлда киритинг.
+3. **Иловадаги код** ва **Паролингиз**ни киритинг, сўнг **Тасдиқлаш ва ёқиш** тугмасини босинг.
+4. Жайби 10 та кодни **Тиклаш кодлари** сарлавҳаси остида кўрсатади. Телефонингизни йўқотсангиз, ҳар бири бир марта ишлайди. **Кодларни юклаб олиш** тугмасини босинг ёки уларни ёзиб олинг, шу қурилмадан узоқда сақланг ва **Кодларни сақлаб қўйдим** тугмасини босинг.
+
+![QR код ва созлаш калити билан кириш текширувини созлаш](../images/uz-Cyrl/account-totp.webp)
+
+![Фақат бир марта кўрсатиладиган ўнта тиклаш коди](../images/uz-Cyrl/account-totp-recovery.webp)
+
+Уни ўчириш учун **Кириш текширувини ўчириш** тугмасини босинг ва паролингизни киритинг. Янги тиклаш кодларини олиш учун уни ўчириб, қайта ёқинг.
+
+<a id="auto-lock"></a>
+### Автоматик қулфлаш ва сейф таймерлари
+
+**Автоматик қулфлаш** бу қурилмада фаоллик бўлмаганда сейф қанча вақт очиқ туришини белгилайди: 5 дақиқа, 15 дақиқа (стандарт), 30 дақиқа ёки 1 соат. **Шахсий сейфлар** бўлимида нусхаланган қийматлар буферда қанча қолиши ва кўрсатилган қийматлар қанча кўриниб туришини танлайсиз.
+
+<a id="audit"></a>
+## Аудит журнали
+
+**Аудит журнали** ким нима ва қачон қилганини кўрсатади: қўшилган, ўзгартирилган ва ўчирилган ёзувлар, қўшилган ёки олиб ташланган одамлар, парол янгиланишлари, захира нусхалар, экспортлар, созламалар ва бошқалар. Уни фақат администраторлар кўради. Унда суммалар, изоҳлар ёки шахсий сейфлар ичидагилар ҳеч қачон кўрсатилмайди.
+
+[Аудит журналини очиш](https://jaybi.uz/#/app/audit)
+
+![Бутунлик сатри кўрсатилган аудит журнали](../images/uz-Cyrl/audit.webp)
+
+Ҳар бир ёзув олдингиси билан боғланган. Иловадан ташқарида ҳеч нарса ўзгартирилмаган бўлса, **Бутунлик** сатрида «Бузилмаган: ҳар бир ёзув олдингиси билан боғланган» деб ёзилади. Агар ёзувлар ўзгартирилган ёки ўчирилган бўлса, Жайби ҳар бир саҳифада қизил панел кўрсатади ва Ҳолат текшируви бу ҳақда хабар беради. Агар бу ўзгариш кутилган бўлса, масалан, эскироқ захира нусхани импорт қилгандан кейин, **Журнални борича қабул қилиш** тугмасини босинг; акс ҳолда яқиндаги захира нусхани тикланг ва паролларни ўзгартиринг.
+
+<a id="health"></a>
+## Ҳолат текшируви
+
+**Ҳолат текшируви** шу браузерни, унинг сақлаш жойини, илова версиясини, сейфингизни ва валюта курсларини текширади ҳамда нима жойида ва нимага эътибор бериш кераклигини оддий сўзлар билан тушунтиради. Ҳаммаси шу қурилмада бажарилади; ҳеч нарса ҳеч қаерга юборилмайди.
+
+[Ҳолат текширувини ўтказиш](https://jaybi.uz/#/app/health)
+
+![Хулоса ва браузер текширувлари кўрсатилган «Ҳолат текшируви» саҳифаси](../images/uz-Cyrl/health.webp)
+
+Ҳар бир қатор қисқа изоҳ билан **Жойида**, **Огоҳлантириш**, **Муаммо** ёки **Эслатма** деб белгиланади. Эътибор талаб қиладиган қаторда **Қандай тузатиш мумкин** бўлими ва, фойдали бўлса, **Маълумотларни сақлашни сўраш** ёки **«Захира нусха» саҳифасини очиш** каби тугма ҳам бўлади.
+
+![Огоҳлантириш: ҳали захира нусха юклаб олинмаган; тузатиш йўли ва «Захира нусха» саҳифасини очиш тугмаси билан](../images/uz-Cyrl/health-warning.webp)
+
+<a id="health-checks"></a>
+### Нималар текширилади
+
+| Соҳа | Текширувлар |
+| --- | --- |
+| **Браузер имкониятлари** | Шифрлаш, браузер маълумотлар базаси, WebAssembly, бир вақтда битта варақ, саҳифани ажратиш, ёрдамчи скрипт (service worker), хавфсиз уланиш, Trusted Types, cookie ва сайт маълумотлари, махфий ойна |
+| **Сақлаш жойи** | Сақлаш жойига ёзиш мумкинлиги, бўш жой, жой етишмаганда браузер маълумотларни сақлаб қолиши, кичик созламалар хотираси, бу ерда сейф сақланганлиги |
+| **Илова ва версия** | Янгироқ версия эълон қилинганлиги, йиғма ва керак бўлганда юкланадиган саҳифалар ишлаётган версияга мослиги |
+| **Сейф** | Маълумотлар формати, 48 MB чегарага нисбатан сейф ҳажми, сақлаш, захира нусха қанча эскилиги, олдинги нусхалар, аудит журнали бутунлиги, қурилма соати, кириш текширувингиз, паролингиз ва одамлар сони |
+| **Валюта курслари** | Курслар жорийлиги ва назорат йиғиндисига мослиги |
+| **Хавфсизлик** | Контент хавфсизлиги сиёсати, бошқа саҳифа ичида ишламаслик ва манзил |
+
+**Фақат администратор учун** деб белгиланган қаторлар фақат администраторларга кўринади: аудит журнали қаторлари, олдинги нусхалар ва одамлар сони. Администраторлар захира нусха саналарини ва соат белгиларини ҳам кўради. Бошқалар браузер ва ўз ҳисоби ҳақидаги қисқароқ рўйхатни кўради; захира нусха қатори уларга захира нусхаларни администратор олишини эслатади, холос.
+
+![Кузатувчи кўрадиган Ҳолат текшируви](../images/uz-Cyrl/viewer-health.webp)
+
+<a id="health-report"></a>
+### Ҳисобот юбориш
+
+**Ҳисоботни нусхалаш** сизга ёрдам бераётган одамга ёзадиган хабарингизга қўйиш учун оддий матнли хулосани нусхалайди. Унда версиялар, ҳажмлар, саналар ва ҳар бир текширув натижаси бўлади; пароллар, кодлар, почта манзиллари, исмлар ёки суммалар ҳеч қачон киритилмайди. **Қайта текшириш** бирор нарсани тузатганингиздан кейин текширувларни такрорлайди.
+
+<a id="health-signed-out"></a>
+### Тизимга кира олмаганингизда
+
+Кириш экранидаги **Ҳолат текшируви** ҳаволаси тизимга кирмасдан браузер, сақлаш жойи ва версия текширувларини ўтказади. Агар Жайби умуман ишга тушмаса, хато экрани ҳам шу текширувни таклиф қилади.
+
+![Кириш экранидан очилган Ҳолат текшируви](../images/uz-Cyrl/health-signed-out.webp)
+
+![Телефондаги Ҳолат текшируви](../images/uz-Cyrl/mobile-health.webp)
+
+<a id="help"></a>
+## Ушбу ёрдамдан фойдаланиш
+
+Бу қўлланма Жайби ичига ҳам ўрнатилган. Менюдаги **Ёрдам** бўлимини, юқори панелдаги **?** тугмасини (у жорий саҳифага оид қисмни очади) ёки кириш экранидаги **Ёрдам** ҳаволасини очинг. Қўлланма сиз танлаган тилда кўрсатилади.
+
+![Жайби ичидаги шу қўлланма, чапда мундарижа билан](../images/uz-Cyrl/help.webp)
+
+Тизимга киришдан олдин **Ёрдам** ўша қўлланмани алоҳида саҳифада, кириш экранига қайтиш ҳаволаси билан очади.
+
+![Кириш экранидан очилган қўлланма](../images/uz-Cyrl/help-signed-out.webp)
+
+**Қўлланмадан қидириш** майдонига сўз киритсангиз, фақат шу сўз учрайдиган қисмлар кўрсатилади. **Очиш** тугмалари сизни тасвирланаётган экранга тўғридан-тўғри олиб боради.
+
+![Ичига ўрнатилган қўлланмадан қидириш](../images/uz-Cyrl/help-search.webp)
+
+<a id="updates"></a>
+## Янгиланишлар ва версиялар
+
+Жайби иловасининг янги версияси чиққанда, **Жайбининг янги версияси чиқди.** деган панел пайдо бўлади. Қулай пайтда **Янгилаш** тугмасини босинг: ишингиз сақланади ва аввал сейф қулфланади, шунинг учун кейин қайта киринг. Янгиланишдан кейинги биринчи кириш бир неча сония узоқроқ давом этиши мумкин, чунки Жайби маълумотларни янгилайди. Бу бир марта бўлади.
+
+![Янги версия ҳақида хабар берувчи панел ва «Янгилаш» тугмаси](../images/uz-Cyrl/update-banner.webp)
+
+Фойдаланаётган версиянгиз меню пастида, кириш экранида ва Ҳолат текширувида кўрсатилади. Муаммо ҳақида хабар берганда уни кўрсатинг.
+
+<a id="security"></a>
+## Хавфсизлик бўйича маслаҳатлар
+
+- Бошқа ҳеч қаерда ишлатилмайдиган узун паролдан фойдаланинг. Сейф нусхаларини ҳимоя қиладиган ягона нарса шу.
+- Умумий қурилмадан кетишдан олдин сейфни қулфланг, шахсий сейфларингиз билан ишлаб бўлгач, уларни ҳам қулфланг.
+- Кириш текширувини ёқинг ва тиклаш кодларини шу қурилмадан узоқда сақланг.
+- Администраторлар: камида ҳафтада бир марта захира нусха юклаб олинг ва уни шу қурилмадан ташқарида сақланг.
+- Шу сайтнинг браузер маълумотларини тозаламанг: бу сейфни браузердан ўчириб юборади.
+- Бир марталик кодлардан тезроқ фойдаланинг ва кодингизни бошқа кимдир кўрган бўлиши мумкин бўлса, администраторга айтинг.
+- Шахсий сейфларингиз учун тиклаш кодини яратинг ва уни офлайн сақланг.
+- Манзилни ҳар доим текширинг: расмий манзил — `jaybi.uz`. Жайби бошқа сайт саҳифаси ичида ишламайди.
+- Карта PIN-кодларини ҳеч қачон сақламанг. CVV ни фақат жуда зарур бўлсагина сақланг.
+
+<a id="troubleshooting"></a>
+## Муаммоларни ҳал қилиш
+
+[Ҳолат текшируви](#health)дан бошланг: кўпчилик муаммолар у ерда тузатиш йўли билан кўрсатилади.
+
+[Ҳолат текширувини ўтказиш](https://jaybi.uz/#/app/health)
+
+| Нима кўряпсиз | Нима қилиш керак |
+| --- | --- |
+| Сейфингиз бор бўлса ҳам **Сейф яратинг** экрани | Сиз бошқа браузер, профил, махфий ойна ёки манзилдасиз. Жайби иловасини сейфни яратган жойингизда очинг ёки захира нусхани импорт қилинг. Янги сейф яратманг. |
+| «Почта ёки парол нотўғри» | Иккаласини ҳам текширинг. Бир неча уринишдан кейин тескари санаш тугашини кутинг. Паролни унутган бўлсангиз, администратордан парол янгилаш кодини сўранг. |
+| **Уринишлар жуда кўп** | Тескари санаш тугашини кутинг; саҳифани янгилаш ёрдам бермайди. |
+| **Сақлаб бўлмади** | Браузер маълумотларни сақлашни рад этди. Варақни ёпманг, дискда жой бўшатинг, сўнг Ҳолат текширувини ўтказинг. |
+| **Сақланмади: бошқа жойда ўзгартирилган** | Сейф бошқа варақда очиқ. Қулфланг, қайта киринг ва охирги ўзгаришингизни такрорланг. |
+| «бошқа варақ ёки ойнада аллақачон очиқ» | Ўша варақга ўтинг ёки уни у ерда қулфланг. |
+| Код рад этилди | Унинг муддати тугаган, у ишлатилган ёки бошқа почта учун бўлиши мумкин. Янгисини сўранг. Агар соат текшируви тилга олинса, қурилма соатини тўғриланг. |
+| Валюта курслари йўқ ёки **Эскирган** | Интернет алоқасини текширинг. Байрамлардан кейин банклар янги курс эълон қилмайди. |
+| Янгиланишдан кейин саҳифа бўш қолди | Саҳифани қайта юкланг. |
+| Аудит журнали ҳақида қизил панел | [Аудит журнали](#audit) бўлимига қаранг. |
+| Сейф ҳажми чегарасига яқинлашди | Эски ёзувлардаги катта чекларни олиб ташланг. |
+
+<a id="not-found"></a>
+### Саҳифа топилмади
+
+Эски ёки хато ёзилган ҳавола **Саҳифа топилмади** экранини очади. **Бошқарув саҳифасига ўтиш** тугмасини босинг.
+
+![«Саҳифа топилмади» экрани](../images/uz-Cyrl/not-found.webp)
+
+<a id="faq"></a>
+## Савол ва жавоблар
+
+**Жайби иловасидан телефонимда ва компьютеримда бир вақтда фойдалана оламанми?** Йўқ. Сейф битта браузерда сақланади. Уни захира нусха орқали кўчиришингиз мумкин, лекин икки нусха бир-бири билан синхронлашмайди.
+
+**Администратор шахсий сейфларимни ўқий оладими?** Йўқ. Сейфлар фақат паролингиз ёки тиклаш кодингиз оча оладиган калит билан шифрланган.
+
+**Паролимни унутдим. Уни кимдир тиклай оладими?** Уни ҳеч ким кўра олмайди, лекин администратор сизга парол янгилаш кодини бера олади. Агар ягона администратор ўз паролини унутса, уни унинг учун ҳеч ким янгилай олмайди, шунинг учун иккита администратор бўлгани маъқул.
+
+**Жайби маълумотларимни бирор жойга юборадими?** Йўқ. Илованинг ўзидан ташқари Жайби фақат очиқ валюта курсларини ва эълон қилинган версия рақамини юклайди.
+
+**Нега баъзи ёзувлар жами суммага кирмаган?** Улар бошқа валютада. Улар **Бошқа валюталар (жамига кирмайди)** бўлимида кўрсатилган.
+
+**Захира нусхалар қаерда сақланади?** Юклаб олинган файлни қаерга сақласангиз, ўша ерда. Жайби сиз учун захира нусха сақламайди.
+
+**Кириш текшируви кучли паролнинг ўрнини босадими?** Йўқ. У фақат илова орқали киришда битта қўшимча қадам қўшади.
+
+<a id="glossary"></a>
+## Атамалар луғати
+
+- **Сейф**: дафтар, одамлар ва уларнинг шахсий сейфлари жойлашган, битта браузерда сақланадиган шифрланган файл.
+- **Асосий парол**: сейф яратилганда танланган биринчи администратор пароли.
+- **Гуруҳ**: сейфнинг ўз ёзувлари ва одамлари бор қисми.
+- **Ёзув**: дафтардаги битта даромад ёки харажат.
+- **Сейф валютаси**: жами суммалар ва диаграммалар ҳисобга оладиган валюта.
+- **Бир марталик код**: администратор берадиган, бир марта ишлайдиган ва муддати тугайдиган таклиф ёки парол янгилаш коди.
+- **Кириш текшируви**: паролдан кейин сўраладиган, аутентификатор иловасидаги 6 хонали код.
+- **Тиклаш кодлари**: аутентификаторни йўқотсангиз, унинг ўрнини босадиган ўнта бир марталик код.
+- **Шахсий сейф**: карталар, обуналар ва қайдлар учун ўзингизнинг шифрланган жойингиз.
+- **Тиклаш коди (сейфлар)**: шахсий сейфларингизнинг захира калити.
+- **Захира нусха**: бутун сейф жойлашган шифрланган `.moliya` файл.
+- **Аудит журнали**: ким нима ва қачон қилганини кўрсатадиган, ёзувлари ўзаро боғланган администратор рўйхати.
+- **Ҳолат текшируви**: браузер, сақлаш жойи, версия, сейф ва курсларни текширадиган саҳифа.
