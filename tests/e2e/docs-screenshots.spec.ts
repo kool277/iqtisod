@@ -240,6 +240,7 @@ for (const locale of LOCALES) {
     async function shot(name: string, options: { target?: Locator; full?: boolean } = {}) {
       if (await page.getByTestId('save-state').count()) await settle()
       await page.mouse.move(0, 0)
+      if (!options.target) await page.evaluate(() => window.scrollTo(0, 0))
       await page.evaluate(() => document.fonts.ready)
       const png = options.target
         ? await options.target.screenshot({ animations: 'disabled' })
@@ -338,7 +339,6 @@ for (const locale of LOCALES) {
     await shot('backup-reminder', { target: page.getByTestId('backup-reminder') })
     await dismissReminder()
     await shot('dashboard')
-    await shot('dashboard-full', { full: true })
     await shot('dashboard-kpis', { target: page.getByTestId('kpi-net').locator('xpath=..') })
     await shot('period-presets', { target: page.getByTestId('period-ytd').locator('xpath=../..') })
     await page.getByTestId('dashboard-group').selectOption({ label: demo.business })
@@ -531,12 +531,10 @@ for (const locale of LOCALES) {
     await expect(page.getByTestId('health-overall')).toBeVisible({ timeout: 30_000 })
     await expect(page.locator('[data-testid="health-check"][data-id="backup"]')).toHaveAttribute('data-status', 'warn')
     await shot('health')
-    await shot('health-full', { full: true })
     await shot('health-warning', { target: page.locator('[data-testid="health-check"][data-id="backup"]') })
 
     // Backups.
     await page.getByTestId('nav-backup').click()
-    await shot('backup')
     const pending = page.waitForEvent('download')
     await page.getByTestId('export-backup').click()
     const download = await pending
@@ -553,7 +551,6 @@ for (const locale of LOCALES) {
     await page.getByTestId('nav-settings').click()
     await shot('settings')
     await page.getByTestId('nav-account').click()
-    await shot('account')
     await shot('account-full', { full: true })
     await shot('preferences', { target: page.locator('header') })
     await page.getByTestId('nav-audit').click()

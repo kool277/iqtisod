@@ -2,7 +2,7 @@ import { CircleHelp } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useI18n } from '../../context/I18nContext'
 
-export type HelpSectionId = 'start' | 'signIn' | 'dashboard' | 'transactions' | 'groups' | 'users' | 'safes' | 'backup' | 'settings' | 'account' | 'audit' | 'health' | 'troubleshooting'
+export type HelpSectionId = 'start' | 'sign-in' | 'dashboard' | 'transactions' | 'groups' | 'users' | 'safes' | 'backup' | 'settings' | 'account' | 'audit' | 'health' | 'troubleshooting'
 
 /** A small round "?" that opens the guide at the section about the current screen. */
 export function HelpLink({ section, signedIn = true, className = '', testId = 'help-link' }: { section: HelpSectionId; signedIn?: boolean; className?: string; testId?: string }) {
