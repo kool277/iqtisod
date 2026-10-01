@@ -75,8 +75,10 @@ function candidateWords(lower: string): string[] {
       forms.add(deleet(core(base), one))
     }
   }
-  const parts = lower.split(/[^\p{L}\p{N}]+/u).filter(Boolean)
-  if (parts.length >= 2 && parts.every((part) => part === parts[0])) forms.add(parts[0])
+  for (const separator of [/[^\p{L}\p{N}]+/u, /[^\p{L}]+/u]) {
+    const parts = lower.split(separator).filter(Boolean)
+    if (parts.length >= 2 && parts.every((part) => part === parts[0])) forms.add(parts[0])
+  }
   return [...forms].flatMap(baseWords)
 }
 

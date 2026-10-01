@@ -72,7 +72,7 @@ describe('passwordProblem', () => {
   })
 
   it('refuses common passwords hidden by look-alike characters, separators or repeats', async () => {
-    const cases = ['P@ssw0rd2024!', 'p4$$w0rd!2025', 'P-a-s-s-w-o-r-d-1', 'letmein!letmein', 'LetMeIn LetMeIn', 'l3tm31n-l3tm31n', 'iL0v3y0u!!!!', 'sunshine.sunshine.sunshine']
+    const cases = ['P@ssw0rd2024!', 'p4$$w0rd!2025', 'P-a-s-s-w-o-r-d-1', 'letmein!letmein', 'LetMeIn LetMeIn', 'l3tm31n-l3tm31n', 'iL0v3y0u!!!!', 'sunshine.sunshine.sunshine', 'Summer2026Summer', 'dragon1dragon2dragon']
     for (const password of cases) expect(await passwordProblem(password), password).toBe('PASSWORD_COMMON')
   })
 
