@@ -739,6 +739,11 @@ export const en = {
     title: 'For your safety, Jaybi does not run inside another page.',
     open: 'Open Jaybi in its own tab',
   },
+  notFound: {
+    title: 'Page not found',
+    body: 'This address does not match any page in Jaybi. The link may be old or mistyped.',
+    home: 'Go to the dashboard',
+  },
   securityErrors: {
     PASSWORD_LONG: 'Use at most 256 characters.',
     PASSWORD_COMMON: 'This password is too common or too easy to guess. Try a few unrelated words.',

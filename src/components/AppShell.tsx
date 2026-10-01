@@ -73,9 +73,15 @@ export function AppShell() {
         data-sidebar={collapsed ? 'collapsed' : 'expanded'}
         className={`grid min-h-screen grid-rows-[40px_auto_1fr] md:grid-rows-[40px_1fr] transition-[grid-template-columns] duration-200 ${collapsed ? 'md:grid-cols-[65px_minmax(0,1fr)]' : 'md:grid-cols-[240px_minmax(0,1fr)]'}`}
       >
-        <a href="#content" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-30 focus:rounded-xl focus:bg-card focus:px-3 focus:py-2">
+        {/* The router owns the fragment, so href="#content" would navigate to a route called "content". */}
+        <button
+          type="button"
+          data-testid="skip-link"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-30 focus:rounded-xl focus:bg-card focus:px-3 focus:py-2"
+          onClick={() => document.getElementById('content')?.focus()}
+        >
           {t('common.skip')}
-        </a>
+        </button>
         <header className="sticky top-0 z-20 box-border flex h-10 min-w-0 shrink-0 items-center justify-between gap-2 border-b border-line bg-paper px-4 md:col-start-2 md:row-start-1 md:px-8">
           <div className="flex min-w-0 items-center gap-2">
             <button
@@ -157,7 +163,7 @@ export function AppShell() {
             v{BUILD.version}
           </p>
         </nav>
-        <main id="content" className="mx-auto w-full min-w-0 max-w-[1280px] px-4 py-6 md:col-start-2 md:px-8 md:py-8">
+        <main id="content" tabIndex={-1} className="mx-auto w-full outline-none min-w-0 max-w-[1280px] px-4 py-6 md:col-start-2 md:px-8 md:py-8">
           {weakPassword && !forced && location.pathname !== ACCOUNT_PATH ? (
             <div role="status" data-testid="weak-password-banner" className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-brass/50 bg-brass-soft px-4 py-3 text-sm">
               <span className="min-w-0">{t('security.weakPassword')}</span>

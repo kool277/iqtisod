@@ -738,6 +738,11 @@ export const uzLatn: CoreMessages = {
     title: 'Xavfsizligingiz uchun Jaybi boshqa sahifa ichida ishlamaydi.',
     open: 'Jaybini alohida varaqda ochish',
   },
+  notFound: {
+    title: 'Sahifa topilmadi',
+    body: 'Bu manzil Jaybidagi hech qaysi sahifaga mos kelmaydi. Havola eskirgan yoki xato yozilgan boʻlishi mumkin.',
+    home: 'Boshqaruv sahifasiga oʻtish',
+  },
   securityErrors: {
     PASSWORD_LONG: 'Koʻpi bilan 256 ta belgi kiriting.',
     PASSWORD_COMMON: 'Bu parol juda keng tarqalgan yoki oson topiladi. Bir-biriga bogʻliq boʻlmagan bir nechta soʻzni sinab koʻring.',

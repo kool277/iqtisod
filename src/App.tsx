@@ -1,12 +1,14 @@
 import { Suspense, lazy, type ReactNode } from 'react'
-import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AppShell } from './components/AppShell'
 import { BootError, LoginPage, SetupPage, Splash } from './components/AuthScreens'
 import { MoveNotice } from './components/MoveNotice'
+import { NotFound } from './components/NotFound'
 import { UpdateBanner } from './components/UpdateBanner'
 import { I18nProvider } from './context/I18nContext'
 import { ThemeProvider } from './context/ThemeContext'
 import { useVault, VaultProvider } from './context/VaultContext'
+import { RETURN_PARAM, loginPathFor, returnPath } from './lib/return-to'
 
 const Dashboard = lazy(() => import('./components/Dashboard').then((module) => ({ default: module.Dashboard })))
 const Timeline = lazy(() => import('./components/Timeline').then((module) => ({ default: module.Timeline })))
@@ -26,10 +28,13 @@ function Page({ children }: { children: ReactNode }) {
   return <Suspense fallback={<div role="status" aria-busy="true" className="min-h-40" />}>{children}</Suspense>
 }
 
-function pathFor(status: string): string {
+type Where = { pathname: string; search: string }
+
+/** Where a vault status belongs. A locked app page goes to sign-in with a way back; sign-in then follows it. */
+function pathFor(status: string, from?: Where): string {
   if (status === 'setup') return '/setup'
-  if (status === 'locked' || status === 'challenge') return '/login'
-  if (status === 'ready') return '/app'
+  if (status === 'locked' || status === 'challenge') return from?.pathname.startsWith('/app') ? loginPathFor(from.pathname, from.search) : '/login'
+  if (status === 'ready') return (from?.pathname === '/login' && returnPath(new URLSearchParams(from.search).get(RETURN_PARAM))) || '/app'
   return '/'
 }
 
@@ -37,9 +42,10 @@ type RouteStatus = 'setup' | 'locked' | 'challenge' | 'ready'
 
 function RequireStatus({ expect, children }: { expect: RouteStatus | RouteStatus[]; children: ReactNode }) {
   const { status } = useVault()
+  const location = useLocation()
   if (status === 'checking') return <Splash />
   const allowed: string[] = Array.isArray(expect) ? expect : [expect]
-  if (!allowed.includes(status)) return <Navigate to={pathFor(status)} replace />
+  if (!allowed.includes(status)) return <Navigate to={pathFor(status, location)} replace />
   return children
 }
 
@@ -73,8 +79,10 @@ function AppRoutes() {
           <Route path="safes/activity" element={<Page><SafesActivity /></Page>} />
           <Route path="safes/:safeId" element={<Page><SafeView /></Page>} />
           <Route path="account" element={<Page><AccountPage /></Page>} />
+          <Route path="*" element={<NotFound />} />
         </Route>
-        <Route path="*" element={<HomeRedirect />} />
+        <Route path="/" element={<HomeRedirect />} />
+        <Route path="*" element={<NotFound standalone />} />
       </Routes>
     </>
   )
