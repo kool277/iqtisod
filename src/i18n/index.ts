@@ -2,9 +2,6 @@ import { readPreference } from '../lib/preference'
 import { en, type CoreMessages, type Messages } from './en'
 import type { ExportMessages } from './export/en'
 import type { TableMessages } from './table/en'
-import { ru } from './ru'
-import { uzCyrl } from './uz-Cyrl'
-import { uzLatn } from './uz-Latn'
 
 export type { Messages }
 
@@ -21,11 +18,33 @@ export type Locale = (typeof LOCALES)[number]
 
 export const LOCALE_KEY = 'moliya.locale'
 
-const catalogs: Record<Locale, CoreMessages> = {
-  en,
-  ru,
-  'uz-Latn': uzLatn,
-  'uz-Cyrl': uzCyrl,
+const catalogs: Partial<Record<Locale, CoreMessages>> = { en }
+
+const coreLoaders: Record<Exclude<Locale, 'en'>, () => Promise<CoreMessages>> = {
+  ru: () => import('./ru').then((module) => module.ru),
+  'uz-Latn': () => import('./uz-Latn').then((module) => module.uzLatn),
+  'uz-Cyrl': () => import('./uz-Cyrl').then((module) => module.uzCyrl),
+}
+
+const coreLoads: Partial<Record<Locale, Promise<void>>> = {}
+
+/** Only English ships in the startup bundle; other languages load before the first render or on switching, and fall back to English until then. */
+export function loadLocale(locale: Locale): Promise<void> {
+  if (locale === 'en') return Promise.resolve()
+  coreLoads[locale] ??= coreLoaders[locale]().then(
+    (messages) => {
+      catalogs[locale] = messages
+    },
+    (error: unknown) => {
+      delete coreLoads[locale]
+      throw error
+    },
+  )
+  return coreLoads[locale]
+}
+
+export function hasLocale(locale: Locale): boolean {
+  return catalogs[locale] !== undefined
 }
 
 const exportLoaders: Record<Locale, () => Promise<ExportMessages>> = {
@@ -49,7 +68,7 @@ export function loadExportMessages(locale: Locale): Promise<void> {
       throw error
     },
   )
-  return exportLoads[locale]
+  return Promise.all([exportLoads[locale], loadLocale(locale)]).then(() => undefined)
 }
 
 export function hasExportMessages(locale: Locale): boolean {
@@ -86,7 +105,7 @@ export function translate(locale: Locale, key: MessageKey): string {
   const [head, ...rest] = key.split('.')
   const lazy = head === 'export' || head === 'table'
   const parts = lazy ? rest : [head, ...rest]
-  let current: unknown = head === 'export' ? exportCatalogs[locale] : head === 'table' ? tableCatalogs?.[locale] : catalogs[locale]
+  let current: unknown = head === 'export' ? exportCatalogs[locale] : head === 'table' ? tableCatalogs?.[locale] : (catalogs[locale] ?? en)
   for (const part of parts) {
     if (typeof current !== 'object' || current === null || !(part in current)) return key
     current = (current as Record<string, unknown>)[part]
@@ -110,7 +129,7 @@ export function catalogFor(locale: Locale): Messages {
   const exportMessages = exportCatalogs[locale]
   const tableMessages = tableCatalogs?.[locale]
   return {
-    ...catalogs[locale],
+    ...(catalogs[locale] ?? en),
     ...(exportMessages ? { export: exportMessages } : {}),
     ...(tableMessages ? { table: tableMessages } : {}),
   } as Messages

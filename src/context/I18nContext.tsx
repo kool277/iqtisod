@@ -1,5 +1,5 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { LOCALE_KEY, detectLocale, htmlLang, translate, type Locale, type MessageKey } from '../i18n'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { LOCALE_KEY, detectLocale, hasLocale, htmlLang, loadLocale, translate, type Locale, type MessageKey } from '../i18n'
 import { writePreference } from '../lib/preference'
 
 type I18nApi = {
@@ -12,10 +12,20 @@ const I18nContext = createContext<I18nApi | null>(null)
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>(() => detectLocale())
+  const requested = useRef(locale)
 
   const setLocale = useCallback((next: Locale) => {
     writePreference(LOCALE_KEY, next)
-    setLocaleState(next)
+    requested.current = next
+    if (hasLocale(next)) {
+      setLocaleState(next)
+      return
+    }
+    void loadLocale(next)
+      .catch(() => undefined)
+      .then(() => {
+        if (requested.current === next) setLocaleState(next)
+      })
   }, [])
 
   useEffect(() => {
