@@ -160,7 +160,7 @@ export const uzLatn: CoreMessages = {
     when: 'Qachon',
     actor: 'Kim',
     integrity: 'Butunlik',
-    intact: 'Buzilmagan: yozuvlar oʻzgartirilmagan va oʻchirilmagan',
+    intact: 'Buzilmagan: har bir yozuv oldingisi bilan bogʻlangan',
     broken: 'Buzilgan: yozuvlar ilovadan tashqarida oʻzgartirilgan',
     entries: 'Yozuvlar',
     actions: {
@@ -732,6 +732,11 @@ export const uzLatn: CoreMessages = {
     storageNear: 'Seyf hajmi chegarasiga yaqinlashdi. Joy boʻshatish uchun katta cheklarni olib tashlang.',
     failuresSeen: 'Oxirgi kirishingizdan beri shu brauzerda hisobingizga muvaffaqiyatsiz kirish urinishlari:',
     checkFailuresSeen: 'Parol toʻgʻri boʻlib, kirish tekshiruvidan oʻtilmagan kirishlar (notoʻgʻri kod, bekor qilingan yoki vaqti tugagan):',
+    auditBroken: 'Amallar jurnali mos kelmaydi: nimadir ilovadan tashqarida oʻzgartirilgan yoki oʻchirilgan, quyidagi yozuvdan boshlab',
+    auditShorter: 'Amallar jurnali seyf bu brauzerda oxirgi marta ochilgandagidan qisqaroq. Yozuvlar oʻchirilgan boʻlishi mumkin.',
+    auditChanged: 'Amallar jurnali bu brauzer oldin koʻrganidan farq qiladi. Yozuvlar qayta yozilgan boʻlishi mumkin.',
+    auditAccept: 'Jurnalni boricha qabul qilish',
+    auditOpen: 'Amallar jurnalini ochish',
     throttled: 'Urinishlar juda koʻp. Qayta urinishgacha:',
     passwordHint: 'Kamida 12 ta belgi. Bir-biriga bogʻliq boʻlmagan bir nechta soʻz yaxshi ishlaydi.',
     replaceTitle: 'Bu seyfni zaxira nusxa bilan almashtirish',
@@ -786,5 +791,6 @@ export const uzLatn: CoreMessages = {
     TOTP_CLEARED: 'Kirish tekshiruvi olib tashlandi',
     TOTP_RECOVERY_USED: 'Kirish uchun tiklash kodi ishlatildi',
     CLOCK_FLOOR_RESET: 'Soat tekshiruvi qayta oʻrnatildi',
+    AUDIT_MARK_RESET: 'Ogohlantirishdan keyin jurnal qabul qilindi',
   },
 }

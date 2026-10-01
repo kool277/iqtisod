@@ -2,6 +2,7 @@ import { cloneBuffer, cloneBytes } from '../crypto/encoding'
 import { ConflictError, CorruptRecordError, ValidationError } from '../domain/errors'
 import type { GrantWrap, UserWrap } from '../domain/types'
 import { APP_VERSION } from '../lib/version'
+import type { AuditHead } from './audit-chain'
 import {
   PAYLOAD_CIPHER,
   RECORD_ID,
@@ -261,6 +262,7 @@ export function recordFromSession(input: {
   schemaVersion: number
   createdAt: string | null
   updatedAt: string
+  audit?: AuditHead
 }): VaultRecord {
   const problem = envelopeProblem(input.wraps, input.grants ?? [])
   if (problem === 'WRAP_COUNT') throw new ValidationError('MEMBER_LIMIT')
@@ -292,6 +294,7 @@ export function recordFromSession(input: {
       wrappedDek: cloneBuffer(grant.wrappedDek),
       ...(grant.expiresAt ? { expiresAt: grant.expiresAt } : {}),
     })),
+    ...(input.audit ? { audit: input.audit } : {}),
     body: { iv: cloneBuffer(input.iv), ciphertext: cloneBuffer(input.ciphertext) },
   })
 }

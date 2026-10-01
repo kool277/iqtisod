@@ -12,6 +12,7 @@ import { base64ToBytes, bytesToBase64, cloneBuffer, cloneBytes } from '../crypto
 import { CorruptRecordError, FormatTooNewError, ValidationError } from '../domain/errors'
 import { LIMITS } from '../lib/limits'
 import { parseJsonSafely } from '../lib/safe-json'
+import { isAuditHead, type AuditHead } from './audit-chain'
 import { BACKUP_VERSION, RECORD_VERSION, SCHEMA_VERSION } from './versions'
 
 export const BACKUP_FORMAT = 'moliya-vault'
@@ -54,6 +55,8 @@ export type VaultRecord = {
   cipher: PayloadCipher
   wraps: WrapRecord[]
   grants?: GrantRecord[]
+  /** The audit log's last entry when the record was sealed (1.4.2+). Advisory: lets a reader notice a shortened or rewritten log. */
+  audit?: AuditHead
   body: { iv: ArrayBuffer; ciphertext: ArrayBuffer }
 }
 
@@ -99,6 +102,7 @@ export type BackupFileV2 = {
   cipher: PayloadCipher
   wraps: BackupWrapJson[]
   grants?: BackupGrantJson[]
+  audit?: AuditHead
   body: { iv: string; ciphertext: string }
 }
 
@@ -286,8 +290,14 @@ function decodeFields(
     cipher: readCipher(source.cipher, invalid),
     wraps: readWraps(source.wraps, null, bytes, invalid),
     ...optionalGrants(readGrants(source.grants, bytes, invalid)),
+    ...readAudit(source.audit),
     body: readBody(source.body, bytes, invalid),
   }
+}
+
+/** Advisory metadata: a malformed value is dropped rather than refusing the vault. */
+function readAudit(value: unknown): { audit?: AuditHead } {
+  return isAuditHead(value) ? { audit: { seq: value.seq, hash: value.hash } } : {}
 }
 
 function optionalGrants<T>(grants: T[] | undefined): { grants?: T[] } {
@@ -333,6 +343,7 @@ export function encodeStoredRecord(record: VaultRecord): VaultRecord {
         ...(grant.expiresAt ? { expiresAt: grant.expiresAt } : {}),
       })),
     ),
+    ...(record.audit ? { audit: { seq: record.audit.seq, hash: record.audit.hash } } : {}),
     body: {
       iv: cloneBuffer(record.body.iv),
       ciphertext: cloneBuffer(record.body.ciphertext),
@@ -396,6 +407,7 @@ export function toBackupJson(record: VaultRecord, exportedAt: string): BackupFil
         ...(grant.expiresAt ? { expiresAt: grant.expiresAt } : {}),
       })),
     ),
+    ...(record.audit ? { audit: { seq: record.audit.seq, hash: record.audit.hash } } : {}),
     body: {
       iv: bytesToBase64(cloneBytes(record.body.iv)),
       ciphertext: bytesToBase64(cloneBytes(record.body.ciphertext)),

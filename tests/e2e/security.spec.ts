@@ -392,6 +392,28 @@ test('locking reloads the page, so nothing from the unlocked session stays in me
   expect(await watcher.violations()).toEqual([])
 })
 
+test('warns the admin when the audit log is shorter than this browser last saw it', async ({ page }) => {
+  const watcher = await watch(page)
+  await createVault(page)
+  await lock(page)
+  const mark = await page.evaluate(() => JSON.parse(localStorage.getItem('moliya.auditMark.v1') ?? 'null') as { seq: number; hash: string } | null)
+  expect(mark?.seq).toBeGreaterThan(0)
+  await page.evaluate((seq) => localStorage.setItem('moliya.auditMark.v1', JSON.stringify({ seq, hash: 'a'.repeat(64) })), mark!.seq + 50)
+
+  await signIn(page, ADMIN.email, ADMIN.password)
+  const warning = page.getByTestId('audit-warning')
+  await expect(warning).toHaveAttribute('data-kind', 'SHORTER', { timeout: 30_000 })
+  await page.getByTestId('audit-accept').click()
+  await expect(warning).toHaveCount(0)
+
+  await lock(page)
+  await signIn(page, ADMIN.email, ADMIN.password)
+  await expect(page.getByTestId('kpi-net')).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByTestId('audit-warning')).toHaveCount(0)
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('moliya.auditMark.v1') ?? 'null')?.seq)).toBeLessThan(mark!.seq + 50)
+  expect(await watcher.violations()).toEqual([])
+})
+
 test('the vault locks itself after the chosen idle time', async ({ page }) => {
   const watcher = await watch(page)
   await page.clock.install()

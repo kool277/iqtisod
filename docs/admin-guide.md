@@ -186,7 +186,9 @@ From 1.3.0 it also shows:
 
 No code, password, or authenticator secret is ever written to the log. The log lives inside the encrypted vault, so it is included in backups. Nothing about private safes is written to it: each person's safe activity is kept in their own encrypted activity list, which only they can read.
 
-Entries cannot be edited or deleted from the app. Each entry also contains a fingerprint of the one before it, so **Integrity** at the top of the page shows **Intact** only if no entry was changed or removed, even by someone editing a decrypted copy of the database with other tools. If it ever shows **Broken**, restore from a backup you trust and find out who had access to the passwords.
+Entries cannot be edited or deleted from the app. Each entry also contains a fingerprint of the one before it, so **Integrity** at the top of the page shows **Broken** if an entry in the middle was changed or removed outside the app, for example by damage to the file or by someone editing a decrypted copy. If it ever shows **Broken**, restore from a backup you trust and find out who had access to the passwords.
+
+The fingerprints are not a signature. Anyone who knows a vault password can decrypt the database, so they could also cut entries off the end or rewrite entries and all fingerprints after them. From 1.4.2 Jaybi remembers, in each browser, the last entry it saw, and the vault file records its last entry too. If the log is shorter or different at the next sign-in, Admins see a warning at the top of the page. Find out what happened before choosing **Accept the log as it is**, which records "Audit log accepted after a warning". This does not help on a browser that never opened the vault, or if someone also clears this browser's data.
 
 ## Backups
 

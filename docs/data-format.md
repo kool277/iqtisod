@@ -117,6 +117,7 @@ A `.moliya` file is a single JSON object encoded as UTF-8. Readers must ignore u
 | `cipher` | object | Body cipher. Only `AES-GCM` with `length` 256 exists. |
 | `wraps[]` | array | One entry per person. `email` is lower case and unencrypted. `kdf` is per wrap. |
 | `grants[]` | array, optional | One entry per open invite or reset code (1.3.0). Present only when there is at least one. See [One-time code wraps](#one-time-code-wraps-grants). |
+| `audit` | object, optional | `{ seq, hash }` of the last audit entry when the file was written (1.4.2). Unencrypted. Readers ignore it if it is missing or malformed. See [Audit chain](#audit-chain). |
 | `body` | object | Encrypted SQLite database. |
 
 ### One-time code wraps (`grants`)
@@ -306,7 +307,16 @@ Money: the decimal amount is `amount_minor / 10^minor_unit` in `currency`. Amoun
 
 The schema uses `CHECK` constraints instead of SQLite `STRICT` tables so that older SQLite tools (before 3.37) can still read the file.
 
-Audit chain: for each row, `hash = hex(SHA-256(UTF-8(JSON.stringify([seq, id, actor_id, action, entity_type, entity_id, details, created_at, prev_hash]))))`, where nulls are JSON `null` and the rest are strings except `seq`. The first row's `prev_hash` is 64 zeros, and each later row's `prev_hash` is the previous row's `hash`. If any row is changed, removed, or reordered outside the app, recomputing the chain fails at that row. The Audit page shows the result.
+#### Audit chain
+
+For each row, `hash = hex(SHA-256(UTF-8(JSON.stringify([seq, id, actor_id, action, entity_type, entity_id, details, created_at, prev_hash]))))`, where nulls are JSON `null` and the rest are strings except `seq`. The first row's `prev_hash` is 64 zeros, and each later row's `prev_hash` is the previous row's `hash`. If a row in the middle is changed, removed, or reordered and the rest is left alone, recomputing the chain fails at that row; the Audit page shows the result. The chain is not a signature: there is no secret in it, so anyone who can decrypt the database can cut rows off the end, or rewrite rows and recompute every hash after them, and the chain still verifies.
+
+From 1.4.2 two marks make those two cases visible on a browser that saw the log before:
+
+- The record and backup carry `audit: { seq, hash }`, the head of the chain at the time of sealing.
+- Each browser keeps the furthest head it saw in `localStorage` under `moliya.auditMark.v1` (same shape). It only moves forward after a save and is replaced only when this browser creates a vault, imports a backup, or replaces the vault with one.
+
+At sign-in the app checks the opened database against both heads: if the head's `seq` no longer exists, the log is `SHORTER`; if the row at that `seq` has a different `hash`, the log was `CHANGED`. Admins with the audit log see a warning, and can accept the log as it is now, which writes an `AUDIT_MARK_RESET` entry with the warning as details. Neither mark is secret or signed, so a person who holds the vault key and also edits the record and this browser's storage is not detected; per-person signed entries are planned.
 
 Audit `details` for records: `TRANSACTION_CREATED` stores a snapshot of the record, `TRANSACTION_UPDATED` stores `{ before, after }`, and `TRANSACTION_DELETED` stores the full snapshot of what was deleted. Snapshots use `type`, `amountMinor`, `currency`, `date`, `categoryId`, `groupId`, and `notes`; receipts are not copied into the log.
 

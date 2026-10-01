@@ -10,6 +10,7 @@ import {
   kdfNeedsUpgrade,
   randomBytes,
 } from '../crypto/crypto.service'
+import { auditHead } from '../db/audit-chain'
 import { assertKnownSchema, migrate, readSchemaVersion, type MigrationResult } from '../db/migrations'
 import { seedCategories, seedRoles, syncRolePermissions } from '../db/seed'
 import { getSetting, setSetting } from '../db/settings'
@@ -121,6 +122,7 @@ async function seal(db: SqlDatabase, dek: CryptoKey, wraps: UserWrap[], grants: 
     schemaVersion: readSchemaVersion(db),
     createdAt,
     updatedAt: new Date().toISOString(),
+    audit: auditHead(db),
   })
 }
 

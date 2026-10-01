@@ -36,7 +36,7 @@ It suits a household tracking a shared budget, a small business or community gro
 - Password rules (12+ characters, no common passwords) and attempt limits with a growing wait after repeated wrong passwords or codes.
 - Collapsible sidebar that remembers its state.
 - Exact money: amounts are stored as whole minor units (cents, tiyin) and never rounded, with per-currency subtotals for records outside the vault currency.
-- Tamper-evident audit log of every change, with before and after values.
+- Hash-chained audit log of every change, with before and after values. It catches damage and edits by people without a password, and warns Admins when the log got shorter or was rewritten since this browser last saw it. It is not signed, so a member who knows a password could still rewrite it.
 - Encrypted backup file (`.moliya`) for moving a vault to another browser or keeping a safe copy, with a reminder when the last backup is older than 7 days.
 - Data exports for Admins, for spreadsheets, accountants, and long-term archiving: CSV, JSON, JSON Lines, Excel, PDF report, and SQLite, for all data or one period and group. Exports are encrypted by default (AES-256 ZIP or an SQLCipher 4 database) with an export password of at least 14 characters that must differ from the sign-in password and pass the same common-password and vault-name/email checks as sign-in passwords. ZIP needs a strong password (its key derivation is fixed and fast), so the form starts with a generated 120-bit one. Private safes are never exported.
 - Versioned data formats: every vault and backup made by any release keeps opening in every later release, and a standalone tool opens backups without the website.

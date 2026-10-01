@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { auditHead, type AuditHead } from '../db/audit-chain'
 import { encodeStoredRecord } from '../db/envelope'
 import { readVault, readVaultRaw, stampOf, stripArchivedGrants, writeVault, type LoadedVault, type VaultRecord } from '../db/storage'
 import { RECORD_VERSION, SCHEMA_VERSION } from '../db/versions'
@@ -6,6 +7,7 @@ import type { OpenVault, SessionUser } from '../domain/types'
 import { AppError, AuthError, ConflictError, ForbiddenError, ValidationError, VaultInUseError } from '../domain/errors'
 import { observeClock } from '../lib/device-clock'
 import { readIdleMinutes, storeIdleMinutes, watchIdle, type IdleMinutes } from '../lib/idle'
+import { advanceAuditMark, readAuditMark, resetAuditMark } from '../lib/audit-mark'
 import { LIMITS } from '../lib/limits'
 import { clearLockNotice, lockUrl, peekLockNotice, rememberLockNotice } from '../lib/lock-reload'
 import { passwordProblem } from '../lib/password-policy'
@@ -13,7 +15,7 @@ import { requestPersistence } from '../lib/persistence'
 import { acquireSessionLock } from '../lib/session-lock'
 import { ThrottledError, createThrottle, indexedDbThrottleMirror, type ThrottleScope } from '../lib/throttle'
 import { Permission, canUser } from '../rbac'
-import { writeAudit } from '../services/audit.service'
+import { acknowledgeAuditWarning, checkAuditLog, writeAudit, type AuditWarning } from '../services/audit.service'
 import type { ParsedBackup } from '../services/backup.service'
 import { createVault, sealVault, unlockVault, verifyOwnPassword, type SetupInput } from '../services/auth.service'
 import { redeemGrant, type RedeemInput } from '../services/grant.service'
@@ -46,6 +48,8 @@ type VaultApi = {
   idleMinutes: IdleMinutes
   /** Why the vault last locked in this tab; null until it has been locked, and again once it is open. */
   lockReason: VaultLockReason | null
+  /** For people who can read the audit log: a broken chain, or a log shorter than or different from what this browser saw. */
+  auditWarning: AuditWarning | null
   setup: (input: SetupInput) => Promise<void>
   login: (email: string, password: string) => Promise<void>
   verifySignInCheck: (code: string) => Promise<{ usedRecovery: boolean; recoveryLeft: number }>
@@ -59,6 +63,9 @@ type VaultApi = {
   clearWeakPassword: () => void
   clearRecoveryNotice: () => void
   clearFailuresSeen: () => void
+  dismissAuditWarning: () => void
+  /** Accepts a shortened or changed log as it is now, writing that into the log. */
+  acceptAuditLog: () => Promise<void>
   setIdleMinutes: (minutes: IdleMinutes) => void
   run: <T>(fn: (vault: OpenVault) => Promise<T> | T, options?: { dirty?: boolean }) => Promise<T>
   query: <T>(fn: (vault: OpenVault) => T) => T
@@ -116,6 +123,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const chainRef = useRef(Promise.resolve())
   const debounceRef = useRef<number | null>(null)
   const pendingRef = useRef<PendingCheck | null>(null)
+  // While a log warning is open, this browser's mark stays where it was; an accepted warning moves it back to the log.
+  const auditHeldRef = useRef(false)
+  const auditResetRef = useRef(false)
   const [throttle] = useState(() => createThrottle({ mirror: indexedDbThrottleMirror() }))
   const throttleRef = useRef(throttle)
   const [status, setStatus] = useState<Status>('checking')
@@ -133,6 +143,27 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const [vaultBytes, setVaultBytes] = useState(0)
   const [idleMinutes, setIdleMinutesState] = useState<IdleMinutes>(() => readIdleMinutes())
   const [lockReason, setLockReason] = useState<VaultLockReason | null>(() => peekLockNotice())
+  const [auditWarning, setAuditWarning] = useState<AuditWarning | null>(null)
+
+  const observeAuditLog = useCallback((vault: OpenVault, recorded: AuditHead | undefined) => {
+    const reader = canUser(vault.user, Permission.READ_AUDIT)
+    const warning = checkAuditLog(vault.db, { device: readAuditMark(), record: recorded }, reader)
+    auditHeldRef.current = warning !== null
+    auditResetRef.current = false
+    setAuditWarning(reader ? warning : null)
+    if (!warning) advanceAuditMark(auditHead(vault.db))
+  }, [])
+
+  const markSaved = useCallback((head: AuditHead | undefined) => {
+    if (!head) return
+    if (auditResetRef.current) {
+      resetAuditMark(head)
+      auditResetRef.current = false
+      auditHeldRef.current = false
+    } else if (!auditHeldRef.current) {
+      advanceAuditMark(head)
+    }
+  }, [])
 
   const syncState = useCallback((vault: OpenVault) => {
     setUser(snapshotUser(vault.user))
@@ -176,6 +207,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       })
       archiveRef.current = null
       stampRef.current = record.updatedAt
+      markSaved(record.audit)
       setVaultBytes(vault.db.sizeBytes())
       setSaveState(dirtyRef.current ? 'dirty' : 'saved')
     } catch (error) {
@@ -187,7 +219,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         setSaveState('error')
       }
     }
-  }, [])
+  }, [markSaved])
 
   const enqueuePersist = useCallback(() => {
     chainRef.current = chainRef.current.then(() => persistNow()).catch(() => undefined)
@@ -236,6 +268,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           created.vault.db.close()
           throw error
         }
+        resetAuditMark(created.record.audit ?? null)
         releaseRef.current = release
         publish(created.vault, created.record.updatedAt)
       } catch (error) {
@@ -261,6 +294,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         writeAudit(vault.db, vault.user.id, 'SIGNIN_FAILURES_SEEN', 'user', vault.user.id, { failures, since, signInCheckFailures: checkFailures })
         vault.needsSave = true
       }
+      observeAuditLog(vault, loaded.record.audit)
       releaseRef.current = release
       publish(vault, stampOf(loaded.raw))
       setWeakPassword(weak)
@@ -276,7 +310,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       }
       for (const scope of ['login', 'totp', 'check'] as const) throttle.succeed(scope, email)
     },
-    [publish, enqueuePersist],
+    [publish, enqueuePersist, observeAuditLog],
   )
 
   const cancelSignInCheck = useCallback(() => {
@@ -390,8 +424,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       }
       try {
         // Save before publishing so the used code is gone from storage before anything else happens.
+        observeAuditLog(vault, loaded.record.audit)
         const record = await sealVault(vault)
         await writeVault(record, { expectedStamp: stampOf(loaded.raw) })
+        markSaved(record.audit)
         vault.needsSave = false
         throttle.succeed('code', input.email)
         releaseRef.current = release
@@ -403,7 +439,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         throw error
       }
     },
-    [publish],
+    [publish, observeAuditLog, markSaved],
   )
 
   const lock = useCallback(async (reason: VaultLockReason = 'manual') => {
@@ -448,6 +484,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     setCheckFailuresSeen(0)
     setSaveState('saved')
     setLockReason(null)
+    setAuditWarning(null)
+    // A different log now lives here; the next sign-in starts from the head its record carries.
+    resetAuditMark(null)
+    auditHeldRef.current = false
     setStatus('locked')
   }, [releaseSession])
 
@@ -499,6 +539,16 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
   const clearWeakPassword = useCallback(() => setWeakPassword(false), [])
   const clearRecoveryNotice = useCallback(() => setRecoveryLeft(null), [])
+  const dismissAuditWarning = useCallback(() => setAuditWarning(null), [])
+
+  const acceptAuditLog = useCallback(async () => {
+    const warning = auditWarning
+    if (!warning || warning.kind === 'BROKEN') return
+    await run((vault) => acknowledgeAuditWarning(vault, warning), { dirty: true })
+    auditResetRef.current = true
+    setAuditWarning(null)
+  }, [auditWarning, run])
+
   const clearFailuresSeen = useCallback(() => {
     setFailuresSeen(0)
     setCheckFailuresSeen(0)
@@ -585,6 +635,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       storageNearLimit,
       idleMinutes,
       lockReason,
+      auditWarning,
       setup,
       login,
       verifySignInCheck,
@@ -598,6 +649,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       clearWeakPassword,
       clearRecoveryNotice,
       clearFailuresSeen,
+      dismissAuditWarning,
+      acceptAuditLog,
       setIdleMinutes,
       run,
       query,
@@ -618,6 +671,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       storageNearLimit,
       idleMinutes,
       lockReason,
+      auditWarning,
       setup,
       login,
       verifySignInCheck,
@@ -631,6 +685,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       clearWeakPassword,
       clearRecoveryNotice,
       clearFailuresSeen,
+      dismissAuditWarning,
+      acceptAuditLog,
       setIdleMinutes,
       run,
       query,

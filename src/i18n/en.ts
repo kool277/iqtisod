@@ -161,7 +161,7 @@ export const en = {
     when: 'When',
     actor: 'Actor',
     integrity: 'Integrity',
-    intact: 'Intact: no entries were changed or removed',
+    intact: 'Intact: every entry links to the one before it',
     broken: 'Broken: entries were changed outside the app',
     entries: 'Entries',
     actions: {
@@ -733,6 +733,11 @@ export const en = {
     storageNear: 'The vault is close to its size limit. Remove large receipts to make room.',
     failuresSeen: 'Failed sign-in attempts for your account in this browser since your last sign-in:',
     checkFailuresSeen: 'Sign-ins where your password was correct but the sign-in check was not passed (wrong code, cancelled or timed out):',
+    auditBroken: 'The audit log does not link up: something was changed or removed outside the app, starting at entry',
+    auditShorter: 'The audit log is shorter than when this vault was last opened in this browser. Entries may have been removed.',
+    auditChanged: 'The audit log differs from what this browser saw last time. Entries may have been rewritten.',
+    auditAccept: 'Accept the log as it is',
+    auditOpen: 'Open the audit log',
     throttled: 'Too many attempts. Try again in',
     passwordHint: 'At least 12 characters. A few unrelated words work well.',
     replaceTitle: 'Replace this vault with a backup',
@@ -787,6 +792,7 @@ export const en = {
     TOTP_CLEARED: 'Sign-in check removed',
     TOTP_RECOVERY_USED: 'Sign-in recovery code used',
     CLOCK_FLOOR_RESET: 'Clock check reset',
+    AUDIT_MARK_RESET: 'Audit log accepted after a warning',
   },
 }
 

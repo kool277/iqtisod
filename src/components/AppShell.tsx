@@ -50,7 +50,7 @@ const ACCOUNT_PATH = '/app/account'
 
 export function AppShell() {
   const { t } = useI18n()
-  const { user, vaultName, lock, saveState, query, revision, lastBackupAt, weakPassword, storageNearLimit, recoveryLeft, clearRecoveryNotice, failuresSeen, checkFailuresSeen, clearFailuresSeen } = useVault()
+  const { user, vaultName, lock, saveState, query, revision, lastBackupAt, weakPassword, storageNearLimit, recoveryLeft, clearRecoveryNotice, failuresSeen, checkFailuresSeen, clearFailuresSeen, auditWarning, dismissAuditWarning, acceptAuditLog } = useVault()
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(SIDEBAR_KEY) === 'collapsed')
   const [reminderDismissed, setReminderDismissed] = useState(false)
   const reminder = useMemo(() => (user ? query((vault) => backupReminder(vault)) : null), [user, query, revision, lastBackupAt])
@@ -170,6 +170,37 @@ export function AppShell() {
               <Link to={ACCOUNT_PATH} className="shrink-0 rounded-xl border border-line bg-card px-3 py-1.5 font-medium hover:border-brass">
                 {t('security.weakAction')}
               </Link>
+            </div>
+          ) : null}
+          {auditWarning && !forced ? (
+            <div role="alert" data-testid="audit-warning" data-kind={auditWarning.kind} className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-clay bg-clay/10 px-4 py-3 text-sm text-clay-ink">
+              <span className="min-w-0">
+                {auditWarning.kind === 'BROKEN' ? (
+                  <>
+                    {t('security.auditBroken')} <strong className="tabular-nums">#{auditWarning.brokenAt}</strong>
+                  </>
+                ) : (
+                  <>
+                    {t(auditWarning.kind === 'SHORTER' ? 'security.auditShorter' : 'security.auditChanged')}{' '}
+                    <span className="tabular-nums">
+                      ({auditWarning.expected.seq} → {auditWarning.actual.seq})
+                    </span>
+                  </>
+                )}
+              </span>
+              <span className="flex shrink-0 flex-wrap gap-2">
+                <Link to="/app/audit" className="rounded-xl px-3 py-1.5 underline hover:text-ink">
+                  {t('security.auditOpen')}
+                </Link>
+                {auditWarning.kind !== 'BROKEN' ? (
+                  <button type="button" data-testid="audit-accept" className="rounded-xl px-3 py-1.5 hover:text-ink" onClick={() => void acceptAuditLog().catch(() => undefined)}>
+                    {t('security.auditAccept')}
+                  </button>
+                ) : null}
+                <button type="button" className="rounded-xl px-3 py-1.5 hover:text-ink" onClick={dismissAuditWarning}>
+                  {t('common.close')}
+                </button>
+              </span>
             </div>
           ) : null}
           {(failuresSeen > 0 || checkFailuresSeen > 0) && !forced ? (
