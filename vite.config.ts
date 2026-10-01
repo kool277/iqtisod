@@ -59,6 +59,7 @@ function releaseMetadata(info: BuildInfo): Plugin {
 /** Not-a-file navigations a GitHub Pages site answers with 404.html; `/` was already rewritten to `/index.html`. */
 const SQLITE_ENTRY = /@sqlite\.org[\\/]sqlite-wasm[\\/]dist[\\/]index\.mjs$/
 const SQLITE_UNUSED_WORKERS = ['sqlite3-opfs-async-proxy.js', 'sqlite3-worker1.mjs']
+const SQLITE_WORKER_STUB = '(() => { throw new Error("This SQLite worker is not shipped") })()'
 
 /** The database stays in memory on the main thread, so the OPFS proxy and the worker1 promiser are never started; without this Vite still ships both. */
 function dropSqliteWorkers(): Plugin {
@@ -71,7 +72,7 @@ function dropSqliteWorkers(): Plugin {
       for (const file of SQLITE_UNUSED_WORKERS) {
         const reference = `new URL("${file}", import.meta.url)`
         if (!out.includes(reference)) this.error(`@sqlite.org/sqlite-wasm no longer loads ${file} as expected; review dropSqliteWorkers`)
-        out = out.replaceAll(reference, `(() => { throw new Error(${JSON.stringify(`${file} is not shipped`)}) })()`)
+        out = out.replaceAll(reference, SQLITE_WORKER_STUB)
       }
       return { code: out, map: null }
     },
