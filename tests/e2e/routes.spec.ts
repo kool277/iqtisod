@@ -20,6 +20,9 @@ const APP_ROUTES = [
   '/app/safes/activity',
   '/app/safes/no-such-safe',
   '/app/account',
+  '/app/health',
+  '/app/help',
+  '/app/help?section=backup',
 ]
 
 function escaped(text: string): string {

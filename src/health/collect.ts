@@ -228,6 +228,8 @@ export async function collectStorageFacts(g: HealthGlobals, probes: StorageProbe
 type Fetcher = (input: URL, init?: RequestInit) => Promise<Pick<Response, 'ok' | 'json' | 'text'>>
 
 export async function collectAppFacts(running: BuildInfo, fetcher: Fetcher, base: string, dev: boolean): Promise<AppFacts> {
+  // Only a build writes version.json; the update banner skips development servers for the same reason.
+  if (dev) return { running, remote: null, reachable: false, dev }
   try {
     const response = await fetcher(new URL('version.json', base), { cache: 'no-store', credentials: 'same-origin' })
     if (!response.ok) return { running, remote: null, reachable: false, dev }

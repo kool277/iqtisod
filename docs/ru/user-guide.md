@@ -1,362 +1,749 @@
-# User guide
+# Руководство пользователя Jaybi
 
-This guide is for people who use a Jaybi vault day to day: **Managers**, who record income and expenses, and **Viewers**, who review them. Everyone, whatever their role, can keep their own [private safes](#private-safes). Admins can do everything here too. Their extra tasks are in the [admin guide](admin-guide.md).
+[English](../user-guide.md) · **Русский** · [Oʻzbekcha](../uz-Latn/user-guide.md) · [Ўзбекча](../uz-Cyrl/user-guide.md)
 
-## Before you start
+Jaybi — это личная книга учёта для семьи и небольшого бизнеса, которая целиком работает в вашем браузере. Ваши записи, личные сейфы и настройки шифруются на вашем же устройстве и никуда не отправляются. Это руководство шаг за шагом, с картинками, проводит по всем экранам. Администраторы найдут здесь и свои дополнительные задачи: приглашение людей, резервные копии, настройки и журнал аудита. Технические подробности о размещении и восстановлении описывает [руководство администратора](../admin-guide.md).
 
-Your admin gives you the address of the app, your email, and usually a **one-time code**. You use the code once to [join the vault](#joining-with-a-code) and choose your own password, so nobody else ever knows it. Some admins give a starting password instead; then Jaybi asks you to replace it the first time you sign in (see [Your account](#your-account)).
+<a id="contents"></a>
+## Содержание
 
-Jaybi has no "forgot password" link. If you forget your password, ask your admin for a reset code, but read [After an admin resets your password](#after-an-admin-resets-your-password) first if you use private safes.
+- [Начало работы](#start)
+- [Вход и блокировка](#sign-in)
+- [Как здесь всё устроено](#around)
+- [Роли: кто что может](#roles)
+- [Обзор](#dashboard)
+- [Учёт денег](#transactions)
+- [Работа с таблицами](#tables)
+- [Группы](#groups)
+- [Люди и приглашения](#users)
+- [Личные сейфы](#safes)
+- [Резервные копии и перенос на другое устройство](#backup)
+- [Настройки сейфа](#settings)
+- [Ваш аккаунт](#account)
+- [Журнал аудита](#audit)
+- [Проверка состояния](#health)
+- [Как пользоваться справкой](#help)
+- [Обновления и версии](#updates)
+- [Советы по безопасности](#security)
+- [Решение проблем](#troubleshooting)
+- [Вопросы и ответы](#faq)
+- [Словарь](#glossary)
 
-Jaybi was called Moliya before version 1.3.0, and it now lives at [https://jaybi.uz](https://jaybi.uz). The old address, `kool277.github.io/iqtisod`, forwards there. Sign in at `jaybi.uz` with your usual email and password. If it shows **Create your vault** instead, your vault is still stored under the old address in this browser and has not been moved yet: do not create a new vault, and ask your admin (see [Moving to jaybi.uz](admin-guide.md#moving-to-jaybiuz)).
+<a id="start"></a>
+## Начало работы
 
-The vault lives inside one browser on one device. If your admin set it up on a shared computer, use that computer and that browser. Opening the app on your own phone will show an empty setup screen, because that browser has no vault yet. Your admin can move a copy there with a backup file.
+<a id="where-data-lives"></a>
+### Где хранятся ваши данные
 
-## Joining with a code
+Jaybi хранит всю книгу учёта в одном зашифрованном файле — **сейфе** — в одном браузере на одном устройстве. Нет ни аккаунта на сервере, ни копии в облаке. Отсюда три следствия, которые стоит знать с самого начала:
 
-A code has seven groups of four letters and digits, like `XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX`. It works once, for your email only, and only until the time your admin chose (24 hours unless they picked another time).
+- Каждый раз открывайте Jaybi в том же браузере на том же устройстве. Другой браузер, другой профиль браузера, приватное окно или другой телефон покажут пустой экран создания сейфа, потому что сейфа там нет.
+- Никто не может сбросить за вас мастер-пароль или прочитать ваши данные — даже создатели Jaybi.
+- **Файл резервной копии** — единственная копия, которая уцелеет, если данные браузера удалят. Администраторам стоит регулярно его скачивать (см. [Резервные копии](#backup)).
 
-1. Open the app in the browser where the vault is stored. On **Unlock vault**, choose **Have a one-time code? Join the vault**. If your admin sent you a link, opening it fills in your email and the code for you.
-2. Check **Your email**, and type or paste the **One-time code**. Capital or small letters, spaces, and dashes do not matter; the letter O counts as zero, and I and L count as one.
-3. Enter a password under **Choose a password** and again under **Confirm password**. See [Choosing a password](#choosing-a-password).
-4. Choose **Join vault**. You are signed in.
+Jaybi работает в актуальных версиях Chrome, Edge, Firefox и Safari — на компьютерах и телефонах. Откройте его по адресу [https://jaybi.uz](https://jaybi.uz). До версии 1.3.0 Jaybi назывался Moliya; старый адрес `kool277.github.io/iqtisod` перенаправляет на jaybi.uz.
 
-A code works only in the browser where the vault is stored, because that is where the vault is. If Jaybi says "There is no vault in this browser yet", you are on the wrong device or browser. Open the app where your admin set it up, or first choose **Import a backup** if your admin gave you a backup file.
+<a id="create-vault"></a>
+### Создание сейфа (первый администратор)
 
-If Jaybi says the code has expired or does not match, ask your admin for a new one. Keep the code private until you have used it: anyone with the code and your email can join as you while it is open.
+Тот, кто создаёт сейф, становится его первым **администратором**.
 
-## Signing in
+1. Откройте Jaybi. В правом верхнем углу выберите язык и тему.
+2. В разделе **Создайте сейф** заполните поля **Название сейфа** (например, название семьи или бизнеса), **Почта администратора** и **Мастер-пароль**, затем введите тот же пароль ещё раз в поле **Повторите пароль**.
+3. В поле **Валюта** выберите валюту, в которой будут считаться итоги. Её можно изменить позже в [настройках сейфа](#settings).
+4. Нажмите **Создать зашифрованный сейф**. Шифрование занимает несколько секунд.
 
-1. Open the app. You will see **Unlock vault**.
-2. Enter your email and password, then choose **Unlock**.
+![Экран «Создайте сейф» с заполненными названием, почтой, паролем и валютой](../images/ru/setup.webp)
 
-Unlocking takes a moment, because your password is deliberately stretched to make guessing slow. If you see "Email or password is incorrect", check both. The message is the same for either mistake on purpose.
+Выбирайте мастер-пароль внимательно: он шифрует сейф, и **восстановить его нельзя**. См. [Как выбрать пароль](#choosing-a-password).
 
-After five wrong tries for the same email, Jaybi shows **Too many attempts. Try again in** with a countdown, and the wait doubles with each further mistake, up to 15 minutes. Codes and the sign-in check are limited the same way. Wait for the countdown to finish; refreshing the page does not shorten it. After you sign in, Jaybi tells you how many failed attempts there were for your account in this browser since your last sign-in. If you did not make them, change your password.
+Когда сейф готов, открывается обзор. Он пуст, пока кто-нибудь не внесёт записи.
 
-This limit slows down someone guessing at this screen. It does not protect a copy of the vault or a backup: someone with a copy can guess without any limit, and only a long, uncommon password stops them.
+![Пустой обзор сразу после создания сейфа](../images/ru/dashboard-empty.webp)
 
-### The second step
+Если у вас уже есть резервная копия с другого устройства, не создавайте новый сейф: воспользуйтесь пунктом **Или импортируйте копию** внизу того же экрана (см. [Перенос на другое устройство](#moving)).
 
-If you turned on the [sign-in check](#sign-in-check), Jaybi asks for a second step after your password: "Enter the 6-digit code from your authenticator app, or one of your recovery codes." Type the code into **Code** and choose **Continue**. Each code works once. If you wait more than 5 minutes, or choose **Cancel**, you go back to **Unlock vault**.
+<a id="joining"></a>
+### Вход в сейф по одноразовому коду
 
-If you sign in with a recovery code, a bar shows **You used a recovery code. Codes left:** with the number. When few are left, turn the sign-in check off and on again in **Account** to get new ones.
+Все, кроме первого администратора, присоединяются по **одноразовому коду** от администратора. Код выглядит как `XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX`, срабатывает один раз, только для вашей почты и только до срока, который выбрал администратор.
 
-### If Jaybi shows "For your safety, Jaybi does not run inside another page."
+1. Откройте Jaybi в браузере, где хранится сейф. Если администратор прислал ссылку, откройте её: почта и код подставятся сами.
+2. Иначе на экране **Открыть сейф** выберите **Есть одноразовый код? Присоединитесь к сейфу**.
+3. Проверьте поля **Ваша почта** и **Одноразовый код**. Заглавные или строчные буквы, пробелы и дефисы не важны.
+4. Введите пароль в поле **Придумайте пароль** и ещё раз в поле **Повторите пароль**, затем нажмите **Присоединиться**.
 
-Jaybi refuses to run inside another website's page, because that page could trick you into clicking or typing. Choose **Open Jaybi in its own tab**, and check that the address is the one your admin gave you.
+![Экран «Присоединиться к сейфу» с заполненными почтой, кодом и новым паролем](../images/ru/register.webp)
 
-### Resetting your password with a code
+Вы сразу входите в сейф. Ваш пароль не знает никто другой, даже администратор.
 
-If your admin gives you a reset code:
+Если Jaybi пишет «В этом браузере пока нет сейфа», вы не на том устройстве или не в том браузере: код работает только там, где хранится сейф. Если сказано, что срок кода истёк или код не подходит, попросите у администратора новый.
 
-1. On **Unlock vault**, choose **Have a reset code?** (or open the link your admin sent).
-2. Enter **Your email**, the **One-time code**, and your new password twice.
-3. Choose **Set new password**. You are signed in with the new password.
+<a id="sign-in"></a>
+## Вход и блокировка
 
-Like an invite code, a reset code works once, only until it expires, and only in the browser where the vault is stored. Your old password stops working when you use the code, and sooner if your admin chose to stop it at once. Setting a new password this way also turns off your [sign-in check](#sign-in-check); turn it on again in **Account** if you use it. If you use private safes, read [After an admin resets your password](#after-an-admin-resets-your-password).
+<a id="unlock"></a>
+### Как открыть сейф
 
-## Finding your way around
+1. Откройте Jaybi. Вы увидите экран **Открыть сейф**.
+2. Заполните поля **Почта** и **Пароль** и нажмите **Открыть**.
 
-The menu on the left (along the top on a phone) shows only what your role allows:
+![Экран «Открыть сейф» со ссылками на вход по коду, сброс пароля, справку и проверку состояния](../images/ru/sign-in.webp)
 
-| Role | Dashboard and Groups | Transactions | Add, edit, delete records | Private safes and Account |
-| --- | --- | --- | --- | --- |
-| Manager | Yes | Yes | Yes, for your group | Yes, your own |
-| Viewer | Yes | Yes | No | Yes, your own |
+Открытие намеренно занимает немного времени: пароль «растягивается», чтобы подбирать его было медленно. Сообщение «Почта или пароль неверны.» появляется при любой из двух ошибок, поэтому никто не узнает, какие адреса почты существуют.
 
-You only see records that belong to your group. The top bar shows the vault name, the save status, the language and theme switches, and the **Lock** button.
+После пяти неверных попыток для одной почты Jaybi показывает **Слишком много попыток. Повторите через** с обратным отсчётом, и с каждой новой ошибкой ожидание растёт — до 15 минут. Обновление страницы его не сокращает. После входа Jaybi сообщает, сколько неудачных попыток войти в ваш аккаунт было в этом браузере с вашего прошлого визита. Если это были не вы, смените пароль.
 
-The button at the far left of the top bar collapses the menu. On a computer the menu shrinks to icons, and pointing at an icon shows its name. On a phone the menu row is hidden. Choose the button again to bring the menu back. Jaybi remembers your choice in this browser.
+Ссылки под формой доступны всем: **Есть одноразовый код? Присоединитесь к сейфу**, **Есть код сброса?**, **Справка** (это руководство) и **Проверка состояния** — она проверяет браузер, даже если вы не можете войти.
 
-## Choosing a period
+<a id="second-step"></a>
+### Второй шаг (проверка при входе)
 
-The dashboard, the ledger, and **Groups** use the same period buttons, and your choice carries over between them:
+Если вы включили [проверку при входе](#sign-in-check), после пароля Jaybi попросит 6-значный код из приложения-аутентификатора. Введите его в поле **Код** и нажмите **Продолжить**. Здесь подойдёт и код восстановления — один раз. Если ждать больше 5 минут или нажать **Отмена**, вы вернётесь на экран **Открыть сейф**.
 
-- **Today**
-- **This week** (Monday to Sunday)
-- **This month** (the default)
-- **Last month**
-- **Year to date** (1 January to today)
-- **Custom**, which opens From and To date fields. If you enter them backwards, Jaybi swaps them.
+![Шаг проверки при входе с запросом 6-значного кода](../images/ru/sign-in-totp.webp)
 
-## Working with tables
+<a id="reset-code"></a>
+### Забыли пароль? Воспользуйтесь кодом сброса
 
-Transactions, the private-safe lists, and the admin pages show their rows in tables that work the same way:
+В Jaybi нет письма «забыли пароль», потому что нет сервера. Попросите у администратора **код сброса**, а затем:
 
-- **Sort**: choose a column heading. Choose it again for the other direction, and a third time to go back to the original order. Hold Shift while choosing to sort by up to three columns; small numbers next to the headings show the order. Amounts sort exactly within each currency, and names sort in the order of your language. On a phone, use **Sort by** above the cards.
-- **Search this table**: type any part of what you see in the visible columns. Case, accents, apostrophes, and the alphabet do not matter, so `taksi` finds "Такси" and `ozbek` finds "Oʻzbek". Esc clears the search.
-- **Filters**: opens a box with one filter per column: text, a list to tick one or more values, a From–To date range, or a Min–Max amount. The button shows how many filters are on, and **Clear filters** turns them all off. Amount filters compare the exact amount; they do not convert currencies.
-- **Columns**: tick the columns to show, move them up or down, choose **Compact rows**, or **Reset layout**. Columns that identify a row, such as the date or amount, always stay.
-- **Rows** at the bottom: 10, 25, 50, 100, or all. The line next to it says which rows you see, for example "Showing 1–25 of 140 (filtered from 900)".
+1. На экране **Открыть сейф** выберите **Есть код сброса?** (или откройте ссылку от администратора).
+2. Заполните поля **Ваша почта** и **Одноразовый код** и дважды введите новый пароль.
+3. Нажмите **Задать новый пароль**. Вы войдёте уже с новым паролем.
 
-Jaybi remembers the columns, their order, the sort, the row count, and compact rows for each table in this browser. It never stores what you searched for or filtered, and nothing from your private safes.
+Код сброса также отключает проверку при входе; включите её снова в разделе [Ваш аккаунт](#account). Если вы пользуетесь личными сейфами, сначала прочитайте [После сброса пароля администратором](#after-reset).
 
-Where you are allowed to change a record, a small pencil appears next to the value. Choose it, type the new value, and press Enter to save or Esc to cancel. If the value is not accepted, the reason shows under the field and nothing changes.
+<a id="locking"></a>
+### Блокировка
 
-## Recording money (Managers)
+Нажимайте **Заблокировать** в верхней панели каждый раз, когда отходите. Блокировка, обновление или закрытие вкладки убирают расшифрованные данные из памяти, и следующему человеку придётся войти. Jaybi также блокируется сам после 15 минут бездействия; это можно изменить в разделе **Аккаунт → Автоматическая блокировка**. Тогда на экране входа появится сообщение «Сейф заблокирован из-за бездействия.»
 
-1. Open **Transactions** and choose **Add record**.
-2. Fill in the form:
-   - **Type**: Income or Expense. The category list changes to match.
-   - **Amount**: a number above zero, with up to two decimals (for example `1250`, `1250.5`, or `1 250,50`). A dot or a comma both work as the decimal mark, and spaces between thousands are ignored. Jaybi stores the exact amount and never rounds it; if you type more decimals than the currency has, it asks you to fix the amount instead of guessing.
-   - **Category**: for example Salary, Food, or Transport.
-   - **Date**: defaults to today.
-   - **Currency**: defaults to the vault currency. See the note on currencies below.
-   - **Group**: only shown if you can see more than one group.
-   - **Notes**: optional, up to 2,000 characters.
-   - **Receipt**: optional PNG, JPEG, WebP, or GIF image, up to 1.5 MB. Other file types, including SVG, are refused. Use **View receipt** to check it, or **Remove receipt** to drop it.
-3. Choose **Save**.
+Сейф можно открыть только в одной вкладке одновременно. Если Jaybi пишет, что сейф уже открыт в другой вкладке или окне, перейдите в ту вкладку или сначала заблокируйте его там.
 
-To change a record, choose **Edit** on it, adjust the fields, and choose **Update record**. For a quick fix, choose the pencil next to the date, category, group, amount, or notes and change just that value (see [Working with tables](#working-with-tables)). To delete, choose **Delete**, then confirm. To delete several records, tick them and choose **Delete selected**, then confirm. Deleting cannot be undone, but each deletion is recorded in the admin's audit log.
+<a id="saving"></a>
+### Сохранение
 
-To narrow the list, use the period buttons and the **All / Income / Expense** filter above the table, or the table's search and filters. Hidden columns such as **Currency**, **Recorded by**, **Receipt**, **Created**, and **Updated** can be turned on under **Columns**.
+Кнопки сохранения для сейфа нет. Надпись рядом с кнопкой справки в верхней панели показывает, что происходит:
 
-### A note on currencies
+- **Сохранено**: всё зашифровано и хранится в этом браузере.
+- **Не сохранено** или **Шифруем…**: изменение сохраняется. Обычно это занимает около секунды.
+- **Не удалось сохранить**: браузер отказался сохранять данные, например потому что диск заполнен. Не закрывайте вкладку и запустите [проверку состояния](#health).
+- **Не сохранено: изменено в другом месте**: сейф изменили в другой вкладке. Заблокируйте сейф, войдите снова и повторите последнее изменение.
 
-Each vault has one main currency, chosen when it was created and changeable by an Admin. Totals and charts only count records in that currency. A record in another currency is still saved and listed, marked "Other currency — not included in totals". The dashboard lists those records separately under **Other currencies (not in totals)**, with income and expenses per currency, so nothing is hidden. Jaybi does not convert records between currencies; the exchange-rate panel on the dashboard is for information and never changes your totals.
+<a id="around"></a>
+## Как здесь всё устроено
 
-## Reading the dashboard
+Меню слева показывает только то, что разрешает ваша роль. В верхней панели — название сейфа, состояние сохранения, кнопка **?**, которая открывает часть этого руководства о текущей странице, переключатели языка и темы и кнопка **Заблокировать**.
 
-The list next to the period buttons picks the group: **All groups** or one group. It changes the four figures, the charts, and the list of other currencies, but not the exchange rates. You only see groups you belong to, so for most people the list has **All groups** and their own group, which show the same figures. Jaybi remembers the choice in this browser.
+![Обзор с меню слева и верхней панелью](../images/ru/dashboard.webp)
 
-The four figures at the top cover the selected period and group:
+![Верхняя панель: состояние сохранения, кнопка справки, язык, тема и «Заблокировать»](../images/ru/preferences.webp)
 
-- **Net balance**: income minus expenses.
-- **Total income** and **Total expenses**.
-- **Savings rate**: the share of income left after expenses, rounded to one decimal. It shows 0% when there is no income in the period, and it can be negative if you spent more than you earned.
+Кнопка у самого левого края верхней панели сворачивает меню до значков; нажмите её ещё раз, чтобы вернуть подписи. Jaybi запоминает ваш выбор в этом браузере.
 
-All totals are calculated exactly, to the cent (or tiyin), in the vault currency.
+<a id="phone"></a>
+### На телефоне
 
-The charts below them:
+На телефоне меню превращается в строку вверху, которую можно прокручивать вбок, а страницы выстраиваются в одну колонку. Таблицы превращаются в карточки.
 
-- **Income and expenses** compares each month in the period.
-- **Expenses by category** shows where the money went.
-- **Spending over time** shows daily expense totals.
-- **Who spent** shows expenses per person in your group. Admins see **Spending by group** instead, unless they picked one group.
+![Обзор на телефоне](../images/ru/mobile-dashboard.webp)
 
-A chart shows "No figures in this range" when the period has no matching records.
+![Строка меню на телефоне](../images/ru/mobile-menu.webp)
 
-## Group summaries
+![Книга учёта на телефоне в виде карточек](../images/ru/mobile-transactions.webp)
 
-**Groups** shows your group with its **Income** (↑), **Expenses** (↓), and **Net** (income minus expenses) for the selected period, plus the number of transactions and the date of the latest one. Net is green when it is zero or more and red when it is below zero. Each currency gets its own line; amounts in different currencies are never added together or converted. A group with no records in the period shows "No transactions in this period."
+![Личные сейфы на телефоне](../images/ru/mobile-safes.webp)
 
-On a wide screen the figures are columns of the **Groups** table, so you can sort by income, expenses, net, number of transactions, or last activity; amounts sort by the vault currency. On a phone each group is a card with the same figures.
+<a id="theme"></a>
+### Язык и тема
 
-Choose a group's name to open **Transactions** with only that group's records, for the same period. The group filter is already set; choose **Clear filters** to see every record you can see again.
+Выберите язык в меню языков: Oʻzbekcha, Ўзбекча, Русский или English. Выберите **День**, **Ночь** или **Система**, чтобы тема следовала настройке устройства. Оба выбора запоминаются в этом браузере, и их можно поменять ещё до входа.
 
-You only see your own group. Admins see every group and, with two or more groups, an **All groups** strip above the table with the combined figures, still one line per currency.
+![Обзор в теме «Ночь»](../images/ru/dark-dashboard.webp)
 
-## Exchange rates
+![Книга учёта в теме «Ночь»](../images/ru/dark-transactions.webp)
 
-The **Exchange rates** panel on the dashboard shows official reference rates for the Uzbek soʻm (UZS), the South Korean won (KRW), and the Israeli new shekel (ILS) against the US dollar (USD), in both directions. Each card shows:
+![Карта в личном сейфе в теме «Ночь»](../images/ru/dark-safe.webp)
 
-- **1 USD = …** and **1 UZS = …** (or KRW, ILS). Rates published by a central bank are shown exactly as published. Rates Jaybi derives, such as the reverse direction, are shown to six significant digits.
-- For very small numbers, a readable amount as well, for example **100,000 UZS = 8.47 USD**.
-- The change since the previous official rate, for example **−0.16% vs Sep 26, 2026**.
-- **Rate date**: the day the rate is valid for. The Central Bank of Uzbekistan sets the soʻm rate the evening before, so it can show tomorrow's date.
-- The **source**, which opens the central bank's own rate page. "Cross rate via EUR" means the rate was calculated from two official rates of the same bank; for the won, the European Central Bank's euro rates are used (1 USD = KRW per euro ÷ USD per euro), because the Bank of Korea does not offer rates that can be read without a private key.
-- A **Stale** badge when the rate is more than 2 business days old, for example after a holiday or when the rates could not be updated.
+![Проверка состояния в теме «Ночь»](../images/ru/dark-health.webp)
 
-The **Converter** turns an amount into the other currency. Enter the amount (spaces and a comma or dot are fine) and choose the direction, or use the ⇄ button to reverse it. The result is rounded to the currency's smallest unit: cents for USD, tiyin for UZS, agorot for ILS, and whole won for KRW (the won has no smaller unit, so KRW amounts cannot have decimals). **Exact** shows the unrounded value to 20 significant digits.
+<a id="roles"></a>
+## Роли: кто что может
 
-These are official central-bank reference rates for information only; bank buy/sell rates differ. Use your bank's rate for real transactions.
+У каждого человека в сейфе одна роль. Менеджеры и наблюдатели входят в одну **группу** и видят только записи этой группы.
 
-The panel never holds up the rest of the dashboard. Rates are saved in this browser, so the last rates are still shown when you are offline, with a note and a **Try again** button. If rates have never loaded in this browser, the panel says they are unavailable. Rates are public data: they are not stored in your encrypted vault and loading them does not reveal anything about your ledger.
+| Что | Администратор | Менеджер | Наблюдатель |
+| --- | --- | --- | --- |
+| Обзор, группы и книга учёта | Все группы | Своя группа | Своя группа |
+| Добавление, изменение и удаление записей | Все группы | Своя группа | Нет |
+| Экспорт таблиц и данных | Да | Нет | Нет |
+| Люди, приглашения и коды сброса | Да | Нет | Нет |
+| Резервная копия, экспорт данных, замена сейфа | Да | Нет | Нет |
+| Настройки сейфа и категории | Да | Нет | Нет |
+| Журнал аудита | Да | Нет | Нет |
+| Личные сейфы, аккаунт, проверка состояния, справка | Да, свои | Да, свои | Да, свои |
 
-## Saving and locking
+Меню наблюдателя короткое: Обзор, Операции, Личные сейфы, Группы, Аккаунт, Проверка состояния и Справка.
 
-You never need to press a save button for the vault itself. The status next to the language switch tells you what is happening:
+![Обзор глазами наблюдателя](../images/ru/viewer-dashboard.webp)
 
-- **Saved**: everything is encrypted and stored.
-- **Unsaved** or **Encrypting…**: a change is being stored. This normally takes about a second.
-- **Could not save**: the browser refused to store data, for example because the disk is full or storage is blocked. Keep the tab open and tell your admin.
-- **Not saved: changed elsewhere**: the vault was changed in another tab or window. Jaybi stops saving here rather than overwrite that change. Lock, unlock again, and redo your last change.
+<a id="dashboard"></a>
+## Обзор
 
-The vault can be unlocked in only one tab at a time. If you see "already unlocked in another tab or window", switch to that tab or lock it there first.
+Обзор подводит итоги по деньгам за период и по группе.
 
-Choose **Lock** when you step away. Locking, refreshing, or closing the tab removes the decrypted data from memory, and the next person must sign in. Jaybi also locks the vault by itself after 15 minutes without activity; you can change this under **Account → Lock automatically**. When that happens, the sign-in screen says "The vault was locked after a period of inactivity." Your private safes lock with the vault.
+[Открыть обзор](https://jaybi.uz/#/app)
 
-If a bar says **The vault is close to its size limit. Remove large receipts to make room.**, tell your admin. Receipts take most of the space, and once the vault is full no new receipts can be added.
+<a id="figures"></a>
+### Четыре показателя
 
-## Your account
+- **Чистый баланс**: доходы минус расходы.
+- **Всего доходов** и **Всего расходов**.
+- **Норма сбережений**: доля доходов, которая остаётся после расходов. Она равна 0%, если доходов нет, и может быть отрицательной, если вы потратили больше, чем заработали.
 
-Open **Account** in the menu. Everyone has this page, whatever their role.
+![Четыре показателя: чистый баланс, всего доходов, всего расходов и норма сбережений](../images/ru/dashboard-kpis.webp)
 
-### Changing your password
+Итоги точны до цента (или тийина) и учитывают только записи в **валюте сейфа**. Записи в других валютах перечислены в блоке **Другие валюты (не входят в итоги)** по каждой валюте, так что ничего не скрыто. Jaybi никогда не пересчитывает ваши записи в другую валюту.
 
-Enter your **current password**, then the **new password** twice (different from the current one; see [Choosing a password](#choosing-a-password)), and choose **Change password**. If you have set up private safes, and if you use the sign-in check, they move to the new password at the same time.
+<a id="period"></a>
+### Выбор периода
 
-If your admin gave you a starting or temporary password, the password was chosen by them. Jaybi then asks you to choose a new one before you can use anything else: every page leads back to **Account** until you do.
+Обзор, книга учёта и **Группы** используют одни и те же кнопки периода, и выбор переносится между ними: **Сегодня**, **Эта неделя** (с понедельника по воскресенье), **Этот месяц** (по умолчанию), **Прошлый месяц**, **С начала года** и **Период**.
 
-If a bar says **Your password is shorter or more common than Jaybi now allows. Please choose a new one.**, your password still works, but it would not be accepted today. Choose **Change password** and pick a better one.
+![Кнопки периода, выбрано «С начала года»](../images/ru/period-presets.webp)
 
-### Choosing a password
+**Период** открывает поля дат **С** и **По**. Если перепутать их местами, Jaybi сам поменяет их.
 
-Jaybi shows the hint "At least 12 characters. A few unrelated words work well." A new password must:
+![Произвольный период с полями «С» и «По»](../images/ru/period-custom.webp)
 
-- be 12 to 256 characters long;
-- not be a commonly used password, even with digits or symbols added before or after it (Jaybi checks a built-in list, without sending anything anywhere);
-- not be mostly your email or the vault name;
-- not use three or fewer different characters, repeat a short pattern, or follow a run of keys such as `qwertyuiop` or `1234567890`.
+<a id="group-filter"></a>
+### Выбор группы
 
-Four or five unrelated words, with spaces if you like, are easy to remember and hard to guess. Do not reuse a password from another site. Your password is what protects copies of the vault and backups; nothing else does.
+Список рядом с кнопками периода выбирает **Все группы** или одну группу. От него зависят показатели, графики и список других валют. Вы видите только группы, в которые входите.
 
-### Sign-in check
+![Обзор с фильтром по группе «Семейный бизнес»](../images/ru/dashboard-group-filter.webp)
 
-The sign-in check asks for a 6-digit code from an authenticator app (such as Google Authenticator, Microsoft Authenticator, Aegis, or 1Password) after your password. It is optional. Jaybi shows this note next to it:
+<a id="charts"></a>
+### Графики
 
-> This adds a second step to signing in to the app. It does not add encryption: anyone with a copy of the vault and your password can still open it with the recovery tool.
+Под показателями:
 
-So it helps if someone learns your password and tries it in this browser. It does not replace a strong password.
+- **Доходы и расходы** сравнивает месяцы периода.
+- **Расходы по категориям** показывает, куда ушли деньги.
+- **Траты по времени** показывает расходы по дням.
+- **Кто потратил** показывает расходы каждого человека в вашей группе; администраторы вместо этого видят **Расходы по группам**.
 
-To turn it on:
+Если в периоде нет подходящих записей, на графике написано «В этом периоде нет цифр.»
 
-1. Choose **Set up sign-in check**.
-2. Scan the QR code with your authenticator app, or type the **Setup key** into it (**Copy key** copies it; the clipboard is cleared after 60 seconds).
-3. Enter the current **Code from the app** and **Your password**, then choose **Confirm and turn on**.
-4. Jaybi shows 10 **Recovery codes**. Each works once in place of an app code if you lose your phone. Choose **Download codes** or write them down, keep them away from this device, and choose **I have saved these codes**. They are not shown again.
+<a id="rates"></a>
+### Курсы валют и конвертер
 
-If you set it up before 1.3.0, your authenticator app lists the entry as "Moliya". It keeps working; there is no need to set it up again.
+Панель **Курсы валют** показывает официальные справочные курсы центральных банков для узбекского сума (UZS), южнокорейской воны (KRW) и нового израильского шекеля (ILS) к доллару США в обе стороны: с изменением по сравнению с прошлым курсом, датой курса (**Курс на**) и ссылкой на банк-источник. Значок **Устарел** появляется, если курсу больше 2 рабочих дней.
 
-To turn it off, choose **Turn off sign-in check** and enter your password. To get new recovery codes, turn it off and on again; the old codes then stop working, and you must add the new setup key to your app.
+![Карточки курсов для UZS, KRW и ILS](../images/ru/exchange-rates.webp)
 
-If you lose both your authenticator and your recovery codes, ask your admin to turn off the sign-in check for you. Resetting your password with a reset code also turns it off.
+**Конвертер** переводит сумму в другую валюту. Введите сумму, выберите направление или поменяйте его кнопкой ⇄. **Точно** показывает значение без округления.
 
-### Lock automatically
+![Конвертер переводит 100 долларов США в сумы](../images/ru/converter.webp)
 
-Choose how long the vault stays open without activity: **5 minutes**, **15 minutes** (the default), **30 minutes**, or **1 hour**. The setting belongs to this browser, not to your account. Clicking, typing, scrolling, or touching the screen anywhere in Jaybi counts as activity, including inside your safes. If the tab was in the background longer than the chosen time, the vault locks as soon as you return to it. Your private safes have no timer of their own: they lock when the vault does.
+Эти курсы — только для информации; банки покупают и продают валюту по другим курсам. На ваши итоги они никогда не влияют. Курсы сохраняются в браузере, поэтому последние из них видны и без интернета.
 
-### Other settings on this page
+<a id="transactions"></a>
+## Учёт денег
 
-The sign-in check and **Lock automatically** are hidden until you have replaced a starting or temporary password.
+Менеджеры и администраторы записывают доходы и расходы на странице **Книга учёта** (пункт меню **Операции**). Наблюдатели могут её читать, но не менять.
 
-- **Private safes**: how long shown values stay visible and how long copied values stay in the clipboard. Open your safes first to change these.
-- **Recovery code**: create one, or replace the one you have.
-- **Start over**: **Reset private safes**, described below.
+[Открыть книгу учёта](https://jaybi.uz/#/app/transactions)
 
-## Private safes
+![Книга учёта с записями за несколько месяцев](../images/ru/transactions.webp)
 
-A private safe is a place for things you want to keep to yourself: payment cards, subscriptions, and notes. It is not a money account, and nothing in it appears on the dashboard or in the ledger.
+<a id="add-record"></a>
+### Добавление записи
 
-Only you can open your safes. Your admin cannot see them, cannot see their names or what kind of items they hold, and cannot open or recover them for you, even with the whole database or a backup. Other people in the vault each have their own safes, which you cannot see either.
+1. Нажмите **Добавить запись**.
+2. Заполните форму (см. таблицу ниже).
+3. Нажмите **Сохранить**.
 
-### Setting up
+![Форма «Добавить запись», заполненная для расхода на ужин](../images/ru/transaction-add.webp)
 
-1. Open **Private safes** in the menu and choose **Create my safes**.
-2. Enter your password.
-3. Choose whether to create a **recovery code** (see below).
-4. Choose **Create my safes**. You get one empty safe called **Personal**.
+| Поле | Что вводить |
+| --- | --- |
+| **Тип** | Доход или Расход. Список категорий меняется соответственно. |
+| **Сумма** | Число больше нуля, например `1250`, `1250.5` или `1 250,50`. Десятичным разделителем может быть и точка, и запятая. Jaybi никогда не округляет: если ввести больше знаков после запятой, чем есть у валюты, он попросит исправить сумму. |
+| **Категория** | Например, Зарплата, Еда или Транспорт. Список ведут администраторы в [настройках сейфа](#settings). |
+| **Дата** | Сегодняшняя, если вы её не измените. |
+| **Валюта** | Валюта сейфа, если вы её не измените. См. [Валюты](#currencies). |
+| **Группа** | Показывается, только если вы видите больше одной группы. |
+| **Заметка** | Необязательно, до 2 000 символов. |
+| **Чек** | Необязательно: изображение PNG, JPEG, WebP или GIF до 1,5 МБ. **Открыть чек** — проверить его; **Убрать чек** — удалить. |
 
-### The recovery code
+<a id="edit-record"></a>
+### Изменение и удаление
 
-A recovery code is a backup key for your safes, 25 characters in five groups, like `XXXXX-XXXXX-XXXXX-XXXXX-XXXXX`. It matters in one situation: your admin resets your password and you no longer remember the password you had before. Without the code, your safes are then lost for good.
+Чтобы изменить запись целиком, нажмите **Изменить** в её строке, поправьте поля и нажмите **Обновить запись**.
 
-- **Create a recovery code (recommended)**: the code is shown once. Write it down or print it and keep it away from this device. Type its last 4 characters to confirm you saved it.
-- **Skip for now**: you must tick "I understand my safes can be lost forever if an admin resets my password and I forget my old one". You can create a code later under **Account → Recovery code**.
+Для быстрой правки нажмите маленький карандаш рядом с датой, категорией, группой, суммой или заметкой, введите новое значение и нажмите Enter (Esc — отмена). Если значение не подходит, причина появится под полем, и ничего не изменится.
 
-Anyone who has your recovery code and your current password can open your safes, so keep the code as private as the password. Creating a new code in **Account** makes the old one stop working. When typing a code, capital or small letters, spaces, and dashes do not matter, the letter O counts as zero, and I and L count as one.
+![Изменение суммы прямо в таблице](../images/ru/transaction-inline-edit.webp)
 
-### Opening and locking
+Чтобы удалить запись, нажмите **Удалить** и подтвердите. Чтобы удалить несколько записей, отметьте их и нажмите **Удалить выбранные**. Удаление нельзя отменить, но каждое удаление попадает в журнал аудита администратора.
 
-Signing in to the vault does not open your safes. Choose **Open safes** and enter your password again. After opening, Jaybi shows when your safes were **previously opened**; if you do not recognise that time, someone else may have used your password.
+![Подтверждение удаления записи](../images/ru/transaction-delete.webp)
 
-Once open, your safes stay open while you work, including while you switch to another tab or window. They lock again:
+<a id="currencies"></a>
+### Валюты
 
-- when you choose **Lock safes**;
-- when the vault locks: when you choose **Lock**, refresh or close the tab, or after the time under **Account → Lock automatically** without activity (15 minutes unless you changed it).
+У каждого сейфа одна основная валюта. Итоги и графики учитывают только записи в этой валюте. Запись в другой валюте сохраняется и показывается с пометкой «Другая валюта — не входит в итоги.» На обзоре такие суммы перечислены отдельно. Jaybi не пересчитывает суммы из одной валюты в другую.
 
-Before 1.3.1 safes also locked after 5 minutes of their own and when the tab was hidden for a minute. They no longer do.
+<a id="tables"></a>
+## Работа с таблицами
 
-### Safes
+Книга учёта, список людей, группы, категории, списки личных сейфов и журнал аудита — это таблицы, и все они работают одинаково.
 
-Choose **New safe** to add one. Each safe has a name (up to 60 characters), an optional description, one of eight icons, and one of four colours. In **Safe settings** you can also:
+- **Сортировка**: нажмите на заголовок столбца. Нажмите ещё раз — порядок станет обратным, в третий раз — вернётся исходный. Удерживайте Shift, чтобы сортировать сразу по нескольким столбцам (до трёх). На телефоне используйте **Сортировка** над карточками.
+- **Поиск по таблице**: введите любую часть того, что видите. Регистр, диакритика, апострофы и даже алфавит не важны, поэтому `taksi` находит «Такси». Esc очищает поиск.
+- **Строк** внизу таблицы: 10, 25, 50, 100 или все, рядом строка вида «Показаны 1–25 из 140».
 
-- **Ask for my password every time this safe is opened**: the safe stays closed, even when your other safes are open, until you enter your password for it. While closed it is left out of search, totals, and upcoming payments.
-- **Make default**: the safe new items go to first.
-- **Archive**: the safe becomes read-only and is left out of search, totals, upcoming payments, and expiring cards. **Show archived** lists it again, and **Unarchive** undoes it.
-- **Change encryption key**: encrypts everything in the safe again with a new key. Use it if you think the old key might have been exposed.
-- **Delete safe**: moves it to the trash. If it still has items, move them to another safe first or choose to delete them with it. You always keep at least one safe.
+![Поиск «стамбул» в книге учёта находит отель и билеты](../images/ru/transactions-search.webp)
 
-You can have up to 50 safes and 5,000 items (1,000 per safe), counting what is in the trash.
+**Фильтры** открывают по фильтру на каждый столбец: текст, список с галочками, диапазон дат «С — По» или диапазон сумм «Мин. — Макс.». На кнопке видно, сколько фильтров включено; **Сбросить поиск и фильтры** выключает их.
 
-### Cards
+![Панель фильтров книги учёта](../images/ru/transactions-filters.webp)
 
-Choose **Add card** and fill in the cardholder name, the card number, the brand, the expiry month and year, the bank, and notes. Jaybi detects the brand from the number; you can change it.
+**Столбцы** позволяют показывать и скрывать столбцы, менять их порядок, включать компактные строки или сбрасывать раскладку. Jaybi запоминает раскладку каждой таблицы в этом браузере, но никогда не запоминает, что вы искали.
 
-- The number is checked with the usual check digit. For Visa, Mastercard, American Express, and Mir a failed check is an error. For UzCard, Humo, UnionPay, and Other it is only a warning, because some local cards do not follow the rule.
-- The **security code (CVV)** is optional and hidden behind **Add security code**. Banks advise against keeping it; leave it empty unless you really need it.
-- There is no place for a PIN. Never store your card PIN, here or anywhere else.
+![Меню «Столбцы» книги учёта](../images/ru/transactions-columns.webp)
 
-Cards are listed with only the last four digits and the expiry date. Expired cards are marked, and cards that expire within 60 days are marked **Expires soon** and listed on the safes page.
+**Экспорт** (только для администраторов) скачивает ровно те строки и столбцы, которые вы видите, в CSV, Excel, PDF или других форматах. Файл не зашифрован, поэтому Jaybi сначала просит подтверждение.
 
-### Subscriptions
+![Меню «Экспорт» с выбором формата](../images/ru/transactions-export.webp)
 
-Choose **Add subscription** and enter the service name, the price and currency, the billing cycle (weekly, monthly, every 3 months, yearly, or every N days), one past or upcoming payment date, and the status (active, paused, or cancelled). You can also add a trial end date, how many days before a payment to remind you, the card it is paid with, the website, the account or login, and notes.
+<a id="groups"></a>
+## Группы
 
-The safes page shows what your active subscriptions cost **per month** and **per year**, for each currency separately. Currencies are not converted, so a USD total and a UZS total are listed side by side. **Upcoming payments** lists what is due in the next 30 days and highlights those within your reminder time or near the end of a trial.
+**Группа** — это часть сейфа со своими записями и людьми, например семейный бизнес рядом с домашним хозяйством. Каждый видит свою группу; администраторы видят все.
 
-### Notes
+[Открыть группы](https://jaybi.uz/#/app/groups)
 
-Choose **Add note** for anything else, up to 10,000 characters. Notes are plain text.
+**Группы** показывают для каждой группы **Доходы**, **Расходы** и **Итог** за выбранный период, а также число операций и дату последней из них. Каждая валюта — отдельной строкой; суммы в разных валютах никогда не складываются. Если групп две или больше, администраторы видят ещё строку **Все группы** с общими цифрами.
 
-### Showing and copying card numbers
+![Страница «Группы» с доходами, расходами и итогом по каждой группе](../images/ru/groups.webp)
 
-Card numbers and security codes are hidden. **Show** and **Copy** ask for your password unless you entered it in the last 2 minutes.
+Нажмите на название группы, чтобы открыть книгу учёта только с записями этой группы за тот же период. Фильтр по группе уже установлен; нажмите **Сбросить поиск и фильтры**, чтобы снова увидеть всё.
 
-- A shown value hides again after 15 seconds (15, 30, or 60 in **Account**), or when you close the item or your safes lock. Switching to another tab does not hide it, so do not leave a shown value on screen.
-- A copied value is cleared from the clipboard after 30 seconds (10, 30, or 60 in **Account**), when your safes lock, and when you leave the page. Browsers do not always allow this, so paste it promptly and do not rely on it.
+![Книга учёта, открытая из группы «Путешествия», с двумя её записями](../images/ru/group-ledger-link.webp)
 
-Permanent deletes, changing a safe's encryption key, resetting your safes, and creating a recovery code also need your password within the last 2 minutes.
+Чтобы добавить группу, администратор вводит **Название группы** и нажимает **Добавить группу**. Удалить группу можно, только если в ней нет ни людей, ни записей.
 
-### Moving, copying, and favourites
+<a id="users"></a>
+## Люди и приглашения
 
-Select items to **Move to…** or **Copy to…** another safe. They are encrypted again with the other safe's key. Mark items you use often as favourites; **Favourites** filters them. **Search open safes** searches every open, non-archived safe.
+Администраторы решают, кто может открывать сейф, на странице **Люди** (пункт меню **Пользователи**). Каждый открывает тот же сейф своим паролем.
 
-Inside a safe, items are listed in a table (see [Working with tables](#working-with-tables)) with the title, kind, details, status, and subscription amount; **Favourite**, **Updated**, and **Created** can be turned on under **Columns**. Search matches the title and the details shown in the list, such as the card brand, the last four digits, the price, or the next payment date, but never the full card number, the CVV, or the text of a note. Trash and Activity use the same tables. Safe tables have no export and no editing in place, and Jaybi never stores what you searched or filtered in them.
+[Открыть страницу «Люди»](https://jaybi.uz/#/app/users)
 
-### Trash
+![Страница «Люди» с формой приглашения вверху](../images/ru/users.webp)
 
-Deleted safes and items go to **Trash** and stay there for 30 days. You can **Restore** them, or **Delete permanently** (for a safe, type its name to confirm). After 30 days they are removed for good the next time you open your safes.
+<a id="invite"></a>
+### Как пригласить человека (рекомендуется)
 
-Deleted data is also overwritten in the database, but copies stay in older backups and in the earlier copies the browser keeps. It is gone completely only when those are gone too.
+1. В разделе **Пригласить человека** введите адрес в поле **Почта приглашённого**, выберите **Роль** и **Группа**, а в поле **Код действует** — срок действия кода.
+2. Нажмите **Создать код приглашения**.
+3. Jaybi покажет код один раз. Нажмите **Копировать код** или **Копировать ссылку** и передайте его человеку лично или по каналу, которому доверяете, затем нажмите **Готово**.
 
-### Activity
+![Новый код приглашения, показанный один раз, с кнопками «Копировать код» и «Копировать ссылку»](../images/ru/invite-code.webp)
 
-**Activity** lists what happened in your safes: when they were opened, and when safes and items were added, changed, moved, deleted, or restored. Only you can read it; it is encrypted like your safes and never appears in the admin's audit log. It shows the kind of action and the time, not names or values.
+Затем человек [присоединяется по коду](#joining) в этом браузере и сам придумывает пароль. Пока он этого не сделал, код виден в списке **Действующие коды**, где кнопка **Отозвать** отменяет его.
 
-### After an admin resets your password
+<a id="temporary-password"></a>
+### Добавление человека с временным паролем
 
-If your admin resets your password:
+В разделе **Дополнительно: задать временный пароль** введите почту, временный пароль, роль и группу и нажмите **Добавить пользователя**. При первом входе человек должен будет сменить пароль. Код приглашения надёжнее: тогда свой пароль знает только сам человек.
 
-1. Use the reset code they give you to [set a new password](#resetting-your-password-with-a-code). If they gave you a temporary password instead, sign in with it; Jaybi asks you to choose a new password in **Account**.
-2. Open **Private safes**. Jaybi says your password changed since you last opened your safes.
-3. Enter the **previous password**: the one you chose yourself before the reset, not a temporary one from the admin. Or choose **Use recovery code instead** and enter your code. Also enter your current password.
-4. Your safes open, and from now on your current password opens them. If you used the recovery code, create a new one.
+![Добавление менеджера с временным паролем](../images/ru/user-create.webp)
 
-Never type the temporary password from your admin as your previous password. Your safes are never unlocked with a password that someone else chose; that is what keeps them private from the admin.
+<a id="reset-for-someone"></a>
+### Сброс пароля другого человека
 
-If you remember neither your previous password nor your recovery code, nobody can open your safes. Under **Account → Start over**, **Reset private safes** destroys them and everything in them and gives you a new, empty safe. Type `RESET` and your password to confirm.
+В строке человека нажмите **Выдать код сброса**, выберите срок действия кода и решите, нужно ли **Сразу отключить текущий пароль** (выберите это, если пароль может знать кто-то ещё). Снова нажмите **Выдать код сброса** и передайте код человеку. **Задать временный пароль** — прежний способ.
 
-## Updates and version
+![Выдача кода сброса участнику](../images/ru/user-reset-code.webp)
 
-When a new version of Jaybi is published, a bar appears at the top: **A new version of Jaybi is available.** Choose **Reload** when convenient. Your work is saved and the vault is locked first, so sign in again afterwards. The first sign-in after an update may take a few seconds longer while Jaybi upgrades the data or strengthens your password protection. This happens once.
+Перед сбросом прочитайте жёлтое предупреждение: личные сейфы человека останутся закрытыми, пока он не введёт прежний пароль или код восстановления. Вы не можете открыть или восстановить чужие сейфы.
 
-The version you are using is shown at the bottom of the menu and on the sign-in screen. Mention it when you report a problem.
+В той же строке **Отключить проверку при входе** поможет тому, кто потерял и аутентификатор, и коды восстановления, а **Удалить** убирает человека из сейфа. Удаление человека также навсегда уничтожает его личные сейфы, а человека, у которого ещё есть записи, удалить нельзя. В сейфе всегда остаётся хотя бы один администратор.
 
-## Language and theme
+<a id="clock"></a>
+### Проверка часов для кодов
 
-Pick a language from the language menu: Oʻzbekcha, Ўзбекча, Русский, or English. Pick **Day**, **Night**, or **System** to follow your device. Both choices are remembered in this browser.
+Коды не принимаются, если часы этого устройства отстают от самого позднего времени, которое видел сейф, поэтому перевод часов назад не оживит просроченный код. Если из-за неверных часов это время ушло в будущее, исправьте часы, откройте **Проверка часов для кодов**, введите пароль и нажмите **Сбросить на текущее время**.
 
-## Getting your data out
+![Панель «Проверка часов для кодов»](../images/ru/clock-floor.webp)
 
-Need your records in a spreadsheet or a PDF report? Only Admins can export data, so ask your admin. They can export one group or one period, as CSV, Excel, PDF, and other formats, usually as an encrypted file with a separate export password. Private safes are never part of an export.
+![Страница «Люди» целиком](../images/ru/users-full.webp)
 
-## Good habits
+<a id="safes"></a>
+## Личные сейфы
 
-- Lock the vault before leaving a shared device.
-- Do not clear this site's browsing data. Doing so deletes the vault from this browser. Only a backup can bring it back.
-- Use a password that is long and not used anywhere else.
-- Use a one-time code soon after you get it, and tell your admin if someone else may have seen it before you used it.
-- If you use private safes, create a recovery code and keep it offline.
-- Lock your safes when you are done with them, even if you keep the vault open.
+Личный сейф — место для того, что вы храните только для себя: платёжных карт, подписок и заметок. Это не денежный счёт; ничего из него не попадает на обзор или в книгу учёта.
+
+Открыть свои личные сейфы можете только вы. Администраторы не видят ни сами сейфы, ни их названия и не могут открыть или восстановить их — даже с резервной копией. У каждого участника сейфа свои личные сейфы.
+
+[Открыть личные сейфы](https://jaybi.uz/#/app/safes)
+
+<a id="safes-setup"></a>
+### Настройка
+
+1. Откройте **Личные сейфы** и введите пароль в поле **Ваш пароль**.
+2. Выберите **Создать код восстановления (рекомендуется)** или **Пока пропустить**.
+3. Нажмите **Создать мои сейфы**.
+
+![Настройка личных сейфов с выбором кода восстановления](../images/ru/safes-setup.webp)
+
+Если вы выбрали код восстановления, Jaybi покажет его один раз. Запишите или распечатайте его, храните отдельно от этого устройства и для подтверждения введите его последние 4 символа.
+
+![Код восстановления, показанный один раз, и поле подтверждения](../images/ru/safes-recovery-code.webp)
+
+Вы получите один пустой сейф с названием **Личный**.
+
+<a id="recovery-code"></a>
+### Зачем нужен код восстановления
+
+Код восстановления важен в одной ситуации: администратор сбросил ваш пароль, а прежний вы уже не помните. Без кода ваши сейфы будут потеряны навсегда. Создать или заменить его можно позже в разделе **Аккаунт → Код восстановления**. Храните его так же надёжно, как пароль.
+
+<a id="cards"></a>
+### Карты
+
+Откройте сейф и нажмите **Добавить карту**. Введите название, номер карты, имя владельца, срок действия, банк и заметки. Jaybi определяет платёжную систему по номеру и проверяет контрольную цифру. **Код безопасности (CVV)** необязателен и спрятан за кнопкой **Добавить код безопасности**; банки не рекомендуют его хранить. Места для PIN-кода нет: никогда нигде не храните PIN-код.
+
+![Добавление карты с тестовым номером 4111 1111 1111 1111](../images/ru/safe-add-card.webp)
+
+Номера карт показываются только с последними четырьмя цифрами.
+
+![Сохранённая карта со скрытым номером](../images/ru/safe-card.webp)
+
+**Показать** и **Копировать** спрашивают пароль, если вы не вводили его в последние 2 минуты. Показанное значение снова скрывается через 15 секунд; скопированное стирается из буфера обмена через 30 секунд. Оба времени можно изменить на странице **Аккаунт**.
+
+![Номер карты, показанный на 15 секунд после нажатия «Показать»](../images/ru/safe-card-revealed.webp)
+
+<a id="subscriptions"></a>
+### Подписки
+
+Нажмите **Добавить подписку** и укажите сервис, стоимость и валюту, период оплаты, дату платежа и статус. Можно также указать карту, которой она оплачивается, сайт, аккаунт, напоминание и заметки.
+
+![Добавление ежемесячной подписки Netflix, оплачиваемой семейной картой](../images/ru/safe-add-subscription.webp)
+
+![Сохранённая подписка с датой следующего платежа](../images/ru/safe-subscription.webp)
+
+<a id="notes"></a>
+### Заметки
+
+Нажмите **Добавить заметку** для всего остального — до 10 000 символов простого текста, например для пароля от Wi-Fi. То, чем пользуетесь часто, отмечайте кнопкой **В избранное**.
+
+![Сейф с картой, подпиской и двумя заметками](../images/ru/safe-view.webp)
+
+<a id="many-safes"></a>
+### Больше сейфов
+
+Нажмите **Новый сейф**, чтобы добавить ещё один: с названием, описанием, значком и цветом. Отметьте **Спрашивать пароль при каждом открытии этого сейфа** для сейфа, который должен оставаться закрытым, пока вы сами его не откроете.
+
+![Создание сейфа, который каждый раз спрашивает пароль](../images/ru/safe-create.webp)
+
+На странице сейфов — список ваших сейфов, сколько стоят активные подписки в месяц и в год, **Ближайшие платежи** на 30 дней вперёд, карты, срок которых скоро истекает, и избранное. **Поиск по открытым сейфам** ищет во всех открытых сейфах.
+
+![Страница личных сейфов с двумя сейфами, сводкой по подпискам и ближайшим платежом](../images/ru/safes-home.webp)
+
+Сейф, который спрашивает пароль, показывает поле пароля вместо содержимого.
+
+![Закрытый сейф запрашивает пароль](../images/ru/safe-open-password.webp)
+
+В разделе **Настройки сейфа** можно также сделать сейф основным, отправить его в архив, сменить ключ шифрования или удалить его.
+
+<a id="safes-lock"></a>
+### Открытие и блокировка сейфов
+
+Вход в сейф не открывает личные сейфы. Нажмите **Открыть сейфы** и снова введите пароль. Jaybi показывает время, когда было **Предыдущее открытие** ваших сейфов; если вы не узнаёте это время, вашим паролем мог воспользоваться кто-то другой.
+
+![Ваши сейфы заблокированы: введите пароль, чтобы открыть их](../images/ru/safes-unlock.webp)
+
+Сейфы остаются открытыми, пока вы работаете, и снова блокируются, когда вы нажимаете **Заблокировать сейфы** или когда блокируется весь сейф.
+
+<a id="trash"></a>
+### Корзина и активность
+
+Удалённые сейфы и записи попадают в раздел **Корзина** и хранятся там 30 дней. **Восстановить** возвращает их; **Удалить навсегда** удаляет сразу.
+
+![Корзина с удалённой заметкой](../images/ru/safes-trash.webp)
+
+**Активность** показывает, что и когда происходило в ваших сейфах: открытие, добавление, изменение, перемещение, удаление или восстановление. Читать этот список можете только вы.
+
+![Список «Активность» личных сейфов](../images/ru/safes-activity.webp)
+
+<a id="after-reset"></a>
+### После сброса пароля администратором
+
+1. Задайте новый пароль с помощью кода сброса (или войдите с временным паролем и придумайте новый).
+2. Откройте **Личные сейфы**. Jaybi сообщит, что ваш пароль изменился с момента последнего открытия сейфов.
+3. Введите **прежний пароль** — тот, который вы сами задали до сброса, — или воспользуйтесь кодом восстановления. Также введите текущий пароль.
+4. Ваши сейфы откроются, и с этого момента их будет открывать текущий пароль.
+
+Никогда не вводите временный пароль от администратора как прежний. Если вы не помните ни прежний пароль, ни код восстановления, открыть ваши сейфы не сможет никто; **Аккаунт → Начать заново → Сброс личных сейфов** даст вам новые, пустые сейфы.
+
+<a id="backup"></a>
+## Резервные копии и перенос на другое устройство
+
+Делать резервные копии могут только администраторы. Резервная копия — это зашифрованная копия всего сейфа в одном файле `.moliya`. Она открывается любым паролем, который относится к этому сейфу, и это **единственный** способ всё вернуть, если данные этого браузера пропадут.
+
+[Открыть страницу «Резервная копия»](https://jaybi.uz/#/app/backup)
+
+Если записи есть, а резервной копии ещё нет или последней больше 7 дней, на каждой странице появляется напоминание.
+
+![Напоминание о том, что резервная копия ещё не скачана](../images/ru/backup-reminder.webp)
+
+<a id="download-backup"></a>
+### Как скачать резервную копию
+
+1. Откройте страницу **Резервная копия**.
+2. Нажмите **Скачать копию**.
+3. Храните файл не на этом устройстве: на флешке, другом компьютере или в облачном хранилище. Он остаётся зашифрованным.
+
+![Страница «Зашифрованная копия»: последняя копия, состояние хранилища, «Скачать копию», «Заменить сейф», «Экспорт данных» и предыдущие версии](../images/ru/backup-full.webp)
+
+На странице также есть раздел **Хранение в этом браузере**. «Не защищено» значит, что браузер может удалить данные при нехватке места; [проверка состояния](#health) может попросить браузер их сохранить.
+
+**Предыдущие версии сейфа в этом браузере** — копии, которые Jaybi сохраняет перед каждым обновлением формата и каждым импортом. Скачайте одну из них, если нужно вернуться назад.
+
+<a id="export-data"></a>
+### Экспорт данных для других программ
+
+**Экспорт данных** скачивает ваши записи в CSV, JSON, Excel, отчётом PDF или базой данных SQLite — все данные или за выбранный период, по одной группе или по всем. По умолчанию файл — **Зашифрованный ZIP (AES-256)** с отдельным паролем экспорта; кнопка **Создать** придумает надёжный пароль. Резервная копия нужна для восстановления Jaybi, экспорт — для других программ.
+
+![Панель «Экспорт данных» с форматами, периодом, группой и защитой](../images/ru/backup-export.webp)
+
+<a id="restore"></a>
+### Восстановление копии в этом браузере
+
+В разделе **Заменить этот сейф копией** выберите файл копии, введите пароль и для подтверждения название сейфа, затем нажмите **Заменить сейф**. Копия текущего сейфа сохранится в разделе **Предыдущие версии сейфа в этом браузере**.
+
+![Замена сейфа файлом резервной копии](../images/ru/backup-import.webp)
+
+<a id="moving"></a>
+### Перенос на другое устройство
+
+1. На старом устройстве скачайте резервную копию.
+2. На новом устройстве откройте [https://jaybi.uz](https://jaybi.uz). Появится экран **Создайте сейф**: не заполняйте его.
+3. В разделе **Или импортируйте копию** выберите файл копии и нажмите **Заменить сейф**.
+4. Войдите со своими обычными почтой и паролем.
+
+![Импорт резервной копии на новом устройстве с экрана создания сейфа](../images/ru/move-import.webp)
+
+Каждый участник сейфа может войти на новом устройстве своим паролем. Сейф не синхронизируется: после переноса пользуйтесь только новым устройством или перенесите сейф обратно тем же способом.
+
+<a id="settings"></a>
+## Настройки сейфа
+
+Администраторы меняют параметры всего сейфа на странице **Настройки**.
+
+[Открыть настройки](https://jaybi.uz/#/app/settings)
+
+- **Название сейфа** и **Валюта сейфа**, затем **Сохранить настройки**. Итоги учитывают только записи в валюте сейфа.
+- **Категории**: добавляйте, переименовывайте и удаляйте категории доходов и расходов, с названием на каждом языке. Если перевод пуст, используется английское название. Категорию, которая используется в записях, удалить нельзя.
+- **О версии**: версия приложения, сборка, формат данных и дата создания сейфа. Укажите их, когда сообщаете о проблеме.
+
+![Страница «Настройки» с названием сейфа, валютой и категориями](../images/ru/settings.webp)
+
+<a id="account"></a>
+## Ваш аккаунт
+
+У каждого есть страница **Аккаунт** с настройками, которые касаются только его.
+
+[Открыть страницу «Аккаунт»](https://jaybi.uz/#/app/account)
+
+![Страница «Аккаунт»: пароль, проверка при входе, автоматическая блокировка, сейфы, код восстановления и «Начать заново»](../images/ru/account-full.webp)
+
+<a id="change-password"></a>
+### Смена пароля
+
+Введите **Текущий пароль**, затем **Новый пароль** и **Повторите новый пароль** и нажмите **Сменить пароль**. Личные сейфы и проверка при входе одновременно переходят на новый пароль.
+
+Если ваш пароль задал администратор, Jaybi первым делом попросит придумать новый: пока вы этого не сделаете, любая страница ведёт на страницу **Аккаунт**.
+
+<a id="choosing-a-password"></a>
+### Как выбрать пароль
+
+Новый пароль должен быть длиной от 12 до 256 символов, не должен быть распространённым, не должен составляться из вашей почты или названия сейфа и не должен быть простым шаблоном вроде `qwertyuiop`. Четыре-пять не связанных между собой слов, при желании через пробел, легко запомнить и трудно угадать. Не используйте пароль от другого сайта: именно ваш пароль защищает копии сейфа.
+
+<a id="sign-in-check"></a>
+### Проверка при входе (приложение-аутентификатор)
+
+Проверка при входе после пароля запрашивает 6-значный код из приложения-аутентификатора (Google Authenticator, Microsoft Authenticator, Aegis, 1Password и подобных). Она защищает вас, если кто-то узнает ваш пароль и попробует войти в этом браузере. Шифрования она не добавляет.
+
+1. Нажмите **Настроить проверку при входе**.
+2. Отсканируйте QR-код приложением или введите в него **Ключ настройки**.
+3. Введите **Код из приложения** и **Ваш пароль**, затем нажмите **Подтвердить и включить**.
+4. Jaybi покажет 10 кодов в блоке **Коды восстановления**. Каждый срабатывает один раз, если вы потеряете телефон. Нажмите **Скачать коды** или запишите их, храните отдельно от этого устройства и нажмите **Коды сохранены**.
+
+![Настройка проверки при входе: QR-код и ключ настройки](../images/ru/account-totp.webp)
+
+![Десять кодов восстановления, показанных только один раз](../images/ru/account-totp-recovery.webp)
+
+Чтобы отключить проверку, нажмите **Отключить проверку при входе** и введите пароль. Чтобы получить новые коды восстановления, отключите и снова включите проверку.
+
+<a id="auto-lock"></a>
+### Автоматическая блокировка и таймеры сейфов
+
+**Автоматическая блокировка** задаёт, сколько сейф остаётся открытым без действий на этом устройстве: 5 минут, 15 минут (по умолчанию), 30 минут или 1 час. В блоке **Личные сейфы** вы выбираете, сколько скопированное хранится в буфере обмена и сколько показанное остаётся на экране.
+
+<a id="audit"></a>
+## Журнал аудита
+
+**Журнал аудита** показывает, кто, что и когда сделал: добавление, изменение и удаление записей, добавление и удаление людей, сброс паролей, резервные копии, экспорт, настройки и многое другое. Его видят только администраторы. В нём никогда нет сумм, заметок и содержимого личных сейфов.
+
+[Открыть журнал аудита](https://jaybi.uz/#/app/audit)
+
+![Журнал аудита со строкой целостности](../images/ru/audit.webp)
+
+Каждая запись связана с предыдущей. **Целостность** показывает «Не нарушена: каждая запись связана с предыдущей», если вне приложения ничего не менялось. Если записи изменили или удалили, Jaybi показывает красную полосу на каждой странице, а проверка состояния сообщает об этом. Если вы ожидали изменение, например после импорта более старой копии, нажмите **Принять журнал как есть**; иначе восстановите недавнюю резервную копию и смените пароли.
+
+<a id="health"></a>
+## Проверка состояния
+
+**Проверка состояния** смотрит на этот браузер, его хранилище, версию приложения, ваш сейф и курсы валют и простыми словами объясняет, что в порядке, а что требует внимания. Всё выполняется на этом устройстве; ничего никуда не отправляется.
+
+[Запустить проверку состояния](https://jaybi.uz/#/app/health)
+
+![Страница «Проверка состояния» со сводкой и проверками браузера](../images/ru/health.webp)
+
+Каждая строка помечена как **В порядке**, **Предупреждение**, **Проблема** или **Примечание**, с коротким пояснением. Строка, требующая внимания, также показывает **Как исправить** и, где это полезно, кнопку вроде **Попросить сохранить данные** или **Открыть страницу «Резервная копия»**.
+
+![Предупреждение: резервная копия ещё не скачана, с «Как исправить» и «Открыть страницу „Резервная копия“»](../images/ru/health-warning.webp)
+
+<a id="health-checks"></a>
+### Что проверяется
+
+| Область | Проверки |
+| --- | --- |
+| **Возможности браузера** | Шифрование, база данных браузера, WebAssembly, одна вкладка за раз, изоляция страницы, сервис-воркер, защищённое соединение, Trusted Types, файлы cookie и данные сайтов, приватное окно |
+| **Хранилище** | Можно ли записывать в хранилище, свободное место, сохраняет ли браузер данные при нехватке места, хранилище небольших настроек, хранится ли здесь сейф |
+| **Приложение и версия** | Опубликована ли более новая версия, сборка и соответствуют ли страницы, загружаемые по требованию, запущенной версии |
+| **Сейф** | Формат данных, размер сейфа относительно предела 48 МБ, сохранение, возраст резервной копии, предыдущие версии, целостность журнала аудита, часы устройства, ваша проверка при входе, ваш пароль и число людей |
+| **Курсы валют** | Актуальны ли курсы и совпадают ли они со своей контрольной суммой |
+| **Безопасность** | Политика безопасности контента, работа не внутри другой страницы и адрес |
+
+Строки с пометкой **Только для администратора** видят только администраторы: строки журнала аудита, предыдущие версии и число людей. Администраторы также видят даты резервных копий и отметки времени. Остальные видят более короткий список о браузере и своём аккаунте; строка о резервной копии лишь напоминает, что копии делает администратор.
+
+![Проверка состояния глазами наблюдателя](../images/ru/viewer-health.webp)
+
+<a id="health-report"></a>
+### Как поделиться отчётом
+
+**Копировать отчёт** копирует текстовую сводку, которую можно вставить в сообщение тому, кто вам помогает. В ней указаны версии, размеры, даты и результат каждой проверки, но никогда нет паролей, кодов, почты, имён и сумм. **Проверить снова** повторяет проверки после того, как вы что-то исправили.
+
+<a id="health-signed-out"></a>
+### Если не получается войти
+
+Ссылка **Проверка состояния** на экране входа запускает проверки браузера, хранилища и версии без входа. Если Jaybi не может даже запуститься, такую же проверку предлагает экран ошибки.
+
+![Проверка состояния, открытая с экрана входа](../images/ru/health-signed-out.webp)
+
+![Проверка состояния на телефоне](../images/ru/mobile-health.webp)
+
+<a id="help"></a>
+## Как пользоваться справкой
+
+Это руководство встроено и в Jaybi. Откройте пункт **Справка** в меню, нажмите кнопку **?** в верхней панели (она открывает часть о текущей странице) или ссылку **Справка** на экране входа. Руководство показывается на выбранном вами языке.
+
+![Это руководство внутри Jaybi, с содержанием слева](../images/ru/help.webp)
+
+До входа **Справка** открывает то же руководство на отдельной странице со ссылкой обратно на экран входа.
+
+![Руководство, открытое с экрана входа](../images/ru/help-signed-out.webp)
+
+Введите слово в поле **Поиск по руководству**, чтобы показать только те части, где оно встречается. Кнопки **Открыть** ведут прямо на описываемый экран.
+
+![Поиск во встроенном руководстве](../images/ru/help-search.webp)
+
+<a id="updates"></a>
+## Обновления и версии
+
+Когда выходит новая версия, появляется полоса с текстом **Доступна новая версия Джайби.** Нажмите **Обновить**, когда будет удобно: ваша работа сохранится, а сейф сначала заблокируется, поэтому потом войдите снова. Первый вход после обновления может занять на несколько секунд больше, пока Jaybi обновляет данные. Это происходит один раз.
+
+![Полоса о новой версии с кнопкой «Обновить»](../images/ru/update-banner.webp)
+
+Версия, которой вы пользуетесь, указана внизу меню, на экране входа и в проверке состояния. Укажите её, когда сообщаете о проблеме.
+
+<a id="security"></a>
+## Советы по безопасности
+
+- Используйте длинный пароль, который больше нигде не используете. Только он защищает копии сейфа.
+- Блокируйте сейф, прежде чем отойти от общего устройства, и блокируйте личные сейфы, когда закончили с ними работать.
+- Включите проверку при входе и храните коды восстановления отдельно от этого устройства.
+- Администраторам: скачивайте резервную копию хотя бы раз в неделю и храните её не на этом устройстве.
+- Не очищайте данные браузера для этого сайта: это удалит сейф из браузера.
+- Используйте одноразовые коды поскорее и сообщите администратору, если ваш код мог увидеть кто-то другой.
+- Создайте код восстановления для личных сейфов и храните его офлайн.
+- Всегда проверяйте адрес: официальный — `jaybi.uz`. Jaybi отказывается работать внутри страницы другого сайта.
+- Никогда не храните PIN-коды карт. CVV храните, только если он действительно нужен.
+
+<a id="troubleshooting"></a>
+## Решение проблем
+
+Начните с [проверки состояния](#health): большинство проблем видны там вместе со способом их исправить.
+
+[Запустить проверку состояния](https://jaybi.uz/#/app/health)
+
+| Что вы видите | Что делать |
+| --- | --- |
+| **Создайте сейф**, хотя сейф у вас есть | Вы в другом браузере, профиле, приватном окне или на другом адресе. Откройте Jaybi там, где создавали сейф, или импортируйте резервную копию. Не создавайте новый сейф. |
+| «Почта или пароль неверны.» | Проверьте и то, и другое. После нескольких попыток дождитесь конца отсчёта. Если забыли пароль, попросите у администратора код сброса. |
+| **Слишком много попыток** | Дождитесь конца обратного отсчёта; обновление страницы не поможет. |
+| **Не удалось сохранить** | Браузер отказался сохранять данные. Не закрывайте вкладку, освободите место на диске и запустите проверку состояния. |
+| **Не сохранено: изменено в другом месте** | Сейф открыт в другой вкладке. Заблокируйте его, войдите снова и повторите последнее изменение. |
+| «уже открыт в другой вкладке или окне» | Перейдите в ту вкладку или заблокируйте сейф там. |
+| Код не принимается | Возможно, срок его действия истёк, он уже использован или выдан для другой почты. Попросите новый. Если упоминается проверка часов, исправьте часы устройства. |
+| Курсов валют нет или стоит **Устарел** | Проверьте подключение. После праздников банки не публикуют новые курсы. |
+| Страница остаётся пустой после обновления | Перезагрузите страницу. |
+| Красная полоса о журнале аудита | См. [Журнал аудита](#audit). |
+| Сейф почти достиг предельного размера | Удалите большие чеки из старых записей. |
+
+<a id="not-found"></a>
+### Страница не найдена
+
+Старая ссылка или ссылка с опечаткой показывает **Страница не найдена**. Нажмите **Перейти к обзору**.
+
+![Экран «Страница не найдена»](../images/ru/not-found.webp)
+
+<a id="faq"></a>
+## Вопросы и ответы
+
+**Можно ли пользоваться Jaybi на телефоне и на компьютере одновременно?** Нет. Сейф живёт в одном браузере. Его можно перенести с помощью резервной копии, но две копии не синхронизируются.
+
+**Может ли администратор прочитать мои личные сейфы?** Нет. Сейфы зашифрованы ключом, который открывается только вашим паролем или кодом восстановления.
+
+**Я забыл пароль. Его можно восстановить?** Увидеть его не может никто, но администратор может выдать вам код сброса. Если единственный администратор забудет свой пароль, сбросить его не сможет никто, поэтому разумно иметь двух администраторов.
+
+**Отправляет ли Jaybi мои данные куда-нибудь?** Нет. Кроме самого приложения, Jaybi загружает только публичные курсы валют и номер опубликованной версии.
+
+**Почему некоторые записи не входят в итоги?** Они в другой валюте. Они перечислены в блоке **Другие валюты (не входят в итоги)**.
+
+**Где хранятся резервные копии?** Там, куда вы сохранили скачанный файл. Jaybi не хранит копии за вас.
+
+**Заменяет ли проверка при входе надёжный пароль?** Нет. Она только добавляет шаг при входе через приложение.
+
+<a id="glossary"></a>
+## Словарь
+
+- **Сейф**: зашифрованный файл с книгой учёта, людьми и их личными сейфами, который хранится в одном браузере.
+- **Мастер-пароль**: пароль первого администратора, заданный при создании сейфа.
+- **Группа**: часть сейфа со своими записями и людьми.
+- **Запись**: один доход или расход в книге учёта.
+- **Валюта сейфа**: валюта, в которой считаются итоги и графики.
+- **Одноразовый код**: код приглашения или сброса от администратора, который срабатывает один раз и имеет срок действия.
+- **Проверка при входе**: 6-значный код из приложения-аутентификатора, который запрашивается после пароля.
+- **Коды восстановления**: десять одноразовых кодов, которые заменяют аутентификатор, если вы его потеряете.
+- **Личный сейф**: ваше собственное зашифрованное место для карт, подписок и заметок.
+- **Код восстановления (сейфы)**: запасной ключ к вашим личным сейфам.
+- **Резервная копия**: зашифрованный файл `.moliya` со всем сейфом.
+- **Журнал аудита**: связанный список действий у администратора — кто, что и когда сделал.
+- **Проверка состояния**: страница, которая проверяет браузер, хранилище, версию, сейф и курсы.
