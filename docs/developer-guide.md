@@ -265,7 +265,7 @@ Rules that follow from this:
 ```text
 .github/workflows/             ci.yml (checks), deploy.yml (main → Pages), release.yml (tags), codeql.yml, fx-rates.yml (rates)
 .github/dependabot.yml         weekly npm and Actions updates, 7-day cooldown
-.github/CODEOWNERS             owner review for crypto, db, auth, grants, users, account, sign-in check, limits, public/, CI
+.github/CODEOWNERS             owner review for crypto, db, rbac, auth, audit, grants, users, safes, exports, entry/redirects, rates job, public/, CI
 index.html                     loads coi-config.js and coi-serviceworker.js before the app
 public/coi-config.js           frame flag, Trusted Types default policy, coi-serviceworker options
 public/coi-serviceworker.js    vendored v0.1.7 (MIT), not bundled
