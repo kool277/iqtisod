@@ -62,7 +62,7 @@ An invite is a one-time code. The person enters it with their email and chooses 
 
 Jaybi shows the code once, with the time it stops working. **Copy code** copies the code; **Copy link** copies a link that opens the join page with their email and the code filled in. Jaybi clears the clipboard after 60 seconds where the browser allows it. Choose **Done** when you have passed it on. The code is not stored anywhere in readable form, so it cannot be shown again. If it is lost, revoke it and create a new one.
 
-Give the code in person, or over a channel you trust (not a group chat, not a public email thread). The person then follows [Joining with a code](user-guide.md#joining-with-a-code): on **Unlock vault** they choose **Have a one-time code? Join the vault**.
+Give the code in person, or over a channel you trust (not a group chat, not a public email thread). The person then follows [Joining with a code](user-guide.md#joining): on **Unlock vault** they choose **Have a one-time code? Join the vault**.
 
 **A code works only in the browser where the vault is stored.** There is no server: the code opens the vault that is in this browser's storage, nowhere else. If the person opens the app on their own phone or computer, they see an empty setup screen and the code does nothing there. Either they join on this device, in this browser, or you [move a copy](#moving-to-another-device) of the vault to their device first; a backup made while the code is open contains it.
 
@@ -94,7 +94,7 @@ Choose **Issue reset code** on the person's row. The same form shows a warning a
 - **Stop their current password from working now**: choose this if someone else may know the password. The old password stops working as soon as the change is saved, and the person cannot sign in at all until they use the code. If the code expires or you revoke it, they stay locked out until you issue a new code or set a temporary password.
 - Untick it if the person simply forgot their password. The old password keeps working until the code is used.
 
-Choose **Issue reset code**. The code is shown once, as for invites. The person uses it with **Have a reset code?** on **Unlock vault** and chooses a new password; see [Resetting your password with a code](user-guide.md#resetting-your-password-with-a-code). Using the code also turns off their sign-in check. Issuing a new reset code for the same person replaces the open one they had; the audit log shows the old one as revoked.
+Choose **Issue reset code**. The code is shown once, as for invites. The person uses it with **Have a reset code?** on **Unlock vault** and chooses a new password; see [Resetting your password with a code](user-guide.md#reset-code). Using the code also turns off their sign-in check. Issuing a new reset code for the same person replaces the open one they had; the audit log shows the old one as revoked.
 
 **Set a temporary password instead** (in the same form) is the advanced option: enter a **New password** and choose **Save**. The old password stops working when the change is saved, any open reset code for the person is ended, their sign-in check is turned off, and at their next sign-in they must replace the temporary password. Give it privately.
 
