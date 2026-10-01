@@ -189,10 +189,11 @@ test('every route renders for an admin and for a member, and unknown routes say 
   await expect(page.locator('main#content')).toBeFocused()
   await expect(page).toHaveURL(endsWithHash('/app/transactions'))
 
+  // Lock ends the visit: the next person to sign in starts on their dashboard, not on this page.
   await openHash(page, '/app/groups')
   await expectPage(page, '/app/groups')
   await lockVault(page)
-  await expect(page).toHaveURL(endsWithHash(`/login?next=${encodeURIComponent('/app/groups')}`))
+  await expect(page).toHaveURL(endsWithHash('/login'))
 
   await page.getByTestId('login-email').fill(MEMBER.email)
   await page.getByTestId('login-password').fill(MEMBER.temporary)
@@ -211,7 +212,30 @@ test('every route renders for an admin and for a member, and unknown routes say 
   }
   await openHash(page, '/app/no-such-page')
   await expect(page.getByTestId('not-found')).toBeVisible()
+  await page.getByTestId('not-found-home').click()
+  await expect(page.getByTestId('kpi-net')).toBeVisible()
 
   expect(errors).toEqual([])
+  expect(await violations()).toEqual([])
+})
+
+test('after an idle lock, signing in reopens the page that was open', async ({ page }) => {
+  const violations = await watchViolations(page)
+  await page.clock.install()
+  await createVault(page)
+  await page.getByTestId('nav-account').click()
+  await page.getByTestId('idle-minutes').selectOption('5')
+  await openHash(page, '/app/transactions?group=1')
+  await expectPage(page, '/app/transactions?group=1')
+  await expect(page.getByTestId('save-state')).toHaveText('Saved', { timeout: 30_000 })
+  await page.clock.fastForward('05:30')
+  await expect(page.getByTestId('idle-locked')).toBeVisible({ timeout: 30_000 })
+  await expect(page).toHaveURL(endsWithHash(`/login?next=${encodeURIComponent('/app/transactions?group=1')}`))
+  await signIn(page, ADMIN.email, ADMIN.password)
+  await expectPage(page, '/app/transactions?group=1')
+
+  await openHash(page, `/login?next=${encodeURIComponent('//evil.com')}`)
+  await expect(page).toHaveURL(endsWithHash('/app'))
+  await expect(page.getByTestId('kpi-net')).toBeVisible()
   expect(await violations()).toEqual([])
 })

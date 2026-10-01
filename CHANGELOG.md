@@ -13,7 +13,7 @@ Reads backup and record versions 1–2 and schema versions 1–4. Writes backup 
 ### Fixed
 
 - **Links to a page no longer end on "404".** Opening, refreshing, or sharing an address written as a path, such as `https://jaybi.uz/app/transactions`, `https://jaybi.uz/register`, or an old link that still has `/iqtisod/` in it, showed GitHub's "404 File not found". The site now has its own 404 page that opens the same page in the app (`https://jaybi.uz/#/app/transactions`), keeping a filter such as `?group=3`. It only ever opens a page of this site: anything unusual in the address (other characters, `..`, `//`, a very long path) opens the start page instead, and a missing file such as an old `assets/` script still answers "not found".
-- **After signing in you are back on the page you asked for.** A link to a page while the vault was locked, and a vault locked by **Lock** or by inactivity, used to show the dashboard after sign-in. Sign-in now returns to that page (`#/login?next=…`, which only accepts pages inside the app).
+- **After signing in you are back on the page you asked for.** A link opened while the vault was locked, and a page left open when the vault locked after inactivity, used to show the dashboard after sign-in. Sign-in now returns to that page (`#/login?next=…`, which only accepts pages inside the app). **Lock** still ends the visit: whoever signs in next starts on the dashboard.
 - **Unknown addresses say so.** An address inside the app that matches no page used to jump to the dashboard without a word; it now shows **Page not found** with a button back to the dashboard, in all four languages.
 - **Skip to content** (the first Tab stop) moved to the dashboard instead of to the page's content.
 

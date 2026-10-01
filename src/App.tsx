@@ -7,7 +7,7 @@ import { NotFound } from './components/NotFound'
 import { UpdateBanner } from './components/UpdateBanner'
 import { I18nProvider } from './context/I18nContext'
 import { ThemeProvider } from './context/ThemeContext'
-import { useVault, VaultProvider } from './context/VaultContext'
+import { useVault, VaultProvider, type VaultLockReason } from './context/VaultContext'
 import { RETURN_PARAM, loginPathFor, returnPath } from './lib/return-to'
 
 const Dashboard = lazy(() => import('./components/Dashboard').then((module) => ({ default: module.Dashboard })))
@@ -30,10 +30,13 @@ function Page({ children }: { children: ReactNode }) {
 
 type Where = { pathname: string; search: string }
 
-/** Where a vault status belongs. A locked app page goes to sign-in with a way back; sign-in then follows it. */
-function pathFor(status: string, from?: Where): string {
+/**
+ * Where a vault status belongs. A link opened while locked, or a page left by an idle lock, goes to sign-in
+ * with a way back that sign-in then follows. **Lock** ends the visit, so whoever signs in next starts fresh.
+ */
+function pathFor(status: string, from?: Where, lockReason?: VaultLockReason | null): string {
   if (status === 'setup') return '/setup'
-  if (status === 'locked' || status === 'challenge') return from?.pathname.startsWith('/app') ? loginPathFor(from.pathname, from.search) : '/login'
+  if (status === 'locked' || status === 'challenge') return from?.pathname.startsWith('/app') && lockReason !== 'manual' ? loginPathFor(from.pathname, from.search) : '/login'
   if (status === 'ready') return (from?.pathname === '/login' && returnPath(new URLSearchParams(from.search).get(RETURN_PARAM))) || '/app'
   return '/'
 }
@@ -41,11 +44,11 @@ function pathFor(status: string, from?: Where): string {
 type RouteStatus = 'setup' | 'locked' | 'challenge' | 'ready'
 
 function RequireStatus({ expect, children }: { expect: RouteStatus | RouteStatus[]; children: ReactNode }) {
-  const { status } = useVault()
+  const { status, lockReason } = useVault()
   const location = useLocation()
   if (status === 'checking') return <Splash />
   const allowed: string[] = Array.isArray(expect) ? expect : [expect]
-  if (!allowed.includes(status)) return <Navigate to={pathFor(status, location)} replace />
+  if (!allowed.includes(status)) return <Navigate to={pathFor(status, location, lockReason)} replace />
   return children
 }
 
