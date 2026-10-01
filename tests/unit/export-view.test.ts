@@ -96,10 +96,10 @@ describe('export current view', () => {
     const text = await blobText(result.blob)
     const lines = text.replace(/^\ufeff/, '').trimEnd().split('\r\n')
     expect(lines).toEqual([
-      'Date,Category,Amount,Amount · Currency,Notes',
-      `2026-09-15,Food,250.50,USD,"'=HYPERLINK(""https://evil.test"",""click"")"`,
-      "2026-09-01,Salary,1000.00,UZS,'+SUM(A1:A2)",
-      "2026-09-02,'@cmd,,,'-2+3",
+      '"Date","Category","Amount","Amount · Currency","Notes"',
+      `"2026-09-15","Food",250.50,"USD","'=HYPERLINK(""https://evil.test"",""click"")"`,
+      `"2026-09-01","Salary",1000.00,"UZS","'+SUM(A1:A2)"`,
+      `"2026-09-02","'@cmd",,,"'-2+3"`,
     ])
     expect(dataExports(admin)).toBe(before + 1)
     const entry = admin.db.queryOne("SELECT details FROM audit_logs WHERE action = 'DATA_EXPORTED' ORDER BY seq DESC LIMIT 1")
@@ -116,7 +116,18 @@ describe('export current view', () => {
 
   it('labels the currency column in the reader language', () => {
     const csv = buildViewCsv(request({ locale: 'ru' }))
-    expect(csv.split('\r\n')[0]).toBe('\ufeffDate,Category,Amount,Amount · Валюта,Notes')
+    expect(csv.split('\r\n')[0]).toBe('\ufeff"Date","Category","Amount","Amount · Валюта","Notes"')
+  })
+
+  it('keeps semicolon, tab and DDE payloads inside one guarded cell', () => {
+    const payloads = ['x;=1+1', 'ok;@SUM(A1:A9)', "Lunch;=cmd|' /C calc'!A0", 'a\t=1+1']
+    const csv = buildViewCsv(request({ rows: payloads.map((notes) => ['2026-09-15', 'Food;=1', null, notes]) }))
+    expect(csv.replace(/^\ufeff/, '').trimEnd().split('\r\n').slice(1)).toEqual([
+      `"2026-09-15","Food;'=1",,,"x;'=1+1"`,
+      `"2026-09-15","Food;'=1",,,"ok;'@SUM(A1:A9)"`,
+      `"2026-09-15","Food;'=1",,,"Lunch;'=cmd|' /C calc'!A0"`,
+      `"2026-09-15","Food;'=1",,,"a\t'=1+1"`,
+    ])
   })
 
   it('builds JSON with exact minor units and the view metadata', async () => {

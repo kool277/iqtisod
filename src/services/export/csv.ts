@@ -37,12 +37,16 @@ export const AUDIT_CSV_COLUMNS = [
 ] as const
 
 const FORMULA_START = /^\s*[=+\-@\t\r\n\uFF1D\uFF0B\uFF0D\uFF20]/
+/** A spreadsheet that splits on `;` or tab (Excel in ru/uz locales) would start a new cell here. */
+const FORMULA_AFTER_SEPARATOR = /([;\t\r\n][^\S\t\r\n]*)(?=[=+\-@\uFF1D\uFF0B\uFF0D\uFF20])/g
 
+/** Text is always quoted, so no separator inside it splits the cell, and every place a cell could start is guarded. */
 export function csvCell(value: SqlValue | boolean): string {
   if (value == null) return ''
-  let text = typeof value === 'boolean' ? (value ? 'true' : 'false') : String(value)
-  if (typeof value === 'string' && FORMULA_START.test(text)) text = `'${text}`
-  return /[",\r\n]/.test(text) || text !== text.trim() ? `"${text.replace(/"/g, '""')}"` : text
+  if (typeof value !== 'string') return typeof value === 'boolean' ? (value ? 'true' : 'false') : String(value)
+  let text = value.replace(FORMULA_AFTER_SEPARATOR, "$1'")
+  if (FORMULA_START.test(text)) text = `'${text}`
+  return `"${text.replace(/"/g, '""')}"`
 }
 
 const BOM = '\ufeff'

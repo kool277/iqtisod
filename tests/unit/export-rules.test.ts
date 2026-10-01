@@ -129,13 +129,15 @@ describe('CSV cells', () => {
   it('neutralises every OWASP formula trigger, including LF and full-width characters', () => {
     const triggers = ['=SUM(A1)', '+1', '-2+3', '@cmd', '\tTAB', '\rCR', '\nLF', '＝1+1', '＋1', '－1', '＠SUM(1)']
     for (const value of triggers) expect(csvCell(value).replace(/^"|"$/g, '').startsWith("'"), JSON.stringify(value)).toBe(true)
-    expect(csvCell('  =cmd')).toBe("'  =cmd")
+    expect(csvCell('  =cmd')).toBe(`"'  =cmd"`)
     expect(csvCell(' leading space')).toBe('" leading space"')
-    expect(csvCell('plain')).toBe('plain')
+    expect(csvCell('plain')).toBe('"plain"')
+    expect(csvCell('x;=1+1')).toBe(`"x;'=1+1"`)
+    expect(csvCell('x\t@cmd')).toBe(`"x\t'@cmd"`)
     expect(csvCell('a,b')).toBe('"a,b"')
     expect(csvCell('say "hi"')).toBe('"say ""hi"""')
     expect(csvCell('line\nbreak')).toBe('"line\nbreak"')
-    expect(csvCell('Oʻzbekcha — Ўзбекча')).toBe('Oʻzbekcha — Ўзбекча')
+    expect(csvCell('Oʻzbekcha — Ўзбекча')).toBe('"Oʻzbekcha — Ўзбекча"')
     expect(csvCell(-5)).toBe('-5')
     expect(csvCell(null)).toBe('')
     expect(csvCell(true)).toBe('true')

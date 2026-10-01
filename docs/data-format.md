@@ -588,7 +588,7 @@ A single file downloads as-is; several files (or any encrypted choice) download 
 
 **Money** is always exact: an integer `amountMinor`/`amount_minor` in the currency's minor unit plus a decimal string `amount`, never a float. Totals are summed with `BigInt`. Audit `details` is the original JSON text, so the hash chain can be recomputed from the export.
 
-**CSV formula protection** (OWASP): a text cell whose first non-space character is `=`, `+`, `-`, `@`, tab, CR, LF, or a full-width `＝＋－＠` gets a leading `'`. Numeric columns are never prefixed. Excel may drop the `'` after a save and reopen; use JSON, JSON Lines, or SQLite when exact data matters.
+**CSV formula protection** (OWASP): every text cell is quoted, so a spreadsheet that splits on `;` or tab (Excel with a Russian or Uzbek list separator) still keeps it in one cell. A text cell whose first non-space character is `=`, `+`, `-`, `@`, tab, CR, LF, or a full-width `＝＋－＠` gets a leading `'`, and so does each of those characters when it follows a `;`, tab, CR, or LF (after optional spaces) inside the cell, from 1.4.2. Numeric and boolean columns are never quoted or prefixed. Excel may drop the `'` after a save and reopen; use JSON, JSON Lines, or SQLite when exact data matters.
 
 ### SQLite export
 
