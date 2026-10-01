@@ -22,8 +22,21 @@ describe('hosting', () => {
     expect(deploy).toMatch(/contents\/CNAME\?ref=gh-pages/)
   })
 
+  it('ships a 404 page that only loads its own same-origin script, from absolute URLs', () => {
+    const page = readFileSync(join(ROOT, '404.html'), 'utf8')
+    const scripts = [...page.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)]
+    expect(scripts.map(([, attrs]) => attrs.trim())).toEqual(['type="module" src="/src/spa-fallback.ts"'])
+    expect(scripts.every(([, , body]) => body.trim() === '')).toBe(true)
+    expect(page).not.toMatch(/\son\w+=/i)
+    const vite = readFileSync(join(ROOT, 'vite.config.ts'), 'utf8')
+    expect(vite).toMatch(/^\s+base: '\/',$/m)
+    expect(vite).toMatch(/notFound: fileURLToPath\(new URL\('\.\/404\.html'/)
+    const index = readFileSync(join(ROOT, 'index.html'), 'utf8')
+    expect([...index.matchAll(/\ssrc="([^"]+)"/g)].map(([, src]) => src).every((src) => src.startsWith('/'))).toBe(true)
+  })
+
   it('does not link to or load from the old address in anything the site serves', () => {
-    const served = [...filesUnder(join(ROOT, 'src')), ...filesUnder(join(ROOT, 'public')), join(ROOT, 'index.html')]
+    const served = [...filesUnder(join(ROOT, 'src')), ...filesUnder(join(ROOT, 'public')), join(ROOT, 'index.html'), join(ROOT, '404.html')]
     const offenders = served
       .filter((path) => /https?:\/\/[\w.-]*github\.io|\/iqtisod\//.test(readFileSync(path, 'utf8')))
       .map((path) => relative(ROOT, path))

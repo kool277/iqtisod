@@ -1,3 +1,6 @@
+import { readFile } from 'node:fs/promises'
+import type { IncomingMessage, ServerResponse } from 'node:http'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
@@ -51,14 +54,58 @@ function releaseMetadata(info: BuildInfo): Plugin {
   }
 }
 
+/** Not-a-file navigations a GitHub Pages site answers with 404.html; `/` was already rewritten to `/index.html`. */
+function isMissingPage(req: IncomingMessage): boolean {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return false
+  const accept = req.headers.accept ?? ''
+  if (accept !== '' && !accept.includes('text/html') && !accept.includes('*/*')) return false
+  const path = (req.url ?? '/').split(/[?#]/)[0]
+  return !path.endsWith('.html') && !path.startsWith('/@') && !path.startsWith('/src/') && !path.startsWith('/node_modules/')
+}
+
+function sendNotFound(res: ServerResponse, html: string): void {
+  res.statusCode = 404
+  res.setHeader('Content-Type', 'text/html; charset=utf-8')
+  res.end(html)
+}
+
+/** Serves 404.html with status 404 for unknown paths in dev and preview, the way GitHub Pages does. */
+function pagesFallback(): Plugin {
+  return {
+    name: 'moliya-pages-fallback',
+    configureServer(server) {
+      const file = fileURLToPath(new URL('./404.html', import.meta.url))
+      return () => {
+        server.middlewares.use((req, res, next) => {
+          if (!isMissingPage(req)) return next()
+          readFile(file, 'utf8')
+            .then((html) => server.transformIndexHtml('/404.html', html))
+            .then((html) => sendNotFound(res, html), next)
+        })
+      }
+    },
+    configurePreviewServer(server) {
+      const file = join(server.config.root, server.config.build.outDir, '404.html')
+      return () => {
+        server.middlewares.use((req, res, next) => {
+          if (!isMissingPage(req)) return next()
+          readFile(file, 'utf8').then((html) => sendNotFound(res, html), next)
+        })
+      }
+    },
+  }
+}
+
 const info = buildInfo()
 
 const emptyModule = fileURLToPath(new URL('./src/lib/empty-module.ts', import.meta.url))
 
+// The site lives at the root of jaybi.uz. Absolute URLs keep assets loading when a page is served at a nested path.
 export default defineConfig({
-  base: './',
+  base: '/',
+  appType: 'mpa',
   define: buildDefines(info),
-  plugins: [react(), tailwindcss(), releaseMetadata(info)],
+  plugins: [react(), tailwindcss(), releaseMetadata(info), pagesFallback()],
   resolve: {
     alias: {
       html2canvas: emptyModule,
@@ -73,6 +120,10 @@ export default defineConfig({
     target: 'es2022',
     chunkSizeWarningLimit: 600,
     rolldownOptions: {
+      input: {
+        index: fileURLToPath(new URL('./index.html', import.meta.url)),
+        notFound: fileURLToPath(new URL('./404.html', import.meta.url)),
+      },
       output: {
         codeSplitting: {
           groups: [
