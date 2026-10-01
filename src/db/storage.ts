@@ -127,7 +127,7 @@ export async function writeVault(record: VaultRecord, options: WriteOptions = {}
             sourceVersion: versionOf(options.archive.raw),
             sourceAppVersion: appVersionOf(options.archive.raw),
             sourceUpdatedAt: stampOf(options.archive.raw),
-            raw: options.archive.raw,
+            raw: withoutGrants(options.archive.raw),
           }
           const keys = store.getAllKeys(IDBKeyRange.bound(ARCHIVE_PREFIX, `${ARCHIVE_PREFIX}\uffff`))
           keys.onsuccess = () => {
@@ -159,10 +159,50 @@ export async function listArchives(): Promise<Omit<ArchiveEntry, 'raw'>[]> {
   }
 }
 
+/**
+ * A grant wraps the vault key under a one-time code with no expiry check of its own, so a copy of it would let a
+ * used, revoked or expired code open the vault offline. Archives therefore never keep grants.
+ */
+export function withoutGrants(raw: unknown): unknown {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw) || !Object.hasOwn(raw, 'grants')) return raw
+  const { grants: _grants, ...rest } = raw as Record<string, unknown>
+  return rest
+}
+
 export async function readArchive(key: string): Promise<ArchiveEntry | null> {
   if (!key.startsWith(ARCHIVE_PREFIX)) return null
   const value = await readRaw(key)
-  return value === undefined ? null : (value as ArchiveEntry)
+  if (value === undefined) return null
+  const entry = value as ArchiveEntry
+  return { ...entry, raw: withoutGrants(entry.raw) }
+}
+
+/** Removes grants from archives written before 1.4.2. */
+export async function stripArchivedGrants(): Promise<number> {
+  const database = await openDatabase()
+  try {
+    return await new Promise<number>((resolve, reject) => {
+      const transaction = database.transaction(STORE, 'readwrite')
+      const store = transaction.objectStore(STORE)
+      let changed = 0
+      transaction.oncomplete = () => resolve(changed)
+      transaction.onabort = () => reject(transaction.error ?? new Error('IndexedDB write aborted'))
+      const cursor = store.openCursor(IDBKeyRange.bound(ARCHIVE_PREFIX, `${ARCHIVE_PREFIX}\uffff`))
+      cursor.onsuccess = () => {
+        const current = cursor.result
+        if (!current) return
+        const entry = current.value as ArchiveEntry
+        const raw = withoutGrants(entry.raw)
+        if (raw !== entry.raw) {
+          current.update({ ...entry, raw })
+          changed += 1
+        }
+        current.continue()
+      }
+    })
+  } finally {
+    database.close()
+  }
 }
 
 export function wrapsFromRecord(record: VaultRecord): UserWrap[] {
