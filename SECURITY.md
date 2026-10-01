@@ -6,8 +6,8 @@ Jaybi (called Moliya before 1.3.0) is a private finance vault that runs entirely
 
 | Version | Supported |
 | --- | --- |
-| 1.3.x | Yes |
-| 1.2.x and older | No. Upgrade to the latest 1.3 release |
+| 1.4.x | Yes (1.4.2 and later; 1.4.2 fixes the findings of the September 2026 review) |
+| 1.3.x and older | No. Upgrade to the latest 1.4 release |
 
 Fixes are released as a new patch version and deployed to the website. Every release opens vaults and backups made by every earlier version, so upgrading never requires moving data by hand.
 
@@ -59,8 +59,10 @@ The full model is in the [developer guide](docs/developer-guide.md#threat-model)
 - **Protected**: data at rest. The database is encrypted with AES-256-GCM under a random vault key. Each person's password is stretched with PBKDF2-SHA-256 (600,000 iterations) into a key that wraps a copy of the vault key. Private safes are encrypted a second time with keys only their owner can derive.
 - **Offline guessing**: anyone with a copied backup or browser storage can guess passwords without limit. Only a strong password protects them. The in-app attempt limits and the optional sign-in check (an authenticator code) apply only inside the app; they add no encryption.
 - **One-time codes**: invite and reset codes carry 135 random bits and are valid for 24 hours unless the Admin picks 15 minutes to 7 days. Their expiry and single use are enforced by the app, so a backup made while a code was open, plus that code, opens that backup.
-- **Exports**: only Admins can export. Encrypted exports need a password of at least 14 printable ASCII characters that is not the sign-in password; unencrypted exports need an explicit confirmation. Every export is audited, and no export contains private safes or key material.
+- **Exports**: only Admins can export. Encrypted exports need a password of at least 14 printable ASCII characters that is not the sign-in password, not a common password, and not built from the vault name or a member's email; an encrypted ZIP also needs a strong one, because the ZIP format is quick to guess against, and the app suggests a generated password. Unencrypted exports need an explicit confirmation. CSV text cells are always quoted and formula-like text is neutralised. Every export is audited, and no export contains private safes or key material.
 - **Same origin**: every page on the same origin can read and delete the stored vault. Since 1.3.0 the app is served from its own origin, `jaybi.uz`, which serves nothing else; the old `kool277.github.io/iqtisod` address redirects there. See the [DevOps guide](docs/devops-guide.md#origin-and-storage-isolation).
-- **Hostile backups**: imported files are size-capped, parsed defensively, and opened in a hardened SQLite that must match the app's own schema.
+- **Hostile backups**: imported files are size-capped, parsed defensively, and opened in a hardened SQLite whose every table, index, trigger, and view must match the app's own schema. A password copy is bound to its person: a relabelled or duplicated one is refused.
 - **Scripts in the page**: a strict Content Security Policy with Trusted Types, no third-party scripts, and a frame guard. Script running in the page could still read an unlocked vault.
-- **Known limits**: roles are enforced by the app, not by encryption; the vault key does not rotate when a person is removed or a password is reset; email addresses are stored unencrypted. See the [admin guide](docs/admin-guide.md#security-limits-to-know).
+- **Audit log**: hash-chained and checked against the last head each browser saw, so damage, truncation, and rewriting are reported to Admins on a browser that saw the log before. It is not signed: a member who knows a password can rewrite it with other tools.
+- **Locking**: locking reloads the page, so no decrypted data or keys stay in the page's memory afterwards.
+- **Known limits** (not addressed in 1.4.2): roles are enforced by the app, not by encryption; the vault key does not rotate when a person is removed or a password is reset (that needs a key pair per person); audit entries are not signed per person; passwords are stretched with PBKDF2, not a memory-hard function such as Argon2id; private safe items can be rolled back to an older copy by someone with the vault key (a new item format with a revision in its additional data is planned); the unencrypted envelope fields (dates, versions) are not covered by one authentication tag; email addresses are stored unencrypted; GitHub Pages cannot send HSTS or other security headers, which would need a proxy such as Cloudflare in front. See the [admin guide](docs/admin-guide.md#security-limits-to-know).
