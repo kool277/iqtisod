@@ -42,6 +42,7 @@ export const healthEn = {
     clock: 'Open the clock check',
     audit: 'Open the audit log',
     account: 'Open Account',
+    users: 'Open People',
   },
   facts: {
     usage: 'Used',
@@ -73,6 +74,11 @@ export const healthEn = {
     built: 'Built',
     deployed: 'Deployed',
     host: 'Address',
+    noTotp: 'Without sign-in check',
+    mustChange: 'Must change password',
+    noAccess: 'Cannot sign in',
+    expiredCodes: 'Expired codes',
+    legacyWraps: 'Older password copies',
   },
   checks: {
     crypto: {
@@ -267,6 +273,12 @@ export const healthEn = {
       ok: 'The vault has room for more people.',
       near: 'The vault is close to its limit of people.',
       fix: 'Remove people who no longer need access.',
+    },
+    userHygiene: {
+      title: 'People hygiene',
+      ok: 'Everyone active can sign in and no codes have expired.',
+      attention: 'Someone cannot sign in, a code has expired, or a password copy predates the current protection.',
+      fix: 'Open People: issue reset codes, revoke expired codes, and ask people with older copies to change their password.',
     },
     ratesFresh: {
       title: 'Exchange rates',

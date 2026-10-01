@@ -318,14 +318,16 @@ describe('vault checks', () => {
     const adminFacts = collectVaultFacts(admin, { saveState: 'saved', weak: false, archives: 1, deviceMark: auditHead(admin.db), recordedHead: null })
     expect(adminFacts).toMatchObject({ canReadAudit: true, canManageUsers: true, members: 3, archives: 1, chain: { ok: true } })
     const adminResults = vaultChecks(adminFacts, stored, NOW)
-    expect(adminResults.filter((item) => item.adminOnly).map((item) => item.id).sort()).toEqual(['archives', 'auditChain', 'auditHead', 'members'])
+    expect(adminResults.filter((item) => item.adminOnly).map((item) => item.id).sort()).toEqual(['archives', 'auditChain', 'auditHead', 'members', 'userHygiene'])
     expect(byId(adminResults, 'auditHead')).toMatchObject({ status: 'pass', detail: 'ok' })
+    expect(adminFacts.hygiene).toMatchObject({ noAccess: 0, expiredCodes: 0, legacyWraps: 0 })
+    expect(byId(adminResults, 'userHygiene')).toMatchObject({ status: 'pass', detail: 'ok', adminOnly: true })
     expect(byId(adminResults, 'backup')).toMatchObject({ status: 'info', detail: 'never' })
     expect(byId(adminResults, 'format')).toMatchObject({ status: 'pass', detail: 'current' })
 
     const viewer = settlePassword(await openAs(household.record, MEMBER))
     const viewerFacts = collectVaultFacts(viewer, { saveState: 'saved', weak: false, archives: 2, deviceMark: null, recordedHead: null })
-    expect(viewerFacts).toMatchObject({ canReadAudit: false, canManageUsers: false, chain: null, head: null, members: null, archives: null, clockMarks: null, lastBackupAt: null })
+    expect(viewerFacts).toMatchObject({ canReadAudit: false, canManageUsers: false, chain: null, head: null, members: null, hygiene: null, archives: null, clockMarks: null, lastBackupAt: null })
     const viewerResults = vaultChecks(viewerFacts, stored, NOW)
     expect(viewerResults.some((item) => item.adminOnly)).toBe(false)
     expect(viewerResults.map((item) => item.id)).toEqual(['format', 'size', 'autosave', 'backup', 'clock', 'totp', 'password'])
@@ -367,6 +369,7 @@ describe('vault checks', () => {
       mustChange: false,
       weak: true,
       members: 240,
+      hygiene: { noTotp: 2, mustChange: 1, noAccess: 1, expiredCodes: 0, legacyWraps: 0 },
     }
     const results = vaultChecks(facts, { ...stored, version: 1 }, NOW)
     expect(byId(results, 'format')).toMatchObject({ status: 'info', detail: 'older' })
@@ -377,6 +380,10 @@ describe('vault checks', () => {
     expect(byId(results, 'totp')).toMatchObject({ status: 'warn', detail: 'off', action: 'account' })
     expect(byId(results, 'password')).toMatchObject({ status: 'warn', detail: 'weak' })
     expect(byId(results, 'members')).toMatchObject({ status: 'warn', detail: 'near' })
+    expect(byId(results, 'userHygiene')).toMatchObject({ status: 'warn', detail: 'attention', action: 'users', facts: { noTotp: 2, noAccess: 1 } })
+    const tidy = { noTotp: 2, mustChange: 1, noAccess: 0, expiredCodes: 0, legacyWraps: 0 }
+    expect(byId(vaultChecks({ ...facts, hygiene: tidy }, stored, NOW), 'userHygiene')).toMatchObject({ status: 'pass', detail: 'ok' })
+    expect(byId(vaultChecks({ ...facts, hygiene: { ...tidy, expiredCodes: 1 } }, stored, NOW), 'userHygiene').status).toBe('warn')
     expect(byId(vaultChecks({ ...facts, mustChange: true, bytes: 49 * MIB, lastBackupAt: null }, stored, NOW), 'password').detail).toBe('mustChange')
     expect(byId(vaultChecks({ ...facts, bytes: 49 * MIB }, stored, NOW), 'size').status).toBe('fail')
     expect(byId(vaultChecks({ ...facts, lastBackupAt: null }, stored, NOW), 'backup')).toMatchObject({ status: 'warn', detail: 'never' })

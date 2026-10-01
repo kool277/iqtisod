@@ -32,6 +32,7 @@ const ACTION_ROUTES: Partial<Record<HealthAction, string>> = {
   clock: '/app/users',
   audit: '/app/audit',
   account: '/app/account',
+  users: '/app/users',
 }
 
 function fill(template: string, values: Record<string, string | number>): string {

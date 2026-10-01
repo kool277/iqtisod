@@ -6,6 +6,7 @@ import { deviceClockFloor } from '../lib/device-clock'
 import { Permission, canUser } from '../rbac'
 import { CLOCK_KEY, clockFloor } from '../services/grant-store'
 import { hasSignInCheck } from '../services/totp.service'
+import { usersOverview } from '../services/user.service'
 
 export type SaveStateName = 'saved' | 'saving' | 'dirty' | 'error' | 'conflict'
 
@@ -32,6 +33,8 @@ export type VaultFacts = {
   mustChange: boolean
   weak: boolean
   members: number | null
+  /** Counts only, for people managers. */
+  hygiene: { noTotp: number; mustChange: number; noAccess: number; expiredCodes: number; legacyWraps: number } | null
 }
 
 export type VaultContextFacts = {
@@ -69,5 +72,17 @@ export function collectVaultFacts(vault: OpenVault, context: VaultContextFacts):
     mustChange: user.mustChangePassword,
     weak: context.weak,
     members: canManageUsers ? vault.wraps.length : null,
+    hygiene: canManageUsers ? hygieneOf(vault) : null,
+  }
+}
+
+function hygieneOf(vault: OpenVault): NonNullable<VaultFacts['hygiene']> {
+  const overview = usersOverview(vault)
+  return {
+    noTotp: overview.active - overview.totpOn,
+    mustChange: overview.mustChange,
+    noAccess: overview.noAccess,
+    expiredCodes: overview.openCodes.filter((code) => code.expired).length,
+    legacyWraps: overview.legacyWraps,
   }
 }

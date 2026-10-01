@@ -213,6 +213,14 @@ export function vaultChecks(facts: VaultFacts, stored: StorageFacts['stored'], n
         : result('members', 'pass', 'ok', { adminOnly: true, facts: shown }),
     )
   }
+  if (facts.hygiene !== null) {
+    const { noAccess, expiredCodes, legacyWraps } = facts.hygiene
+    results.push(
+      noAccess + expiredCodes + legacyWraps > 0
+        ? result('userHygiene', 'warn', 'attention', { adminOnly: true, facts: facts.hygiene, action: 'users' })
+        : result('userHygiene', 'pass', 'ok', { adminOnly: true, facts: facts.hygiene }),
+    )
+  }
   return results
 }
 

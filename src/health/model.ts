@@ -3,7 +3,7 @@ export type HealthStatus = 'pass' | 'warn' | 'fail' | 'info'
 export const HEALTH_GROUPS = ['browser', 'storage', 'app', 'vault', 'rates', 'security'] as const
 export type HealthGroup = (typeof HEALTH_GROUPS)[number]
 
-export type HealthAction = 'persist' | 'backup' | 'reload' | 'clock' | 'audit' | 'account'
+export type HealthAction = 'persist' | 'backup' | 'reload' | 'clock' | 'audit' | 'account' | 'users'
 
 /** Plain values shown under a check and copied into the report. Never a secret, an email or a name. */
 export type HealthFacts = Record<string, string | number>
@@ -39,6 +39,7 @@ export const HEALTH_CHECKS = {
   totp: { group: 'vault', details: ['on', 'off'] },
   password: { group: 'vault', details: ['ok', 'weak', 'mustChange'] },
   members: { group: 'vault', details: ['ok', 'near'] },
+  userHygiene: { group: 'vault', details: ['ok', 'attention'] },
   ratesFresh: { group: 'rates', details: ['fresh', 'stale', 'cached', 'missing'] },
   ratesDigest: { group: 'rates', details: ['ok', 'mismatch', 'unknown'] },
   csp: { group: 'security', details: ['ok', 'missing', 'dev'] },
@@ -93,6 +94,11 @@ export const HEALTH_FACTS = [
   'built',
   'deployed',
   'host',
+  'noTotp',
+  'mustChange',
+  'noAccess',
+  'expiredCodes',
+  'legacyWraps',
 ] as const
 export type HealthFactKey = (typeof HEALTH_FACTS)[number]
 

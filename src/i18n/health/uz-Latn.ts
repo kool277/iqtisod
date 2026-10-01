@@ -44,6 +44,7 @@ export const healthUzLatn: HealthMessages = {
     clock: 'Soat tekshiruvini ochish',
     audit: 'Audit jurnalini ochish',
     account: '“Hisob” sahifasini ochish',
+    users: '“Odamlar” sahifasini ochish',
   },
   facts: {
     usage: 'Ishlatilgan',
@@ -75,6 +76,11 @@ export const healthUzLatn: HealthMessages = {
     built: 'Yigʻilgan sana',
     deployed: 'Joylangan',
     host: 'Manzil',
+    noTotp: 'Kirish tekshiruvisiz',
+    mustChange: 'Parolni oʻzgartirishi kerak',
+    noAccess: 'Kira olmaydi',
+    expiredCodes: 'Muddati tugagan kodlar',
+    legacyWraps: 'Eski parol nusxalari',
   },
   checks: {
     crypto: {
@@ -269,6 +275,12 @@ export const healthUzLatn: HealthMessages = {
       ok: 'Seyfga yana odam qoʻshish mumkin.',
       near: 'Seyfdagi odamlar soni chegaraga yaqinlashdi.',
       fix: 'Endi kirishi kerak boʻlmagan odamlarni olib tashlang.',
+    },
+    userHygiene: {
+      title: 'Hisoblar tartibi',
+      ok: 'Barcha faol odamlar kira oladi, muddati tugagan kodlar yoʻq.',
+      attention: 'Kimdir kira olmaydi, kod muddati tugagan yoki parol nusxasi joriy himoyadan oldin yaratilgan.',
+      fix: '“Odamlar” sahifasini oching: parol yangilash kodlarini bering, muddati tugagan kodlarni bekor qiling va eski nusxali odamlardan parolini oʻzgartirishni soʻrang.',
     },
     ratesFresh: {
       title: 'Valyuta kurslari',
