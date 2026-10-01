@@ -7,6 +7,7 @@ import { createVault, sealVault, unlockVault } from '../../src/services/auth.ser
 import { createTransaction, listCategories, loadDashboard } from '../../src/services/finance.service'
 import { createGroup, listGroups } from '../../src/services/group.service'
 import { createUser } from '../../src/services/user.service'
+import { settlePassword } from '../support/access'
 
 const open: OpenVault[] = []
 const range = { start: '2026-09-01', end: '2026-09-30' }
@@ -23,7 +24,7 @@ afterEach(() => {
 async function as(who: { email: string; password: string }): Promise<OpenVault> {
   const vault = await unlockVault(record, who.email, who.password)
   open.push(vault)
-  return vault
+  return settlePassword(vault)
 }
 
 beforeAll(async () => {

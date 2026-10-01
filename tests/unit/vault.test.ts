@@ -8,6 +8,7 @@ import { createVault, sealVault, unlockVault } from '../../src/services/auth.ser
 import { createTransaction, listCategories, listTransactions, loadDashboard } from '../../src/services/finance.service'
 import { listGroups } from '../../src/services/group.service'
 import { createUser } from '../../src/services/user.service'
+import { settlePassword } from '../support/access'
 
 const open: OpenVault[] = []
 
@@ -70,6 +71,8 @@ describe('vault', () => {
     const viewer = await unlockVault(sealed, 'viewer@example.com', 'viewer-password')
     open.push(viewer)
     expect(viewer.user.permissions).toEqual(permissionsForRole('Viewer'))
+    expect(() => listTransactions(viewer, range)).toThrow(ForbiddenError)
+    settlePassword(viewer)
     expect(listTransactions(viewer, range)).toHaveLength(2)
     expect(() =>
       createTransaction(viewer, { ...base, type: 'EXPENSE', amount: '10', categoryId: expense!.id }),

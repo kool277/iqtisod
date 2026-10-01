@@ -84,6 +84,7 @@ export type VaultUser = {
   groupId: number | null
   groupName: string | null
   createdAt: string
+  /** Always false for viewers without MANAGE_USERS: who has a sign-in check is not disclosed to them. */
   signInCheck: boolean
 }
 

@@ -5,7 +5,7 @@ import { ForbiddenError, ValidationError, isUniqueViolation } from '../domain/er
 import { isRoleName, type OpenVault, type RoleName, type VaultUser } from '../domain/types'
 import { LIMITS } from '../lib/limits'
 import { assertNewPassword } from '../lib/password-policy'
-import { Permission, canUser } from '../rbac'
+import { Permission, canUser, seesAllGroups } from '../rbac'
 import { assertEmail, normalizeEmail } from './auth.service'
 import { writeAudit } from './audit.service'
 import { committedWraps, dropEnvelopeGrant, endGrant, openGrantRows } from './grant-store'
@@ -56,27 +56,19 @@ export function listUsers(vault: OpenVault): VaultUser[] {
   if (!canUser(vault.user, Permission.MANAGE_USERS) && !canUser(vault.user, Permission.READ_TRANSACTIONS)) {
     throw new ForbiddenError()
   }
-  if (vault.user.roleName !== 'Admin' && vault.user.groupId == null) return []
-  const rows =
-    vault.user.roleName === 'Admin'
-      ? vault.db.query(
-          `SELECT u.id, u.email, r.name AS role_name, u.group_id, g.name AS group_name, u.created_at,
-                  EXISTS (SELECT 1 FROM user_totp t WHERE t.user_id = u.id) AS sign_in_check
-           FROM users u
-           JOIN roles r ON r.id = u.role_id
-           LEFT JOIN groups g ON g.id = u.group_id
-           ORDER BY u.email`,
-        )
-      : vault.db.query(
-          `SELECT u.id, u.email, r.name AS role_name, u.group_id, g.name AS group_name, u.created_at,
-                  EXISTS (SELECT 1 FROM user_totp t WHERE t.user_id = u.id) AS sign_in_check
-           FROM users u
-           JOIN roles r ON r.id = u.role_id
-           LEFT JOIN groups g ON g.id = u.group_id
-           WHERE u.group_id = ?
-           ORDER BY u.email`,
-          [vault.user.groupId],
-        )
+  const all = seesAllGroups(vault.user)
+  if (!all && vault.user.groupId == null) return []
+  // Only people managers learn who has a sign-in check.
+  const check = canUser(vault.user, Permission.MANAGE_USERS) ? 'EXISTS (SELECT 1 FROM user_totp t WHERE t.user_id = u.id)' : '0'
+  const rows = vault.db.query(
+    `SELECT u.id, u.email, r.name AS role_name, u.group_id, g.name AS group_name, u.created_at, ${check} AS sign_in_check
+     FROM users u
+     JOIN roles r ON r.id = u.role_id
+     LEFT JOIN groups g ON g.id = u.group_id
+     ${all ? '' : 'WHERE u.group_id = ?'}
+     ORDER BY u.email`,
+    all ? [] : [vault.user.groupId],
+  )
   return rows.map((row) => ({
     id: String(row.id),
     email: String(row.email),

@@ -61,10 +61,13 @@ export function watchIdle({ idleMs, onIdle, activity = window, visibility = docu
   const options = { capture: true, passive: true }
   for (const name of ACTIVITY_EVENTS) activity.addEventListener(name, touch, options)
   visibility.addEventListener('visibilitychange', onVisibility)
+  // A page restored from the back-forward cache resumes with stale timers.
+  activity.addEventListener('pageshow', check)
   const interval = setInterval(check, checkMs)
   return () => {
     for (const name of ACTIVITY_EVENTS) activity.removeEventListener(name, touch, options)
     visibility.removeEventListener('visibilitychange', onVisibility)
+    activity.removeEventListener('pageshow', check)
     clearInterval(interval)
   }
 }

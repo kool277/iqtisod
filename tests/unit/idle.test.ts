@@ -97,6 +97,22 @@ describe('watchIdle', () => {
     stop()
   })
 
+  it('checks as soon as a page is restored from the back-forward cache', () => {
+    const onIdle = vi.fn()
+    const activity = new EventTarget()
+    const stop = watchIdle({ idleMs: 5 * MINUTE, onIdle, activity, visibility: new FakeDocument() })
+    vi.setSystemTime(Date.now() + 6 * MINUTE)
+    activity.dispatchEvent(new Event('pageshow'))
+    expect(onIdle).toHaveBeenCalledTimes(1)
+    stop()
+    const later = vi.fn()
+    const stopped = watchIdle({ idleMs: 5 * MINUTE, onIdle: later, activity, visibility: new FakeDocument() })
+    stopped()
+    vi.setSystemTime(Date.now() + 6 * MINUTE)
+    activity.dispatchEvent(new Event('pageshow'))
+    expect(later).not.toHaveBeenCalled()
+  })
+
   it('does not fire for a short trip to another tab', () => {
     const onIdle = vi.fn()
     const visibility = new FakeDocument()

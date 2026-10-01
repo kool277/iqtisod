@@ -33,6 +33,12 @@ export function permissionsForRole(role: 'Admin' | 'Manager' | 'Viewer'): Permis
   }
 }
 
-export function canUser(user: { permissions: readonly string[] }, permission: string): boolean {
-  return user.permissions.includes(permission)
+/** No permission holds while a forced password change is pending, so every service check refuses until it is done. */
+export function canUser(user: { permissions: readonly string[]; mustChangePassword?: boolean }, permission: string): boolean {
+  return user.mustChangePassword !== true && user.permissions.includes(permission)
+}
+
+/** Seeing every group's money goes with managing the groups, the same permission the role screens use. */
+export function seesAllGroups(user: { permissions: readonly string[]; mustChangePassword?: boolean }): boolean {
+  return canUser(user, Permission.MANAGE_GROUPS)
 }

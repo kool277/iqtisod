@@ -6,7 +6,7 @@ import { ForbiddenError, ValidationError } from '../../domain/errors'
 import type { SessionUser } from '../../domain/types'
 import { minorToFixed } from '../../lib/money'
 import { BUILD } from '../../lib/version'
-import { Permission, canUser } from '../../rbac'
+import { Permission, canUser, seesAllGroups } from '../../rbac'
 
 export const PAGE_SIZE = 1000
 
@@ -119,7 +119,7 @@ export function yieldToBrowser(): Promise<void> {
 export function resolveExportScope(user: SessionUser, request: ScopeRequest, db: SqlDatabase): ExportScope {
   if (!canUser(user, Permission.EXPORT_VAULT)) throw new ForbiddenError()
   let groupId = request.groupId
-  if (user.roleName !== 'Admin') {
+  if (!seesAllGroups(user)) {
     if (user.groupId == null) throw new ForbiddenError()
     groupId = user.groupId
   }

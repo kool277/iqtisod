@@ -1,7 +1,7 @@
 import { ForbiddenError, ValidationError } from '../domain/errors'
 import type { Group, OpenVault } from '../domain/types'
 import { LIMITS } from '../lib/limits'
-import { Permission, canUser } from '../rbac'
+import { Permission, canUser, seesAllGroups } from '../rbac'
 import { writeAudit } from './audit.service'
 
 function mapGroup(row: Record<string, string | number | null>): Group {
@@ -13,7 +13,7 @@ function mapGroup(row: Record<string, string | number | null>): Group {
 }
 
 export function listGroups(vault: OpenVault): Group[] {
-  if (vault.user.roleName === 'Admin') {
+  if (seesAllGroups(vault.user)) {
     return vault.db.query('SELECT id, name, created_at FROM groups ORDER BY name').map(mapGroup)
   }
   if (vault.user.groupId == null) return []

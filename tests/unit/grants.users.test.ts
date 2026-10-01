@@ -26,6 +26,7 @@ import {
   grantRowOf,
   lastAudit,
   openAs,
+  settlePassword,
   userId,
   type Household,
 } from '../support/access'
@@ -158,7 +159,7 @@ describe('deleteUser', () => {
     const admin = await openAs(household.record, OWNER)
     const second = { email: 'deputy@maple.test', password: 'Walnut cabinet rhythm 23' }
     await createUser(admin, { email: second.email, password: second.password, roleName: 'Admin', groupId: null })
-    const deputy = await openAs(await sealVault(admin), second)
+    const deputy = settlePassword(await openAs(await sealVault(admin), second))
     const invite = await createInvite(deputy, { email: INVITEE.email, roleName: 'Viewer', groupId: household.groupId, validity: '24h' })
     const owner = await openAs(await sealVault(deputy), OWNER)
 
