@@ -660,7 +660,7 @@ If the wrap is stale, the current password does not open it; use the previous pa
 
 The dashboard's exchange rates are public data, not part of the vault. They are never written to SQLite, backups, or IndexedDB, and the ten-year guarantee above does not cover them. The format is still versioned so that old and new builds fail safely.
 
-`rates/latest.json` on the site (and `rates/history/YYYY-MM-DD.json` for each UTC day a run changed it) holds one JSON object, schema 1. The browser keeps the last verified copy, as the exact text it received, in `localStorage` under `moliya.fx.snapshot.v1`.
+`rates/latest.json` on the site (and `rates/history/YYYY-MM-DD.json` for each UTC day a run changed it) holds one JSON object, schema 1. The browser keeps the last verified copy, as the exact text it received, in `localStorage` under `moliya.fx.snapshot.v1`. From 1.4.2 a snapshot whose `generatedAt` is more than one hour ahead of the device clock is refused, both from the network and from this cache, so a forged future date cannot hide later updates.
 
 | Field | Meaning |
 | --- | --- |
