@@ -11,7 +11,7 @@
   // Under the CSP's require-trusted-types-for 'script', only the isolation service worker may be
   // loaded from a string URL. Everything else (HTML, inline script, other URLs) is refused.
   if (window.trustedTypes && window.trustedTypes.createPolicy) {
-    var worker = new URL('/coi-serviceworker.js', document.baseURI).href
+    var worker = new URL('./coi-serviceworker.js', document.baseURI).href
     window.trustedTypes.createPolicy('default', {
       createScriptURL: function (value) {
         var url = new URL(value, document.baseURI)

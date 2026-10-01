@@ -100,10 +100,16 @@ const info = buildInfo()
 
 const emptyModule = fileURLToPath(new URL('./src/lib/empty-module.ts', import.meta.url))
 
-// The site lives at the root of jaybi.uz. Absolute URLs keep assets loading when a page is served at a nested path.
 export default defineConfig({
-  base: '/',
+  // Relative, so the app also runs under a sub-path (a release zip, or github.io/iqtisod/ when recovering old vaults).
+  base: './',
   appType: 'mpa',
+  experimental: {
+    // 404.html answers for every missing path, however deep, so its URLs must start at the domain root.
+    renderBuiltUrl(filename, { hostType, hostId }) {
+      return hostType === 'html' && /(^|[\\/])404\.html$/.test(hostId) ? `/${filename}` : undefined
+    },
+  },
   define: buildDefines(info),
   plugins: [react(), tailwindcss(), releaseMetadata(info), pagesFallback()],
   resolve: {
