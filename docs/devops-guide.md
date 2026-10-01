@@ -19,6 +19,7 @@ Jaybi is a static single-page app. The server only serves files. User data never
 - `version.json` with `version`, `commit`, and `builtAt`. Running apps poll it to detect a new deployment.
 - `coi-config.js` and `coi-serviceworker.js`. `coi-config.js` runs first: it records whether the page is framed, creates the Trusted Types `default` policy, and configures the service worker.
 - `assets/` with hashed files. The first screen loads only the app entry (about 100 KB, 30 KB gzipped), the interface strings in four languages (about 150 KB, 46 KB gzipped), React (about 260 KB, 80 KB gzipped), and a few small shared chunks: about 545 KB, 170 KB gzipped in all. Pages, Chart.js (about 180 KB), and SQLite (about 210 KB of JavaScript plus an 870 KB WebAssembly binary, about 400 KB gzipped) load on demand. Serve `.wasm` as `application/wasm`; GitHub Pages and most hosts do this already.
+- `help/<locale>/*.webp`, the pictures of the in-app help (72 per language, about 12 MB in all). They are copied from `docs/images/` at build time, are not hashed, and load only when someone scrolls to them in **Help**, so they cost nothing on the first screen. Serve `.webp` as `image/webp`.
 
 ### SPA fallback (404.html)
 
