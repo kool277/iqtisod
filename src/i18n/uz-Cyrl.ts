@@ -795,5 +795,9 @@ export const uzCyrl: CoreMessages = {
     TOTP_RECOVERY_USED: 'Кириш учун тиклаш коди ишлатилди',
     CLOCK_FLOOR_RESET: 'Соат текшируви қайта ўрнатилди',
     AUDIT_MARK_RESET: 'Огоҳлантиришдан кейин журнал қабул қилинди',
+    USER_SUSPENDED: 'Фойдаланувчи тўхтатилди',
+    USER_REACTIVATED: 'Фойдаланувчи қайта фаоллаштирилди',
+    USER_MUST_CHANGE_PASSWORD: 'Янги парол талаб қилинди',
+    TRANSACTIONS_REASSIGNED: 'Ёзувлар бошқа одамга ўтказилди',
   },
 }

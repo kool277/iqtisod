@@ -1,6 +1,7 @@
 import type { ExportMessages } from './export/en'
 import type { HealthMessages } from './health/en'
 import type { HelpMessages } from './help/en'
+import type { PeopleMessages } from './people/en'
 import type { TableMessages } from './table/en'
 
 export const en = {
@@ -798,9 +799,13 @@ export const en = {
     TOTP_RECOVERY_USED: 'Sign-in recovery code used',
     CLOCK_FLOOR_RESET: 'Clock check reset',
     AUDIT_MARK_RESET: 'Audit log accepted after a warning',
+    USER_SUSPENDED: 'User suspended',
+    USER_REACTIVATED: 'User reactivated',
+    USER_MUST_CHANGE_PASSWORD: 'New password required',
+    TRANSACTIONS_REASSIGNED: 'Records moved to another person',
   },
 }
 
 /** Everything except the export, health and help strings, which load with their pages, and the table strings, which load with the table chunk. */
 export type CoreMessages = typeof en
-export type Messages = CoreMessages & { export: ExportMessages; table: TableMessages; health: HealthMessages; help: HelpMessages }
+export type Messages = CoreMessages & { export: ExportMessages; table: TableMessages; health: HealthMessages; help: HelpMessages; people: PeopleMessages }

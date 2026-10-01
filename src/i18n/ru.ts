@@ -795,5 +795,9 @@ export const ru: CoreMessages = {
     TOTP_RECOVERY_USED: 'Использован код восстановления для входа',
     CLOCK_FLOOR_RESET: 'Проверка часов сброшена',
     AUDIT_MARK_RESET: 'Журнал принят после предупреждения',
+    USER_SUSPENDED: 'Пользователь приостановлен',
+    USER_REACTIVATED: 'Пользователь восстановлен',
+    USER_MUST_CHANGE_PASSWORD: 'Потребована смена пароля',
+    TRANSACTIONS_REASSIGNED: 'Записи переданы другому человеку',
   },
 }

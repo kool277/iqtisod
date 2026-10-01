@@ -77,6 +77,8 @@ export type Group = {
   createdAt: string
 }
 
+export type UserStatus = 'ACTIVE' | 'SUSPENDED' | 'FORMER'
+
 export type VaultUser = {
   id: string
   email: string
@@ -86,7 +88,7 @@ export type VaultUser = {
   groupName: string | null
   createdAt: string
   updatedAt: string | null
-  status: 'ACTIVE' | 'SUSPENDED' | 'FORMER'
+  status: UserStatus
   /** Records this person entered that the caller may see. */
   records: number
   /** Always false for viewers without MANAGE_USERS: who has a sign-in check is not disclosed to them. */

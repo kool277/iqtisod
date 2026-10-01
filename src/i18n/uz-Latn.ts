@@ -795,5 +795,9 @@ export const uzLatn: CoreMessages = {
     TOTP_RECOVERY_USED: 'Kirish uchun tiklash kodi ishlatildi',
     CLOCK_FLOOR_RESET: 'Soat tekshiruvi qayta oʻrnatildi',
     AUDIT_MARK_RESET: 'Ogohlantirishdan keyin jurnal qabul qilindi',
+    USER_SUSPENDED: 'Foydalanuvchi toʻxtatildi',
+    USER_REACTIVATED: 'Foydalanuvchi qayta faollashtirildi',
+    USER_MUST_CHANGE_PASSWORD: 'Yangi parol talab qilindi',
+    TRANSACTIONS_REASSIGNED: 'Yozuvlar boshqa odamga oʻtkazildi',
   },
 }

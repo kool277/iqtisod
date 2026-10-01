@@ -25,6 +25,7 @@ import type { AuditEntry, Group } from '../domain/types'
 import type { GroupSummary } from '../domain/group-summary'
 import { ledgerPathForGroup } from '../lib/ledger-link'
 import { DataTable, type Column } from './table/DataTable'
+import { auditLabel } from './audit-label'
 import { optionsFrom } from './table/model'
 
 type ArchiveRow = Omit<ArchiveEntry, 'raw'>
@@ -188,13 +189,6 @@ export function GroupsPage() {
       />
     </div>
   )
-}
-
-const auditLabel = (action: string, t: (key: MessageKey) => string) => {
-  const key = `audit.actions.${action}` as MessageKey
-  const securityKey = `securityAudit.${action}` as MessageKey
-  const label = t(key) === key ? t(securityKey) : t(key)
-  return label === securityKey ? action : label
 }
 
 export function AuditPage() {

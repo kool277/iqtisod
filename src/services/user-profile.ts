@@ -1,9 +1,10 @@
 import { setSetting } from '../db/settings'
 import type { SqlDatabase } from '../db/sqlite'
+import type { UserStatus } from '../domain/types'
 import { LIMITS } from '../lib/limits'
 
 /** Absent means active. A suspended or former member has no password copy in the envelope and cannot sign in. */
-export type UserStatus = 'ACTIVE' | 'SUSPENDED' | 'FORMER'
+export type { UserStatus }
 
 export type UserProfile = {
   displayName: string | null
