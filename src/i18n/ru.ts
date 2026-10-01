@@ -19,6 +19,9 @@ export const ru: CoreMessages = {
     lock: 'Заблокировать',
     collapse: 'Свернуть панель',
     expand: 'Развернуть панель',
+    health: 'Проверка состояния',
+    help: 'Справка',
+    helpPage: 'Справка по этой странице',
   },
   setup: {
     title: 'Создайте сейф',

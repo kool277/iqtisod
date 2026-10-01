@@ -1,7 +1,9 @@
 import {
   Archive,
   BookOpen,
+  HeartPulse,
   Layers,
+  LifeBuoy,
   LayoutDashboard,
   Lock,
   PanelLeftClose,
@@ -24,6 +26,7 @@ import { BUILD } from '../lib/version'
 import { Permission, canUser } from '../rbac'
 import { backupReminder } from '../services/backup.service'
 import { BrandMark } from './Brand'
+import { HelpLink, type HelpSectionId } from './help/HelpLink'
 import { Preferences } from './Preferences'
 
 const SIDEBAR_KEY = 'moliya.sidebar'
@@ -45,7 +48,26 @@ const links: {
   { to: '/app/backup', testId: 'nav-backup', label: 'nav.backup', icon: Archive, permission: Permission.EXPORT_VAULT },
   { to: '/app/settings', testId: 'nav-settings', label: 'nav.settings', icon: Settings, permission: Permission.MANAGE_SETTINGS },
   { to: '/app/account', testId: 'nav-account', label: 'nav.account', icon: UserRound },
+  { to: '/app/health', testId: 'nav-health', label: 'nav.health', icon: HeartPulse },
+  { to: '/app/help', testId: 'nav-help', label: 'nav.help', icon: LifeBuoy },
 ]
+
+const HELP_SECTIONS: [prefix: string, section: HelpSectionId][] = [
+  ['/app/transactions', 'transactions'],
+  ['/app/safes', 'safes'],
+  ['/app/users', 'users'],
+  ['/app/groups', 'groups'],
+  ['/app/audit', 'audit'],
+  ['/app/backup', 'backup'],
+  ['/app/settings', 'settings'],
+  ['/app/account', 'account'],
+  ['/app/health', 'health'],
+]
+
+/** The guide section about the page at `pathname`. */
+function helpSectionFor(pathname: string): HelpSectionId {
+  return HELP_SECTIONS.find(([prefix]) => pathname === prefix || pathname.startsWith(`${prefix}/`))?.[1] ?? 'dashboard'
+}
 
 const ACCOUNT_PATH = '/app/account'
 
@@ -108,6 +130,7 @@ export function AppShell() {
             <span data-testid="save-state" className="sr-only text-xs text-muted sm:not-sr-only sm:whitespace-nowrap">
               {t(`status.${saveState}`)}
             </span>
+            {forced ? null : <HelpLink section={helpSectionFor(location.pathname)} testId="header-help" />}
             <Preferences compact />
             <button
               type="button"

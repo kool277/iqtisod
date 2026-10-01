@@ -1,4 +1,6 @@
 import type { ExportMessages } from './export/en'
+import type { HealthMessages } from './health/en'
+import type { HelpMessages } from './help/en'
 import type { TableMessages } from './table/en'
 
 export const en = {
@@ -20,6 +22,9 @@ export const en = {
     lock: 'Lock',
     collapse: 'Collapse sidebar',
     expand: 'Expand sidebar',
+    health: 'Health check',
+    help: 'Help',
+    helpPage: 'Help for this page',
   },
   setup: {
     title: 'Create your vault',
@@ -796,6 +801,6 @@ export const en = {
   },
 }
 
-/** Everything except the export strings, which load with the export panel, and the table strings, which load with the table chunk. */
+/** Everything except the export, health and help strings, which load with their pages, and the table strings, which load with the table chunk. */
 export type CoreMessages = typeof en
-export type Messages = CoreMessages & { export: ExportMessages; table: TableMessages }
+export type Messages = CoreMessages & { export: ExportMessages; table: TableMessages; health: HealthMessages; help: HelpMessages }

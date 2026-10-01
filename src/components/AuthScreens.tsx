@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { Suspense, lazy, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { PasswordHint, ThrottleNotice } from './auth/AuthBits'
 import { SignInCheckStep } from './auth/SignInCheckStep'
@@ -16,6 +16,23 @@ import { useCountdown } from '../lib/use-countdown'
 import { APP_VERSION } from '../lib/version'
 import { parseBackup, type ParsedBackup } from '../services/backup.service'
 
+const HealthPage = lazy(() => import('./health/HealthPage').then((module) => ({ default: module.HealthPage })))
+
+/** Help and the health check, for people who cannot get in. */
+function SupportLinks() {
+  const { t } = useI18n()
+  return (
+    <>
+      <Link to="/help" data-testid="help-entry" className="text-pine-ink hover:underline">
+        {t('nav.help')}
+      </Link>
+      <Link to="/health" data-testid="health-entry" className="text-pine-ink hover:underline">
+        {t('nav.health')}
+      </Link>
+    </>
+  )
+}
+
 export function Splash() {
   return (
     <div className="grid min-h-screen place-items-center">
@@ -29,8 +46,9 @@ const DATA_ERRORS = new Set(['FORMAT_TOO_NEW', 'RECORD_INVALID'])
 export function BootError({ message }: { message: string }) {
   const { t } = useI18n()
   const known = DATA_ERRORS.has(message)
+  const [health, setHealth] = useState(false)
   return (
-    <div className="grid min-h-screen place-items-center p-6">
+    <div className="grid min-h-screen place-items-center gap-8 p-6">
       <div className="max-w-md text-center">
         <h1>
           <BrandLockup />
@@ -40,7 +58,19 @@ export function BootError({ message }: { message: string }) {
         </p>
         {known ? null : <p className="mt-2 text-sm text-muted">{message}</p>}
         <p className="mt-6 text-xs text-muted">v{APP_VERSION}</p>
+        {health ? null : (
+          <button type="button" data-testid="boot-health" className="mt-4 text-sm text-pine-ink hover:underline" onClick={() => setHealth(true)}>
+            {t('nav.health')}
+          </button>
+        )}
       </div>
+      {health ? (
+        <div className="w-full max-w-4xl text-left">
+          <Suspense fallback={<div role="status" aria-busy="true" className="min-h-40" />}>
+            <HealthPage mode="embedded" />
+          </Suspense>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -189,6 +219,9 @@ export function SetupPage() {
           </Button>
         ) : null}
       </div>
+      <div className="mt-6 flex flex-wrap gap-x-4 gap-y-2 border-t border-line pt-4 text-sm">
+        <SupportLinks />
+      </div>
     </AuthFrame>
   )
 }
@@ -261,6 +294,7 @@ export function LoginPage() {
         <Link to="/register?kind=reset" data-testid="reset-link" className="text-pine-ink hover:underline">
           {t('register.resetLink')}
         </Link>
+        <SupportLinks />
       </div>
     </AuthFrame>
   )

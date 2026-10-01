@@ -1,0 +1,17 @@
+import type { HelpMessages } from './en'
+
+export const helpUzCyrl: HelpMessages = {
+  title: 'Ёрдам',
+  search: 'Қўлланмадан қидириш',
+  searchHint: '«захира», «сейф» ёки «парол» каби сўз киритинг.',
+  noResults: 'Қидирувга мос бўлим топилмади.',
+  results: 'Топилган бўлимлар: {count}',
+  contents: 'Мундарижа',
+  openScreen: 'Шу экранни очиш',
+  backToTop: 'Юқорига қайтиш',
+  backToSignIn: 'Киришга қайтиш',
+  loading: 'Қўлланма юкланмоқда…',
+  loadFailed: 'Қўлланмани юклаб бўлмади. Интернет алоқасини текшириб, саҳифани қайта юкланг.',
+  imageOpen: 'Расмни тўлиқ ўлчамда очиш',
+  healthLink: 'Ҳолат текширувини ўтказиш',
+}

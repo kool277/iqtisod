@@ -23,6 +23,10 @@ const SafesTrash = lazy(() => import('./components/safes/SafesTrash').then((modu
 const SafesActivity = lazy(() => import('./components/safes/SafesActivity').then((module) => ({ default: module.SafesActivity })))
 const AccountPage = lazy(() => import('./components/AccountPage').then((module) => ({ default: module.AccountPage })))
 const RegisterPage = lazy(() => import('./components/auth/RegisterPage').then((module) => ({ default: module.RegisterPage })))
+const HealthPage = lazy(() => import('./components/health/HealthPage').then((module) => ({ default: module.HealthPage })))
+const HelpPage = lazy(() => import('./components/help/HelpPage').then((module) => ({ default: module.HelpPage })))
+const HealthStandalone = lazy(() => import('./components/SupportPages').then((module) => ({ default: module.HealthStandalone })))
+const HelpStandalone = lazy(() => import('./components/SupportPages').then((module) => ({ default: module.HelpStandalone })))
 
 function Page({ children }: { children: ReactNode }) {
   return <Suspense fallback={<div role="status" aria-busy="true" className="min-h-40" />}>{children}</Suspense>
@@ -52,6 +56,15 @@ function RequireStatus({ expect, children }: { expect: RouteStatus | RouteStatus
   return children
 }
 
+/** Help and the health check also open before sign-in; once the vault is open they move into the app. */
+function BeforeSignIn({ inApp, children }: { inApp: string; children: ReactNode }) {
+  const { status } = useVault()
+  const location = useLocation()
+  if (status === 'checking') return <Splash />
+  if (status === 'ready') return <Navigate to={`${inApp}${location.search}`} replace />
+  return <Suspense fallback={<Splash />}>{children}</Suspense>
+}
+
 function HomeRedirect() {
   const { status } = useVault()
   if (status === 'checking') return <Splash />
@@ -69,6 +82,8 @@ function AppRoutes() {
         <Route path="/setup" element={<RequireStatus expect="setup"><SetupPage /></RequireStatus>} />
         <Route path="/login" element={<RequireStatus expect={['locked', 'challenge']}><LoginPage /></RequireStatus>} />
         <Route path="/register" element={<RequireStatus expect={['locked', 'setup']}><Suspense fallback={<Splash />}><RegisterPage /></Suspense></RequireStatus>} />
+        <Route path="/health" element={<BeforeSignIn inApp="/app/health"><HealthStandalone /></BeforeSignIn>} />
+        <Route path="/help" element={<BeforeSignIn inApp="/app/help"><HelpStandalone /></BeforeSignIn>} />
         <Route path="/app" element={<RequireStatus expect="ready"><AppShell /></RequireStatus>}>
           <Route index element={<Page><Dashboard /></Page>} />
           <Route path="transactions" element={<Page><Timeline /></Page>} />
@@ -82,6 +97,8 @@ function AppRoutes() {
           <Route path="safes/activity" element={<Page><SafesActivity /></Page>} />
           <Route path="safes/:safeId" element={<Page><SafeView /></Page>} />
           <Route path="account" element={<Page><AccountPage /></Page>} />
+          <Route path="health" element={<Page><HealthPage /></Page>} />
+          <Route path="help" element={<Page><HelpPage /></Page>} />
           <Route path="*" element={<NotFound />} />
         </Route>
         <Route path="/" element={<HomeRedirect />} />

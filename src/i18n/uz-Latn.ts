@@ -19,6 +19,9 @@ export const uzLatn: CoreMessages = {
     lock: 'Qulflash',
     collapse: 'Panelni yigʻish',
     expand: 'Panelni yoyish',
+    health: 'Holat tekshiruvi',
+    help: 'Yordam',
+    helpPage: 'Shu sahifa boʻyicha yordam',
   },
   setup: {
     title: 'Seyf yarating',

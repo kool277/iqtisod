@@ -19,6 +19,9 @@ export const uzCyrl: CoreMessages = {
     lock: 'Қулфлаш',
     collapse: 'Панелни йиғиш',
     expand: 'Панелни ёйиш',
+    health: 'Ҳолат текшируви',
+    help: 'Ёрдам',
+    helpPage: 'Шу саҳифа бўйича ёрдам',
   },
   setup: {
     title: 'Сейф яратинг',
