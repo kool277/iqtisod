@@ -2,6 +2,7 @@ import { ArrowUpRight } from 'lucide-react'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { Button, Field, Notice, controlClass } from './ui'
+import { HelpLink } from './help/HelpLink'
 import { useI18n } from '../context/I18nContext'
 import { usePeriod } from '../context/PeriodContext'
 import { useVault } from '../context/VaultContext'
@@ -393,7 +394,10 @@ export function BackupPage() {
   return (
     <div className="grid max-w-2xl gap-6">
       <div>
-        <h1 className="font-display text-4xl">{t('backup.title')}</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="font-display text-4xl">{t('backup.title')}</h1>
+          <HelpLink section="backup" />
+        </div>
         <p className="mt-2 text-sm text-muted">{t('backup.exportHelp')}</p>
       </div>
       {error ? <Notice>{error}</Notice> : null}

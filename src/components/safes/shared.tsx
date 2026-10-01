@@ -10,6 +10,7 @@ import { toIsoDate } from '../../lib/dates'
 import { textForError } from '../../lib/errors'
 import { confirmRecentAuth, type SafeKeyring } from '../../services/safe.service'
 import { Button, Field, Notice, controlClass } from '../ui'
+import { HelpLink, type HelpSectionId } from '../help/HelpLink'
 
 export const secureInputProps = {
   autoComplete: 'off',
@@ -74,11 +75,14 @@ export function todayIso(): string {
   return toIsoDate(new Date())
 }
 
-export function PageHeader({ title, intro, actions }: { title: string; intro?: string; actions?: ReactNode }) {
+export function PageHeader({ title, intro, actions, help }: { title: string; intro?: string; actions?: ReactNode; help?: HelpSectionId }) {
   return (
     <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div className="min-w-0">
-        <h1 className="break-words font-display text-4xl">{title}</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="break-words font-display text-4xl">{title}</h1>
+          {help ? <HelpLink section={help} /> : null}
+        </div>
         {intro ? <p className="mt-1 max-w-2xl text-sm text-muted">{intro}</p> : null}
       </div>
       {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}

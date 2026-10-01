@@ -18,7 +18,7 @@ export function SafesHome() {
   const { t } = useI18n()
   return (
     <div data-testid="safes-page">
-      <PageHeader title={t('safes.title')} intro={t('safes.intro')} actions={<SafesNav />} />
+      <PageHeader title={t('safes.title')} intro={t('safes.intro')} actions={<SafesNav />} help="safes" />
       <SafesGate>
         <SafesOverview />
       </SafesGate>
