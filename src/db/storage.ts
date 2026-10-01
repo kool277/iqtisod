@@ -87,6 +87,29 @@ async function readRaw(key: string): Promise<unknown> {
   }
 }
 
+/** Small device-local values kept beside the vault (`guard.*`), such as the sign-in throttle mirror. */
+const AUX_PREFIX = 'guard.'
+
+export async function readAux(key: string): Promise<unknown> {
+  if (!key.startsWith(AUX_PREFIX)) throw new Error('Not an auxiliary key')
+  return readRaw(key)
+}
+
+export async function writeAux(key: string, value: unknown): Promise<void> {
+  if (!key.startsWith(AUX_PREFIX)) throw new Error('Not an auxiliary key')
+  const database = await openDatabase()
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = database.transaction(STORE, 'readwrite')
+      transaction.oncomplete = () => resolve()
+      transaction.onabort = () => reject(transaction.error ?? new Error('IndexedDB write aborted'))
+      transaction.objectStore(STORE).put(value, key)
+    })
+  } finally {
+    database.close()
+  }
+}
+
 export async function readVaultRaw(): Promise<unknown> {
   return readRaw(RECORD_ID)
 }

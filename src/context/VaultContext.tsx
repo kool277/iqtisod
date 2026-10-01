@@ -10,7 +10,7 @@ import { LIMITS } from '../lib/limits'
 import { passwordProblem } from '../lib/password-policy'
 import { requestPersistence } from '../lib/persistence'
 import { acquireSessionLock } from '../lib/session-lock'
-import { ThrottledError, createThrottle, type ThrottleScope } from '../lib/throttle'
+import { ThrottledError, createThrottle, indexedDbThrottleMirror, type ThrottleScope } from '../lib/throttle'
 import { Permission, canUser } from '../rbac'
 import { writeAudit } from '../services/audit.service'
 import type { ParsedBackup } from '../services/backup.service'
@@ -39,6 +39,8 @@ type VaultApi = {
   recoveryLeft: number | null
   /** Failed sign-ins for this account in this browser since its last successful one. */
   failuresSeen: number
+  /** Sign-ins for this account in this browser where the password was right but the sign-in check was not passed. */
+  checkFailuresSeen: number
   storageNearLimit: boolean
   idleMinutes: IdleMinutes
   /** Why the vault last locked in this tab; null until it has been locked, and again once it is open. */
@@ -65,7 +67,8 @@ type Unlocked = {
   vault: OpenVault
   loaded: LoadedVault
   release: () => void
-  failuresSeen: { failures: number; since: string | null }
+  /** The sign-in went through the sign-in check. */
+  checked: boolean
   weak: boolean
 }
 
@@ -112,7 +115,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const chainRef = useRef(Promise.resolve())
   const debounceRef = useRef<number | null>(null)
   const pendingRef = useRef<PendingCheck | null>(null)
-  const throttleRef = useRef(createThrottle())
+  const [throttle] = useState(() => createThrottle({ mirror: indexedDbThrottleMirror() }))
+  const throttleRef = useRef(throttle)
   const [status, setStatus] = useState<Status>('checking')
   const [bootError, setBootError] = useState<string | null>(null)
   const [user, setUser] = useState<SessionUser | null>(null)
@@ -124,6 +128,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const [weakPassword, setWeakPassword] = useState(false)
   const [recoveryLeft, setRecoveryLeft] = useState<number | null>(null)
   const [failuresSeen, setFailuresSeen] = useState(0)
+  const [checkFailuresSeen, setCheckFailuresSeen] = useState(0)
   const [vaultBytes, setVaultBytes] = useState(0)
   const [idleMinutes, setIdleMinutesState] = useState<IdleMinutes>(() => readIdleMinutes())
   const [lockReason, setLockReason] = useState<VaultLockReason | null>(null)
@@ -240,16 +245,26 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     [publish],
   )
 
+  /** Counters are cleared only here, once the whole sign-in has succeeded, so a correct password alone hides nothing. */
   const finishLogin = useCallback(
-    async ({ vault, loaded, release, failuresSeen, weak }: Unlocked) => {
-      if (failuresSeen.failures > 0) {
-        writeAudit(vault.db, vault.user.id, 'SIGNIN_FAILURES_SEEN', 'user', vault.user.id, failuresSeen)
+    async ({ vault, loaded, release, checked, weak }: Unlocked) => {
+      const throttle = throttleRef.current
+      const email = vault.user.email
+      const login = throttle.peek('login', email)
+      const totp = throttle.peek('totp', email)
+      // This sign-in's own pending check was counted when it opened.
+      const checkFailures = Math.max(0, throttle.peek('check', email).failures - (checked ? 1 : 0))
+      const failures = login.failures + totp.failures
+      const since = [login.since, totp.since].filter((value): value is string => value !== null).sort()[0] ?? null
+      if (failures > 0 || checkFailures > 0) {
+        writeAudit(vault.db, vault.user.id, 'SIGNIN_FAILURES_SEEN', 'user', vault.user.id, { failures, since, signInCheckFailures: checkFailures })
         vault.needsSave = true
       }
       releaseRef.current = release
       publish(vault, stampOf(loaded.raw))
       setWeakPassword(weak)
-      setFailuresSeen(failuresSeen.failures)
+      setFailuresSeen(failures)
+      setCheckFailuresSeen(checkFailures)
       if (vault.needsSave) {
         const upgraded = loaded.sourceVersion < RECORD_VERSION || loaded.record.schemaVersion < SCHEMA_VERSION
         archiveRef.current = upgraded ? loaded.raw : null
@@ -258,6 +273,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         setSaveState('dirty')
         await enqueuePersist()
       }
+      for (const scope of ['login', 'totp', 'check'] as const) throttle.succeed(scope, email)
     },
     [publish, enqueuePersist],
   )
@@ -275,6 +291,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const login = useCallback(
     async (email: string, password: string) => {
       const throttle = throttleRef.current
+      await throttle.ready
       const wait = throttle.wait('login', email)
       if (wait > 0) throw new ThrottledError(wait)
       const loaded = await readFreshVault()
@@ -296,11 +313,12 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         throw error
       }
       try {
-        const failuresSeen = throttle.succeed('login', email)
         const weak = (await passwordProblem(password, { email: vault.user.email, vaultName: vault.vaultName })) !== null
         const challenge = await openTotpChallenge(vault, password)
-        const unlocked: Unlocked = { vault, loaded, release, failuresSeen, weak }
+        const unlocked: Unlocked = { vault, loaded, release, checked: challenge !== null, weak }
         if (challenge) {
+          // Counted now and cleared only by a full sign-in, so cancelling, timing out or closing the tab all leave a trace.
+          throttle.note('check', vault.user.email)
           const timer = window.setTimeout(() => cancelSignInCheck(), SIGN_IN_CHECK_MS)
           pendingRef.current = { ...unlocked, challenge, timer }
           setStatus('challenge')
@@ -336,7 +354,6 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         }
         throw error
       }
-      throttle.succeed('totp', email)
       pendingRef.current = null
       window.clearTimeout(pending.timer)
       pending.vault.needsSave = true
@@ -350,6 +367,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const redeem = useCallback(
     async (input: RedeemInput) => {
       const throttle = throttleRef.current
+      await throttle.ready
       const wait = throttle.wait('code', input.email)
       if (wait > 0) throw new ThrottledError(wait)
       const loaded = await readFreshVault()
@@ -399,6 +417,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     setWeakPassword(false)
     setRecoveryLeft(null)
     setFailuresSeen(0)
+    setCheckFailuresSeen(0)
     setLockReason(vault ? reason : null)
     setStatus('locked')
   }, [enqueuePersist, releaseSession, cancelSignInCheck])
@@ -415,6 +434,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     setWeakPassword(false)
     setRecoveryLeft(null)
     setFailuresSeen(0)
+    setCheckFailuresSeen(0)
     setSaveState('saved')
     setLockReason(null)
     setStatus('locked')
@@ -468,7 +488,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
   const clearWeakPassword = useCallback(() => setWeakPassword(false), [])
   const clearRecoveryNotice = useCallback(() => setRecoveryLeft(null), [])
-  const clearFailuresSeen = useCallback(() => setFailuresSeen(0), [])
+  const clearFailuresSeen = useCallback(() => {
+    setFailuresSeen(0)
+    setCheckFailuresSeen(0)
+  }, [])
 
   const setIdleMinutes = useCallback((minutes: IdleMinutes) => {
     storeIdleMinutes(minutes)
@@ -545,6 +568,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       weakPassword,
       recoveryLeft,
       failuresSeen,
+      checkFailuresSeen,
       storageNearLimit,
       idleMinutes,
       lockReason,
@@ -577,6 +601,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       weakPassword,
       recoveryLeft,
       failuresSeen,
+      checkFailuresSeen,
       storageNearLimit,
       idleMinutes,
       lockReason,

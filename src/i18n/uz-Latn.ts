@@ -731,6 +731,7 @@ export const uzLatn: CoreMessages = {
     weakAction: 'Parolni oʻzgartirish',
     storageNear: 'Seyf hajmi chegarasiga yaqinlashdi. Joy boʻshatish uchun katta cheklarni olib tashlang.',
     failuresSeen: 'Oxirgi kirishingizdan beri shu brauzerda hisobingizga muvaffaqiyatsiz kirish urinishlari:',
+    checkFailuresSeen: 'Parol toʻgʻri boʻlib, kirish tekshiruvidan oʻtilmagan kirishlar (notoʻgʻri kod, bekor qilingan yoki vaqti tugagan):',
     throttled: 'Urinishlar juda koʻp. Qayta urinishgacha:',
     passwordHint: 'Kamida 12 ta belgi. Bir-biriga bogʻliq boʻlmagan bir nechta soʻz yaxshi ishlaydi.',
     replaceTitle: 'Bu seyfni zaxira nusxa bilan almashtirish',

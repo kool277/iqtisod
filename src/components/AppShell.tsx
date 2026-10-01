@@ -50,7 +50,7 @@ const ACCOUNT_PATH = '/app/account'
 
 export function AppShell() {
   const { t } = useI18n()
-  const { user, vaultName, lock, saveState, query, revision, lastBackupAt, weakPassword, storageNearLimit, recoveryLeft, clearRecoveryNotice, failuresSeen, clearFailuresSeen } = useVault()
+  const { user, vaultName, lock, saveState, query, revision, lastBackupAt, weakPassword, storageNearLimit, recoveryLeft, clearRecoveryNotice, failuresSeen, checkFailuresSeen, clearFailuresSeen } = useVault()
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(SIDEBAR_KEY) === 'collapsed')
   const [reminderDismissed, setReminderDismissed] = useState(false)
   const reminder = useMemo(() => (user ? query((vault) => backupReminder(vault)) : null), [user, query, revision, lastBackupAt])
@@ -172,10 +172,19 @@ export function AppShell() {
               </Link>
             </div>
           ) : null}
-          {failuresSeen > 0 && !forced ? (
+          {(failuresSeen > 0 || checkFailuresSeen > 0) && !forced ? (
             <div role="status" data-testid="failures-seen-banner" className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-clay/50 bg-clay/10 px-4 py-3 text-sm text-clay-ink">
-              <span className="min-w-0">
-                {t('security.failuresSeen')} <strong className="tabular-nums">{failuresSeen}</strong>
+              <span className="min-w-0 space-y-1">
+                {failuresSeen > 0 ? (
+                  <span className="block">
+                    {t('security.failuresSeen')} <strong className="tabular-nums">{failuresSeen}</strong>
+                  </span>
+                ) : null}
+                {checkFailuresSeen > 0 ? (
+                  <span className="block" data-testid="check-failures-seen">
+                    {t('security.checkFailuresSeen')} <strong className="tabular-nums">{checkFailuresSeen}</strong>
+                  </span>
+                ) : null}
               </span>
               <button type="button" className="shrink-0 rounded-xl px-3 py-1.5 hover:text-ink" onClick={clearFailuresSeen}>
                 {t('common.close')}

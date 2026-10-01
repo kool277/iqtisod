@@ -732,6 +732,7 @@ export const en = {
     weakAction: 'Change password',
     storageNear: 'The vault is close to its size limit. Remove large receipts to make room.',
     failuresSeen: 'Failed sign-in attempts for your account in this browser since your last sign-in:',
+    checkFailuresSeen: 'Sign-ins where your password was correct but the sign-in check was not passed (wrong code, cancelled or timed out):',
     throttled: 'Too many attempts. Try again in',
     passwordHint: 'At least 12 characters. A few unrelated words work well.',
     replaceTitle: 'Replace this vault with a backup',
