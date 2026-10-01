@@ -1,1 +1,0 @@
-import{c as e}from"./i18n-CoiFu84k.js";function t(e){return typeof e==`object`&&!!e&&Number.isSafeInteger(e.money)&&typeof e.currency==`string`}function n(t,n){return`${t.header} · ${e(n,`common.currency`)}`}export{t as n,n as t};
