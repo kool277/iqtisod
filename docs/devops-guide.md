@@ -352,6 +352,8 @@ Running apps notice the new `version.json` within 30 minutes, or when the tab be
 
   Prefer rolling forward with a fix. For 1.3.0 in particular, a rollback also loses every invite, reset code, and sign-in check set up since the upgrade.
 
+- **1.4.2 → 1.4.1.** No version number changes, so 1.4.1 opens a vault 1.4.2 saved, but it cannot use wraps or codes that 1.4.2 wrote: people added, invited, or given a new or reset password under 1.4.2 (and anyone whose password protection was upgraded at sign-in) get "wrong password", and codes issued under 1.4.2 are refused. Another Admin whose wrap is older can sign in and reset them. 1.4.1 shows no audit-log warnings and drops the `audit` head when it saves; rolling forward again picks the check up without false warnings, because the log only grew. Prefer rolling forward.
+
 ## Origin and storage isolation
 
 This is the most important operational topic, because it decides whether users can reach their data.
