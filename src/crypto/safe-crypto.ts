@@ -5,6 +5,8 @@ import { base64ToBytes, bytesToBase64, copyToBuffer } from './encoding'
 export const ENC_VERSION = 1
 export const PAD_BLOCK = 256
 export const MAX_PLAINTEXT_BYTES = 32 * 1024
+/** Smallest safe item size class; items pad to 1, 2, 4, 8, 16 or 32 KiB so a note and a password look alike. */
+export const ITEM_PAD_MIN = 1024
 export const PK_SALT_BYTES = 32
 export const RECOVERY_SALT_BYTES = 16
 export const RECOVERY_CODE_BYTES = 15
@@ -96,10 +98,20 @@ export async function unwrapWithAad(
   }
 }
 
-export function pad(content: Uint8Array): Uint8Array {
+export type PadOptions = { sizeClasses?: boolean }
+
+/** Every size is a multiple of PAD_BLOCK, so unpad reads both layouts and items sealed before size classes still open. */
+export function paddedSize(total: number, options: PadOptions = {}): number {
+  if (!options.sizeClasses) return Math.ceil(total / PAD_BLOCK) * PAD_BLOCK
+  let size = ITEM_PAD_MIN
+  while (size < total) size *= 2
+  return size
+}
+
+export function pad(content: Uint8Array, options: PadOptions = {}): Uint8Array {
   const total = 4 + content.byteLength
   if (total > MAX_PLAINTEXT_BYTES) throw new ValidationError('TOO_LONG')
-  const out = new Uint8Array(Math.ceil(total / PAD_BLOCK) * PAD_BLOCK)
+  const out = new Uint8Array(paddedSize(total, options))
   new DataView(out.buffer).setUint32(0, content.byteLength)
   out.set(content, 4)
   return out
@@ -115,8 +127,15 @@ export function unpad(padded: Uint8Array): Uint8Array {
   return padded.slice(4, 4 + length)
 }
 
-export async function sealJson(value: unknown, key: CryptoKey, data: Uint8Array): Promise<Sealed> {
-  const plain = pad(new TextEncoder().encode(JSON.stringify(value)))
+/** Size classes are for safe items only: the other sealed columns have SQL length limits sized for 256-byte blocks. */
+export async function sealJson(value: unknown, key: CryptoKey, data: Uint8Array, options: PadOptions = {}): Promise<Sealed> {
+  const encoded = new TextEncoder().encode(JSON.stringify(value))
+  let plain: Uint8Array
+  try {
+    plain = pad(encoded, options)
+  } finally {
+    encoded.fill(0)
+  }
   try {
     const iv = randomBytes(IV_BYTES)
     const cipher = await crypto.subtle.encrypt(

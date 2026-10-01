@@ -46,6 +46,16 @@ describe('safe crypto', () => {
     expect(() => unpad(tampered)).toThrow(DecryptError)
   })
 
+  it('pads safe items to power-of-two size classes from 1 KiB, still readable by the 256-byte unpad', () => {
+    const cases: [number, number][] = [[0, 1024], [1, 1024], [1020, 1024], [1021, 2048], [2044, 2048], [2045, 4096], [9000, 16384], [MAX_PLAINTEXT_BYTES - 4, MAX_PLAINTEXT_BYTES]]
+    for (const [size, expected] of cases) {
+      const padded = pad(new Uint8Array(size).fill(9), { sizeClasses: true })
+      expect(padded.byteLength, String(size)).toBe(expected)
+      expect(unpad(padded)).toEqual(new Uint8Array(size).fill(9))
+    }
+    expect(() => pad(new Uint8Array(MAX_PLAINTEXT_BYTES - 3), { sizeClasses: true })).toThrow(ValidationError)
+  })
+
   it('gives a card and a short note the same ciphertext size', async () => {
     const key = await generateAesKey(SAFE_KEY_USAGES)
     const card = await sealJson({ kind: 'CARD', number: '4111111111111111', cvv: '737', title: 'Visa' }, key, aad('moliya.item', 'u', 's', 'i', 1))

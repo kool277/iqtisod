@@ -68,6 +68,16 @@ function expire(keyring: SafeKeyring) {
 }
 
 describe('private safes service', () => {
+  it('stores small items of every kind with the same ciphertext length', async () => {
+    const { vault, keyring, safeId } = await managerWithSafes()
+    const cardId = await createItem(vault, keyring, safeId, CARD)
+    await createItem(vault, keyring, safeId, { ...SUBSCRIPTION, cardItemId: cardId })
+    await createItem(vault, keyring, safeId, NOTE)
+    const lengths = vault.db.query('SELECT length(ciphertext) AS size FROM secure_items').map((row) => Number(row.size))
+    expect(lengths).toHaveLength(3)
+    expect(new Set(lengths).size).toBe(1)
+  })
+
   it('sets up, stores every kind of item, and reads it back after seal and unlock', async () => {
     const { vault, keyring, safeId } = await managerWithSafes()
     expect(getSafeStatus(vault)).toEqual({ initialized: true, mustChangePassword: false, stale: false, hasRecovery: false })

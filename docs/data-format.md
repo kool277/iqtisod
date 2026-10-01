@@ -384,7 +384,7 @@ The AAD is the UTF-8 encoding of a compact JSON array, `JSON.stringify([label, 1
 
 `userId` is the owner's `users.id`. Because the AAD names the owner, the safe, the item, and the key version, a row copied to another person, safe, or item id fails to decrypt instead of being accepted.
 
-JSON payloads (user meta, events, safe meta, items) are padded before encryption: `uint32 big-endian length ‖ UTF-8 JSON ‖ zero bytes`, up to the next multiple of 256 bytes. The padded plaintext may not exceed 32 KiB (32,768 bytes, including the 4-byte length). Readers check that the length fits and every padding byte is zero. The padding hides whether an item is a card, a subscription, or a short note: they all produce ciphertexts of the same size.
+JSON payloads (user meta, events, safe meta, items) are padded before encryption: `uint32 big-endian length ‖ UTF-8 JSON ‖ zero bytes`. Since 1.4.2, items are padded to a size class: 1 KiB, then the next power of two (2, 4, 8, 16 or 32 KiB). Everything else (user meta, events, safe meta, the TOTP secret) is padded to the next multiple of 256 bytes, because those columns have SQL length limits sized for it. The padded plaintext may not exceed 32 KiB (32,768 bytes, including the 4-byte length). Readers accept any multiple of 256 bytes, so items written before 1.4.2 (256-byte padding) still open and are moved to a size class the next time they are saved. Readers check that the length fits and every padding byte is zero. The size classes hide whether an item is a card, a subscription, a login or a short note: every item whose JSON is under about 1 KiB produces a ciphertext of the same size, and longer items reveal only their size class, not their kind. Before 1.4.2 the 256-byte padding still let a long card or subscription be told apart from a short note.
 
 ### Recovery code
 
@@ -534,7 +534,7 @@ The optional sign-in check (1.3.0) asks for a time-based one-time password after
 6. **Fixtures are immutable.** Every released format has a golden backup produced by that release. Fixtures are never edited or deleted.
 7. **Old passwords keep working.** KDF parameters are stored per wrap and accepted within the bounds above. Strengthening happens by re-wrapping on sign-in, never by rejecting old parameters. The same holds for the password rules: a password that no longer meets them still opens the vault.
 8. **Open formats only.** The payload is a plain SQLite file (a Library of Congress preferred format for datasets), wrapped in documented Web Crypto primitives, inside JSON.
-9. **Safe rows carry their own version.** Every private safe row has `enc_version` (1 today: AES-256-GCM, 12-byte random IV, the AAD layout above, 256-byte padding). A new scheme gets a new number and a new reader branch; rows are upgraded when they are rewritten, never in bulk by a migration, because only the owner holds the keys.
+9. **Safe rows carry their own version.** Every private safe row has `enc_version` (1 today: AES-256-GCM, 12-byte random IV, the AAD layout above, the padding above; the 1.4.2 item size classes need no new version because readers already accept them). A new scheme gets a new number and a new reader branch; rows are upgraded when they are rewritten, never in bulk by a migration, because only the owner holds the keys.
 
 ## Golden fixtures
 
