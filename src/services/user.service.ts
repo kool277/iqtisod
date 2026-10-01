@@ -1,7 +1,8 @@
 import { bytesToBase64 } from '../crypto/encoding'
-import { CURRENT_KDF, SALT_BYTES, deriveKeyAndVerifier, randomBytes, wrapDek } from '../crypto/crypto.service'
+import { CURRENT_KDF, SALT_BYTES, deriveKeyAndVerifier, randomBytes } from '../crypto/crypto.service'
+import { newUserWrap } from '../crypto/user-wrap'
 import { ForbiddenError, ValidationError, isUniqueViolation } from '../domain/errors'
-import { isRoleName, type OpenVault, type RoleName, type UserWrap, type VaultUser } from '../domain/types'
+import { isRoleName, type OpenVault, type RoleName, type VaultUser } from '../domain/types'
 import { LIMITS } from '../lib/limits'
 import { assertNewPassword } from '../lib/password-policy'
 import { Permission, canUser } from '../rbac'
@@ -97,8 +98,8 @@ export async function createUser(vault: OpenVault, input: NewUserInput): Promise
   const groupId = assertGroup(vault, input.groupId, input.roleName)
   const salt = randomBytes(SALT_BYTES)
   const { key, verifier } = await deriveKeyAndVerifier(input.password, salt, CURRENT_KDF)
-  const wrapped = await wrapDek(vault.dek, key)
   const userId = crypto.randomUUID()
+  const wrap = await newUserWrap(vault.dek, key, { userId, email, kdf: { ...CURRENT_KDF }, salt })
   const replaced = openGrantRows(vault.db).filter((grant) => grant.kind === 'INVITE' && grant.email === email)
   try {
     vault.db.withTransaction(() => {
@@ -123,14 +124,6 @@ export async function createUser(vault: OpenVault, input: NewUserInput): Promise
     throw error
   }
   for (const grant of replaced) dropEnvelopeGrant(vault, grant.id)
-  const wrap: UserWrap = {
-    userId,
-    email,
-    kdf: { ...CURRENT_KDF },
-    salt,
-    iv: wrapped.iv,
-    wrappedDek: wrapped.cipherText,
-  }
   const index = vault.wraps.findIndex((item) => item.userId === userId)
   if (index >= 0) vault.wraps[index] = wrap
   else vault.wraps.push(wrap)
@@ -146,7 +139,7 @@ export async function resetUserPassword(vault: OpenVault, userId: string, passwo
   const resets = openGrantRows(vault.db).filter((grant) => grant.kind === 'RESET' && grant.userId === userId)
   const salt = randomBytes(SALT_BYTES)
   const { key, verifier } = await deriveKeyAndVerifier(password, salt, CURRENT_KDF)
-  const wrapped = await wrapDek(vault.dek, key)
+  const wrap = await newUserWrap(vault.dek, key, { userId, email, kdf: { ...CURRENT_KDF }, salt })
   vault.db.withTransaction(() => {
     vault.db.exec(
       'UPDATE users SET password_hash = ?, salt = ?, must_change_password = 1, password_changed_at = ? WHERE id = ?',
@@ -161,14 +154,6 @@ export async function resetUserPassword(vault: OpenVault, userId: string, passwo
     }
   })
   for (const grant of resets) dropEnvelopeGrant(vault, grant.id)
-  const wrap: UserWrap = {
-    userId,
-    email,
-    kdf: { ...CURRENT_KDF },
-    salt,
-    iv: wrapped.iv,
-    wrappedDek: wrapped.cipherText,
-  }
   const index = vault.wraps.findIndex((item) => item.userId === userId)
   if (index >= 0) vault.wraps[index] = wrap
   else vault.wraps.push(wrap)

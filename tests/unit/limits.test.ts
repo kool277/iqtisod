@@ -145,9 +145,11 @@ describe('backup text caps', () => {
 
 describe('envelope caps', () => {
   it('accepts up to 256 wraps and refuses more', () => {
-    const ok = backupWith((value) => (value.wraps = Array.from({ length: LIMITS.wraps }, () => value.wraps[0])))
+    const people = (count: number) => (value: Record<string, any>) =>
+      (value.wraps = Array.from({ length: count }, (_, index) => ({ ...value.wraps[0], userId: `user-${index}`, email: `p${index}@caps.test` })))
+    const ok = backupWith(people(LIMITS.wraps))
     expect(parseBackupJson(ok).record.wraps).toHaveLength(LIMITS.wraps)
-    const tooMany = backupWith((value) => (value.wraps = Array.from({ length: LIMITS.wraps + 1 }, () => value.wraps[0])))
+    const tooMany = backupWith(people(LIMITS.wraps + 1))
     expect(codeOf(() => parseBackupJson(tooMany))).toBe('BACKUP')
 
     const stored = encodeStoredRecord(baseRecord())

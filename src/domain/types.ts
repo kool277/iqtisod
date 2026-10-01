@@ -1,4 +1,4 @@
-import type { KdfParams } from '../crypto/crypto.service'
+import type { KdfParams, WRAP_AAD_V1 } from '../crypto/crypto.service'
 import type { SqlDatabase } from '../db/sqlite'
 
 export type RoleName = 'Admin' | 'Manager' | 'Viewer'
@@ -32,6 +32,8 @@ export type UserWrap = {
   salt: Uint8Array
   iv: Uint8Array
   wrappedDek: ArrayBuffer
+  /** Present on wraps written from 1.4.2: the wrap's AAD binds its `userId`. */
+  aad?: typeof WRAP_AAD_V1
 }
 
 export type GrantWrap = {
@@ -42,6 +44,8 @@ export type GrantWrap = {
   salt: Uint8Array
   iv: Uint8Array
   wrappedDek: ArrayBuffer
+  /** Present on grants issued from 1.4.2, in plain text and bound into the grant's AAD. */
+  expiresAt?: string
 }
 
 export type OpenVault = {

@@ -1,4 +1,5 @@
-import { deriveKey, unwrapDek } from '../../crypto/crypto.service'
+import { deriveKey } from '../../crypto/crypto.service'
+import { unwrapUserDek } from '../../crypto/user-wrap'
 import { ValidationError } from '../../domain/errors'
 import type { OpenVault } from '../../domain/types'
 
@@ -90,8 +91,7 @@ export async function isSignInPassword(vault: OpenVault, password: string): Prom
   const wrap = vault.wraps.find((item) => item.userId === vault.user.id)
   if (!wrap) return false
   try {
-    const key = await deriveKey(password, wrap.salt, wrap.kdf)
-    await unwrapDek(wrap.wrappedDek, key, wrap.iv)
+    await unwrapUserDek(wrap, await deriveKey(password, wrap.salt, wrap.kdf))
     return true
   } catch {
     return false

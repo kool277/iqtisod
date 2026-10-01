@@ -145,23 +145,23 @@ export async function decryptDatabase(
   return new Uint8Array(plain)
 }
 
-export async function wrapDek(dek: CryptoKey, kek: CryptoKey): Promise<CipherPayload> {
+/** Wraps written from 1.4.2 carry `aad: WRAP_AAD_V1` and bind their `userId`; older wraps have no additional data. */
+export const WRAP_AAD_V1 = 'moliya/wrap/v1'
+
+export function wrapAad(userId: string): Uint8Array {
+  return new TextEncoder().encode(`${WRAP_AAD_V1}|${userId}`)
+}
+
+function gcmParams(iv: Uint8Array, aad?: Uint8Array): AesGcmParams {
+  return aad ? { name: 'AES-GCM', iv: copyToBuffer(iv), additionalData: copyToBuffer(aad) } : { name: 'AES-GCM', iv: copyToBuffer(iv) }
+}
+
+export async function wrapDek(dek: CryptoKey, kek: CryptoKey, aad?: Uint8Array): Promise<CipherPayload> {
   const iv = randomBytes(IV_BYTES)
-  const cipherText = await crypto.subtle.wrapKey('raw', dek, kek, {
-    name: 'AES-GCM',
-    iv: copyToBuffer(iv),
-  })
+  const cipherText = await crypto.subtle.wrapKey('raw', dek, kek, gcmParams(iv, aad))
   return { cipherText, iv }
 }
 
-export async function unwrapDek(wrapped: ArrayBuffer, kek: CryptoKey, iv: Uint8Array): Promise<CryptoKey> {
-  return crypto.subtle.unwrapKey(
-    'raw',
-    wrapped,
-    kek,
-    { name: 'AES-GCM', iv: copyToBuffer(iv) },
-    { name: 'AES-GCM', length: 256 },
-    true,
-    ['encrypt', 'decrypt'],
-  )
+export async function unwrapDek(wrapped: ArrayBuffer, kek: CryptoKey, iv: Uint8Array, aad?: Uint8Array): Promise<CryptoKey> {
+  return crypto.subtle.unwrapKey('raw', wrapped, kek, gcmParams(iv, aad), { name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt'])
 }

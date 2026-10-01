@@ -11,6 +11,7 @@ const SUPPORTED_BACKUP_VERSIONS = [1, 2]
 const LEGACY_KDF = { name: 'PBKDF2', hash: 'SHA-256', iterations: 200000 }
 const KDF_HASHES = ['SHA-256', 'SHA-384', 'SHA-512']
 const ITERATIONS = { min: 100000, max: 10000000 }
+const WRAP_AAD_V1 = 'moliya/wrap/v1'
 
 const USAGE = `Usage:
   node tools/moliya-decrypt.mjs <backup.moliya> --list
@@ -92,10 +93,18 @@ export function readBackup(text) {
       salt: bytes(wrap.salt, `wraps[${index}].salt`),
       iv: bytes(wrap.iv, `wraps[${index}].iv`),
       wrappedDek: bytes(wrap.wrappedDek, `wraps[${index}].wrappedDek`),
+      aad: readWrapAad(wrap, index),
     })),
     grants: readGrants(file.grants),
     body: { iv: bytes(body?.iv, 'body.iv'), ciphertext: bytes(body?.ciphertext, 'body.ciphertext') },
   }
+}
+
+// Wraps written by 1.4.2+ carry aad: "moliya/wrap/v1" and bind their userId as AES-GCM additional data.
+function readWrapAad(wrap, index) {
+  if (wrap.aad === undefined) return null
+  if (wrap.aad !== WRAP_AAD_V1 || typeof wrap.userId !== 'string') throw new Error(`wraps[${index}].aad is not supported`)
+  return new TextEncoder().encode(`${WRAP_AAD_V1}|${wrap.userId}`)
 }
 
 // 1.3.0+ backups may carry one-time invite and reset wraps. They only unlock with a code, so the
@@ -122,7 +131,7 @@ export async function decryptBackup(backup, email, password) {
   const kek = await subtle.importKey('raw', bits, { name: 'AES-GCM', length: 256 }, false, ['decrypt'])
   let rawDek
   try {
-    rawDek = await subtle.decrypt({ name: 'AES-GCM', iv: wrap.iv }, kek, wrap.wrappedDek)
+    rawDek = await subtle.decrypt(wrap.aad ? { name: 'AES-GCM', iv: wrap.iv, additionalData: wrap.aad } : { name: 'AES-GCM', iv: wrap.iv }, kek, wrap.wrappedDek)
   } catch {
     throw new Error('wrong email or password')
   }

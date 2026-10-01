@@ -1,5 +1,5 @@
 import { cloneBuffer, cloneBytes } from '../crypto/encoding'
-import { ConflictError } from '../domain/errors'
+import { ConflictError, CorruptRecordError, ValidationError } from '../domain/errors'
 import type { GrantWrap, UserWrap } from '../domain/types'
 import { APP_VERSION } from '../lib/version'
 import {
@@ -7,6 +7,7 @@ import {
   RECORD_ID,
   decodeStoredRecord,
   encodeStoredRecord,
+  envelopeProblem,
   type DecodedRecord,
   type VaultRecord,
 } from './envelope'
@@ -172,6 +173,7 @@ export function wrapsFromRecord(record: VaultRecord): UserWrap[] {
     salt: cloneBytes(wrap.salt),
     iv: cloneBytes(wrap.iv),
     wrappedDek: cloneBuffer(wrap.wrappedDek),
+    ...(wrap.aad ? { aad: wrap.aad } : {}),
   }))
 }
 
@@ -184,6 +186,7 @@ export function grantsFromRecord(record: VaultRecord): GrantWrap[] {
     salt: cloneBytes(grant.salt),
     iv: cloneBytes(grant.iv),
     wrappedDek: cloneBuffer(grant.wrappedDek),
+    ...(grant.expiresAt ? { expiresAt: grant.expiresAt } : {}),
   }))
 }
 
@@ -196,6 +199,9 @@ export function recordFromSession(input: {
   createdAt: string | null
   updatedAt: string
 }): VaultRecord {
+  const problem = envelopeProblem(input.wraps, input.grants ?? [])
+  if (problem === 'WRAP_COUNT') throw new ValidationError('MEMBER_LIMIT')
+  if (problem) throw new CorruptRecordError()
   return encodeStoredRecord({
     id: RECORD_ID,
     version: RECORD_VERSION,
@@ -211,6 +217,7 @@ export function recordFromSession(input: {
       salt: cloneBuffer(wrap.salt),
       iv: cloneBuffer(wrap.iv),
       wrappedDek: cloneBuffer(wrap.wrappedDek),
+      ...(wrap.aad ? { aad: wrap.aad } : {}),
     })),
     grants: (input.grants ?? []).map((grant) => ({
       id: grant.id,
@@ -220,6 +227,7 @@ export function recordFromSession(input: {
       salt: cloneBuffer(grant.salt),
       iv: cloneBuffer(grant.iv),
       wrappedDek: cloneBuffer(grant.wrappedDek),
+      ...(grant.expiresAt ? { expiresAt: grant.expiresAt } : {}),
     })),
     body: { iv: cloneBuffer(input.iv), ciphertext: cloneBuffer(input.ciphertext) },
   })

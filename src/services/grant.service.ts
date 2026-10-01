@@ -1,11 +1,12 @@
 import { deriveGrantKeys, grantAad, unwrapGrantDek, wrapDekForGrant } from '../crypto/access-crypto'
-import { CURRENT_KDF, SALT_BYTES, deriveKeyAndVerifier, randomBytes, wrapDek } from '../crypto/crypto.service'
+import { CURRENT_KDF, SALT_BYTES, deriveKeyAndVerifier, randomBytes } from '../crypto/crypto.service'
 import { bytesToBase64, cloneBytes } from '../crypto/encoding'
+import { newUserWrap } from '../crypto/user-wrap'
 import { getSetting } from '../db/settings'
 import type { SqlDatabase } from '../db/sqlite'
 import { wrapsFromRecord, type VaultRecord } from '../db/storage'
 import { ForbiddenError, ValidationError, isUniqueViolation } from '../domain/errors'
-import { isRoleName, type GrantWrap, type OpenVault, type RoleName, type UserWrap } from '../domain/types'
+import { isRoleName, type GrantWrap, type OpenVault, type RoleName } from '../domain/types'
 import { generateAccessCode, normalizeAccessCode } from '../lib/access-code'
 import { assertEmail, normalizeEmail } from '../lib/email'
 import { LIMITS } from '../lib/limits'
@@ -242,7 +243,6 @@ export async function redeemGrant(record: VaultRecord, input: RedeemInput, now =
     const salt = randomBytes(SALT_BYTES)
     const kdf = { ...CURRENT_KDF }
     const derived = await deriveKeyAndVerifier(input.password, salt, kdf)
-    const wrapped = await wrapDek(dek, derived.key)
     const wraps = wrapsFromRecord(record)
     if (row.kind === 'INVITE' && wraps.length >= LIMITS.wraps) throw new ValidationError('MEMBER_LIMIT')
     let userId: string
@@ -282,7 +282,7 @@ export async function redeemGrant(record: VaultRecord, input: RedeemInput, now =
     const user = loadUser(db, email)
     if (!user) throw invalid()
     recordMigration(db, user.id, migration)
-    const wrap: UserWrap = { userId, email, kdf, salt, iv: wrapped.iv, wrappedDek: wrapped.cipherText }
+    const wrap = await newUserWrap(dek, derived.key, { userId, email, kdf, salt })
     const index = wraps.findIndex((item) => item.userId === userId)
     if (index >= 0) wraps[index] = wrap
     else wraps.push(wrap)
