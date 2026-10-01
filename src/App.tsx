@@ -4,6 +4,7 @@ import { AppShell } from './components/AppShell'
 import { BootError, LoginPage, SetupPage, Splash } from './components/AuthScreens'
 import { MoveNotice } from './components/MoveNotice'
 import { NotFound } from './components/NotFound'
+import { SupportFrame } from './components/SupportFrame'
 import { UpdateBanner } from './components/UpdateBanner'
 import { I18nProvider } from './context/I18nContext'
 import { ThemeProvider } from './context/ThemeContext'
@@ -25,8 +26,6 @@ const AccountPage = lazy(() => import('./components/AccountPage').then((module) 
 const RegisterPage = lazy(() => import('./components/auth/RegisterPage').then((module) => ({ default: module.RegisterPage })))
 const HealthPage = lazy(() => import('./components/health/HealthPage').then((module) => ({ default: module.HealthPage })))
 const HelpPage = lazy(() => import('./components/help/HelpPage').then((module) => ({ default: module.HelpPage })))
-const HealthStandalone = lazy(() => import('./components/SupportPages').then((module) => ({ default: module.HealthStandalone })))
-const HelpStandalone = lazy(() => import('./components/SupportPages').then((module) => ({ default: module.HelpStandalone })))
 
 function Page({ children }: { children: ReactNode }) {
   return <Suspense fallback={<div role="status" aria-busy="true" className="min-h-40" />}>{children}</Suspense>
@@ -82,8 +81,8 @@ function AppRoutes() {
         <Route path="/setup" element={<RequireStatus expect="setup"><SetupPage /></RequireStatus>} />
         <Route path="/login" element={<RequireStatus expect={['locked', 'challenge']}><LoginPage /></RequireStatus>} />
         <Route path="/register" element={<RequireStatus expect={['locked', 'setup']}><Suspense fallback={<Splash />}><RegisterPage /></Suspense></RequireStatus>} />
-        <Route path="/health" element={<BeforeSignIn inApp="/app/health"><HealthStandalone /></BeforeSignIn>} />
-        <Route path="/help" element={<BeforeSignIn inApp="/app/help"><HelpStandalone /></BeforeSignIn>} />
+        <Route path="/health" element={<BeforeSignIn inApp="/app/health"><SupportFrame><HealthPage mode="standalone" /></SupportFrame></BeforeSignIn>} />
+        <Route path="/help" element={<BeforeSignIn inApp="/app/help"><SupportFrame><HelpPage standalone /></SupportFrame></BeforeSignIn>} />
         <Route path="/app" element={<RequireStatus expect="ready"><AppShell /></RequireStatus>}>
           <Route index element={<Page><Dashboard /></Page>} />
           <Route path="transactions" element={<Page><Timeline /></Page>} />

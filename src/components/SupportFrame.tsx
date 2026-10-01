@@ -1,13 +1,11 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { BrandLockup } from './Brand'
-import { HealthPage } from './health/HealthPage'
-import { HelpPage } from './help/HelpPage'
 import { Preferences } from './Preferences'
 import { useI18n } from '../context/I18nContext'
 
 /** The frame for pages people can open before signing in: the brand, the language and theme, and a way back. */
-function SupportFrame({ children }: { children: ReactNode }) {
+export function SupportFrame({ children }: { children: ReactNode }) {
   const { t } = useI18n()
   return (
     <div className="min-h-screen">
@@ -21,21 +19,5 @@ function SupportFrame({ children }: { children: ReactNode }) {
         {children}
       </main>
     </div>
-  )
-}
-
-export function HealthStandalone() {
-  return (
-    <SupportFrame>
-      <HealthPage mode="standalone" />
-    </SupportFrame>
-  )
-}
-
-export function HelpStandalone() {
-  return (
-    <SupportFrame>
-      <HelpPage standalone />
-    </SupportFrame>
   )
 }
