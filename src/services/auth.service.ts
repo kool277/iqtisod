@@ -27,6 +27,7 @@ import { APP_VERSION } from '../lib/version'
 import { writeAudit } from './audit.service'
 import { observeClock } from '../lib/device-clock'
 import { recordClock, sweepGrants } from './grant-store'
+import { userStatus } from './user-profile'
 
 export { assertEmail, normalizeEmail }
 
@@ -291,6 +292,8 @@ export async function unlockVault(record: VaultRecord, email: string, password: 
   const { db, migration } = opened
   try {
     const user = assertWrapOwner(db, wrap, normalized, verifier)
+    // Suspension removes the password copy; this also refuses a copy put back from an older envelope.
+    if (userStatus(db, user.id) !== 'ACTIVE') throw new AuthError()
     recordMigration(db, user.id, migration)
     // A legacy hash was the raw KEK for this salt, so re-salting makes any copy of it useless.
     const strengthen = kdfNeedsUpgrade(wrap.kdf) || db.queryValue('SELECT password_hash FROM users WHERE id = ?', [user.id]) !== verifier

@@ -28,7 +28,8 @@ import {
   type GrantRow,
 } from './grant-store'
 import { dropTotp } from './totp.service'
-import { checkUserGroup, roleIdByName } from './user.service'
+import { userStatus } from './user-profile'
+import { checkUserGroup, roleIdByName } from './user-rules'
 
 const MINUTE = 60_000
 const HOUR = 60 * MINUTE
@@ -135,41 +136,83 @@ export async function createInvite(
   return { id: wrap.id, kind: 'INVITE', email, code, expiresAt }
 }
 
+export type PreparedReset = {
+  userId: string
+  email: string
+  open: GrantRow[]
+  createdAt: string
+  expiresAt: string
+  stop: boolean
+  code: string
+  wrap: GrantWrap
+  verifier: string
+}
+
+/** Checks and mints a reset code. A suspended person gets one only through reactivation, a former member never. */
+export async function prepareReset(
+  vault: OpenVault,
+  userId: string,
+  input: { validity: GrantValidity; stopOldPassword: boolean },
+  now: Date,
+  reactivating = false,
+): Promise<PreparedReset> {
+  assertManager(vault)
+  if (userId === vault.user.id) throw new ValidationError('USE_ACCOUNT')
+  if (!isGrantValidity(input.validity)) throw new ValidationError('REQUIRED')
+  const email = vault.db.queryValue('SELECT email FROM users WHERE id = ?', [userId])
+  if (email == null) throw new ValidationError('REQUIRED')
+  const status = userStatus(vault.db, userId)
+  if (status === 'FORMER') throw new ValidationError('USER_FORMER')
+  if (status === 'SUSPENDED' && !reactivating) throw new ValidationError('USER_SUSPENDED')
+  const target = String(email)
+  const open = openGrantRows(vault.db).filter((grant) => grant.email === target)
+  if (vault.grants.length - open.length >= LIMITS.grants) throw new ValidationError('INVITE_LIMIT')
+  // Someone with no password copy and no open reset takes a new slot once the code is used.
+  const holdsSlot = vault.wraps.some((item) => item.userId === userId) || open.some((grant) => grant.kind === 'RESET' && grant.userId === userId)
+  if (!holdsSlot && committedWraps(vault) >= LIMITS.wraps) throw new ValidationError('MEMBER_LIMIT')
+  assertClock(vault.db, now)
+  const createdAt = now.toISOString()
+  const expiresAt = expiryFor(now, input.validity)
+  const { code, wrap, verifier } = await mintGrant(vault.dek, 'RESET', target, expiresAt)
+  return { userId, email: target, open, createdAt, expiresAt, stop: input.stopOldPassword, code, wrap, verifier }
+}
+
+/** Runs inside the caller's transaction. */
+export function commitReset(vault: OpenVault, reset: PreparedReset): void {
+  for (const grant of reset.open) {
+    endGrant(vault.db, grant.id, 'REPLACED', vault.user.id, reset.createdAt)
+    writeAudit(vault.db, vault.user.id, grantAuditAction(grant.kind, 'REVOKED'), 'grant', grant.id, { email: reset.email, reason: 'REPLACED' })
+  }
+  vault.db.exec(
+    `INSERT INTO access_grants (id, kind, email, user_id, role_id, group_id, code_verifier, stop_old_password, created_by, created_at, expires_at)
+     VALUES (?, 'RESET', ?, ?, NULL, NULL, ?, ?, ?, ?, ?)`,
+    [reset.wrap.id, reset.email, reset.userId, reset.verifier, reset.stop ? 1 : 0, vault.user.id, reset.createdAt, reset.expiresAt],
+  )
+  writeAudit(vault.db, vault.user.id, 'RESET_ISSUED', 'grant', reset.wrap.id, {
+    email: reset.email,
+    userId: reset.userId,
+    expiresAt: reset.expiresAt,
+    stopOldPassword: reset.stop,
+  })
+}
+
+/** Updates the envelope once the transaction has committed. */
+export function finishReset(vault: OpenVault, reset: PreparedReset): IssuedGrant {
+  for (const grant of reset.open) dropEnvelopeGrant(vault, grant.id)
+  vault.grants.push(reset.wrap)
+  if (reset.stop) vault.wraps = vault.wraps.filter((item) => item.userId !== reset.userId)
+  return { id: reset.wrap.id, kind: 'RESET', email: reset.email, code: reset.code, expiresAt: reset.expiresAt }
+}
+
 export async function issueReset(
   vault: OpenVault,
   userId: string,
   input: { validity: GrantValidity; stopOldPassword: boolean },
   now = new Date(),
 ): Promise<IssuedGrant> {
-  assertManager(vault)
-  if (userId === vault.user.id) throw new ValidationError('USE_ACCOUNT')
-  if (!isGrantValidity(input.validity)) throw new ValidationError('REQUIRED')
-  const email = vault.db.queryValue('SELECT email FROM users WHERE id = ?', [userId])
-  if (email == null) throw new ValidationError('REQUIRED')
-  const target = String(email)
-  const open = openGrantRows(vault.db).filter((grant) => grant.email === target)
-  if (vault.grants.length - open.length >= LIMITS.grants) throw new ValidationError('INVITE_LIMIT')
-  assertClock(vault.db, now)
-  const createdAt = now.toISOString()
-  const expiresAt = expiryFor(now, input.validity)
-  const { code, wrap, verifier } = await mintGrant(vault.dek, 'RESET', target, expiresAt)
-  const stop = input.stopOldPassword
-  vault.db.withTransaction(() => {
-    for (const grant of open) {
-      endGrant(vault.db, grant.id, 'REPLACED', vault.user.id, createdAt)
-      writeAudit(vault.db, vault.user.id, grantAuditAction(grant.kind, 'REVOKED'), 'grant', grant.id, { email: target, reason: 'REPLACED' })
-    }
-    vault.db.exec(
-      `INSERT INTO access_grants (id, kind, email, user_id, role_id, group_id, code_verifier, stop_old_password, created_by, created_at, expires_at)
-       VALUES (?, 'RESET', ?, ?, NULL, NULL, ?, ?, ?, ?, ?)`,
-      [wrap.id, target, userId, verifier, stop ? 1 : 0, vault.user.id, createdAt, expiresAt],
-    )
-    writeAudit(vault.db, vault.user.id, 'RESET_ISSUED', 'grant', wrap.id, { email: target, userId, expiresAt, stopOldPassword: stop })
-  })
-  for (const grant of open) dropEnvelopeGrant(vault, grant.id)
-  vault.grants.push(wrap)
-  if (stop) vault.wraps = vault.wraps.filter((item) => item.userId !== userId)
-  return { id: wrap.id, kind: 'RESET', email: target, code, expiresAt }
+  const reset = await prepareReset(vault, userId, input, now)
+  vault.db.withTransaction(() => commitReset(vault, reset))
+  return finishReset(vault, reset)
 }
 
 export function revokeGrant(vault: OpenVault, id: string, now = new Date()): void {
@@ -304,6 +347,7 @@ export async function redeemGrant(record: VaultRecord, input: RedeemInput, now =
     } else {
       const target = db.queryOne('SELECT id, email FROM users WHERE id = ?', [row.userId])
       if (!target || String(target.email) !== email) throw invalid()
+      if (userStatus(db, String(target.id)) !== 'ACTIVE') throw invalid()
       userId = String(target.id)
       const resetUserId = userId
       db.withTransaction(() => {

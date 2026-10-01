@@ -80,12 +80,24 @@ export type Group = {
 export type VaultUser = {
   id: string
   email: string
+  displayName: string | null
   roleName: string
   groupId: number | null
   groupName: string | null
   createdAt: string
+  updatedAt: string | null
+  status: 'ACTIVE' | 'SUSPENDED' | 'FORMER'
+  /** Records this person entered that the caller may see. */
+  records: number
   /** Always false for viewers without MANAGE_USERS: who has a sign-in check is not disclosed to them. */
   signInCheck: boolean
+  /** The fields below are only filled for people managers; everyone else gets null, false, or 'UNKNOWN'. */
+  lastSignInAt: string | null
+  mustChange: boolean
+  /** PASSWORD: holds a password copy; CODE: waits for an open reset code; NONE: cannot sign in at all. */
+  access: 'PASSWORD' | 'CODE' | 'NONE' | 'UNKNOWN'
+  /** The password copy predates the 1.4.2 binding or uses an older key stretch, so it is rewritten at the next password change. */
+  legacyWrap: boolean
 }
 
 export type LedgerEntry = {

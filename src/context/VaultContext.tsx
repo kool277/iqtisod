@@ -20,6 +20,7 @@ import type { ParsedBackup } from '../services/backup.service'
 import { createVault, sealVault, unlockVault, verifyOwnPassword, type SetupInput } from '../services/auth.service'
 import { redeemGrant, type RedeemInput } from '../services/grant.service'
 import { pruneExpiredGrants } from '../services/grant-store'
+import { noteSignIn } from '../services/user-profile'
 import { completeTotpChallenge, openTotpChallenge, type TotpChallenge } from '../services/totp.service'
 
 type Status = 'checking' | 'setup' | 'locked' | 'challenge' | 'ready' | 'error'
@@ -294,6 +295,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         writeAudit(vault.db, vault.user.id, 'SIGNIN_FAILURES_SEEN', 'user', vault.user.id, { failures, since, signInCheckFailures: checkFailures })
         vault.needsSave = true
       }
+      if (noteSignIn(vault.db, vault.user.id)) vault.needsSave = true
       observeAuditLog(vault, loaded.record.audit)
       releaseRef.current = release
       publish(vault, stampOf(loaded.raw))
@@ -425,6 +427,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       try {
         // Save before publishing so the used code is gone from storage before anything else happens.
         observeAuditLog(vault, loaded.record.audit)
+        noteSignIn(vault.db, vault.user.id)
         const record = await sealVault(vault)
         await writeVault(record, { expectedStamp: stampOf(loaded.raw) })
         markSaved(record.audit)

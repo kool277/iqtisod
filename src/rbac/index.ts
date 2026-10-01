@@ -38,6 +38,11 @@ export function canUser(user: { permissions: readonly string[]; mustChangePasswo
   return user.mustChangePassword !== true && user.permissions.includes(permission)
 }
 
+/** People managers see everyone; someone who may change their group's records sees that group's members, read-only. */
+export function seesMembers(user: { permissions: readonly string[]; mustChangePassword?: boolean; groupId: number | null }): boolean {
+  return canUser(user, Permission.MANAGE_USERS) || (canUser(user, Permission.UPDATE_TRANSACTION) && user.groupId != null)
+}
+
 /** Seeing every group's money goes with managing the groups, the same permission the role screens use. */
 export function seesAllGroups(user: { permissions: readonly string[]; mustChangePassword?: boolean }): boolean {
   return canUser(user, Permission.MANAGE_GROUPS)
