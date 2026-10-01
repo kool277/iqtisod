@@ -2,7 +2,7 @@ import { deriveGrantKeys, grantAad, unwrapGrantDek, wrapDekForGrant } from '../c
 import { CURRENT_KDF, SALT_BYTES, deriveKeyAndVerifier, randomBytes } from '../crypto/crypto.service'
 import { bytesToBase64, cloneBytes } from '../crypto/encoding'
 import { newUserWrap } from '../crypto/user-wrap'
-import { getSetting } from '../db/settings'
+import { getSetting, setSetting } from '../db/settings'
 import type { SqlDatabase } from '../db/sqlite'
 import { wrapsFromRecord, type VaultRecord } from '../db/storage'
 import { ForbiddenError, ValidationError, isUniqueViolation } from '../domain/errors'
@@ -13,10 +13,12 @@ import { LIMITS } from '../lib/limits'
 import { assertNewPassword, assertPasswordLength } from '../lib/password-policy'
 import { Permission, canUser } from '../rbac'
 import { writeAudit } from './audit.service'
-import { buildOpenVault, decryptRecordBody, loadUser, openRecordDatabase, recordMigration, spendPasswordWork } from './auth.service'
+import { buildOpenVault, decryptRecordBody, loadUser, openRecordDatabase, recordMigration, spendPasswordWork, verifyOwnPassword } from './auth.service'
+import { deviceClockFloor, observeClock, resetDeviceClock } from '../lib/device-clock'
 import {
   CLOCK_KEY,
   CLOCK_TOLERANCE_MS,
+  clockFloor,
   committedWraps,
   dropEnvelopeGrant,
   endGrant,
@@ -68,8 +70,8 @@ function assertManager(vault: OpenVault): void {
 }
 
 function assertClock(db: SqlDatabase, now: Date): void {
-  const highWater = getSetting(db, CLOCK_KEY)
-  if (highWater && now.getTime() < Date.parse(highWater) - CLOCK_TOLERANCE_MS) throw new ValidationError('CLOCK_BEHIND')
+  const floor = clockFloor(db)
+  if (floor !== null && now.getTime() < floor - CLOCK_TOLERANCE_MS) throw new ValidationError('CLOCK_BEHIND')
 }
 
 function sameHex(a: string, b: string): boolean {
@@ -79,14 +81,14 @@ function sameHex(a: string, b: string): boolean {
   return diff === 0
 }
 
-async function mintGrant(dek: CryptoKey, kind: GrantRow['kind'], email: string): Promise<{ code: string; wrap: GrantWrap; verifier: string }> {
+async function mintGrant(dek: CryptoKey, kind: GrantRow['kind'], email: string, expiresAt: string): Promise<{ code: string; wrap: GrantWrap; verifier: string }> {
   const id = crypto.randomUUID()
   const access = generateAccessCode()
   const salt = randomBytes(SALT_BYTES)
   const kdf = { ...CURRENT_KDF }
   const { kek, verifier } = await deriveGrantKeys(access.canonical, salt, kdf)
-  const wrapped = await wrapDekForGrant(dek, kek, grantAad(id, kind, email))
-  return { code: access.display, verifier, wrap: { id, kind, email, kdf, salt, iv: wrapped.iv, wrappedDek: wrapped.cipherText } }
+  const wrapped = await wrapDekForGrant(dek, kek, grantAad(id, kind, email, expiresAt))
+  return { code: access.display, verifier, wrap: { id, kind, email, kdf, salt, iv: wrapped.iv, wrappedDek: wrapped.cipherText, expiresAt } }
 }
 
 function expiryFor(now: Date, validity: GrantValidity): string {
@@ -113,9 +115,9 @@ export async function createInvite(
   const groupId = checkUserGroup(vault, input.groupId, input.roleName)
   const roleId = roleIdByName(vault, input.roleName)
   assertClock(vault.db, now)
-  const { code, wrap, verifier } = await mintGrant(vault.dek, 'INVITE', email)
   const createdAt = now.toISOString()
   const expiresAt = expiryFor(now, input.validity)
+  const { code, wrap, verifier } = await mintGrant(vault.dek, 'INVITE', email, expiresAt)
   try {
     vault.db.withTransaction(() => {
       vault.db.exec(
@@ -148,9 +150,9 @@ export async function issueReset(
   const open = openGrantRows(vault.db).filter((grant) => grant.email === target)
   if (vault.grants.length - open.length >= LIMITS.grants) throw new ValidationError('INVITE_LIMIT')
   assertClock(vault.db, now)
-  const { code, wrap, verifier } = await mintGrant(vault.dek, 'RESET', target)
   const createdAt = now.toISOString()
   const expiresAt = expiryFor(now, input.validity)
+  const { code, wrap, verifier } = await mintGrant(vault.dek, 'RESET', target, expiresAt)
   const stop = input.stopOldPassword
   vault.db.withTransaction(() => {
     for (const grant of open) {
@@ -206,6 +208,27 @@ export function listGrants(vault: OpenVault, now = new Date()): GrantSummary[] {
     }))
 }
 
+export type ClockFloor = { vault: string | null; device: string | null }
+
+export function readClockFloor(vault: OpenVault): ClockFloor {
+  assertManager(vault)
+  const device = deviceClockFloor()
+  return { vault: getSetting(vault.db, CLOCK_KEY), device: device === null ? null : new Date(device).toISOString() }
+}
+
+/** Lowers both clock marks to now after a wrong far-future clock. Needs the Admin's password and is audited. */
+export async function resetClockFloor(vault: OpenVault, password: string, now = new Date()): Promise<void> {
+  assertManager(vault)
+  await verifyOwnPassword(vault, password)
+  const before = readClockFloor(vault)
+  const to = now.toISOString()
+  vault.db.withTransaction(() => {
+    setSetting(vault.db, CLOCK_KEY, to)
+    writeAudit(vault.db, vault.user.id, 'CLOCK_FLOOR_RESET', 'vault', 'primary', { vaultFrom: before.vault, deviceFrom: before.device, to })
+  })
+  resetDeviceClock(now.getTime())
+}
+
 function invalid(): ValidationError {
   return new ValidationError('INVITE_INVALID')
 }
@@ -221,24 +244,38 @@ export async function redeemGrant(record: VaultRecord, input: RedeemInput, now =
     await spendPasswordWork(canonical)
     throw invalid()
   }
+  // Every attempt is a clock reading: a later attempt with the clock turned back is then refused.
+  const deviceFloor = deviceClockFloor()
+  observeClock(now.getTime())
+  if (deviceFloor !== null && now.getTime() < deviceFloor - CLOCK_TOLERANCE_MS) throw new ValidationError('CLOCK_BEHIND')
+  if (grant.expiresAt !== undefined && grant.expiresAt <= new Date(Math.max(now.getTime(), deviceFloor ?? 0)).toISOString()) {
+    throw new ValidationError('INVITE_EXPIRED')
+  }
   let dek: CryptoKey
   let verifier: string
   let plain: Uint8Array
   try {
     const keys = await deriveGrantKeys(canonical, cloneBytes(grant.salt), grant.kdf)
     verifier = keys.verifier
-    dek = await unwrapGrantDek(grant.wrappedDek, keys.kek, cloneBytes(grant.iv), grantAad(grant.id, grant.kind, grant.email))
+    dek = await unwrapGrantDek(grant.wrappedDek, keys.kek, cloneBytes(grant.iv), grantAad(grant.id, grant.kind, grant.email, grant.expiresAt))
     plain = await decryptRecordBody(record, dek)
   } catch {
     throw invalid()
   }
-  const { db, migration } = await openRecordDatabase(plain)
+  let opened: Awaited<ReturnType<typeof openRecordDatabase>>
+  try {
+    opened = await openRecordDatabase(plain)
+  } finally {
+    plain.fill(0)
+  }
+  const { db, migration } = opened
   try {
     const row = grantRow(db, grant.id)
     if (!row || row.endedAt || row.kind !== grant.kind || row.email !== email || !sameHex(row.codeVerifier, verifier)) throw invalid()
+    if (grant.expiresAt !== undefined && grant.expiresAt !== row.expiresAt) throw invalid()
     assertClock(db, now)
     const at = now.toISOString()
-    if (row.expiresAt <= at) throw new ValidationError('INVITE_EXPIRED')
+    if (row.expiresAt <= new Date(Math.max(now.getTime(), clockFloor(db) ?? 0)).toISOString()) throw new ValidationError('INVITE_EXPIRED')
     await assertNewPassword(input.password, { email, vaultName: getSetting(db, 'vault_name') ?? undefined })
 
     const salt = randomBytes(SALT_BYTES)

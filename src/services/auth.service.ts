@@ -24,7 +24,8 @@ import { LIMITS } from '../lib/limits'
 import { assertNewPassword } from '../lib/password-policy'
 import { APP_VERSION } from '../lib/version'
 import { writeAudit } from './audit.service'
-import { CLOCK_KEY, sweepGrants } from './grant-store'
+import { observeClock } from '../lib/device-clock'
+import { recordClock, sweepGrants } from './grant-store'
 
 export { assertEmail, normalizeEmail }
 
@@ -101,13 +102,10 @@ function roleId(db: SqlDatabase, name: string): number {
   return Number(value)
 }
 
-function recordClock(db: SqlDatabase, now: string): void {
-  const previous = getSetting(db, CLOCK_KEY)
-  if (!previous || previous < now) setSetting(db, CLOCK_KEY, now)
-}
-
 async function seal(db: SqlDatabase, dek: CryptoKey, wraps: UserWrap[], grants: GrantWrap[], createdAt: string | null): Promise<VaultRecord> {
-  if (readSchemaVersion(db) >= 4) recordClock(db, new Date().toISOString())
+  const now = Date.now()
+  observeClock(now)
+  if (readSchemaVersion(db) >= 4) recordClock(db, now)
   const exported = db.export()
   const sealed = await encryptDatabase(exported, dek)
   return recordFromSession({

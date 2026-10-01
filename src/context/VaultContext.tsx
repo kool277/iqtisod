@@ -4,6 +4,7 @@ import { readVault, readVaultRaw, stampOf, writeVault, type LoadedVault, type Va
 import { RECORD_VERSION, SCHEMA_VERSION } from '../db/versions'
 import type { OpenVault, SessionUser } from '../domain/types'
 import { AppError, AuthError, ConflictError, ForbiddenError, ValidationError, VaultInUseError } from '../domain/errors'
+import { observeClock } from '../lib/device-clock'
 import { readIdleMinutes, storeIdleMinutes, watchIdle, type IdleMinutes } from '../lib/idle'
 import { LIMITS } from '../lib/limits'
 import { passwordProblem } from '../lib/password-policy'
@@ -15,6 +16,7 @@ import { writeAudit } from '../services/audit.service'
 import type { ParsedBackup } from '../services/backup.service'
 import { createVault, sealVault, unlockVault, verifyOwnPassword, type SetupInput } from '../services/auth.service'
 import { redeemGrant, type RedeemInput } from '../services/grant.service'
+import { pruneExpiredGrants } from '../services/grant-store'
 import { completeTotpChallenge, openTotpChallenge, type TotpChallenge } from '../services/totp.service'
 
 type Status = 'checking' | 'setup' | 'locked' | 'challenge' | 'ready' | 'error'
@@ -83,6 +85,21 @@ function bootErrorCode(error: unknown): string {
 
 function isCodeFailure(error: unknown): boolean {
   return error instanceof AppError && (error.code === 'INVITE_INVALID' || error.code === 'INVITE_CODE')
+}
+
+/** Reads the record, records the clock, and removes codes whose plain-text expiry has passed before anything uses them. */
+async function readFreshVault(): Promise<LoadedVault | null> {
+  const loaded = await readVault()
+  if (!loaded) return null
+  const now = Math.max(Date.now(), observeClock())
+  const pruned = pruneExpiredGrants(loaded.record, now)
+  if (!pruned) return loaded
+  try {
+    await writeVault(pruned, { expectedStamp: stampOf(loaded.raw) })
+  } catch {
+    return loaded
+  }
+  return (await readVault()) ?? loaded
 }
 
 export function VaultProvider({ children }: { children: ReactNode }) {
@@ -260,7 +277,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       const throttle = throttleRef.current
       const wait = throttle.wait('login', email)
       if (wait > 0) throw new ThrottledError(wait)
-      const loaded = await readVault()
+      const loaded = await readFreshVault()
       if (!loaded) {
         setStatus('setup')
         throw new AuthError()
@@ -335,7 +352,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       const throttle = throttleRef.current
       const wait = throttle.wait('code', input.email)
       if (wait > 0) throw new ThrottledError(wait)
-      const loaded = await readVault()
+      const loaded = await readFreshVault()
       if (!loaded) throw new ValidationError('NO_VAULT')
       const release = await acquireSessionLock()
       if (!release) throw new VaultInUseError()
@@ -462,7 +479,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     let cancelled = false
     void (async () => {
       try {
-        const existing = await readVault()
+        const existing = await readFreshVault()
         if (cancelled) return
         setStatus(existing ? 'locked' : 'setup')
       } catch (error) {
@@ -471,8 +488,13 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         setStatus('error')
       }
     })()
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') observeClock()
+    }
+    document.addEventListener('visibilitychange', onVisible)
     return () => {
       cancelled = true
+      document.removeEventListener('visibilitychange', onVisible)
     }
   }, [])
 

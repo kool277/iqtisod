@@ -19,6 +19,8 @@ import {
   isGrantValidity,
   issueReset,
   listGrants,
+  readClockFloor,
+  resetClockFloor,
   revokeGrant,
   type GrantSummary,
   type GrantValidity,
@@ -375,6 +377,8 @@ export function UsersPage() {
         </form>
       </details>
 
+      <ClockFloorPanel guarded={guarded} setNotice={setNotice} />
+
       <DataTable
         id="users"
         label={t('users.title')}
@@ -401,6 +405,54 @@ export function UsersPage() {
         }
       />
     </div>
+  )
+}
+
+function ClockFloorPanel({ guarded, setNotice }: { guarded: (action: () => Promise<void>) => Promise<void>; setNotice: (notice: string | null) => void }) {
+  const { t, locale } = useI18n()
+  const { query, run, revision } = useVault()
+  const [password, setPassword] = useState('')
+  const [working, setWorking] = useState(false)
+  const floor = useMemo(() => query((vault) => readClockFloor(vault)), [query, revision])
+  const onReset = (event: FormEvent) => {
+    event.preventDefault()
+    setWorking(true)
+    void guarded(async () => {
+      await run((vault) => resetClockFloor(vault, password), { dirty: true })
+      setPassword('')
+      setNotice(t('invites.clockDone'))
+    }).finally(() => setWorking(false))
+  }
+  return (
+    <details data-testid="clock-floor" className="rounded-3xl border border-line bg-card p-5">
+      <summary className="cursor-pointer font-medium">{t('invites.clockTitle')}</summary>
+      <p className="mt-2 text-sm text-muted">{t('invites.clockHelp')}</p>
+      <dl className="mt-3 grid gap-1 text-sm sm:grid-cols-[auto_1fr] sm:gap-x-4">
+        <dt className="text-muted">{t('invites.clockVault')}</dt>
+        <dd className="tabular-nums">{floor.vault ? formatWhen(floor.vault, locale) : '—'}</dd>
+        <dt className="text-muted">{t('invites.clockDevice')}</dt>
+        <dd className="tabular-nums">{floor.device ? formatWhen(floor.device, locale) : '—'}</dd>
+      </dl>
+      <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={onReset}>
+        <Field label={t('security.replacePassword')}>
+          <input
+            data-testid="clock-floor-password"
+            type="password"
+            autoComplete="current-password"
+            className={controlClass}
+            maxLength={LIMITS.passwordMax}
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            required
+          />
+        </Field>
+        <div className="flex items-end">
+          <Button type="submit" variant="quiet" data-testid="clock-floor-reset" disabled={working}>
+            {t('invites.clockReset')}
+          </Button>
+        </div>
+      </form>
+    </details>
   )
 }
 

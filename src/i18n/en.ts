@@ -669,6 +669,13 @@ export const en = {
     expired: 'Expired',
     revoke: 'Revoke',
     revoked: 'Code revoked.',
+    clockTitle: 'Clock check for codes',
+    clockHelp:
+      'Codes are refused when this device’s clock is behind the latest time the vault or this browser has seen, so turning the clock back cannot revive an expired code. If a wrong clock pushed that time into the future, reset it here after correcting the clock.',
+    clockVault: 'Latest time seen by the vault',
+    clockDevice: 'Latest time seen by this browser',
+    clockReset: 'Reset to the current time',
+    clockDone: 'Clock check reset to the current time.',
     advanced: 'Advanced: set a temporary password instead',
     advancedHelp:
       'You choose a password and tell it to them. They must change it at their first sign-in. An invite code is safer because only they ever know their password.',
@@ -751,7 +758,7 @@ export const en = {
     INVITE_CODE: 'That code is not complete or has a typo. Check it and try again.',
     INVITE_INVALID: 'That email and code do not match an open invitation.',
     INVITE_EXPIRED: 'This code has expired. Ask your administrator for a new one.',
-    CLOCK_BEHIND: 'This device’s clock is behind. Correct the date and time, then try again.',
+    CLOCK_BEHIND: 'This device’s clock is behind the latest time seen. Correct the date and time and try again. If the clock is right, an Admin can reset the clock check on the People page.',
     INVITE_LIMIT: 'Too many open codes. Revoke some first.',
     MEMBER_LIMIT: 'This vault already has the maximum number of people (256).',
     GRANT_OPEN: 'There is already an open code for this email. Revoke it first.',
@@ -778,6 +785,7 @@ export const en = {
     TOTP_DISABLED: 'Sign-in check turned off',
     TOTP_CLEARED: 'Sign-in check removed',
     TOTP_RECOVERY_USED: 'Sign-in recovery code used',
+    CLOCK_FLOOR_RESET: 'Clock check reset',
   },
 }
 

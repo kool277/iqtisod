@@ -29,8 +29,10 @@ async function hkdfHex(bits: Uint8Array, info: string): Promise<string> {
   }
 }
 
-export function grantAad(id: string, kind: string, email: string): Uint8Array {
-  return new TextEncoder().encode(`moliya/grant/v1|${id}|${kind}|${email}`)
+/** Grants issued from 1.4.2 also carry a plain-text `expiresAt`, bound here so it cannot be changed or removed. */
+export function grantAad(id: string, kind: string, email: string, expiresAt?: string): Uint8Array {
+  const text = expiresAt === undefined ? `moliya/grant/v1|${id}|${kind}|${email}` : `moliya/grant/v2|${id}|${kind}|${email}|${expiresAt}`
+  return new TextEncoder().encode(text)
 }
 
 export async function deriveGrantKeys(code: string, salt: Uint8Array, kdf: KdfParams): Promise<{ kek: CryptoKey; verifier: string }> {

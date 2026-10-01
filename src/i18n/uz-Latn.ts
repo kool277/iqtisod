@@ -668,6 +668,13 @@ export const uzLatn: CoreMessages = {
     expired: 'Muddati tugagan',
     revoke: 'Bekor qilish',
     revoked: 'Kod bekor qilindi.',
+    clockTitle: 'Kodlar uchun soat tekshiruvi',
+    clockHelp:
+      'Bu qurilmaning soati ombor yoki shu brauzer koʻrgan eng soʻnggi vaqtdan orqada boʻlsa, kodlar qabul qilinmaydi, shuning uchun soatni orqaga surish muddati oʻtgan kodni qayta tiriltirmaydi. Notoʻgʻri soat bu vaqtni kelajakka surib yuborgan boʻlsa, soatni toʻgʻrilab, uni shu yerda qayta oʻrnating.',
+    clockVault: 'Ombor koʻrgan eng soʻnggi vaqt',
+    clockDevice: 'Shu brauzer koʻrgan eng soʻnggi vaqt',
+    clockReset: 'Joriy vaqtga qaytarish',
+    clockDone: 'Soat tekshiruvi joriy vaqtga qaytarildi.',
     advanced: 'Qoʻshimcha: oʻrniga vaqtinchalik parol oʻrnatish',
     advancedHelp:
       'Siz parol tanlab, uni unga aytasiz. U birinchi kirishda parolni oʻzgartirishi kerak. Taklif kodi xavfsizroq, chunki parolni faqat uning oʻzi biladi.',
@@ -750,7 +757,7 @@ export const uzLatn: CoreMessages = {
     INVITE_CODE: 'Kod toʻliq emas yoki unda xato bor. Tekshirib, qayta urinib koʻring.',
     INVITE_INVALID: 'Bu pochta va kod hech qaysi faol taklifga mos kelmadi.',
     INVITE_EXPIRED: 'Bu kodning muddati tugagan. Administratordan yangisini soʻrang.',
-    CLOCK_BEHIND: 'Bu qurilmaning soati orqada. Sana va vaqtni toʻgʻrilab, qayta urinib koʻring.',
+    CLOCK_BEHIND: 'Bu qurilmaning soati koʻrilgan eng soʻnggi vaqtdan orqada. Sana va vaqtni toʻgʻrilab, qayta urinib koʻring. Soat toʻgʻri boʻlsa, administrator «Odamlar» sahifasida soat tekshiruvini qayta oʻrnatishi mumkin.',
     INVITE_LIMIT: 'Faol kodlar juda koʻp. Avval ulardan baʼzilarini bekor qiling.',
     MEMBER_LIMIT: 'Bu seyfda odamlar soni allaqachon eng koʻp miqdorga yetgan (256).',
     GRANT_OPEN: 'Bu pochta uchun faol kod allaqachon bor. Avval uni bekor qiling.',
@@ -777,5 +784,6 @@ export const uzLatn: CoreMessages = {
     TOTP_DISABLED: 'Kirish tekshiruvi oʻchirildi',
     TOTP_CLEARED: 'Kirish tekshiruvi olib tashlandi',
     TOTP_RECOVERY_USED: 'Kirish uchun tiklash kodi ishlatildi',
+    CLOCK_FLOOR_RESET: 'Soat tekshiruvi qayta oʻrnatildi',
   },
 }
