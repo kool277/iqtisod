@@ -6,6 +6,57 @@ Data formats are versioned separately from the app. Each release lists the forma
 
 ## [Unreleased]
 
+## [1.4.2] - 2026-10-01
+
+Reads backup and record versions 1–2 and schema versions 1–4. Writes backup 2, record 2, schema 4, and export format 1, the same version numbers as 1.4.1. Every vault and backup made by an earlier version opens. Records and backups gain optional fields (a binding label on new password copies, an expiry on new codes, the audit head); see the [version matrix](docs/data-format.md#version-matrix). **1.4.1 cannot open password copies or codes created by 1.4.2**, so roll back only to a backup made before the upgrade.
+
+### Security
+
+This release fixes the findings of an authorized review of the app's cryptography, sign-in, and website in September 2026.
+
+- **Password copies are bound to their person.** Someone who could edit a stored vault or backup could swap the email on two password copies and sign in as the other person, rewriting their credentials. Sign-in now loads the person named by the copy and requires the email, salt, and check value to match; relabelled or duplicate copies and codes are refused. New copies bind the person into their encryption (`aad: moliya/wrap/v1`).
+- **Stronger export passwords.** Encrypted ZIP exports use a fast password check, so they now need a **strong** password, and the form starts with a generated one. Both encrypted formats refuse common passwords (also with look-alike characters such as `P@ssw0rd`) and passwords built from the vault name or members' emails.
+- **A shortened or rewritten audit log is reported.** The audit log's fingerprint chain has no secret, so someone with the vault key could cut off or recompute it. Records and backups now carry the chain head, each browser remembers the furthest head it saw, and sign-in compares them. Admins see a warning with a link to the log and can accept it, which is audited. The documentation no longer calls the log tamper-proof; see Known limits.
+- **Locking clears memory.** Every lock (manual, automatic, or for an update) reloads the page into sign-in, so decrypted data and keys from the session do not stay in memory. Decrypted copies made while opening, saving, and exporting are wiped. An automatic lock still returns to the same page after sign-in.
+- **Private safe items look alike.** Items are padded to size classes (1 KiB, then powers of two up to 32 KiB) instead of 256-byte steps, so a PIN, a card, and a short note can no longer be told apart by size. Existing items open as before and move to a class when next saved.
+- **Recovery tool (`npm run decrypt`).** Iterations are capped at 2,000,000 like the app, the database is scrubbed in a private temporary folder before it is written, key material is wiped after use, and a wrong password and a damaged file give the same message.
+- **Sign-in failures stay visible.** The failed-attempt counters were cleared as soon as the password was right, before the sign-in check (authenticator code). They now clear only after a full sign-in, sign-ins stopped at the sign-in check are counted and audited, and the counters are kept in local storage and IndexedDB so clearing one does not reset them. The global counter no longer locks out an email with no failures of its own.
+- **Setting the clock back no longer revives expired codes.** Each browser keeps a clock mark (`moliya.clock.v1`), and code expiry uses the later of it and the vault's own mark. New codes carry their expiry, bound into their encryption, and expired codes are removed from the stored vault at every load. A mark moves forward by at most two days per save, so one save under a wrong clock cannot block codes for years, and Admins can reset the marks from **People** with their password (audited as **Clock check reset**).
+- **Member limit counts open resets.** A person whose password was stopped by a reset code no longer frees a slot, and using a reset code or a temporary password checks the limit.
+- **Browser archives never keep codes.** The copies kept on upgrade and import are stored without one-time codes, older archives are cleaned when the vault loads, and archive downloads leave codes out, so a used or revoked code plus an old archive no longer opens the vault key.
+- **Defense in depth.** A pending forced password change blocks every service, not only the screens; all-groups access comes from the permission, not the role name; only people managers see who has a sign-in check; the common-password check undoes look-alike characters, separators, and repeats; the automatic lock re-checks when a page returns from the browser's back/forward cache.
+- **CSV exports quote every text cell.** In Excel with `;` as the list separator (the default for Russian and Uzbek), an unquoted cell such as `x;=1+1` was split and its second half ran as a formula. Text cells are always quoted, and a formula start after `;`, a tab, or a line break is neutralised like one at the start of a cell.
+- **Strict schema check.** An opened or imported database must match the app's schema object by object, including the SQL of every table, index, trigger, and view, not only their names, so a crafted file cannot drop a `UNIQUE` or `CHECK` rule. The SQLite export's working connection gets the same hardening as every other connection.
+- **Exchange-rate job.** A line break in an upstream bank's data could inject a GitHub Actions command into the job log. Messages are now escaped, and upstream values are quoted, ASCII-only, and shortened.
+
+### Fixed
+
+- The app starts when the browser blocks or fills local storage; the theme, language, and sidebar choices fall back to their defaults.
+- An exchange-rate snapshot dated more than an hour ahead, cached or served, is ignored instead of winning over every real update.
+- An expired code says it expired again, instead of "no open invitation".
+
+### Changed
+
+- The SQLite worker and OPFS helper scripts, which the app never starts, are no longer published, and the build fails if a package update changes how they are referenced.
+- `CODEOWNERS` also covers the rate job, the entry points, exports, the audit and clock code, and `package.json`.
+
+### Docs
+
+- `SECURITY.md` lists 1.4.x as supported and spells out the known limits. The admin guide, data format, developer guide, and README describe the new fields, the audit warning, clock marks, and archives.
+- The DevOps guide now requires GitHub Pages domain verification (`_github-pages-challenge-kool277.jaybi.uz`) and warns that removing the custom domain without it lets someone else claim it. It adds `www` as a `CNAME` to `kool277.github.io`, SPF `-all`, DMARC moving from `quarantine` to `reject` with reports, a CAA record for Let's Encrypt, FTPS, and HSTS through a proxy.
+
+### Known limits
+
+Not addressed in this release, and listed in `SECURITY.md` and the admin guide:
+
+- Audit entries are not signed by each person. Someone with a password and other tools can still rewrite the log; the new check only catches it on a browser that saw the log before.
+- The vault key does not rotate when a person is removed or a password is reset. That needs a key pair per person (ECDH) so an Admin can re-wrap a new key.
+- Passwords are stretched with PBKDF2-SHA-256 (600,000 rounds), not a memory-hard function such as Argon2id.
+- Private safe items can be put back to an older copy by someone with the vault key; a new item format with the revision in its additional data is planned.
+- The unencrypted fields of the vault file (dates, app and schema versions) are not covered by one authentication tag.
+- Older password copies are not rewritten with the new binding until the password changes; they rely on the salt and check-value match.
+- GitHub Pages cannot send HSTS or other security headers; that needs a proxy such as Cloudflare.
+
 ## [1.4.1] - 2026-10-01
 
 Reads backup and record versions 1–2 and schema versions 1–4. Writes backup 2, record 2, schema 4, and export format 1, the same as 1.4.0. No data format changes.
@@ -224,7 +275,8 @@ Writes backup, record, and schema version 1.
 - Audit log, encrypted `.moliya` backups, day and night themes, and a collapsible sidebar.
 - Deployment to GitHub Pages.
 
-[Unreleased]: https://github.com/kool277/iqtisod/compare/v1.4.1...HEAD
+[Unreleased]: https://github.com/kool277/iqtisod/compare/v1.4.2...HEAD
+[1.4.2]: https://github.com/kool277/iqtisod/compare/v1.4.1...v1.4.2
 [1.4.1]: https://github.com/kool277/iqtisod/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/kool277/iqtisod/compare/v1.3.1...v1.4.0
 [1.3.1]: https://github.com/kool277/iqtisod/compare/v1.3.0...v1.3.1
