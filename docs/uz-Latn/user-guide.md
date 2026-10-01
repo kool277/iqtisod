@@ -339,18 +339,26 @@ Administratorlar guruhni **Guruh nomi**ni yozib, **Guruh qoʻshish** tugmasini b
 <a id="users"></a>
 ## Odamlar va takliflar
 
-Administratorlar seyfni kim ocha olishini **Odamlar** sahifasida (**Foydalanuvchilar** menyu bandi) boshqaradi. Har bir odam oʻsha bitta seyfni oʻz paroli bilan ochadi.
+Administratorlar seyfni kim ocha olishini **Odamlar** sahifasida (**Foydalanuvchilar** menyu bandi) boshqaradi. Har bir odam oʻsha bitta seyfni oʻz paroli bilan ochadi. Menejerlar ham bu sahifani koʻradi, lekin faqat oʻqish uchun va faqat oʻz guruhidagi odamlarni.
 
 [Odamlar sahifasini ochish](https://jaybi.uz/#/app/users)
 
-![Tepasida taklif shakli bor Odamlar sahifasi](../images/uz-Latn/users.webp)
+![Odamlar sahifasi: tepada umumiy koʻrinish, pastda odamlar roʻyxati](../images/uz-Latn/users.webp)
+
+<a id="people-overview"></a>
+### Umumiy koʻrinish
+
+Tepadagi **Umumiy koʻrinish** seyfda nechta odam borligini va 256 ta joydan nechtasi bandligini, jumladan faol kodlar uchun ajratilgan joylarni koʻrsatadi. Unda nechta faol odamda kirish tekshiruvi yoqilgani va kim **Eʼtibor talab qiladi**: parolini oʻzgartirishi kerak, kira olmaydi, guruhi yoʻq, toʻxtatilgan yoki hali eski parol nusxasi bor odamlar. Shuningdek, yaqinda kirganlar, faol kodlar va ularning muddati hamda ikkita kichik grafik — rollar va guruhlar boʻyicha odamlar koʻrinadi. Bu yerda hech qanday maxfiy narsa yoʻq: kodlar, parollar va kalitlar koʻrsatilmaydi.
+
+![Odamlar sahifasidagi umumiy koʻrinish: hisoblagichlar, yaqinda kirganlar, faol kodlar va grafiklar](../images/uz-Latn/users-overview.webp)
 
 <a id="invite"></a>
 ### Odamni taklif qilish (tavsiya etiladi)
 
-1. **Odam taklif qilish** ostida **Uning pochtasi**ni kiriting, **Rol** va **Guruh**ni tanlang hamda kod qancha vaqt ishlashini **Amal qilish muddati** maydonida belgilang.
-2. **Taklif kodini yaratish** tugmasini bosing.
-3. Jaybi kodni bir marta koʻrsatadi. **Kodni nusxalash** yoki **Havolani nusxalash** tugmasini bosing va kodni odamga shaxsan yoki ishonchli kanal orqali bering, soʻng **Tayyor** tugmasini bosing.
+1. **Foydalanuvchi qoʻshish** tugmasini bosing. **Taklif kodini yuborish** allaqachon tanlangan.
+2. **Uning pochtasi**ni kiriting, kod qancha vaqt ishlashini **Amal qilish muddati** maydonida, soʻng **Rol** va **Guruh**ni tanlang.
+3. **Taklif kodini yaratish** tugmasini bosing.
+4. Jaybi kodni bir marta koʻrsatadi. **Kodni nusxalash** yoki **Havolani nusxalash** tugmasini bosing va kodni odamga shaxsan yoki ishonchli kanal orqali bering, soʻng **Tayyor** tugmasini bosing.
 
 ![Faqat bir marta koʻrsatiladigan yangi taklif kodi, «Kodni nusxalash» va «Havolani nusxalash» tugmalari bilan](../images/uz-Latn/invite-code.webp)
 
@@ -359,20 +367,43 @@ Shundan soʻng odam shu brauzerda [kod bilan qoʻshiladi](#joining) va oʻz paro
 <a id="temporary-password"></a>
 ### Odamni vaqtinchalik parol bilan qoʻshish
 
-**Qoʻshimcha: oʻrniga vaqtinchalik parol oʻrnatish** ostida pochta, vaqtinchalik parol, rol va guruhni kiriting va **Foydalanuvchi qoʻshish** tugmasini bosing. Odam birinchi kirishda parolni almashtirishi kerak. Taklif kodi xavfsizroq, chunki unda parolni faqat uning oʻzi biladi.
+**Foydalanuvchi qoʻshish**, soʻng **Vaqtinchalik parol oʻrnatish** tugmasini bosing. Pochta, xohlasangiz ism, vaqtinchalik parol, rol va guruhni kiriting va **Foydalanuvchi qoʻshish** tugmasini bosing. Odam birinchi kirishda parolni almashtirishi kerak. Taklif kodi xavfsizroq, chunki unda parolni faqat uning oʻzi biladi.
 
-![Menejerni vaqtinchalik parol bilan qoʻshish](../images/uz-Latn/user-create.webp)
+![Menejer uchun vaqtinchalik parol bilan «Odam qoʻshish» oynasi](../images/uz-Latn/user-create.webp)
+
+<a id="person-page"></a>
+### Odamning sahifasi
+
+Roʻyxatda odamning pochtasini yoki uning qatoridagi **Ochish** tugmasini bosing. Uning sahifasida profil, rol va guruh, qachon qoʻshilgani va oxirgi marta qachon kirgani, kirish tekshiruvi yoqilganmi va parolini oʻzgartirishi kerakmi, har bir valyutada kiritgan yozuvlari, administratorlar uchun esa audit jurnalidagi soʻnggi yozuvlari koʻrinadi.
+
+![Odamning sahifasi: profil, yozuvlar va faoliyat](../images/uz-Latn/user-detail.webp)
+
+Bu yerdan administrator quyidagilarni qila oladi:
+
+- **Tahrirlash**: ism, pochta, rol va guruhni oʻzgartirish. Pochta oʻzgargandan keyin odam yangi pochta va joriy paroli bilan kiradi. Avval unga berilgan faol kodni bekor qiling.
+- **Parol yangilash kodini berish**, [quyida](#reset-for-someone) aytilganidek.
+- **Kirish tekshiruvini oʻchirish** — autentifikatorini ham, tiklash kodlarini ham yoʻqotgan odam uchun.
+- **Yangi parol talab qilish**: keyingi kirishda u yangi parol tanlashi kerak boʻladi va ungacha boshqa hech narsa qila olmaydi.
+- **Toʻxtatish**: siz uni **Qayta faollashtirish**ingizgacha u kira olmaydi, yozuvlari, shaxsiy seyflari va tarixi esa saqlanadi. Qayta faollashtirilganda u parol yangilash kodini oladi. Toʻxtatishdan oldin saqlangan seyf fayli nusxasi uning eski paroli bilan ochilaveradi, chunki seyf kaliti oʻzgarmaydi.
+- **Oʻchirish**: tasdiqlash uchun uning pochtasini yozing. Agar u yozuvlar kiritgan boʻlsa, ularni boshqa odamga oʻtkazing yoki sobiq aʼzo sifatida shu odam nomida qoldiring. Oʻchirish uning shaxsiy seyflarini butunlay yoʻq qiladi. Audit jurnalida ismi har qanday holatda saqlanadi.
+
+![Odamni oʻchirish va uning yozuvlarini boshqa odamga oʻtkazish](../images/uz-Latn/user-delete.webp)
+
+Oʻzingizni toʻxtata yoki oʻchira olmaysiz, seyfda esa doim kamida bitta faol administrator qoladi. Har bir oʻzgarish audit jurnaliga yoziladi.
+
+<a id="bulk-changes"></a>
+### Bir nechta odamni birdaniga oʻzgartirish
+
+Roʻyxatda odamlarni belgilang, yangi **Rol**, yangi **Guruh** yoki ikkalasini tanlang, **Tanlanganlarga qoʻllash** tugmasini bosing va tasdiqlang. Har bir odamning oʻzgarishi audit jurnaliga alohida yoziladi. Sobiq aʼzolar oʻtkazib yuboriladi.
 
 <a id="reset-for-someone"></a>
 ### Boshqa odamning parolini yangilash
 
-Odamning qatorida **Parol yangilash kodini berish** tugmasini bosing, kod qancha vaqt ishlashini tanlang va **Uning joriy parolini hoziroq bekor qilish** kerakmi-yoʻqmi, hal qiling (parolni boshqa kimdir bilishi mumkin boʻlsa, shuni tanlang). **Parol yangilash kodini berish** tugmasini yana bosing va kodni unga bering. **Oʻrniga vaqtinchalik parol oʻrnatish** — eskiroq usul.
+Odamning qatorida yoki sahifasida **Parol yangilash kodini berish** tugmasini bosing, kod qancha vaqt ishlashini tanlang va **Uning joriy parolini hoziroq bekor qilish** kerakmi-yoʻqmi, hal qiling (parolni boshqa kimdir bilishi mumkin boʻlsa, shuni tanlang). **Parol yangilash kodini berish** tugmasini yana bosing va kodni unga bering. Qatordagi **Oʻrniga vaqtinchalik parol oʻrnatish** — eskiroq usul.
 
 ![Aʼzo uchun parol yangilash kodini berish](../images/uz-Latn/user-reset-code.webp)
 
 Parolni yangilashdan oldin sariq ogohlantirishni oʻqing: uning shaxsiy seyflari oldingi paroli yoki tiklash kodi kiritilmaguncha qulflangan qoladi. Siz hech kimning seyflarini ocha ham, tiklay ham olmaysiz.
-
-Oʻsha qatordagi **Kirish tekshiruvini oʻchirish** autentifikatorini ham, tiklash kodlarini ham yoʻqotgan odamga yordam beradi, **Olib tashlash** esa odamni seyfdan chiqaradi. Odamni olib tashlash uning shaxsiy seyflarini ham butunlay yoʻq qiladi, hali yozuvlari bor odamni esa olib tashlab boʻlmaydi. Seyfda doim kamida bitta administrator qoladi.
 
 <a id="clock"></a>
 ### Kodlar uchun soat tekshiruvi
@@ -631,7 +662,7 @@ Har bir qator qisqa izoh bilan **Joyida**, **Ogohlantirish**, **Muammo bor** yok
 | **Valyuta kurslari** | Kurslar joriymi va nazorat yigʻindisiga mosmi |
 | **Xavfsizlik** | Kontent xavfsizlik siyosati, boshqa sahifa ichida ishlamaslik va manzil |
 
-**Faqat administrator uchun** deb belgilangan qatorlar faqat administratorlarga koʻrinadi: audit jurnali qatorlari, oldingi nusxalar va odamlar soni. Administratorlar zaxira nusxa sanalari va soat belgilarini ham koʻradi. Boshqalar brauzer va oʻz hisobi haqidagi qisqaroq roʻyxatni koʻradi; zaxira nusxa qatori ularga faqat zaxira nusxalarni administrator olishini eslatadi.
+**Faqat administrator uchun** deb belgilangan qatorlar faqat administratorlarga koʻrinadi: audit jurnali qatorlari, oldingi nusxalar, odamlar soni va **Hisoblar tartibi** — bu qator kimdir kira olmasa, kod muddati tugagan boʻlsa yoki eski parol nusxasi qolgan boʻlsa ogohlantiradi; unda faqat sonlar koʻrsatiladi. Administratorlar zaxira nusxa sanalari va soat belgilarini ham koʻradi. Boshqalar brauzer va oʻz hisobi haqidagi qisqaroq roʻyxatni koʻradi; zaxira nusxa qatori ularga faqat zaxira nusxalarni administrator olishini eslatadi.
 
 ![Kuzatuvchi koʻradigan Holat tekshiruvi](../images/uz-Latn/viewer-health.webp)
 

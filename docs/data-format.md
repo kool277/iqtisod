@@ -24,10 +24,14 @@ Three formats are versioned independently of the app version. A change to one do
 | 1.4.0 | 2 | 2 | 4 | PBKDF2-SHA-256, 600,000 iterations |
 | 1.4.1 | 2 | 2 | 4 | PBKDF2-SHA-256, 600,000 iterations |
 | 1.4.2 | 2 | 2 | 4 | PBKDF2-SHA-256, 600,000 iterations |
+| 1.5.0 | 2 | 2 | 4 | PBKDF2-SHA-256, 600,000 iterations |
+| 1.6.0 | 2 | 2 | 4 | PBKDF2-SHA-256, 600,000 iterations |
 
 1.3.0, 1.3.1, and 1.4.0 read every row above them: record and backup versions 1–2 and schema versions 1–4. They write record 2, backup 2, and schema 4. Readers never lose support for a version once it has been released. Private safes (1.2.0) live inside the encrypted database, so they changed only the schema version; the record and backup formats are the same as in 1.1.0. One-time codes and the sign-in check (1.3.0) add two tables (schema 4) and an optional `grants` field to the record and backup; the record and backup version numbers stay at 2 (see [One-time code wraps](#one-time-code-wraps-grants)). Because the backup carries `schemaVersion`, 1.1.0 refuses a 1.2.0 vault or backup, and 1.1.0 and 1.2.0 refuse a 1.3.0 one, with `FORMAT_TOO_NEW` instead of misreading it. The data is left untouched.
 
 1.4.2 adds three optional fields without changing any version number: `aad` on wraps, `expiresAt` on grants, and `audit` on the record and backup. It reads everything earlier releases wrote. Earlier releases ignore the new fields, which is safe for `audit` but not for the other two: they cannot open a wrap that has `aad` (written for every new person, every new or reset password, and every KDF upgrade from 1.4.2) or redeem a grant that has `expiresAt` (every code issued from 1.4.2), and report a wrong password. So after 1.4.2 has saved a vault, going back to 1.4.1 locks out exactly those people and codes until an Admin resets them there; see [Rollback](devops-guide.md#rollback). The 1.4.2 recovery tool reads both kinds of wrap.
+
+1.6.0 changes no version number. People details live in `settings` rows (see [People](#people-user_profile)) that earlier releases ignore, so 1.5.0 and earlier open a 1.6.0 vault unchanged; a suspended or former member has no wrap there either.
 
 The constants live in `src/db/versions.ts`. The KDF parameters live in `src/crypto/crypto.service.ts`.
 
@@ -541,6 +545,34 @@ The optional sign-in check (1.3.0) asks for a time-based one-time password after
 - **Encryption of the secret**: `kdf` (JSON, same bounds as wraps) and `kdf_salt` (32 bytes, base64) feed a separate PBKDF2 run over the person's password; HKDF-SHA-256 with `info = "moliya/totp-kek/v1"` and an empty salt turns the output into an AES-256-GCM key. `secret_iv` and `secret_ciphertext` hold `{"secret":"<base32>"}`, padded and encrypted exactly like safe payloads (see [Encryption and AAD](#encryption-and-aad)), with AAD `["moliya.totp",1,userId]`. Nobody else's password, and no Admin, can read it.
 - **Recovery codes**: 10 codes of 10 random bytes (80 bits) each, written as 16 Crockford base32 characters and shown as `XXXX-XXXX-XXXX-XXXX`, without a check symbol. Input is normalised like a one-time code. Each is stored as `hex(HMAC-SHA-256(key = recovery_salt, UTF-8("moliya/totp-recovery/v1|" + code)))`, where `recovery_salt` is 32 random bytes. Using a code removes its hash from `recovery_hashes` and writes `TOTP_RECOVERY_USED` with the number left.
 - **Lifecycle**: changing one's own password re-encrypts the secret under the new password with a new salt in the same transaction and sets `rewrapped_at`. The row is deleted when its owner turns the check off (with their password), when an Admin turns it off for them (`TOTP_CLEARED`), and when an Admin sets a temporary password or the person uses a reset code.
+
+## People (`user_profile`)
+
+1.6.0 keeps the schema at version 4. Per-person details are one `settings` row each, key `user_profile:<userId>`, value a JSON object of at most 1,024 characters with these optional members (absent means not set):
+
+| Member | Meaning |
+| --- | --- |
+| `displayName` | Name shown next to the email, trimmed, at most the name length limit. |
+| `updatedAt` | ISO 8601 UTC time an Admin last changed the person. |
+| `lastSignInAt` | ISO 8601 UTC time of the last completed sign-in, recorded at most every 10 minutes. |
+| `status` | `SUSPENDED` or `FORMER`; absent means active. |
+| `statusAt` | ISO 8601 UTC time the status last changed. |
+
+Readers ignore unknown members and treat a malformed value as empty. The row is removed when nothing is left in it and when the person is removed. It is not included in SQLite exports (see [SQLite export](#sqlite-export)).
+
+- **Suspended**: the person's wrap leaves the envelope and their open codes end as `REVOKED`; unlocking and redeeming codes refuse them. Their data stays. The DEK does not change, so a copy of the vault saved before the suspension still opens with their old password. Reactivating issues a reset code that stops the old password (`stop_old_password = 1`) and clears the status.
+- **Former**: what is left when a person with records is removed and their records are kept. The `users` row stays so transactions and audit entries still name them; the wrap, codes, sign-in check, and private safes are gone, and they cannot be edited, reactivated, or chosen as a target.
+
+Audit actions added in 1.6.0 (entity `user`, entity ID the person's ID):
+
+| Action | Details |
+| --- | --- |
+| `USER_SUSPENDED` | `email`, `hadPassword` (whether a wrap was removed), `codesRevoked` (count). Each revoked code also writes `INVITE_REVOKED` or `RESET_REVOKED` with `reason: "SUSPENDED"`. |
+| `USER_REACTIVATED` | `email`, `expiresAt` of the reset code issued with it. |
+| `USER_MUST_CHANGE_PASSWORD` | `email`. Sets `users.must_change_password = 1`. |
+| `TRANSACTIONS_REASSIGNED` | `email` of the removed person, `to` and `toEmail` of the new owner, `count`. Written just before `USER_DELETED`. |
+
+`USER_DELETED` details now also carry `records` (`KEPT` or `REASSIGNED`) and `count` when the person had records, plus `to` when they were moved; with `KEPT`, revoked codes write `reason: "DELETED"`. `USER_UPDATED` details carry `role` and `groupId`, plus `email` and `previousEmail` when the email changed, `displayName` when the name changed, and `bulk: true` when the change was part of a bulk change.
 
 ## Compatibility rules
 

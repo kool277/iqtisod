@@ -49,13 +49,19 @@ Groups cannot be renamed from the app yet.
 
 ## People
 
-Open **Users** (the page is titled **People**).
+Open **Users** (the page is titled **People**). Managers see the page too, read-only and only for the people in their own group: no overview, no actions, no audit activity, sign-in times or sign-in-check status. Viewers do not see it.
+
+### Overview
+
+**Overview** at the top counts people (former members apart), the places used out of 256 (password copies plus places held for open invites and for resets that stopped the old password), the share of active people with a sign-in check, and **Needs attention**: people who must change their password, cannot sign in (no password copy and no open code), Managers or Viewers without a group, suspended people, and **older password copies** (a copy made before 1.4.2 or with an older key stretch; it is rewritten the next time that person changes their password). It also shows the five most recent sign-ins, how many people signed in within 30 days, the open codes with their expiry, and charts by role and by group. It shows counts and emails only, never codes, passwords or keys.
+
+Sign-ins are recorded from 1.6.0 on, at most once every 10 minutes per person, inside the encrypted vault.
 
 ### Inviting a person
 
 An invite is a one-time code. The person enters it with their email and chooses their own password, so you never know it.
 
-1. Under **Invite someone**, enter **Their email**.
+1. Choose **Add user**; **Send an invite code** is selected. Enter **Their email**.
 2. Choose how long the code works under **Code works for**: 15 minutes, 1 hour, 24 hours (the default), 3 days, or 7 days. Shorter is safer.
 3. Choose a **role**, and a **group** for Managers and Viewers. You can invite another Admin; Admins need no group.
 4. Choose **Create invite code**.
@@ -81,7 +87,7 @@ Choose **Revoke** to end a code at once, for example if it was sent to the wrong
 
 ### Adding a person with a temporary password
 
-**Advanced: set a temporary password instead** opens the old way of adding people: enter their **Email**, a **Password**, a role and a group, and choose **Add user**. The password must follow the same rules as any other (at least 12 characters, not common). Give it privately. At their first sign-in Jaybi makes them choose a new password that only they know, and every page leads to **Account** until they do.
+In **Add user**, choose **Set a temporary password**: enter their **Email**, optionally a **Name**, a **Password**, a role and a group, and choose **Add user**. The password must follow the same rules as any other (at least 12 characters, not common). Give it privately. At their first sign-in Jaybi makes them choose a new password that only they know, and every page leads to **Account** until they do.
 
 Prefer an invite. With a temporary password you know their password until they change it, and a backup made in between opens with it. Adding someone this way ends any open invite for the same email.
 
@@ -89,7 +95,7 @@ After joining, people change their password themselves under **Account → Chang
 
 ### Resetting a password
 
-Choose **Issue reset code** on the person's row. The same form shows a warning about private safes, a **Code works for** choice (24 hours by default), and a box, ticked by default:
+Choose **Issue reset code** on the person's row or on their page. The same form shows a warning about private safes, a **Code works for** choice (24 hours by default), and a box, ticked by default:
 
 - **Stop their current password from working now**: choose this if someone else may know the password. The old password stops working as soon as the change is saved, and the person cannot sign in at all until they use the code. If the code expires or you revoke it, they stay locked out until you issue a new code or set a temporary password.
 - Untick it if the person simply forgot their password. The old password keeps working until the code is used.
@@ -112,15 +118,25 @@ You cannot reset your own password from **Users**. Use **Account → Change pass
 
 People who turned on the [sign-in check](user-guide.md#sign-in-check) show **Sign-in check on** next to their role. If they lose both their authenticator app and their recovery codes, choose **Turn off sign-in check** on their row and confirm. They can then sign in with their password alone and set it up again. Do this only after you have confirmed who is asking. You cannot turn off your own check here; use **Account**, which asks for your password.
 
-### Removing a person
+### A person's page
 
-Choose **Remove** and confirm. The dialog always warns that removing a person also permanently destroys their private safes; nobody can recover them afterwards. Any open reset code for them ends too. Removal is blocked in three cases:
+Choose the email in the list, or **Open**, to reach `#/app/users/<id>`. It shows the profile (name, email, role, group, added, updated, last sign-in, sign-in check, pending password change, how they sign in, any open code), their records per currency within what you can see (amounts in different currencies are never added together), and for Admins their last 50 audit entries. Admins get these actions there; Managers only read.
 
-- The person still has records. Delete or reassign those records first.
-- The person is the last Admin.
-- The person is you.
+- **Edit**: name, email, role and group. The email stays unique. After a change the person signs in with the new email and their current password; the password copy is relabelled, not rewritten. A change is refused while a code is open for the person or for the new email, because codes are bound to the email they were made for. Demoting the last active Admin is refused. Recorded as "User updated" with the old and new email.
+- **Require a new password**: at the next sign-in they must choose a new password, and every page leads to **Account** until they do. Recorded as "New password required".
+- **Suspend**: removes their password copy from the vault and revokes their open codes, so they cannot sign in; records, private safes and history stay. Recorded as "User suspended". The vault key does not change, so **a copy of the vault file saved before the suspension still opens with their old password**: treat any copy they could have as theirs. You cannot suspend yourself or the last active Admin.
+- **Reactivate**: issues a reset code (the old password stays off) and shows it once. Recorded as "User reactivated" and "Reset code issued".
+- **Delete**: type their email to confirm. If they entered records, choose:
+  - **Move them to another person**: their records are reassigned to someone you pick, recorded as "Records moved to another person", then the person is removed.
+  - **Keep them under this person as a former member**: the person stays in the list as **Former member**, with no password, codes, sign-in check or private safes, so their records still name them. A former member can later be deleted with reassignment.
 
-Changing someone's role or group after creation is not available from the screen yet. For now, remove the person and add them again with the new role (possible only if they have no records), or ask a developer to expose the existing `updateUser` service.
+  Without records the person is simply removed. Deleting always destroys their private safes for good. The audit log keeps their entries; for a removed person the log shows the email recorded when they were deleted. You cannot delete yourself or the last active Admin.
+
+### Changing several people at once
+
+Tick people in the list; a bar appears with **Role** and **Group**. Choose one or both, **Apply to selected**, and confirm. The change is all or nothing: if one person cannot be changed (for example it would leave no active Admin) nothing changes. Each changed person gets their own "User updated" entry. Former members are skipped.
+
+All actions on this page are checked again by the services, not only hidden on screen: only Admins can change people, and a forced password change blocks everything else. They respect the 256-person limit, including places held for open codes.
 
 ## Private safes and Admins
 

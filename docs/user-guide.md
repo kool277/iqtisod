@@ -339,18 +339,26 @@ Admins add a group by typing its **Group name** and choosing **Add group**. A gr
 <a id="users"></a>
 ## People and invitations
 
-Admins manage who can open the vault on the **People** page (menu item **Users**). Each person unlocks the same vault with their own password.
+Admins manage who can open the vault on the **People** page (menu item **Users**). Each person unlocks the same vault with their own password. Managers see the page too, read-only, for the people in their own group.
 
 [Open People](https://jaybi.uz/#/app/users)
 
-![The People page with the invitation form at the top](images/en/users.webp)
+![The People page with the overview at the top and the list of people below](images/en/users.webp)
+
+<a id="people-overview"></a>
+### The overview
+
+**Overview** at the top counts the people in the vault and how many of the 256 places are used, including places held for open codes. It shows how many active people have a sign-in check and who **Needs attention**: people who must change their password, cannot sign in, have no group, are suspended, or still have an older password copy. It also lists recent sign-ins and open codes with their expiry, and two small charts show people by role and by group. Nothing secret appears here: no codes, passwords or keys.
+
+![The People overview with counts, recent sign-ins, open codes and charts](images/en/users-overview.webp)
 
 <a id="invite"></a>
 ### Inviting someone (recommended)
 
-1. Under **Invite someone**, enter **Their email**, choose the **Role** and the **Group**, and choose how long the **Code works for**.
-2. Choose **Create invite code**.
-3. Jaybi shows the code once. Choose **Copy code** or **Copy link** and give it to the person in person or over a channel you trust, then choose **Done**.
+1. Choose **Add user**. **Send an invite code** is already selected.
+2. Enter **Their email**, choose how long the **Code works for**, then the **Role** and the **Group**.
+3. Choose **Create invite code**.
+4. Jaybi shows the code once. Choose **Copy code** or **Copy link** and give it to the person in person or over a channel you trust, then choose **Done**.
 
 ![A new invite code, shown only once, with Copy code and Copy link](images/en/invite-code.webp)
 
@@ -359,20 +367,43 @@ The person then [joins with the code](#joining) in this browser and chooses thei
 <a id="temporary-password"></a>
 ### Adding someone with a temporary password
 
-Under **Advanced: set a temporary password instead**, enter the email, a temporary password, the role and the group, and choose **Add user**. The person must replace the password at their first sign-in. An invite code is safer, because then only they ever know their password.
+Choose **Add user**, then **Set a temporary password**. Enter the email, a name if you like, a temporary password, the role and the group, and choose **Add user**. The person must replace the password at their first sign-in. An invite code is safer, because then only they ever know their password.
 
-![Adding a Manager with a temporary password](images/en/user-create.webp)
+![The Add user dialog with a temporary password for a Manager](images/en/user-create.webp)
+
+<a id="person-page"></a>
+### A person's page
+
+Choose a person's email in the list, or **Open** on their row. Their page shows the profile, role and group, when they were added and last signed in, whether they have a sign-in check or must change their password, the records they entered in each currency, and, for admins, their recent entries in the audit log.
+
+![A person's page with profile, records and activity](images/en/user-detail.webp)
+
+From there an admin can:
+
+- **Edit** the name, email, role and group. After an email change the person signs in with the new email and their current password. Revoke any open code for them first.
+- **Issue reset code**, as described [below](#reset-for-someone).
+- **Turn off sign-in check** for someone who lost both their authenticator and their recovery codes.
+- **Require a new password**: they must choose one at their next sign-in and can do nothing else until then.
+- **Suspend**: they cannot sign in until you **Reactivate** them, and their records, private safes and history stay. Reactivating gives them a reset code. A copy of the vault file saved before the suspension still opens with their old password, because the vault key does not change.
+- **Delete**: type their email to confirm. If they entered records, move them to another person or keep them under this person as a former member. Deleting destroys their private safes for good. The audit log keeps their name either way.
+
+![Deleting a person, with their records moved to someone else](images/en/user-delete.webp)
+
+You cannot suspend or delete yourself, and the vault always keeps at least one active admin. Every change is written to the audit log.
+
+<a id="bulk-changes"></a>
+### Changing several people at once
+
+Tick people in the list, choose a new **Role**, a new **Group** or both, choose **Apply to selected** and confirm. Each person's change is written to the audit log on its own. Former members are left out.
 
 <a id="reset-for-someone"></a>
 ### Resetting someone's password
 
-On the person's row, choose **Issue reset code**, choose how long the code works, and decide whether to **Stop their current password from working now** (choose this if someone else may know it). Choose **Issue reset code** again and give them the code. **Set a temporary password instead** is the older way.
+On the person's row or their page, choose **Issue reset code**, choose how long the code works, and decide whether to **Stop their current password from working now** (choose this if someone else may know it). Choose **Issue reset code** again and give them the code. **Set a temporary password instead** on the row is the older way.
 
 ![Issuing a reset code for a member](images/en/user-reset-code.webp)
 
 Read the yellow note before you reset: their private safes stay locked until they enter their previous password or their recovery code. You cannot open or recover anyone's safes.
-
-On the same row, **Turn off sign-in check** helps someone who lost both their authenticator and their recovery codes, and **Remove** takes a person out of the vault. Removing someone also destroys their private safes for good, and a person who still has records cannot be removed. The vault always keeps at least one admin.
 
 <a id="clock"></a>
 ### Clock check for codes
@@ -631,7 +662,7 @@ Each row is marked **OK**, **Warning**, **Problem** or **Note**, with a short ex
 | **Exchange rates** | Whether rates are current and match their checksum |
 | **Security** | The content security policy, not running inside another page, and the address |
 
-Rows marked **Admin only** appear only for admins: the audit log rows, the earlier copies and the number of people. Admins also see backup dates and the clock marks. Everyone else sees a shorter list about the browser and their own account; the backup row just reminds them that backups are made by an admin.
+Rows marked **Admin only** appear only for admins: the audit log rows, the earlier copies, the number of people, and **People hygiene**, which warns when someone cannot sign in, a code has expired, or an older password copy is left; it only ever shows counts. Admins also see backup dates and the clock marks. Everyone else sees a shorter list about the browser and their own account; the backup row just reminds them that backups are made by an admin.
 
 ![The Health check as a Viewer sees it](images/en/viewer-health.webp)
 
