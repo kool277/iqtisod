@@ -93,7 +93,7 @@ function contextTokens(context: PasswordContext): string[] {
 
 export function violatesContext(password: string, context: PasswordContext): boolean {
   const lower = password.toLowerCase()
-  const forms = [compact(lower), compact(deleet(lower, 'i')), compact(deleet(lower, 'l'))]
+  const forms = [compact(lower), ...(['i', 'l'] as const).flatMap((one) => [compact(deleet(lower, one)), deleet(compact(lower), one)])]
   return contextTokens(context).some((token) => forms.some((form) => form.includes(token) && form.split(token).join('').length < 8))
 }
 

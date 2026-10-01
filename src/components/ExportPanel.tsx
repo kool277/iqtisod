@@ -80,9 +80,10 @@ function ExportForm() {
   const [includeAudit, setIncludeAudit] = useState(false)
   const [includeReceipts, setIncludeReceipts] = useState(false)
   const [protection, setProtection] = useState<Protection>('zip')
-  const [password, setPassword] = useState('')
-  const [confirm, setConfirm] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
+  // ZIP is only as strong as its password, so it starts with a generated one.
+  const [password, setPassword] = useState(() => generateExportPassword())
+  const [confirm, setConfirm] = useState(password)
+  const [showPassword, setShowPassword] = useState(true)
   const [copied, setCopied] = useState(false)
   const [plainConfirmed, setPlainConfirmed] = useState(false)
   const [progress, setProgress] = useState<ExportProgress | null>(null)
@@ -129,7 +130,12 @@ function ExportForm() {
   function clientProblem(): string | null {
     if (protection !== 'sqlcipher' && formats.length === 0) return 'EXPORT_NO_FORMAT'
     if (!encrypted) return plainConfirmed ? null : 'EXPORT_PLAIN_UNCONFIRMED'
-    return passwordProblem(password, confirm)
+    return passwordProblem(password, confirm, protection)
+  }
+
+  function chooseProtection(value: Protection) {
+    setProtection(value)
+    if (value === 'zip' && !password) onGenerate()
   }
 
   async function onSubmit(event: FormEvent) {
@@ -262,7 +268,7 @@ function ExportForm() {
               className="mt-0.5"
               data-testid={`export-protection-${option.value}`}
               checked={protection === option.value}
-              onChange={() => setProtection(option.value)}
+              onChange={() => chooseProtection(option.value)}
             />
             <span>
               {t(option.label)}

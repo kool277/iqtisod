@@ -15,7 +15,7 @@ import {
   type ExportRequest,
   type ExportResult,
 } from './options'
-import { isSignInPassword } from './password'
+import { commonExportPasswordProblem, isSignInPassword } from './password'
 import type { PdfFonts } from './pdf-fonts'
 import { buildReadme } from './readme'
 import { encryptSqlcipher4, type RandomSource } from './sqlcipher'
@@ -73,8 +73,12 @@ export async function runExport(vault: OpenVault, input: ExportRequest, context:
   const scope = resolveExportScope(vault.user, request, vault.db)
   throwIfAborted(signal)
   onProgress?.({ stage: 'collecting' })
-  if (request.protection !== 'none' && (await isSignInPassword(vault, request.password ?? ''))) {
-    throw new ValidationError('EXPORT_PASSWORD_REUSED')
+  if (request.protection !== 'none') {
+    const password = request.password ?? ''
+    const emails = [vault.user.email, ...vault.wraps.map((wrap) => wrap.email)]
+    const problem = await commonExportPasswordProblem(password, { vaultName: vault.vaultName, emails })
+    if (problem) throw new ValidationError(problem)
+    if (await isSignInPassword(vault, password)) throw new ValidationError('EXPORT_PASSWORD_REUSED')
   }
   throwIfAborted(signal)
 

@@ -283,6 +283,14 @@ describe('runExport', () => {
         code: 'EXPORT_PASSWORD_WEAK',
       })
       await expect(runExport(created.vault, request({ passwordConfirm: `${PASSWORD}x` }))).rejects.toMatchObject({ code: 'EXPORT_PASSWORD_MISMATCH' })
+      const common = 'P@ssw0rd2024!!'
+      await expect(runExport(created.vault, request({ protection: 'sqlcipher', password: common, passwordConfirm: common }))).rejects.toMatchObject({ code: 'EXPORT_PASSWORD_COMMON' })
+      for (const protection of ['zip', 'sqlcipher'] as const) {
+        const named = 'Owner@Example.com#9Xq'
+        await expect(runExport(created.vault, request({ protection, password: named, passwordConfirm: named }))).rejects.toMatchObject({ code: 'EXPORT_PASSWORD_CONTEXT' })
+      }
+      const fair = 'qzmfkrwpxlbvnt'
+      await expect(runExport(created.vault, request({ password: fair, passwordConfirm: fair }))).rejects.toMatchObject({ code: 'EXPORT_PASSWORD_ZIP_WEAK' })
       expect(count()).toBe(0)
     } finally {
       created.vault.db.close()

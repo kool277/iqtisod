@@ -2,6 +2,8 @@ import { deriveKey } from '../../crypto/crypto.service'
 import { unwrapUserDek } from '../../crypto/user-wrap'
 import { ValidationError } from '../../domain/errors'
 import type { OpenVault } from '../../domain/types'
+import { passwordProblem as signInPasswordProblem, violatesContext } from '../../lib/password-policy'
+import type { Protection } from './options'
 
 export const EXPORT_PASSWORD_MIN = 14
 export const GENERATOR_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -57,17 +59,33 @@ export function estimateStrength(password: string): Strength {
   return 'weak'
 }
 
-export function passwordProblem(password: string, confirm?: string): string | null {
+/**
+ * ZIP AES derives its key with a fixed 1,000 rounds of PBKDF2-SHA1, so an offline guess costs almost nothing:
+ * only a strong password (such as the generated 120-bit one) holds up. SQLCipher uses 256,000 rounds, so fair is allowed.
+ */
+export function passwordProblem(password: string, confirm?: string, protection?: Protection): string | null {
   if (password.length < EXPORT_PASSWORD_MIN) return 'EXPORT_PASSWORD_SHORT'
   if (!isPrintableAscii(password)) return 'EXPORT_PASSWORD_ASCII'
-  if (estimateStrength(password) === 'weak') return 'EXPORT_PASSWORD_WEAK'
+  const strength = estimateStrength(password)
+  if (strength === 'weak') return 'EXPORT_PASSWORD_WEAK'
+  if (protection === 'zip' && strength !== 'strong') return 'EXPORT_PASSWORD_ZIP_WEAK'
   if (confirm !== undefined && confirm !== password) return 'EXPORT_PASSWORD_MISMATCH'
   return null
 }
 
-export function assertExportPassword(password: string, confirm?: string): void {
-  const problem = passwordProblem(password, confirm)
+export function assertExportPassword(password: string, confirm?: string, protection?: Protection): void {
+  const problem = passwordProblem(password, confirm, protection)
   if (problem) throw new ValidationError(problem)
+}
+
+export type ExportPasswordContext = { vaultName: string | null; emails: readonly string[] }
+
+/** The sign-in password rules that need the common-password list or the vault's names. */
+export async function commonExportPasswordProblem(password: string, context: ExportPasswordContext): Promise<string | null> {
+  const problem = await signInPasswordProblem(password, { vaultName: context.vaultName })
+  if (problem === 'PASSWORD_COMMON') return 'EXPORT_PASSWORD_COMMON'
+  if (problem === 'PASSWORD_CONTEXT' || context.emails.some((email) => violatesContext(password, { email }))) return 'EXPORT_PASSWORD_CONTEXT'
+  return null
 }
 
 export function generateExportPassword(random: (length: number) => Uint8Array = defaultRandom): string {

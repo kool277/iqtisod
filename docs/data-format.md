@@ -602,7 +602,7 @@ The file is built fresh, not copied: a new database attaches the vault as `src` 
 
 It opens in DB Browser for SQLite ("SQLCipher 4 defaults"), `sqlcipher` (`PRAGMA key = '…'`), and SQLite3 Multiple Ciphers (`cipher=sqlcipher; legacy=4`).
 
-**Export passwords** (both encrypted outputs; enforced by the service): at least 14 printable ASCII characters, a strength estimate of at least "fair", and not the current user's sign-in password (checked by trying to unwrap the vault key with it). The built-in generator makes 6 groups of 4 characters from a 32-character alphabet (120 bits). Passwords are never stored or audited.
+**Export passwords** (both encrypted outputs; enforced by the service): at least 14 printable ASCII characters; a strength estimate of at least "fair" for SQLCipher and "strong" for the AES ZIP, because the ZIP key derivation above costs an attacker almost nothing per guess; not on the sign-in common-password list (after undoing look-alike characters, separators and repeated words) and not built from the vault name or any member's email (`EXPORT_PASSWORD_COMMON`, `EXPORT_PASSWORD_CONTEXT`, `EXPORT_PASSWORD_ZIP_WEAK`); and not the current user's sign-in password (checked by trying to unwrap the vault key with it). The export form pre-fills a generated password when ZIP is chosen. The built-in generator makes 6 groups of 4 characters from a 32-character alphabet (120 bits). Passwords are never stored or audited.
 
 ### Table view exports
 
