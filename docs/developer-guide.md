@@ -85,7 +85,7 @@ Private safes are owner-only containers for cards, subscriptions, and notes, sto
 - `sizeBytes()` is `page_count × page_size`, used for the 48 MiB database budget.
 - `export()` returns the database bytes.
 
-The database is always in memory on the main thread. OPFS is deliberately not used, because it would store plaintext on disk. Vite emits `sqlite3-worker1` and `sqlite3-opfs-async-proxy` assets from the package even though they are unused.
+The database is always in memory on the main thread. OPFS is deliberately not used, because it would store plaintext on disk. The `dropSqliteWorkers` plugin in `vite.config.ts` replaces the package's references to `sqlite3-worker1` and `sqlite3-opfs-async-proxy` with a stub that throws, so neither file is shipped (from 1.4.2); the build fails if a package update changes how they are referenced.
 
 Schema: built only by migrations in `src/db/migrations/` (`0001-baseline.sql`, `0002-exact-money.ts`, `0003-private-safes.sql`, `0004-access-grants.sql`, listed in `index.ts`). `openRecordDatabase` (in `auth.service.ts`) opens every decrypted database the same way: `assertKnownSchema` compares `sqlite_master` with the objects the app's own migrations create for the stored version (the SQL of every table, index, trigger, and view must match, whitespace aside; anything unknown, missing, or changed is `SCHEMA_UNKNOWN`), then `migrate(db, { appVersion })`, then `assertKnownSchema` again if a migration ran, then `syncRolePermissions`. `migrate` runs `PRAGMA quick_check` even when nothing is pending. It runs on create, unlock, redemption, and therefore after an import. Seed data: `src/db/seed.ts`. Settings keys: `currency`, `vault_name`, `vault_created_at`, `last_backup_at`, and `clock_high_water` (schema 4).
 

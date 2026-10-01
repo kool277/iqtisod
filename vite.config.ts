@@ -55,6 +55,27 @@ function releaseMetadata(info: BuildInfo): Plugin {
 }
 
 /** Not-a-file navigations a GitHub Pages site answers with 404.html; `/` was already rewritten to `/index.html`. */
+const SQLITE_ENTRY = /@sqlite\.org[\\/]sqlite-wasm[\\/]dist[\\/]index\.mjs$/
+const SQLITE_UNUSED_WORKERS = ['sqlite3-opfs-async-proxy.js', 'sqlite3-worker1.mjs']
+
+/** The database stays in memory on the main thread, so the OPFS proxy and the worker1 promiser are never started; without this Vite still ships both. */
+function dropSqliteWorkers(): Plugin {
+  return {
+    name: 'jaybi-drop-sqlite-workers',
+    enforce: 'pre',
+    transform(code, id) {
+      if (!SQLITE_ENTRY.test(id)) return null
+      let out = code
+      for (const file of SQLITE_UNUSED_WORKERS) {
+        const reference = `new URL("${file}", import.meta.url)`
+        if (!out.includes(reference)) this.error(`@sqlite.org/sqlite-wasm no longer loads ${file} as expected; review dropSqliteWorkers`)
+        out = out.replaceAll(reference, `(() => { throw new Error(${JSON.stringify(`${file} is not shipped`)}) })()`)
+      }
+      return { code: out, map: null }
+    },
+  }
+}
+
 function isMissingPage(req: IncomingMessage): boolean {
   if (req.method !== 'GET' && req.method !== 'HEAD') return false
   const accept = req.headers.accept ?? ''
@@ -111,7 +132,7 @@ export default defineConfig({
     },
   },
   define: buildDefines(info),
-  plugins: [react(), tailwindcss(), releaseMetadata(info), pagesFallback()],
+  plugins: [dropSqliteWorkers(), react(), tailwindcss(), releaseMetadata(info), pagesFallback()],
   resolve: {
     alias: {
       html2canvas: emptyModule,
