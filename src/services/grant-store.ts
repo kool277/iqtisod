@@ -60,6 +60,17 @@ export function endGrant(db: SqlDatabase, id: string, reason: GrantEndReason, by
   return Number(db.queryValue('SELECT changes()') ?? 0) === 1
 }
 
+/**
+ * Wraps the envelope will hold once every open code is used: current wraps, plus one per open invite, plus one per
+ * open reset that stopped the old password (its wrap comes back when the code is used).
+ */
+export function committedWraps(vault: OpenVault): number {
+  const open = openGrantRows(vault.db)
+  const invites = open.filter((grant) => grant.kind === 'INVITE').length
+  const resets = open.filter((grant) => grant.kind === 'RESET' && grant.userId !== null && !vault.wraps.some((wrap) => wrap.userId === grant.userId)).length
+  return vault.wraps.length + invites + resets
+}
+
 export function dropEnvelopeGrant(vault: OpenVault, id: string): void {
   vault.grants = vault.grants.filter((grant) => grant.id !== id)
 }

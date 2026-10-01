@@ -8,7 +8,7 @@ import { assertNewPassword } from '../lib/password-policy'
 import { Permission, canUser } from '../rbac'
 import { assertEmail, normalizeEmail } from './auth.service'
 import { writeAudit } from './audit.service'
-import { dropEnvelopeGrant, endGrant, openGrantRows } from './grant-store'
+import { committedWraps, dropEnvelopeGrant, endGrant, openGrantRows } from './grant-store'
 import { dropTotp } from './totp.service'
 
 export type NewUserInput = {
@@ -94,7 +94,7 @@ export async function createUser(vault: OpenVault, input: NewUserInput): Promise
   const email = normalizeEmail(input.email)
   assertEmail(email)
   await assertNewPassword(input.password, { email, vaultName: vault.vaultName })
-  if (vault.wraps.length >= LIMITS.wraps) throw new ValidationError('MEMBER_LIMIT')
+  if (committedWraps(vault) >= LIMITS.wraps) throw new ValidationError('MEMBER_LIMIT')
   const groupId = assertGroup(vault, input.groupId, input.roleName)
   const salt = randomBytes(SALT_BYTES)
   const { key, verifier } = await deriveKeyAndVerifier(input.password, salt, CURRENT_KDF)
@@ -137,6 +137,7 @@ export async function resetUserPassword(vault: OpenVault, userId: string, passwo
   const email = String(existing.email)
   await assertNewPassword(password, { email, vaultName: vault.vaultName })
   const resets = openGrantRows(vault.db).filter((grant) => grant.kind === 'RESET' && grant.userId === userId)
+  if (!vault.wraps.some((item) => item.userId === userId) && vault.wraps.length >= LIMITS.wraps) throw new ValidationError('MEMBER_LIMIT')
   const salt = randomBytes(SALT_BYTES)
   const { key, verifier } = await deriveKeyAndVerifier(password, salt, CURRENT_KDF)
   const wrap = await newUserWrap(vault.dek, key, { userId, email, kdf: { ...CURRENT_KDF }, salt })

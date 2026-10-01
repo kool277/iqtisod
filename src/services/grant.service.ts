@@ -17,6 +17,7 @@ import { buildOpenVault, decryptRecordBody, loadUser, openRecordDatabase, record
 import {
   CLOCK_KEY,
   CLOCK_TOLERANCE_MS,
+  committedWraps,
   dropEnvelopeGrant,
   endGrant,
   grantAuditAction,
@@ -107,8 +108,8 @@ export async function createInvite(
   if (open.some((grant) => grant.email === email)) throw new ValidationError('GRANT_OPEN')
   if (open.filter((grant) => grant.kind === 'INVITE').length >= LIMITS.openInvites) throw new ValidationError('INVITE_LIMIT')
   if (vault.grants.length >= LIMITS.grants) throw new ValidationError('INVITE_LIMIT')
-  // Each accepted invite adds a wrap, and the envelope decoder refuses more than LIMITS.wraps.
-  if (vault.wraps.length + open.filter((grant) => grant.kind === 'INVITE').length >= LIMITS.wraps) throw new ValidationError('MEMBER_LIMIT')
+  // Each accepted invite or stopped-password reset adds a wrap, and the envelope decoder refuses more than LIMITS.wraps.
+  if (committedWraps(vault) >= LIMITS.wraps) throw new ValidationError('MEMBER_LIMIT')
   const groupId = checkUserGroup(vault, input.groupId, input.roleName)
   const roleId = roleIdByName(vault, input.roleName)
   assertClock(vault.db, now)
@@ -244,7 +245,8 @@ export async function redeemGrant(record: VaultRecord, input: RedeemInput, now =
     const kdf = { ...CURRENT_KDF }
     const derived = await deriveKeyAndVerifier(input.password, salt, kdf)
     const wraps = wrapsFromRecord(record)
-    if (row.kind === 'INVITE' && wraps.length >= LIMITS.wraps) throw new ValidationError('MEMBER_LIMIT')
+    const addsWrap = row.kind === 'INVITE' || !wraps.some((item) => item.userId === row.userId)
+    if (addsWrap && wraps.length >= LIMITS.wraps) throw new ValidationError('MEMBER_LIMIT')
     let userId: string
     if (row.kind === 'INVITE') {
       if (db.queryValue('SELECT 1 FROM users WHERE email = ?', [email]) != null) throw new ValidationError('DUPLICATE_EMAIL')
