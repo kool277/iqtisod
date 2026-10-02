@@ -6,6 +6,30 @@ Data formats are versioned separately from the app. Each release lists the forma
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-10-02
+
+Reads backup and record versions 1–2 and schema versions 1–4. Writes backup 2, record 2, schema 4, and export format 1, the same as 1.5.0. People details (name, status, last sign-in) are new `settings` rows that 1.5.0 ignores, so 1.5.0 still opens everything 1.6.0 saves; see [People](docs/data-format.md#people-user_profile).
+
+### Added
+
+- **People dashboard** (**Users** in the menu). An overview at the top shows people against the 256-place limit (including places held for open codes), the share with a sign-in check, who needs attention (must change their password, cannot sign in, no group, suspended, older password copy), recent sign-ins, open codes with their expiry, and charts by role and by group. The list can be searched, filtered, sorted, and exported (never with passwords, codes, or keys), and shows each person's status, records, sign-in check, and last sign-in.
+- **Add user** opens one dialog for an invite code or a temporary password that must be changed at first sign-in.
+- **A page for each person** (`#/app/users/<id>`) with their profile, records per currency, and recent audit entries. Admins can edit the name, email, role, and group; issue a reset code; turn off the sign-in check; require a new password at next sign-in; suspend and reactivate; and delete.
+- **Suspend and reactivate.** A suspended person cannot sign in and their open codes end; their records, safes, and history stay. Reactivating issues a reset code.
+- **Delete with a choice for records.** Type the person's email to confirm, then move their records to someone else or keep them under a former member. The audit log keeps their name either way. You cannot delete yourself or the last Admin, or demote the last Admin.
+- **Bulk changes.** Select people in the list to change their role or group together; it all succeeds or nothing changes, with one audit entry each.
+- Managers see their own group's people read-only; only Admins can change anything. Every change is checked in the service layer and written to the audit log (new entries: person suspended, reactivated, required to change password, records moved to another person).
+- **Health check:** an Admin-only **People** row flags people who cannot sign in, expired codes, and older password copies.
+- The user guides, the admin guide, and in-app Help describe the People pages, with new screenshots in all four languages.
+
+### Changed
+
+- The first download grows by about 1.9 KB (gzip); the People pages, their texts, and charts load only when opened.
+
+### Known limitations
+
+- Suspending someone does not change the vault key, so a copy of the vault file saved before the suspension still opens with their old password.
+
 ## [1.5.0] - 2026-10-01
 
 Reads backup and record versions 1–2 and schema versions 1–4. Writes backup 2, record 2, schema 4, and export format 1, the same as 1.4.2. No stored format changed, so 1.4.2 opens everything 1.5.0 saves.
