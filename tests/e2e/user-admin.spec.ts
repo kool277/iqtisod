@@ -92,7 +92,7 @@ test('an admin adds, edits, bulk-changes, suspends, reactivates and deletes peop
   await page.getByTestId('bulk-group').selectOption({ label: 'Home' })
   await page.getByTestId('bulk-apply').click()
   await page.getByTestId('bulk-confirm').click()
-  await expect(page.getByRole('status').filter({ hasText: '2 people updated.' })).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByRole('status').filter({ hasText: 'People updated: 2.' })).toBeVisible({ timeout: 30_000 })
   await expect(row(page, VIEWER.email).locator('[data-column="role"]')).toHaveText('Manager')
   await expect(row(page, MANAGER.renamed).locator('[data-column="group"]')).toHaveText('Home')
   await page.getByTestId('nav-audit').click()

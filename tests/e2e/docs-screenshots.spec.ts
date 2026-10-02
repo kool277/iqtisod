@@ -5,8 +5,10 @@ import { addDays, sealSnapshot, type FxSnapshot } from '../../src/domain/fx'
 import { base32Decode, importTotpKey, totpAt } from '../../src/lib/totp'
 import { watchViolations } from '../support/csp'
 
-// User-guide screenshots only: DOCS_SCREENS=1 writes docs/images/<locale>/*.webp. DOCS_LOCALES=en,ru narrows the run.
+// User-guide screenshots only: DOCS_SCREENS=1 writes docs/images/<locale>/*.webp. DOCS_LOCALES=en,ru narrows the run;
+// DOCS_SHOTS=users,user-detail rewrites only those images and leaves the rest in place.
 const ENABLED = process.env.DOCS_SCREENS === '1'
+const ONLY = process.env.DOCS_SHOTS ? new Set(process.env.DOCS_SHOTS.split(',')) : null
 const ROOT = resolve(process.cwd(), 'docs/images')
 const RECORDED = JSON.parse(readFileSync(new URL('../fixtures/fx/snapshot.json', import.meta.url), 'utf8')) as FxSnapshot
 const DESKTOP = { width: 1440, height: 900 }
@@ -122,7 +124,7 @@ const DEMO: Record<Locale, Demo> = {
 }
 
 const ADMIN = { email: 'aziza@example.com', password: 'Quiet cedar morning 42' }
-const MEMBER = { email: 'rustam@example.com', temporary: 'Temporary maple kettle 7' }
+const MEMBER = { email: 'rustam@example.com', temporary: 'Temporary maple kettle 7', password: 'Rustam keeps the ledger 8' }
 const INVITED = { email: 'dilnoza@example.com', password: 'Bright river window 19' }
 const CARD_NUMBER = '4111 1111 1111 1111'
 
@@ -229,7 +231,7 @@ for (const locale of LOCALES) {
     const demo = DEMO[locale]
     const dir = resolve(ROOT, locale)
     mkdirSync(dir, { recursive: true })
-    for (const file of readdirSync(dir)) if (file.endsWith('.webp')) rmSync(resolve(dir, file))
+    if (!ONLY) for (const file of readdirSync(dir)) if (file.endsWith('.webp')) rmSync(resolve(dir, file))
     const encoder = await webpEncoder(browser)
     const taken: string[] = []
     const violations = await watchViolations(page)
@@ -238,6 +240,7 @@ for (const locale of LOCALES) {
     await page.setViewportSize(DESKTOP)
 
     async function shot(name: string, options: { target?: Locator; full?: boolean } = {}) {
+      if (ONLY && !ONLY.has(name)) return
       if (await page.getByTestId('save-state').count()) await settle()
       await page.mouse.move(0, 0)
       if (!options.target) await page.evaluate(() => window.scrollTo(0, 0))
@@ -271,8 +274,12 @@ for (const locale of LOCALES) {
     }
 
     async function signIn(email: string, password: string) {
-      await page.getByTestId('login-email').fill(email)
-      await page.getByTestId('login-password').fill(password)
+      await expect(async () => {
+        await page.getByTestId('login-email').fill(email)
+        await page.getByTestId('login-password').fill(password)
+        await expect(page.getByTestId('login-email')).toHaveValue(email, { timeout: 1_000 })
+        await expect(page.getByTestId('login-password')).toHaveValue(password, { timeout: 1_000 })
+      }).toPass({ timeout: 30_000 })
       await page.getByTestId('login-submit').click()
     }
 
@@ -408,7 +415,7 @@ for (const locale of LOCALES) {
     await page.getByTestId('user-password').fill(MEMBER.temporary)
     await page.getByTestId('user-role').selectOption('Manager')
     await page.getByTestId('user-group').selectOption({ label: demo.business })
-    await shot('user-create')
+    await shot('user-create', { target: page.getByTestId('add-user-dialog') })
     await page.getByTestId('user-save').click()
     const member = page.getByTestId('person-row').filter({ hasText: MEMBER.email })
     await expect(member).toBeVisible({ timeout: 30_000 })
@@ -421,6 +428,36 @@ for (const locale of LOCALES) {
     await page.getByTestId('copy-link').click()
     const inviteLink = await page.evaluate(() => navigator.clipboard.readText())
     await page.getByTestId('code-done').click()
+
+    // The manager replaces the temporary password and records a purchase, so their page has something to show.
+    await lock()
+    await signIn(MEMBER.email, MEMBER.temporary)
+    await expect(page.getByTestId('must-change-banner')).toBeVisible({ timeout: 30_000 })
+    await page.getByTestId('account-current').fill(MEMBER.temporary)
+    await page.getByTestId('account-new').fill(MEMBER.password)
+    await page.getByTestId('account-confirm').fill(MEMBER.password)
+    await page.getByTestId('account-save').click()
+    await expect(page.getByTestId('must-change-banner')).toHaveCount(0, { timeout: 30_000 })
+    await page.getByTestId('nav-transactions').click()
+    await page.getByTestId('add-transaction').click()
+    await page.getByTestId('tx-type').selectOption('EXPENSE')
+    await page.getByTestId('tx-amount').fill(money({ ...ENTRIES[0], amount: 240, currency: 'BASE' }, demo.base).amount)
+    await page.getByTestId('tx-category').selectOption({ index: 7 })
+    await page.getByTestId('tx-date').fill(daysFromToday(-3))
+    await page.getByTestId('tx-notes').fill(demo.notes.stock)
+    await page.getByTestId('tx-save').click()
+    await expect(page.getByTestId('tx-save')).toHaveCount(0)
+    await lock()
+    await signIn(ADMIN.email, ADMIN.password)
+    await expect(page.getByTestId('app-shell')).toBeVisible({ timeout: 30_000 })
+    await dismissReminder()
+
+    await page.getByTestId('nav-users').click()
+    await expect(page.getByTestId('chart-users-roles')).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByTestId('chart-users-groups')).toBeVisible()
+    // Chart.js draws on a canvas, which Playwright's animation switch does not reach.
+    await page.waitForTimeout(1_500)
+    await shot('users-overview', { target: page.getByTestId('users-overview') })
     await member.getByTestId('user-issue-reset').click()
     await expect(member.getByTestId('reset-issue-save')).toBeVisible()
     await shot('user-reset-code', { target: member })
@@ -429,6 +466,18 @@ for (const locale of LOCALES) {
     await shot('users-full', { full: true })
     await page.getByTestId('clock-floor').locator('summary').click()
     await shot('clock-floor', { target: page.getByTestId('clock-floor') })
+    await member.getByTestId('user-link').click()
+    await expect(page.getByTestId('user-records')).toHaveAttribute('data-count', '1', { timeout: 30_000 })
+    await expect(page.getByTestId('user-activity-entry').first()).toBeVisible()
+    await shot('user-detail', { full: true })
+    await page.getByTestId('user-action-delete').click()
+    await page.getByTestId('delete-reassign').check()
+    await page.getByTestId('delete-reassign-to').selectOption({ label: ADMIN.email })
+    await page.getByTestId('delete-confirm-email').fill(MEMBER.email)
+    await expect(page.getByTestId('delete-confirm')).toBeEnabled()
+    await shot('user-delete', { target: page.getByTestId('user-delete-dialog') })
+    await page.keyboard.press('Escape')
+    await expect(page.getByTestId('user-delete-dialog')).toHaveCount(0)
 
     // Safes.
     await page.getByTestId('nav-safes').click()
@@ -672,8 +721,10 @@ for (const locale of LOCALES) {
     await other.getByTestId('import-file').setInputFiles(backupFile)
     await expect(other.getByTestId('confirm-import')).toBeVisible({ timeout: 30_000 })
     await other.mouse.move(0, 0)
-    writeFileSync(resolve(dir, 'move-import.webp'), await encoder.encode(await other.screenshot({ fullPage: true, animations: 'disabled' }), 1440))
-    taken.push('move-import')
+    if (!ONLY || ONLY.has('move-import')) {
+      writeFileSync(resolve(dir, 'move-import.webp'), await encoder.encode(await other.screenshot({ fullPage: true, animations: 'disabled' }), 1440))
+      taken.push('move-import')
+    }
     await fresh.close()
 
     await encoder.close()
