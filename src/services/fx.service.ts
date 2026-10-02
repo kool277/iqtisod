@@ -6,6 +6,8 @@ export const FX_CACHE_KEY = 'moliya.fx.snapshot.v1'
 export const FX_SNAPSHOT_PATH = 'rates/latest.json'
 
 const MAX_INTEGER_DIGITS = 15
+/** How far ahead of this device's clock a snapshot may claim to be; anything later would win over every real update. */
+export const FX_FUTURE_SKEW_MS = 60 * 60 * 1000
 
 export type LoadedSnapshot = { snapshot: FxSnapshot; text: string }
 
@@ -17,13 +19,23 @@ function defaultStorage(): Storage | null {
   }
 }
 
-export function readCachedSnapshot(storage: Storage | null = defaultStorage()): LoadedSnapshot | null {
-  const text = storage?.getItem(FX_CACHE_KEY)
-  if (!text) return null
+function parseCurrent(text: string, now: number): FxSnapshot {
+  const snapshot = parseSnapshot(text)
+  if (Date.parse(snapshot.generatedAt) > now + FX_FUTURE_SKEW_MS) throw new FxDataError('snapshot is dated in the future')
+  return snapshot
+}
+
+export function readCachedSnapshot(storage: Storage | null = defaultStorage(), now = Date.now()): LoadedSnapshot | null {
   try {
-    return { snapshot: parseSnapshot(text), text }
+    const text = storage?.getItem(FX_CACHE_KEY)
+    if (!text) return null
+    try {
+      return { snapshot: parseCurrent(text, now), text }
+    } catch {
+      storage?.removeItem(FX_CACHE_KEY)
+      return null
+    }
   } catch {
-    storage?.removeItem(FX_CACHE_KEY)
     return null
   }
 }
@@ -36,11 +48,11 @@ export function cacheSnapshot(loaded: LoadedSnapshot, storage: Storage | null = 
   }
 }
 
-export async function fetchLatestSnapshot(fetcher: typeof fetch = fetch, base: string = document.baseURI): Promise<LoadedSnapshot> {
+export async function fetchLatestSnapshot(fetcher: typeof fetch = fetch, base: string = document.baseURI, now = Date.now()): Promise<LoadedSnapshot> {
   const response = await fetcher(new URL(FX_SNAPSHOT_PATH, base), { cache: 'no-cache', credentials: 'same-origin' })
   if (!response.ok) throw new FxDataError(`HTTP ${response.status}`)
   const text = await response.text()
-  return { snapshot: parseSnapshot(text), text }
+  return { snapshot: parseCurrent(text, now), text }
 }
 
 export function preferNewer(current: LoadedSnapshot | null, incoming: LoadedSnapshot): LoadedSnapshot {

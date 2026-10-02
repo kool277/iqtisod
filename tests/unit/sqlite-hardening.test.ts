@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { assertKnownSchema, migrate } from '../../src/db/migrations'
-import { SqlDatabase } from '../../src/db/sqlite'
+import { hardenConnection, loadModule, SqlDatabase } from '../../src/db/sqlite'
 import { SCHEMA_VERSION } from '../../src/db/versions'
 import { AppError } from '../../src/domain/errors'
 import { LIMITS } from '../../src/lib/limits'
@@ -98,6 +98,23 @@ describe('SQLite connection hardening', () => {
     expectAttachRefused(db)
   })
 
+  it('hardens the export scratch connection the same way, with one attach slot for the source', async () => {
+    const sqlite3 = await loadModule()
+    const db = new sqlite3.oo1.DB(':memory:', 'c')
+    try {
+      hardenConnection(sqlite3, db, 1)
+      expect(db.selectValue('PRAGMA trusted_schema')).toBe(0)
+      expect(db.selectValue('PRAGMA cell_size_check')).toBe(1)
+      db.exec("ATTACH ':memory:' AS src")
+      expect(() => db.exec("ATTACH ':memory:' AS other")).toThrow(/too many attached/i)
+      expect(() => db.selectValue('SELECT length(zeroblob(?))', [LIMITS.sqliteValueBytes + 1])).toThrow(/too big/i)
+      db.exec('PRAGMA writable_schema = ON')
+      expect(() => db.exec("INSERT INTO sqlite_master VALUES ('table', 'evil', 'evil', 0, 'CREATE TABLE evil(x)')")).toThrow()
+    } finally {
+      db.close()
+    }
+  })
+
   it('closes the attach slot even when VACUUM fails', async () => {
     const db = await migrated()
     db.exec('BEGIN')
@@ -148,6 +165,44 @@ describe('assertKnownSchema', () => {
     db.exec(`DROP TRIGGER ${name}`)
     db.exec(`CREATE TRIGGER ${name} BEFORE UPDATE ON ${table} BEGIN SELECT 1; END`)
     expect(await schemaCode(db)).toBe('SCHEMA_UNKNOWN')
+  })
+
+  /** What a crafted backup could hold: the same object names, rebuilt from DDL that `edit` may change. */
+  async function rebuilt(base: SqlDatabase, edit: (name: string, sql: string) => string = (_, sql) => sql): Promise<SqlDatabase> {
+    const db = await SqlDatabase.openEmpty()
+    try {
+      db.exec('PRAGMA foreign_keys = OFF')
+      for (const row of base.query("SELECT name, sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%' ORDER BY rowid")) {
+        db.exec(edit(String(row.name), String(row.sql)))
+      }
+      db.exec(`PRAGMA user_version = ${Number(base.queryValue('PRAGMA user_version'))}`)
+      return await track(SqlDatabase.openBytes(db.export()))
+    } finally {
+      db.close()
+    }
+  }
+
+  it('refuses tables and indexes whose definitions were changed under the same names', async () => {
+    const base = await migrated()
+    expect(await schemaCode(await rebuilt(base))).toBeNull()
+    const edits: [string, (sql: string) => string][] = [
+      ['users', (sql) => sql.replace('email TEXT UNIQUE NOT NULL', 'email TEXT NOT NULL').replace(/\)\s*$/, ', UNIQUE (id, salt))')],
+      ['secure_items', (sql) => sql.replace('CHECK (length(ciphertext) <= 65536)', '')],
+    ]
+    const index = base.queryOne("SELECT name, tbl_name FROM sqlite_master WHERE type = 'index' AND sql IS NOT NULL ORDER BY name LIMIT 1")!
+    const firstColumn = String(base.queryValue(`SELECT name FROM pragma_table_info('${String(index.tbl_name)}') ORDER BY cid LIMIT 1`))
+    edits.push([String(index.name), () => `CREATE INDEX ${String(index.name)} ON ${String(index.tbl_name)}(${firstColumn})`])
+    for (const [name, edit] of edits) {
+      let changed = false
+      const db = await rebuilt(base, (object, sql) => {
+        if (object !== name) return sql
+        const next = edit(sql)
+        changed = next !== sql
+        return next
+      })
+      expect(changed, name).toBe(true)
+      expect(await schemaCode(db), name).toBe('SCHEMA_UNKNOWN')
+    }
   })
 
   it('refuses a database with a known object missing', async () => {

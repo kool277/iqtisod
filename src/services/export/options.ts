@@ -52,7 +52,7 @@ export function validateRequest(request: ExportRequest): ExportRequest {
   if (normalized.protection === 'none') {
     if (!normalized.plainConfirmed) throw new ValidationError('EXPORT_PLAIN_UNCONFIRMED')
   } else {
-    assertExportPassword(normalized.password ?? '', normalized.passwordConfirm)
+    assertExportPassword(normalized.password ?? '', normalized.passwordConfirm, normalized.protection)
   }
   return normalized
 }

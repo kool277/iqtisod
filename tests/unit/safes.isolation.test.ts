@@ -4,7 +4,7 @@ import { base64ToBytes, copyToBuffer } from '../../src/crypto/encoding'
 import { DecryptError, PERSONAL_KEY_USAGES, aad, derivePersonalKek, unwrapWithAad } from '../../src/crypto/safe-crypto'
 import type { VaultRecord } from '../../src/db/envelope'
 import { AppError } from '../../src/domain/errors'
-import { listAudit } from '../../src/services/audit.service'
+import { listAudit } from '../../src/services/audit-log'
 import { sealVault } from '../../src/services/auth.service'
 import { createItem, createSafe, initializeSafes, listItems, listSafes, unlockSafes } from '../../src/services/safe.service'
 import {

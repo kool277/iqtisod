@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { SourceFormatError, parseBoi, parseCbu, parseEcb } from '../../tools/fx-sources'
+import { SourceFormatError, parseBoi, parseCbu, parseEcb, shown } from '../../tools/fx-sources'
 
 const fixture = (name: string) => readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../fixtures/fx', name), 'utf8')
 
@@ -35,6 +35,42 @@ describe('Central Bank of Uzbekistan JSON', () => {
     expect(() => parseCbu(row({ Date: '2026-09-29' }))).toThrow(/invalid date/)
     expect(() => parseCbu(JSON.stringify([{ Ccy: 'EUR', Rate: '1', Nominal: '1', Date: '29.09.2026' }]))).toThrow(/USD rate is missing/)
     expect(() => parseCbu(JSON.stringify([{ Ccy: 'USD', Rate: 11806.97, Nominal: '1', Date: '29.09.2026' }]))).toThrow(/not a string/)
+  })
+})
+
+describe('upstream text in error messages', () => {
+  const messageOf = (fn: () => unknown) => {
+    try {
+      fn()
+    } catch (error) {
+      return (error as Error).message
+    }
+    throw new Error('expected a failure')
+  }
+
+  it('is quoted, printable, and short', () => {
+    expect(shown('29.09.2026\n::error::forged')).toBe('"29.09.2026\\n::error::forged"')
+    expect(shown('\u2028x\u0007')).toBe('"?x\\u0007"')
+    expect(shown('x'.repeat(100))).toBe(`"${'x'.repeat(40)}?"`)
+    expect(shown(7)).toBe('"7"')
+  })
+
+  it('cannot start a new log line or workflow command from any parser', () => {
+    const forged = '\r\n::error title=x::forged%0A'
+    const cbu = (patch: Record<string, string>) => JSON.stringify([{ Ccy: 'USD', Rate: '1', Nominal: '1', Date: '29.09.2026', ...patch }])
+    const ecb = fixture('ecb.csv')
+    const boi = fixture('boi.csv')
+    const messages = [
+      messageOf(() => parseCbu(cbu({ Date: `29.09.2026${forged}` }))),
+      messageOf(() => parseCbu(cbu({ Nominal: `1${forged}` }))),
+      messageOf(() => parseEcb(ecb.replace('2026-09-25', '2026-09-25\u2028::error::x'))),
+      messageOf(() => parseEcb(ecb.replace(',EUR,', ',GBP,').replace('EXR.D.ILS', 'EXR\u0085::error::x'))),
+      messageOf(() => parseBoi(boi.replaceAll('RER_USD_ILS', 'RER\u2029::error::x'))),
+    ]
+    for (const message of messages) {
+      expect(message, message).not.toMatch(/[\r\n\u0085\u2028\u2029]/)
+      expect(message, message).toMatch(/^[\x20-\x7e…]*$/)
+    }
   })
 })
 

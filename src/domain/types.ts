@@ -1,4 +1,4 @@
-import type { KdfParams } from '../crypto/crypto.service'
+import type { KdfParams, WRAP_AAD_V1 } from '../crypto/crypto.service'
 import type { SqlDatabase } from '../db/sqlite'
 
 export type RoleName = 'Admin' | 'Manager' | 'Viewer'
@@ -32,6 +32,8 @@ export type UserWrap = {
   salt: Uint8Array
   iv: Uint8Array
   wrappedDek: ArrayBuffer
+  /** Present on wraps written from 1.4.2: the wrap's AAD binds its `userId`. */
+  aad?: typeof WRAP_AAD_V1
 }
 
 export type GrantWrap = {
@@ -42,6 +44,8 @@ export type GrantWrap = {
   salt: Uint8Array
   iv: Uint8Array
   wrappedDek: ArrayBuffer
+  /** Present on grants issued from 1.4.2, in plain text and bound into the grant's AAD. */
+  expiresAt?: string
 }
 
 export type OpenVault = {
@@ -73,14 +77,29 @@ export type Group = {
   createdAt: string
 }
 
+export type UserStatus = 'ACTIVE' | 'SUSPENDED' | 'FORMER'
+
 export type VaultUser = {
   id: string
   email: string
+  displayName: string | null
   roleName: string
   groupId: number | null
   groupName: string | null
   createdAt: string
+  updatedAt: string | null
+  status: UserStatus
+  /** Records this person entered that the caller may see. */
+  records: number
+  /** Always false for viewers without MANAGE_USERS: who has a sign-in check is not disclosed to them. */
   signInCheck: boolean
+  /** The fields below are only filled for people managers; everyone else gets null, false, or 'UNKNOWN'. */
+  lastSignInAt: string | null
+  mustChange: boolean
+  /** PASSWORD: holds a password copy; CODE: waits for an open reset code; NONE: cannot sign in at all. */
+  access: 'PASSWORD' | 'CODE' | 'NONE' | 'UNKNOWN'
+  /** The password copy predates the 1.4.2 binding or uses an older key stretch, so it is rewritten at the next password change. */
+  legacyWrap: boolean
 }
 
 export type LedgerEntry = {

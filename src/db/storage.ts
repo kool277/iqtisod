@@ -1,12 +1,14 @@
 import { cloneBuffer, cloneBytes } from '../crypto/encoding'
-import { ConflictError } from '../domain/errors'
+import { ConflictError, CorruptRecordError, ValidationError } from '../domain/errors'
 import type { GrantWrap, UserWrap } from '../domain/types'
 import { APP_VERSION } from '../lib/version'
+import type { AuditHead } from './audit-chain'
 import {
   PAYLOAD_CIPHER,
   RECORD_ID,
   decodeStoredRecord,
   encodeStoredRecord,
+  envelopeProblem,
   type DecodedRecord,
   type VaultRecord,
 } from './envelope'
@@ -86,6 +88,29 @@ async function readRaw(key: string): Promise<unknown> {
   }
 }
 
+/** Small device-local values kept beside the vault (`guard.*`), such as the sign-in throttle mirror. */
+const AUX_PREFIX = 'guard.'
+
+export async function readAux(key: string): Promise<unknown> {
+  if (!key.startsWith(AUX_PREFIX)) throw new Error('Not an auxiliary key')
+  return readRaw(key)
+}
+
+export async function writeAux(key: string, value: unknown): Promise<void> {
+  if (!key.startsWith(AUX_PREFIX)) throw new Error('Not an auxiliary key')
+  const database = await openDatabase()
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = database.transaction(STORE, 'readwrite')
+      transaction.oncomplete = () => resolve()
+      transaction.onabort = () => reject(transaction.error ?? new Error('IndexedDB write aborted'))
+      transaction.objectStore(STORE).put(value, key)
+    })
+  } finally {
+    database.close()
+  }
+}
+
 export async function readVaultRaw(): Promise<unknown> {
   return readRaw(RECORD_ID)
 }
@@ -126,7 +151,7 @@ export async function writeVault(record: VaultRecord, options: WriteOptions = {}
             sourceVersion: versionOf(options.archive.raw),
             sourceAppVersion: appVersionOf(options.archive.raw),
             sourceUpdatedAt: stampOf(options.archive.raw),
-            raw: options.archive.raw,
+            raw: withoutGrants(options.archive.raw),
           }
           const keys = store.getAllKeys(IDBKeyRange.bound(ARCHIVE_PREFIX, `${ARCHIVE_PREFIX}\uffff`))
           keys.onsuccess = () => {
@@ -158,10 +183,50 @@ export async function listArchives(): Promise<Omit<ArchiveEntry, 'raw'>[]> {
   }
 }
 
+/**
+ * A grant wraps the vault key under a one-time code with no expiry check of its own, so a copy of it would let a
+ * used, revoked or expired code open the vault offline. Archives therefore never keep grants.
+ */
+export function withoutGrants(raw: unknown): unknown {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw) || !Object.hasOwn(raw, 'grants')) return raw
+  const { grants: _grants, ...rest } = raw as Record<string, unknown>
+  return rest
+}
+
 export async function readArchive(key: string): Promise<ArchiveEntry | null> {
   if (!key.startsWith(ARCHIVE_PREFIX)) return null
   const value = await readRaw(key)
-  return value === undefined ? null : (value as ArchiveEntry)
+  if (value === undefined) return null
+  const entry = value as ArchiveEntry
+  return { ...entry, raw: withoutGrants(entry.raw) }
+}
+
+/** Removes grants from archives written before 1.4.2. */
+export async function stripArchivedGrants(): Promise<number> {
+  const database = await openDatabase()
+  try {
+    return await new Promise<number>((resolve, reject) => {
+      const transaction = database.transaction(STORE, 'readwrite')
+      const store = transaction.objectStore(STORE)
+      let changed = 0
+      transaction.oncomplete = () => resolve(changed)
+      transaction.onabort = () => reject(transaction.error ?? new Error('IndexedDB write aborted'))
+      const cursor = store.openCursor(IDBKeyRange.bound(ARCHIVE_PREFIX, `${ARCHIVE_PREFIX}\uffff`))
+      cursor.onsuccess = () => {
+        const current = cursor.result
+        if (!current) return
+        const entry = current.value as ArchiveEntry
+        const raw = withoutGrants(entry.raw)
+        if (raw !== entry.raw) {
+          current.update({ ...entry, raw })
+          changed += 1
+        }
+        current.continue()
+      }
+    })
+  } finally {
+    database.close()
+  }
 }
 
 export function wrapsFromRecord(record: VaultRecord): UserWrap[] {
@@ -172,6 +237,7 @@ export function wrapsFromRecord(record: VaultRecord): UserWrap[] {
     salt: cloneBytes(wrap.salt),
     iv: cloneBytes(wrap.iv),
     wrappedDek: cloneBuffer(wrap.wrappedDek),
+    ...(wrap.aad ? { aad: wrap.aad } : {}),
   }))
 }
 
@@ -184,6 +250,7 @@ export function grantsFromRecord(record: VaultRecord): GrantWrap[] {
     salt: cloneBytes(grant.salt),
     iv: cloneBytes(grant.iv),
     wrappedDek: cloneBuffer(grant.wrappedDek),
+    ...(grant.expiresAt ? { expiresAt: grant.expiresAt } : {}),
   }))
 }
 
@@ -195,7 +262,11 @@ export function recordFromSession(input: {
   schemaVersion: number
   createdAt: string | null
   updatedAt: string
+  audit?: AuditHead
 }): VaultRecord {
+  const problem = envelopeProblem(input.wraps, input.grants ?? [])
+  if (problem === 'WRAP_COUNT') throw new ValidationError('MEMBER_LIMIT')
+  if (problem) throw new CorruptRecordError()
   return encodeStoredRecord({
     id: RECORD_ID,
     version: RECORD_VERSION,
@@ -211,6 +282,7 @@ export function recordFromSession(input: {
       salt: cloneBuffer(wrap.salt),
       iv: cloneBuffer(wrap.iv),
       wrappedDek: cloneBuffer(wrap.wrappedDek),
+      ...(wrap.aad ? { aad: wrap.aad } : {}),
     })),
     grants: (input.grants ?? []).map((grant) => ({
       id: grant.id,
@@ -220,7 +292,9 @@ export function recordFromSession(input: {
       salt: cloneBuffer(grant.salt),
       iv: cloneBuffer(grant.iv),
       wrappedDek: cloneBuffer(grant.wrappedDek),
+      ...(grant.expiresAt ? { expiresAt: grant.expiresAt } : {}),
     })),
+    ...(input.audit ? { audit: input.audit } : {}),
     body: { iv: cloneBuffer(input.iv), ciphertext: cloneBuffer(input.ciphertext) },
   })
 }

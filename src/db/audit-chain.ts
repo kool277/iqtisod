@@ -60,6 +60,29 @@ export function insertAuditLink(db: SqlDatabase, entry: Omit<AuditLink, 'seq' | 
   )
 }
 
+/** The last entry of the chain: its seq and hash, or seq 0 and the genesis hash for an empty log. */
+export type AuditHead = { seq: number; hash: string }
+
+export function isAuditHead(value: unknown): value is AuditHead {
+  if (typeof value !== 'object' || value === null) return false
+  const head = value as Record<string, unknown>
+  return Number.isSafeInteger(head.seq) && (head.seq as number) >= 0 && typeof head.hash === 'string' && /^[0-9a-f]{64}$/.test(head.hash)
+}
+
+export function auditHead(db: SqlDatabase): AuditHead {
+  const last = db.queryOne('SELECT seq, hash FROM audit_logs ORDER BY seq DESC LIMIT 1')
+  return last ? { seq: Number(last.seq), hash: String(last.hash) } : { seq: 0, hash: GENESIS_HASH }
+}
+
+export type AuditHeadProblem = 'SHORTER' | 'CHANGED'
+
+/** Whether the log still reaches `seen` with the same entry there: a log may only grow. */
+export function compareAuditHead(db: SqlDatabase, seen: AuditHead): AuditHeadProblem | null {
+  if (seen.seq > auditHead(db).seq) return 'SHORTER'
+  if (seen.seq === 0) return null
+  return db.queryValue('SELECT hash FROM audit_logs WHERE seq = ?', [seen.seq]) === seen.hash ? null : 'CHANGED'
+}
+
 export type ChainReport = {
   ok: boolean
   entries: number

@@ -12,6 +12,7 @@ import {
   createThrottle,
   formatWait,
   lockoutMs,
+  type ThrottleMirror,
   type ThrottleScope,
 } from '../../src/lib/throttle'
 
@@ -113,13 +114,14 @@ describe('createThrottle', () => {
     for (const scope of others) expect(failTimes(throttle, scope, 'a@x.uz', FREE_FAILURES), scope).toBe(30_000)
   })
 
-  it('also locks the whole scope after twenty failures spread across emails', () => {
+  it('locks failing emails after twenty failures spread across emails, but never a clean one', () => {
     const throttle = createThrottle({ storage: new MemoryStorage(), now: clock().now })
     for (let index = 0; index < GLOBAL_FREE_FAILURES - 1; index += 1) expect(throttle.fail('code', `u${index}@x.uz`)).toBe(0)
-    expect(throttle.wait('code', 'fresh@x.uz')).toBe(0)
+    expect(throttle.wait('code', 'u0@x.uz')).toBe(0)
     expect(throttle.fail('code', `u19@x.uz`)).toBe(30_000)
-    expect(throttle.wait('code', 'fresh@x.uz')).toBe(30_000)
-    expect(throttle.wait('login', 'fresh@x.uz')).toBe(0)
+    expect(throttle.wait('code', 'u0@x.uz')).toBe(30_000)
+    expect(throttle.wait('code', 'fresh@x.uz')).toBe(0)
+    expect(throttle.wait('login', 'u0@x.uz')).toBe(0)
   })
 
   it('reports failures since the first one on success and resets the counters', () => {
@@ -211,7 +213,10 @@ describe('createThrottle', () => {
     const storage = new MemoryStorage()
     storage.setItem(THROTTLE_KEY, JSON.stringify({ 'login|*': { n: 25, first: START, last: START }, bad: { n: 'x' } }))
     const throttle = createThrottle({ storage, now: clock().now })
-    expect(throttle.wait('login', 'anyone@x.uz')).toBe(lockoutMs(25, GLOBAL_FREE_FAILURES))
+    expect(throttle.wait('login', 'anyone@x.uz')).toBe(0)
+    throttle.fail('login', 'anyone@x.uz')
+    expect(throttle.wait('login', 'anyone@x.uz')).toBe(lockoutMs(26, GLOBAL_FREE_FAILURES))
+    expect(Object.keys(JSON.parse(storage.getItem(THROTTLE_KEY)!))).not.toContain('bad')
   })
 
   it('throttles in memory when there is no storage', () => {
@@ -240,6 +245,90 @@ describe('createThrottle', () => {
     }
     const throttle = createThrottle({ storage, now: clock().now })
     expect(failTimes(throttle, 'login', 'a@x.uz', FREE_FAILURES)).toBe(30_000)
+  })
+})
+
+describe('createThrottle counter durability', () => {
+  class MemoryMirror implements ThrottleMirror {
+    value: unknown = undefined
+    load = async () => this.value
+    save = async (state: unknown) => {
+      this.value = structuredClone(state)
+    }
+  }
+
+  it('keeps counting in memory after local storage is cleared', () => {
+    const storage = new MemoryStorage()
+    const throttle = createThrottle({ storage, now: clock().now })
+    failTimes(throttle, 'login', 'a@x.uz', FREE_FAILURES)
+    storage.clear()
+    expect(throttle.wait('login', 'a@x.uz')).toBe(30_000)
+    expect(throttle.fail('login', 'a@x.uz')).toBe(60_000)
+  })
+
+  it('takes the larger of the in-memory and stored counts', () => {
+    const storage = new MemoryStorage()
+    const time = clock()
+    const throttle = createThrottle({ storage, now: time.now })
+    failTimes(throttle, 'login', 'a@x.uz', FREE_FAILURES + 1)
+    const otherStorage = new MemoryStorage()
+    createThrottle({ storage: otherStorage, now: time.now }).fail('login', 'a@x.uz')
+    storage.setItem(THROTTLE_KEY, otherStorage.getItem(THROTTLE_KEY)!)
+    expect(throttle.wait('login', 'a@x.uz')).toBe(60_000)
+  })
+
+  it('restores the counters from the mirror when local storage was wiped', async () => {
+    const time = clock()
+    const mirror = new MemoryMirror()
+    const first = createThrottle({ storage: new MemoryStorage(), now: time.now, mirror })
+    await first.ready
+    failTimes(first, 'login', 'a@x.uz', FREE_FAILURES)
+    await Promise.resolve()
+    const second = createThrottle({ storage: new MemoryStorage(), now: time.now, mirror })
+    expect(second.wait('login', 'a@x.uz')).toBe(0)
+    await second.ready
+    expect(second.wait('login', 'a@x.uz')).toBe(30_000)
+  })
+
+  it('does not bring back counters a success cleared from a stale mirror', async () => {
+    const time = clock()
+    let release: () => void = () => undefined
+    const stale = { 'login|*': { n: 9, first: START, last: START } } as Record<string, unknown>
+    const mirror: ThrottleMirror = {
+      load: () => new Promise((resolve) => (release = () => resolve(stale))),
+      save: async () => undefined,
+    }
+    const throttle = createThrottle({ storage: new MemoryStorage(), now: time.now, mirror })
+    failTimes(throttle, 'login', 'a@x.uz', 2)
+    time.advance(1)
+    throttle.succeed('login', 'a@x.uz')
+    release()
+    await throttle.ready
+    expect(throttle.fail('login', 'a@x.uz')).toBe(0)
+  })
+
+  it('survives a failing mirror', async () => {
+    const mirror: ThrottleMirror = { load: async () => Promise.reject(new Error('blocked')), save: async () => Promise.reject(new Error('blocked')) }
+    const throttle = createThrottle({ storage: new MemoryStorage(), now: clock().now, mirror })
+    await throttle.ready
+    expect(failTimes(throttle, 'login', 'a@x.uz', FREE_FAILURES)).toBe(30_000)
+  })
+
+  it('counts notes per email without locking and reports them via peek until a success', () => {
+    const throttle = createThrottle({ storage: new MemoryStorage(), now: clock().now })
+    for (let index = 0; index < 30; index += 1) throttle.note('check', 'a@x.uz')
+    expect(throttle.peek('check', 'a@x.uz')).toEqual({ failures: 30, since: new Date(START).toISOString() })
+    expect(throttle.peek('check', 'b@x.uz')).toEqual({ failures: 0, since: null })
+    expect(throttle.wait('login', 'a@x.uz')).toBe(0)
+    expect(throttle.succeed('check', 'a@x.uz').failures).toBe(30)
+    expect(throttle.peek('check', 'a@x.uz').failures).toBe(0)
+  })
+
+  it('peek does not reset anything', () => {
+    const throttle = createThrottle({ storage: new MemoryStorage(), now: clock().now })
+    failTimes(throttle, 'login', 'a@x.uz', FREE_FAILURES)
+    expect(throttle.peek('login', 'a@x.uz').failures).toBe(FREE_FAILURES)
+    expect(throttle.wait('login', 'a@x.uz')).toBe(30_000)
   })
 })
 

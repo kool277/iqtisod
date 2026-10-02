@@ -19,6 +19,7 @@ Jaybi is a static single-page app. The server only serves files. User data never
 - `version.json` with `version`, `commit`, and `builtAt`. Running apps poll it to detect a new deployment.
 - `coi-config.js` and `coi-serviceworker.js`. `coi-config.js` runs first: it records whether the page is framed, creates the Trusted Types `default` policy, and configures the service worker.
 - `assets/` with hashed files. The first screen loads only the app entry (about 100 KB, 30 KB gzipped), the interface strings in four languages (about 150 KB, 46 KB gzipped), React (about 260 KB, 80 KB gzipped), and a few small shared chunks: about 545 KB, 170 KB gzipped in all. Pages, Chart.js (about 180 KB), and SQLite (about 210 KB of JavaScript plus an 870 KB WebAssembly binary, about 400 KB gzipped) load on demand. Serve `.wasm` as `application/wasm`; GitHub Pages and most hosts do this already.
+- `help/<locale>/*.webp`, the pictures of the in-app help (72 per language, about 12 MB in all). They are copied from `docs/images/` at build time, are not hashed, and load only when someone scrolls to them in **Help**, so they cost nothing on the first screen. Serve `.webp` as `image/webp`.
 
 ### SPA fallback (404.html)
 
@@ -94,7 +95,7 @@ The repository is `kool277/iqtisod`. These settings cannot be committed and must
 4. **Settings → Rules → Rulesets** (or Branches) for `main`: require a pull request, require the status checks **Typecheck, unit tests, audit, build**, **End-to-end tests (production preview)**, and **Analyze (javascript-typescript)**, block force pushes and deletion.
 5. A tag ruleset for `v*`: restrict creation to maintainers and block deletion and updates, so a released tag always points at the same code.
 6. **Settings → Code security**: enable Dependabot alerts, Dependabot security updates, secret scanning with push protection, and code scanning (the CodeQL workflow uploads results once enabled).
-7. In the `main` ruleset, also enable **Require review from Code Owners**. `.github/CODEOWNERS` assigns `@kool277` to key handling and storage (`src/crypto/`, `src/db/`), the auth, grant, user, account, and sign-in check services, the password policy, throttle, safe JSON, and limits modules, `public/`, `index.html`, `vite.config.ts`, the recovery tool, `tests/fixtures/`, `package-lock.json`, and `.github/`.
+7. In the `main` ruleset, also enable **Require review from Code Owners**. `.github/CODEOWNERS` assigns `@kool277` to key handling and storage (`src/crypto/`, `src/db/`), access control (`src/rbac/`), the auth, audit, grant, user, account, sign-in check, and safe services, the export code (`src/services/export/`), the password policy, throttle, safe JSON, limits, audit mark, device clock, lock reload, SPA fallback, and return-to modules, `src/main.tsx`, `public/`, `index.html`, `404.html`, `vite.config.ts`, the recovery tool, the exchange-rate job (`tools/fetch-rates.ts`, `tools/fx-sources.ts`), `tools/build-info.ts`, `tests/fixtures/`, `package.json` (its scripts run in CI), `package-lock.json`, and `.github/`.
 8. Private vulnerability reporting: **Settings → Code security → Private vulnerability reporting → Enable**, so the link in [SECURITY.md](../SECURITY.md) works.
 9. **Exchange rates**: after the workflow reaches `main`, run **Actions → Exchange rates → Run workflow** once to create the `fx-data` branch, then re-run **Deploy GitHub Pages** (or push to `main`) so the site and the rates are published together. If rulesets cover all branches, let `github-actions[bot]` push to `fx-data` and `gh-pages` (or exclude those two branches); do not require pull requests or status checks on them. Block deletion and force pushes on `fx-data`: it is the audit trail of every published rate.
 
@@ -120,7 +121,7 @@ Do not also set the action's `cname:` input: the domain has exactly one source, 
 
 #### DNS records (ahost.uz)
 
-The domain is registered at ahost.uz and uses its nameservers `rdns1.ahost.uz`, `rdns2.ahost.uz`, and `rdns3.ahost.uz`. Records are edited under **My domains → jaybi.uz → DNS manager**. Do not use the **Domain redirect** tab: GitHub serves the site and does the `www` redirect itself. This is the configuration in use:
+The domain is registered at ahost.uz and uses its nameservers `rdns1.ahost.uz`, `rdns2.ahost.uz`, and `rdns3.ahost.uz`. Records are edited under **My domains → jaybi.uz → DNS manager**. Do not use the **Domain redirect** tab: GitHub serves the site and does the `www` redirect itself. This is the required configuration (the security review of 1.4.1 found the verification, `www`, SPF, DMARC, and CAA rows not yet in place; see [Domain security checklist](#domain-security-checklist)):
 
 | Type | Name | Value | Purpose |
 | --- | --- | --- | --- |
@@ -132,22 +133,24 @@ The domain is registered at ahost.uz and uses its nameservers `rdns1.ahost.uz`, 
 | `AAAA` | `@` | `2606:50c0:8001::153` | GitHub Pages (IPv6) |
 | `AAAA` | `@` | `2606:50c0:8002::153` | GitHub Pages (IPv6) |
 | `AAAA` | `@` | `2606:50c0:8003::153` | GitHub Pages (IPv6) |
-| `CNAME` | `www` | `kool277.github.io.` | `www` redirect. This is the recommended value: the account's Pages host, with no repository path. The value in place today is `jaybi.uz`, which also works because it resolves to the same Pages addresses |
+| `CNAME` | `www` | `kool277.github.io.` | `www` redirect. Must be the account's Pages host, with no repository path. Pointing it at `jaybi.uz.` resolves to the same addresses, but GitHub then leaves `www` out of the certificate and `https://www.jaybi.uz` shows a certificate error |
 | `A` | `mail` | `185.196.212.52` | ahost mail hosting |
 | `A` | `ftp` | `185.196.212.52` | ahost hosting |
 | `MX` | `@` | `mail.jaybi.uz` | mail for `@jaybi.uz` addresses |
-| `TXT` | `@` | `v=spf1 +mx +ip4:185.196.212.52 ~all` | SPF (recommended value, see below) |
-| `TXT` | DKIM and DMARC names | unchanged from ahost's mail set-up | mail signing and policy |
-| `TXT` | `_github-pages-challenge-kool277` | the value GitHub shows | optional domain verification (see [GitHub Pages settings](#github-pages-settings)) |
+| `TXT` | `@` | `v=spf1 +mx +ip4:185.196.212.52 -all` | SPF: only ahost's mail server may send for the domain |
+| `TXT` | `_dmarc` | `v=DMARC1; p=quarantine; rua=mailto:dmarc@jaybi.uz` | DMARC. Start with `p=quarantine`; after two to four weeks of reports showing only ahost's server, change it to `p=reject`. The `rua` mailbox must exist |
+| `TXT` | DKIM name | unchanged from ahost's mail set-up | mail signing |
+| `CAA` | `@` | `0 issue "letsencrypt.org"` | only Let's Encrypt (GitHub's certificate authority) may issue certificates for the domain. If ahost's mail host uses a certificate for `mail.jaybi.uz` from another authority, add an `issue` line for it too |
+| `TXT` | `_github-pages-challenge-kool277` | the value GitHub shows | **required** domain verification (see [GitHub Pages settings](#github-pages-settings)). Never delete it |
 
 - The apex used to point at ahost (`A @ → 185.196.212.52`). That record must stay deleted, together with any other `A`, `AAAA`, `ALIAS`, `ANAME`, or URL/redirect record for `@` or `www`. Never add wildcard records.
-- Mail and FTP stay on ahost, which is why `mail` and `ftp` keep their own `A` records. Drop `+a` from the SPF record: `a` now means GitHub's addresses, which never send mail for the domain.
-- These are GitHub's published Pages addresses (checked against [Managing a custom domain](https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/managing-a-custom-domain-for-your-github-pages-site) in September 2026; check again before changing DNS). If you add a `CAA` record, it must allow `letsencrypt.org`, or GitHub cannot issue the certificate.
+- Mail and FTP stay on ahost, which is why `mail` and `ftp` keep their own `A` records. The SPF record has no `+a`: `a` now means GitHub's addresses, which never send mail for the domain, and `-all` tells receivers to refuse everything else. Turn off plain FTP at ahost, or allow only FTPS, so the hosting password never crosses the network in clear text.
+- These are GitHub's published Pages addresses (checked against [Managing a custom domain](https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/managing-a-custom-domain-for-your-github-pages-site) in September 2026; check again before changing DNS). The `CAA` record must keep allowing `letsencrypt.org`, or GitHub cannot issue or renew the certificate.
 
 #### GitHub Pages settings
 
-1. **Verify the domain for the account (optional, recommended).** On GitHub, open your profile **Settings → Pages → Verified domains → Add a domain**, enter `jaybi.uz`, add the `TXT` record it shows (name `_github-pages-challenge-kool277`) at ahost, and choose **Verify**. Keep the record for good. A verified domain cannot be claimed by anyone else's Pages site, even for a moment while the repository's custom domain is removed.
-2. **Custom domain.** In `kool277/iqtisod` **Settings → Pages → Custom domain**, `jaybi.uz` is saved. Saving commits `CNAME` to `gh-pages`, runs GitHub's DNS check, and requests a certificate (up to an hour, sometimes longer). From that moment the old address redirects to `jaybi.uz`.
+1. **Verify the domain for the account (required).** On GitHub, open your profile **Settings → Pages → Verified domains → Add a domain**, enter `jaybi.uz`, add the `TXT` record it shows (name `_github-pages-challenge-kool277`, so the full name is `_github-pages-challenge-kool277.jaybi.uz`) at ahost, and choose **Verify**. Keep the record for good. Without it, whenever the repository's custom domain is unset (by mistake, or during a [recovery](#recovering-a-vault-left-at-the-old-address)), anyone can add `jaybi.uz` to their own Pages site, get a certificate, and serve their own JavaScript on the vault's origin: they could read every visitor's encrypted vault and capture passwords as they are typed. A verified domain cannot be claimed by anyone else's Pages site.
+2. **Custom domain.** In `kool277/iqtisod` **Settings → Pages → Custom domain**, `jaybi.uz` is saved. Saving commits `CNAME` to `gh-pages`, runs GitHub's DNS check, and requests a certificate (up to an hour, sometimes longer). From that moment the old address redirects to `jaybi.uz`. After changing the `www` record to `kool277.github.io.`, save the domain again (or remove and re-add it, only once the domain is verified) so the new certificate covers `www.jaybi.uz` too.
 3. **Enforce HTTPS** is ticked. The box can be ticked only once the certificate is ready.
 4. After saving the domain, run **Deploy GitHub Pages** once by hand (Actions tab, **Run workflow**) and check that its log says "Custom domain jaybi.uz is set; publishing CNAME", so later deploys cannot drop the domain.
 
@@ -158,17 +161,20 @@ Ask a public resolver directly, so local caches cannot mislead you:
 ```bash
 dig @1.1.1.1 jaybi.uz +short          # exactly the four 185.199.108-111.153 addresses
 dig @1.1.1.1 jaybi.uz AAAA +short     # the four 2606:50c0:800x::153 addresses
-dig @1.1.1.1 www.jaybi.uz +short      # kool277.github.io. (or jaybi.uz.) followed by Pages addresses
+dig @1.1.1.1 www.jaybi.uz +short      # kool277.github.io. followed by Pages addresses
 dig @1.1.1.1 jaybi.uz MX +short       # mail.jaybi.uz.
 dig @1.1.1.1 mail.jaybi.uz +short     # 185.196.212.52
-dig @1.1.1.1 TXT _github-pages-challenge-kool277.jaybi.uz +short   # only if the domain is verified
+dig @1.1.1.1 TXT _github-pages-challenge-kool277.jaybi.uz +short   # the verification value; must never be empty
+dig @1.1.1.1 TXT jaybi.uz +short      # "v=spf1 +mx +ip4:185.196.212.52 -all"
+dig @1.1.1.1 TXT _dmarc.jaybi.uz +short   # "v=DMARC1; p=quarantine; ..." (later p=reject)
+dig @1.1.1.1 CAA jaybi.uz +short      # 0 issue "letsencrypt.org"
 ```
 
 `185.196.212.52` must not appear for `jaybi.uz` itself. Then check the site:
 
 ```bash
 curl -I https://jaybi.uz                      # 200, server: GitHub.com
-curl -I https://www.jaybi.uz                  # 301, location: https://jaybi.uz/
+curl -I https://www.jaybi.uz                  # 301, location: https://jaybi.uz/ (a certificate error means www still points at jaybi.uz.)
 curl -I http://jaybi.uz                       # 301 to https:// (Enforce HTTPS)
 curl -I https://kool277.github.io/iqtisod/    # 301, location: https://jaybi.uz/
 curl https://jaybi.uz/version.json            # the version and commit that were just deployed
@@ -194,7 +200,9 @@ curl https://jaybi.uz/version.json            # the version and commit that were
 
 #### Recovering a vault left at the old address
 
-A browser that still holds a vault from `kool277.github.io/iqtisod/` keeps it, but the redirect hides it. To get it out, the old origin has to be served again for a while:
+A browser that still holds a vault from `kool277.github.io/iqtisod/` keeps it, but the redirect hides it. To get it out, the old origin has to be served again for a while.
+
+**Do not start unless the domain is verified.** Removing the custom domain leaves `jaybi.uz` pointing at GitHub with no site claiming it. Without [verification](#github-pages-settings), anyone watching for that moment can claim the domain for their own Pages site and serve their code on the vault's origin until you save the domain again. Check first: `dig @1.1.1.1 TXT _github-pages-challenge-kool277.jaybi.uz +short` must print the value, and your profile's **Settings → Pages → Verified domains** must list `jaybi.uz` as verified.
 
 1. Pick a time and warn users: while the custom domain is removed, `jaybi.uz` does not serve the app.
 2. In `kool277/iqtisod` **Settings → Pages → Custom domain**, choose **Remove**. GitHub deletes `CNAME` from `gh-pages`, and after a few minutes `https://kool277.github.io/iqtisod/` serves the app again instead of redirecting. A deploy in the meantime publishes without `CNAME` (see [How the domain is deployed](#how-the-domain-is-deployed)).
@@ -209,9 +217,9 @@ Any new origin strands every vault again. If the domain ever has to change, depl
 
 The cross-origin isolation headers keep working unchanged: `coi-serviceworker.js` is served from `jaybi.uz` like the rest of the app. Nothing in the app refers to the old host except the moving notice, which appears only when `location.hostname` is `kool277.github.io`.
 
-#### Optional: Cloudflare in front
+#### Optional: Cloudflare in front (needed for HSTS)
 
-GitHub Pages cannot send security headers. Cloudflare can, later, without changing the app:
+GitHub Pages cannot send security headers, and HSTS (`Strict-Transport-Security`) cannot be set from a `<meta>` tag. So `http://jaybi.uz` still answers once with a redirect, and someone who intercepts a first visit or a typed `http://` address can show a fake page there (they still cannot read the real vault, which lives on the HTTPS origin). The only fix while the site is on GitHub Pages is a proxy in front that adds the header. Cloudflare can do this, later, without changing the app:
 
 1. Move the domain's nameservers from ahost.uz to Cloudflare and recreate every record from [DNS records](#dns-records-ahostuz), including the mail, FTP, MX, SPF, DKIM, and DMARC records. Keep the Pages records **DNS only** until GitHub has issued the certificate, because GitHub's certificate check needs to reach GitHub directly. The `mail` and `ftp` records always stay **DNS only**.
 2. Switch the `A`, `AAAA`, and `www` records to **Proxied**.
@@ -221,6 +229,17 @@ GitHub Pages cannot send security headers. Cloudflare can, later, without changi
 6. Do not add a "Cache Everything" rule for `index.html` or `version.json`, so releases are picked up.
 
 If GitHub later reports a certificate problem for the domain, switch the records to **DNS only** until GitHub has renewed it, then back to **Proxied**.
+
+**HSTS through the proxy.** Add `Strict-Transport-Security` to the Transform Rule (see [Security headers](#security-headers)). Start with `max-age=86400` and no `preload`, check for a week that `jaybi.uz`, `www.jaybi.uz`, and any web page on `mail.jaybi.uz` all work over HTTPS (`includeSubDomains` forces HTTPS in browsers for every subdomain; it does not affect mail or FTP protocols), then raise it to `max-age=63072000; includeSubDomains; preload` and submit the domain at [hstspreload.org](https://hstspreload.org). Preloading is hard to undo: removal takes months to reach browsers, so the domain must stay HTTPS-only for good. While the records are **DNS only** the header is not sent, which is safe, because browsers keep the policy they already saw.
+
+#### Domain security checklist
+
+- [ ] `jaybi.uz` verified under the profile's **Settings → Pages → Verified domains**, and the `_github-pages-challenge-kool277` `TXT` record kept.
+- [ ] `www` is `CNAME kool277.github.io.`, the domain was saved again afterwards, and `https://www.jaybi.uz` redirects without a certificate error.
+- [ ] SPF ends in `-all` without `+a`; DMARC at `p=quarantine` with a working `rua` mailbox, then `p=reject`.
+- [ ] `CAA 0 issue "letsencrypt.org"` (plus the mail host's authority if it differs).
+- [ ] Plain FTP off at ahost, or FTPS only.
+- [ ] Optional: a proxy in front sending HSTS and the other [security headers](#security-headers).
 
 ## Security headers
 
@@ -235,6 +254,7 @@ GitHub Pages sends none of these. Send them wherever the host allows (Cloudflare
 | `Referrer-Policy` | `no-referrer` |
 | `Permissions-Policy` | `accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()` |
 | `X-Frame-Options` | `DENY` (for old browsers that ignore `frame-ancestors`) |
+| `Strict-Transport-Security` | `max-age=63072000; includeSubDomains; preload` (start lower; see [Cloudflare in front](#optional-cloudflare-in-front-needed-for-hsts)) |
 
 Keep the header policy identical to the `<meta>` policy apart from `frame-ancestors`. Browsers apply both, so a stricter header silently breaks the app, and a looser one adds nothing. When you change `CONTENT_SECURITY_POLICY` in `vite.config.ts`, change the header too. Once the host sends the two isolation headers, `coi-serviceworker.js` no longer registers.
 
@@ -251,11 +271,12 @@ X-Content-Type-Options       nosniff
 Referrer-Policy              no-referrer
 Permissions-Policy           accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()
 X-Frame-Options              DENY
+Strict-Transport-Security    max-age=86400
 ```
 
 **`_headers` file** (Cloudflare Pages and Netlify): see [Other hosts](#other-hosts).
 
-Check the result with `curl -sI https://jaybi.uz/ | grep -iE 'content-security|cross-origin|x-content|referrer|permissions|x-frame'`, then open the app and look for policy errors in the browser console.
+Check the result with `curl -sI https://jaybi.uz/ | grep -iE 'content-security|cross-origin|x-content|referrer|permissions|x-frame|strict-transport'`, then open the app and look for policy errors in the browser console.
 
 ## Exchange rates
 
@@ -331,6 +352,8 @@ Running apps notice the new `version.json` within 30 minutes, or when the tab be
   - `npm run decrypt` opens any version.
 
   Prefer rolling forward with a fix. For 1.3.0 in particular, a rollback also loses every invite, reset code, and sign-in check set up since the upgrade.
+
+- **1.4.2 → 1.4.1.** No version number changes, so 1.4.1 opens a vault 1.4.2 saved, but it cannot use wraps or codes that 1.4.2 wrote: people added, invited, or given a new or reset password under 1.4.2 (and anyone whose password protection was upgraded at sign-in) get "wrong password", and codes issued under 1.4.2 are refused. Another Admin whose wrap is older can sign in and reset them. 1.4.1 shows no audit-log warnings and drops the `audit` head when it saves; rolling forward again picks the check up without false warnings, because the log only grew. Prefer rolling forward.
 
 ## Origin and storage isolation
 
@@ -438,10 +461,10 @@ There is no server-side logging, analytics, or error reporting, by design. Addin
 
 - [ ] Served only over HTTPS. Enforce HTTPS in Pages settings.
 - [ ] Hosted on a dedicated origin (`jaybi.uz`, serving nothing else), with the domain verified for the account.
-- [ ] DNS matches [DNS records](#dns-records-ahostuz): no leftover apex record pointing at ahost, no wildcard records.
+- [ ] DNS matches [DNS records](#dns-records-ahostuz): no leftover apex record pointing at ahost, no wildcard records, `www` pointing at `kool277.github.io.`, SPF `-all`, DMARC, and CAA in place (see [Domain security checklist](#domain-security-checklist)).
 - [ ] While vaults may remain at the old address, no other GitHub Pages site (user or project) on `kool277.github.io`.
-- [ ] If a proxy or host can send headers: the full policy with `frame-ancestors 'none'`, COOP, COEP, `nosniff`, `Referrer-Policy`, and `Permissions-Policy` sent on every response, and Cloudflare in **Full (strict)** mode with script-injecting features off.
-- [ ] Branch and tag rulesets as described in [One-time GitHub settings](#one-time-github-settings), with **Require review from Code Owners** on `main`. `.github/CODEOWNERS` covers key handling, storage, auth, grants, users, account, the sign-in check, limits, `public/`, `index.html`, `vite.config.ts`, the recovery tool, fixtures, the lock file, and `.github/`. (`src/services/safe.service.ts` is not in it; review it with the same care.)
+- [ ] If a proxy or host can send headers: the full policy with `frame-ancestors 'none'`, COOP, COEP, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, and HSTS sent on every response, and Cloudflare in **Full (strict)** mode with script-injecting features off.
+- [ ] Branch and tag rulesets as described in [One-time GitHub settings](#one-time-github-settings), with **Require review from Code Owners** on `main`. `.github/CODEOWNERS` covers key handling, storage, access control, auth, audit, grants, users, account, the sign-in check, safes, exports, limits, the page entry and redirect code, `public/`, `index.html`, `404.html`, `vite.config.ts`, the recovery tool, the exchange-rate job, `package.json`, fixtures, the lock file, and `.github/`.
 - [ ] `production` environment in place; workflow default permissions read-only.
 - [ ] Code scanning, Dependabot alerts, secret scanning, and private vulnerability reporting enabled.
 - [ ] CI installs with `--ignore-scripts` and runs `npm audit signatures`; Dependabot cooldown in place.

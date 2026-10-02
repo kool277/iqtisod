@@ -4,6 +4,7 @@ import { decodeStoredRecord, type VaultRecord } from '../../src/db/envelope'
 import { AuthError, ForbiddenError } from '../../src/domain/errors'
 import type { GrantWrap, OpenVault } from '../../src/domain/types'
 import { generateAccessCode, normalizeAccessCode } from '../../src/lib/access-code'
+import { resetDeviceClock } from '../../src/lib/device-clock'
 import { base32Decode, importTotpKey, totpAt } from '../../src/lib/totp'
 import { permissionsForRole } from '../../src/rbac'
 import { sealVault, unlockVault } from '../../src/services/auth.service'
@@ -54,7 +55,10 @@ beforeAll(async () => {
   closeTracked()
 })
 
-afterEach(closeTracked)
+afterEach(() => {
+  closeTracked()
+  resetDeviceClock()
+})
 
 function roleIdOf(vault: OpenVault, name: string): number {
   return Number(vault.db.queryValue('SELECT id FROM roles WHERE name = ?', [name]))
@@ -401,6 +405,9 @@ describe('redeemGrant', () => {
     const input = { kind: 'INVITE' as const, email: INVITEE.email, code: invite.code, password: INVITEE.password }
     await expect(redeem(pending, input, new Date(invite.expiresAt))).rejects.toMatchObject({ code: 'INVITE_EXPIRED' })
     await expect(redeem(pending, input, new Date(Date.parse(invite.expiresAt) + 7 * 24 * HOUR))).rejects.toMatchObject({ code: 'INVITE_EXPIRED' })
+    // Those attempts were clock readings; now turning the clock back, even to before expiry, is refused.
+    await expect(redeem(pending, input, new Date(Date.parse(invite.expiresAt) - MINUTE))).rejects.toMatchObject({ code: 'CLOCK_BEHIND' })
+    resetDeviceClock()
     await expect(redeem(pending, input, new Date(Date.now() - 10 * MINUTE))).rejects.toMatchObject({ code: 'CLOCK_BEHIND' })
     await expect(redeem(pending, { ...input, password: 'qwertyuiopasdfgh' }, new Date(Date.now() - 4 * MINUTE))).rejects.toMatchObject({ code: 'PASSWORD_COMMON' })
   })

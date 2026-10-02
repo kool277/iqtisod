@@ -32,15 +32,18 @@ It suits a household tracking a shared budget, a small business or community gro
 - Admin settings page for the vault name, vault currency, and income and expense categories in all four languages.
 - Private safes for every person: encrypted, owner-only places for payment cards, subscriptions (with monthly and yearly totals per currency and upcoming payments), and notes. Not even an Admin can open them. Password re-entry to open, locking with the vault, masked card numbers, an optional recovery code, a 30-day trash, and a private activity list.
 - One-time invite and reset codes (valid 24 hours by default), so people choose their own passwords and an Admin never needs to know them.
+- People dashboard for Admins: an overview against the member limit, a page for each person, editing name, email, role, and group (also for several people at once), suspending and reactivating, and deleting with a choice to move the person's records or keep them under a former member. Managers see their own group read-only, and every change is audited.
 - Account page where everyone changes their own password, turns on an optional sign-in check with an authenticator app, and chooses when the vault locks itself. People whose password was set by an Admin must choose their own at next sign-in.
 - Password rules (12+ characters, no common passwords) and attempt limits with a growing wait after repeated wrong passwords or codes.
 - Collapsible sidebar that remembers its state.
 - Exact money: amounts are stored as whole minor units (cents, tiyin) and never rounded, with per-currency subtotals for records outside the vault currency.
-- Tamper-evident audit log of every change, with before and after values.
+- Hash-chained audit log of every change, with before and after values. It catches damage and edits by people without a password, and warns Admins when the log got shorter or was rewritten since this browser last saw it. It is not signed, so a member who knows a password could still rewrite it.
 - Encrypted backup file (`.moliya`) for moving a vault to another browser or keeping a safe copy, with a reminder when the last backup is older than 7 days.
-- Data exports for Admins, for spreadsheets, accountants, and long-term archiving: CSV, JSON, JSON Lines, Excel, PDF report, and SQLite, for all data or one period and group. Exports are encrypted by default (AES-256 ZIP or an SQLCipher 4 database) with an export password of at least 14 characters that must differ from the sign-in password. Private safes are never exported.
+- Data exports for Admins, for spreadsheets, accountants, and long-term archiving: CSV, JSON, JSON Lines, Excel, PDF report, and SQLite, for all data or one period and group. Exports are encrypted by default (AES-256 ZIP or an SQLCipher 4 database) with an export password of at least 14 characters that must differ from the sign-in password and pass the same common-password and vault-name/email checks as sign-in passwords. ZIP needs a strong password (its key derivation is fixed and fast), so the form starts with a generated 120-bit one. Private safes are never exported.
 - Versioned data formats: every vault and backup made by any release keeps opening in every later release, and a standalone tool opens backups without the website.
 - In-app version display and a prompt to reload when a new version is deployed.
+- Health check for everyone, also before signing in: 35 local checks of the browser, storage, app version, vault, exchange rates, and site security, each with a plain explanation and a fix, plus a report to copy that holds no names, emails, or vault data. Admins also see the audit log, earlier copies, and the member limit.
+- Built-in help: the illustrated user guide in all four languages, searchable, with links into the app and a help button on every page.
 - Day, night, and system themes. Language and theme choices are remembered.
 
 ## How it works
@@ -96,7 +99,7 @@ Open the address Vite prints (usually `http://localhost:5173`), create a vault, 
 
 ## Documentation
 
-- [User guide](docs/user-guide.md) is for Managers and Viewers who record and review money, and for anyone using private safes.
+- [User guide](docs/user-guide.md) is an illustrated tutorial for everyone who uses a vault: signing in, records, tables, groups, people, private safes, backups, the health check, and troubleshooting. It is also available in [Russian](docs/ru/user-guide.md), [Uzbek (Latin)](docs/uz-Latn/user-guide.md), and [Uzbek (Cyrillic)](docs/uz-Cyrl/user-guide.md), each with screenshots in its own language, and inside the app under **Help**.
 - [Admin guide](docs/admin-guide.md) covers setting up a vault, settings and categories, people, groups, backups, and recovery.
 - [Developer guide](docs/developer-guide.md) covers architecture, code layout, conventions, and how to extend the app.
 - [DevOps guide](docs/devops-guide.md) covers building, CI, releases, GitHub Pages, the jaybi.uz domain and DNS, exchange rates, other hosts, and operational risks.
@@ -116,7 +119,7 @@ React 19, TypeScript, Vite, Tailwind CSS 4, Chart.js, Lucide icons, `@sqlite.org
 
 ## Status
 
-Version 1.4.0, in production since 1.0.0 and served from [jaybi.uz](https://jaybi.uz) since 1.3.0. The core features work and are covered by unit tests, browser tests, and golden backups from every release. Known gaps and suggested next steps are listed in the [developer guide](docs/developer-guide.md#known-gaps-and-next-steps).
+Version 1.6.0, in production since 1.0.0 and served from [jaybi.uz](https://jaybi.uz) since 1.3.0. The core features work and are covered by unit tests, browser tests, and golden backups from every release. Known gaps and suggested next steps are listed in the [developer guide](docs/developer-guide.md#known-gaps-and-next-steps).
 
 ## License
 

@@ -1,9 +1,10 @@
+import { readPreference } from '../lib/preference'
 import { en, type CoreMessages, type Messages } from './en'
 import type { ExportMessages } from './export/en'
+import type { HealthMessages } from './health/en'
+import type { HelpMessages } from './help/en'
+import type { PeopleMessages } from './people/en'
 import type { TableMessages } from './table/en'
-import { ru } from './ru'
-import { uzCyrl } from './uz-Cyrl'
-import { uzLatn } from './uz-Latn'
 
 export type { Messages }
 
@@ -20,11 +21,33 @@ export type Locale = (typeof LOCALES)[number]
 
 export const LOCALE_KEY = 'moliya.locale'
 
-const catalogs: Record<Locale, CoreMessages> = {
-  en,
-  ru,
-  'uz-Latn': uzLatn,
-  'uz-Cyrl': uzCyrl,
+const catalogs: Partial<Record<Locale, CoreMessages>> = { en }
+
+const coreLoaders: Record<Exclude<Locale, 'en'>, () => Promise<CoreMessages>> = {
+  ru: () => import('./ru').then((module) => module.ru),
+  'uz-Latn': () => import('./uz-Latn').then((module) => module.uzLatn),
+  'uz-Cyrl': () => import('./uz-Cyrl').then((module) => module.uzCyrl),
+}
+
+const coreLoads: Partial<Record<Locale, Promise<void>>> = {}
+
+/** Only English ships in the startup bundle; other languages load before the first render or on switching, and fall back to English until then. */
+export function loadLocale(locale: Locale): Promise<void> {
+  if (locale === 'en') return Promise.resolve()
+  coreLoads[locale] ??= coreLoaders[locale]().then(
+    (messages) => {
+      catalogs[locale] = messages
+    },
+    (error: unknown) => {
+      delete coreLoads[locale]
+      throw error
+    },
+  )
+  return coreLoads[locale]
+}
+
+export function hasLocale(locale: Locale): boolean {
+  return catalogs[locale] !== undefined
 }
 
 const exportLoaders: Record<Locale, () => Promise<ExportMessages>> = {
@@ -48,11 +71,78 @@ export function loadExportMessages(locale: Locale): Promise<void> {
       throw error
     },
   )
-  return exportLoads[locale]
+  return Promise.all([exportLoads[locale], loadLocale(locale)]).then(() => undefined)
 }
 
 export function hasExportMessages(locale: Locale): boolean {
   return exportCatalogs[locale] !== undefined
+}
+
+type LazyHead = 'health' | 'help' | 'people'
+type LazyMessages = { health: HealthMessages; help: HelpMessages; people: PeopleMessages }
+
+const lazyLoaders: { [Head in LazyHead]: Record<Locale, () => Promise<LazyMessages[Head]>> } = {
+  health: {
+    en: () => import('./health/en').then((module) => module.healthEn),
+    ru: () => import('./health/ru').then((module) => module.healthRu),
+    'uz-Latn': () => import('./health/uz-Latn').then((module) => module.healthUzLatn),
+    'uz-Cyrl': () => import('./health/uz-Cyrl').then((module) => module.healthUzCyrl),
+  },
+  help: {
+    en: () => import('./help/en').then((module) => module.helpEn),
+    ru: () => import('./help/ru').then((module) => module.helpRu),
+    'uz-Latn': () => import('./help/uz-Latn').then((module) => module.helpUzLatn),
+    'uz-Cyrl': () => import('./help/uz-Cyrl').then((module) => module.helpUzCyrl),
+  },
+  people: {
+    en: () => import('./people/en').then((module) => module.peopleEn),
+    ru: () => import('./people/ru').then((module) => module.peopleRu),
+    'uz-Latn': () => import('./people/uz-Latn').then((module) => module.peopleUzLatn),
+    'uz-Cyrl': () => import('./people/uz-Cyrl').then((module) => module.peopleUzCyrl),
+  },
+}
+
+const lazyCatalogs: { [Head in LazyHead]: Partial<Record<Locale, LazyMessages[Head]>> } = { health: {}, help: {}, people: {} }
+const lazyLoads: Record<LazyHead, Partial<Record<Locale, Promise<void>>>> = { health: {}, help: {}, people: {} }
+
+function loadLazy<Head extends LazyHead>(head: Head, locale: Locale): Promise<void> {
+  lazyLoads[head][locale] ??= lazyLoaders[head][locale]().then(
+    (messages) => {
+      lazyCatalogs[head][locale] = messages
+    },
+    (error: unknown) => {
+      delete lazyLoads[head][locale]
+      throw error
+    },
+  )
+  return Promise.all([lazyLoads[head][locale], loadLocale(locale)]).then(() => undefined)
+}
+
+/** The `health.*` strings load with the health check; until this resolves they translate to their keys. */
+export function loadHealthMessages(locale: Locale): Promise<void> {
+  return loadLazy('health', locale)
+}
+
+export function hasHealthMessages(locale: Locale): boolean {
+  return lazyCatalogs.health[locale] !== undefined && hasLocale(locale)
+}
+
+/** The `help.*` strings load with the help pages; until this resolves they translate to their keys. */
+export function loadHelpMessages(locale: Locale): Promise<void> {
+  return loadLazy('help', locale)
+}
+
+export function hasHelpMessages(locale: Locale): boolean {
+  return lazyCatalogs.help[locale] !== undefined && hasLocale(locale)
+}
+
+/** The `people.*` strings load with the People pages; until this resolves they translate to their keys. */
+export function loadPeopleMessages(locale: Locale): Promise<void> {
+  return loadLazy('people', locale)
+}
+
+export function hasPeopleMessages(locale: Locale): boolean {
+  return lazyCatalogs.people[locale] !== undefined && hasLocale(locale)
 }
 
 let tableCatalogs: Record<Locale, TableMessages> | null = null
@@ -71,8 +161,7 @@ export function isLocale(value: unknown): value is Locale {
 }
 
 export function detectLocale(): Locale {
-  if (typeof localStorage === 'undefined') return 'en'
-  const saved = localStorage.getItem(LOCALE_KEY)
+  const saved = readPreference(LOCALE_KEY)
   if (isLocale(saved)) return saved
   if (typeof navigator === 'undefined') return 'en'
   const language = navigator.language.toLowerCase()
@@ -84,9 +173,16 @@ export function detectLocale(): Locale {
 
 export function translate(locale: Locale, key: MessageKey): string {
   const [head, ...rest] = key.split('.')
-  const lazy = head === 'export' || head === 'table'
+  const lazy = head === 'export' || head === 'table' || head === 'health' || head === 'help' || head === 'people'
   const parts = lazy ? rest : [head, ...rest]
-  let current: unknown = head === 'export' ? exportCatalogs[locale] : head === 'table' ? tableCatalogs?.[locale] : catalogs[locale]
+  let current: unknown =
+    head === 'export'
+      ? exportCatalogs[locale]
+      : head === 'table'
+        ? tableCatalogs?.[locale]
+        : head === 'health' || head === 'help' || head === 'people'
+          ? lazyCatalogs[head][locale]
+          : (catalogs[locale] ?? en)
   for (const part of parts) {
     if (typeof current !== 'object' || current === null || !(part in current)) return key
     current = (current as Record<string, unknown>)[part]
@@ -105,14 +201,20 @@ export function flattenMessages(tree: unknown, prefix = ''): Record<string, stri
   return result
 }
 
-/** `export` is missing until `loadExportMessages(locale)` has resolved, and `table` until the table chunk has loaded. */
+/** `export`, `health`, `help` and `people` are missing until their loaders have resolved, and `table` until the table chunk has loaded. */
 export function catalogFor(locale: Locale): Messages {
   const exportMessages = exportCatalogs[locale]
   const tableMessages = tableCatalogs?.[locale]
+  const healthMessages = lazyCatalogs.health[locale]
+  const helpMessages = lazyCatalogs.help[locale]
+  const peopleMessages = lazyCatalogs.people[locale]
   return {
-    ...catalogs[locale],
+    ...(catalogs[locale] ?? en),
     ...(exportMessages ? { export: exportMessages } : {}),
     ...(tableMessages ? { table: tableMessages } : {}),
+    ...(healthMessages ? { health: healthMessages } : {}),
+    ...(helpMessages ? { help: helpMessages } : {}),
+    ...(peopleMessages ? { people: peopleMessages } : {}),
   } as Messages
 }
 

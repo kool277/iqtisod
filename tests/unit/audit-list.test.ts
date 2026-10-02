@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { writeAudit, listAudit, AUDIT_PAGE_LIMIT } from '../../src/services/audit.service'
+import { writeAudit } from '../../src/services/audit.service'
+import { listAudit, AUDIT_PAGE_LIMIT } from '../../src/services/audit-log'
 import { ForbiddenError } from '../../src/domain/errors'
 import type { OpenVault } from '../../src/domain/types'
 import { openLedger } from '../support/exports'

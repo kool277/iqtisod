@@ -1,7 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
-import { detectLocale, translate } from './i18n'
+import { detectLocale, loadLocale, translate } from './i18n'
 import './index.css'
 
 declare global {
@@ -40,12 +40,18 @@ function renderFramed(root: HTMLElement): void {
 const root = document.getElementById('root')
 if (!root) throw new Error('Missing root element')
 
-if (isFramed()) {
-  renderFramed(root)
-} else {
-  createRoot(root).render(
-    <StrictMode>
-      <App />
-    </StrictMode>,
-  )
+function start(root: HTMLElement): void {
+  if (isFramed()) {
+    renderFramed(root)
+  } else {
+    createRoot(root).render(
+      <StrictMode>
+        <App />
+      </StrictMode>,
+    )
+  }
 }
+
+void loadLocale(detectLocale())
+  .catch(() => undefined)
+  .then(() => start(root))

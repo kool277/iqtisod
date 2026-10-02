@@ -1,5 +1,8 @@
+import type { VaultRecord } from '../db/envelope'
+import { getSetting, setSetting } from '../db/settings'
 import type { SqlDatabase, SqlValue } from '../db/sqlite'
 import type { OpenVault } from '../domain/types'
+import { boundedRaise, deviceClockFloor } from '../lib/device-clock'
 import { writeAudit } from './audit.service'
 
 export type GrantEndReason = 'USED' | 'REVOKED' | 'EXPIRED' | 'REPLACED'
@@ -60,13 +63,24 @@ export function endGrant(db: SqlDatabase, id: string, reason: GrantEndReason, by
   return Number(db.queryValue('SELECT changes()') ?? 0) === 1
 }
 
+/**
+ * Wraps the envelope will hold once every open code is used: current wraps, plus one per open invite, plus one per
+ * open reset that stopped the old password (its wrap comes back when the code is used).
+ */
+export function committedWraps(vault: OpenVault): number {
+  const open = openGrantRows(vault.db)
+  const invites = open.filter((grant) => grant.kind === 'INVITE').length
+  const resets = open.filter((grant) => grant.kind === 'RESET' && grant.userId !== null && !vault.wraps.some((wrap) => wrap.userId === grant.userId)).length
+  return vault.wraps.length + invites + resets
+}
+
 export function dropEnvelopeGrant(vault: OpenVault, id: string): void {
   vault.grants = vault.grants.filter((grant) => grant.id !== id)
 }
 
 /** Ends expired grants and drops envelope wraps that can no longer be redeemed. Returns how many things changed. */
 export function sweepGrants(vault: OpenVault, now = new Date()): number {
-  const at = now.toISOString()
+  const at = new Date(Math.max(now.getTime(), clockFloor(vault.db) ?? 0)).toISOString()
   let changed = 0
   vault.db.withTransaction(() => {
     for (const row of openGrantRows(vault.db)) {
@@ -88,3 +102,30 @@ export function sweepGrants(vault: OpenVault, now = new Date()): number {
 
 export const CLOCK_KEY = 'clock_high_water'
 export const CLOCK_TOLERANCE_MS = 5 * 60_000
+
+/** The latest time either the vault or this browser has seen, in milliseconds, or null when neither has a mark. */
+export function clockFloor(db: SqlDatabase): number | null {
+  const stored = getSetting(db, CLOCK_KEY)
+  const vault = stored ? Date.parse(stored) : Number.NaN
+  const device = deviceClockFloor()
+  if (!Number.isFinite(vault)) return device
+  return device === null ? vault : Math.max(vault, device)
+}
+
+/** Raises the vault's mark by at most one step per save, so one save under a far-future clock cannot block codes for years. */
+export function recordClock(db: SqlDatabase, now: number): void {
+  const stored = getSetting(db, CLOCK_KEY)
+  const previous = stored ? Date.parse(stored) : Number.NaN
+  const next = boundedRaise(Number.isFinite(previous) ? previous : deviceClockFloor(), now)
+  if (!Number.isFinite(previous) || next > previous) setSetting(db, CLOCK_KEY, new Date(next).toISOString())
+}
+
+/** Drops grants whose plain-text expiry has passed. Needs no key, so it runs whenever the app loads the record. */
+export function pruneExpiredGrants(record: VaultRecord, now: number): VaultRecord | null {
+  const at = new Date(now).toISOString()
+  const grants = record.grants ?? []
+  const kept = grants.filter((grant) => grant.expiresAt === undefined || grant.expiresAt > at)
+  if (kept.length === grants.length) return null
+  const { grants: _dropped, ...rest } = record
+  return kept.length > 0 ? { ...rest, grants: kept } : rest
+}

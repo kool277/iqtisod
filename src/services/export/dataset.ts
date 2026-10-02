@@ -6,7 +6,8 @@ import { ForbiddenError, ValidationError } from '../../domain/errors'
 import type { SessionUser } from '../../domain/types'
 import { minorToFixed } from '../../lib/money'
 import { BUILD } from '../../lib/version'
-import { Permission, canUser } from '../../rbac'
+import { Permission, canUser, seesAllGroups } from '../../rbac'
+import { AUDIT_ACTOR_EMAIL } from '../audit-log'
 
 export const PAGE_SIZE = 1000
 
@@ -119,7 +120,7 @@ export function yieldToBrowser(): Promise<void> {
 export function resolveExportScope(user: SessionUser, request: ScopeRequest, db: SqlDatabase): ExportScope {
   if (!canUser(user, Permission.EXPORT_VAULT)) throw new ForbiddenError()
   let groupId = request.groupId
-  if (user.roleName !== 'Admin') {
+  if (!seesAllGroups(user)) {
     if (user.groupId == null) throw new ForbiddenError()
     groupId = user.groupId
   }
@@ -413,7 +414,7 @@ export function createDataset(db: SqlDatabase, scope: ExportScope, options: Data
       throwIfAborted(signal)
       const rows = db.query(
         `SELECT a.seq, a.id, a.actor_id, a.action, a.entity_type, a.entity_id, a.details, a.created_at, a.prev_hash, a.hash,
-                u.email AS actor_email
+                ${AUDIT_ACTOR_EMAIL} AS actor_email
          FROM audit_logs a
          LEFT JOIN users u ON u.id = a.actor_id
          WHERE ${audit.sql} AND a.seq > ?

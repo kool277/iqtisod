@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // Standalone recovery tool for Moliya backups. Depends only on Node.js (22+) so it keeps
 // working without the app, its build, or npm. Specification: docs/data-format.md.
-import { readFileSync, writeFileSync, existsSync } from 'node:fs'
-import { basename } from 'node:path'
+import { chmodSync, closeSync, existsSync, fstatSync, mkdtempSync, openSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { basename, join } from 'node:path'
 import { createInterface } from 'node:readline'
 import { webcrypto } from 'node:crypto'
 
@@ -10,7 +11,11 @@ const { subtle } = webcrypto
 const SUPPORTED_BACKUP_VERSIONS = [1, 2]
 const LEGACY_KDF = { name: 'PBKDF2', hash: 'SHA-256', iterations: 200000 }
 const KDF_HASHES = ['SHA-256', 'SHA-384', 'SHA-512']
-const ITERATIONS = { min: 100000, max: 10000000 }
+// Same bounds as the app, so a crafted file cannot make the tool spend minutes on one guess.
+const ITERATIONS = { min: 100000, max: 2000000 }
+// One message for a wrong password and damaged data, so neither can be told from the other.
+export const DECRYPT_FAILED = 'wrong email or password, or the backup is damaged'
+const WRAP_AAD_V1 = 'moliya/wrap/v1'
 
 const USAGE = `Usage:
   node tools/moliya-decrypt.mjs <backup.moliya> --list
@@ -92,10 +97,18 @@ export function readBackup(text) {
       salt: bytes(wrap.salt, `wraps[${index}].salt`),
       iv: bytes(wrap.iv, `wraps[${index}].iv`),
       wrappedDek: bytes(wrap.wrappedDek, `wraps[${index}].wrappedDek`),
+      aad: readWrapAad(wrap, index),
     })),
     grants: readGrants(file.grants),
     body: { iv: bytes(body?.iv, 'body.iv'), ciphertext: bytes(body?.ciphertext, 'body.ciphertext') },
   }
+}
+
+// Wraps written by 1.4.2+ carry aad: "moliya/wrap/v1" and bind their userId as AES-GCM additional data.
+function readWrapAad(wrap, index) {
+  if (wrap.aad === undefined) return null
+  if (wrap.aad !== WRAP_AAD_V1 || typeof wrap.userId !== 'string') throw new Error(`wraps[${index}].aad is not supported`)
+  return new TextEncoder().encode(`${WRAP_AAD_V1}|${wrap.userId}`)
 }
 
 // 1.3.0+ backups may carry one-time invite and reset wraps. They only unlock with a code, so the
@@ -120,15 +133,22 @@ export async function decryptBackup(backup, email, password) {
     256,
   )
   const kek = await subtle.importKey('raw', bits, { name: 'AES-GCM', length: 256 }, false, ['decrypt'])
+  new Uint8Array(bits).fill(0)
   let rawDek
+  let plain
   try {
-    rawDek = await subtle.decrypt({ name: 'AES-GCM', iv: wrap.iv }, kek, wrap.wrappedDek)
+    rawDek = await subtle.decrypt(wrap.aad ? { name: 'AES-GCM', iv: wrap.iv, additionalData: wrap.aad } : { name: 'AES-GCM', iv: wrap.iv }, kek, wrap.wrappedDek)
+    const dek = await subtle.importKey('raw', rawDek, { name: 'AES-GCM', length: 256 }, false, ['decrypt'])
+    plain = new Uint8Array(await subtle.decrypt({ name: 'AES-GCM', iv: backup.body.iv }, dek, backup.body.ciphertext))
   } catch {
-    throw new Error('wrong email or password')
+    throw new Error(DECRYPT_FAILED)
+  } finally {
+    if (rawDek) new Uint8Array(rawDek).fill(0)
   }
-  const dek = await subtle.importKey('raw', rawDek, { name: 'AES-GCM', length: 256 }, false, ['decrypt'])
-  const plain = new Uint8Array(await subtle.decrypt({ name: 'AES-GCM', iv: backup.body.iv }, dek, backup.body.ciphertext))
-  if (Buffer.from(plain.subarray(0, 16)).toString('latin1') !== 'SQLite format 3\0') throw new Error('decrypted data is not a SQLite database')
+  if (Buffer.from(plain.subarray(0, 16)).toString('latin1') !== 'SQLite format 3\0') {
+    plain.fill(0)
+    throw new Error(DECRYPT_FAILED)
+  }
   return plain
 }
 
@@ -141,11 +161,12 @@ async function openSqlite() {
   }
 }
 
-async function scrub(path) {
-  const DatabaseSync = await openSqlite()
-  if (!DatabaseSync) return null
+function scrubFile(DatabaseSync, path) {
   const db = new DatabaseSync(path)
   try {
+    // Overwrite freed pages and keep VACUUM's copy in memory rather than in the system temp directory.
+    db.exec('PRAGMA secure_delete = ON')
+    db.exec('PRAGMA temp_store = MEMORY')
     db.exec("UPDATE users SET password_hash = '', salt = ''")
     const tables = db
       .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('safe_events', 'secure_items', 'safes', 'user_keys', 'user_totp', 'access_grants')")
@@ -159,6 +180,57 @@ async function scrub(path) {
     return { schema: Number(Object.values(schema)[0]) || 1, transactions: Number(count.n) }
   } finally {
     db.close()
+  }
+}
+
+/**
+ * Scrubs a copy inside a fresh 0700 directory, so the output path only ever holds the scrubbed database.
+ * Returns the scrubbed bytes and a summary, or null when this Node.js has no node:sqlite.
+ */
+export async function scrubbed(plain) {
+  const DatabaseSync = await openSqlite()
+  if (!DatabaseSync) return null
+  const dir = mkdtempSync(join(tmpdir(), 'moliya-decrypt-'))
+  const path = join(dir, 'vault.sqlite')
+  try {
+    chmodSync(dir, 0o700)
+    writeFileSync(path, plain, { mode: 0o600 })
+    const summary = scrubFile(DatabaseSync, path)
+    return { bytes: new Uint8Array(readFileSync(path)), summary }
+  } finally {
+    try {
+      zeroFile(path)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  }
+}
+
+// Through one descriptor, so the zeros land in the same file whose size was read.
+function zeroFile(path) {
+  let fd
+  try {
+    fd = openSync(path, 'r+')
+  } catch (error) {
+    if (error?.code === 'ENOENT') return
+    throw error
+  }
+  try {
+    writeFileSync(fd, new Uint8Array(fstatSync(fd).size))
+  } finally {
+    closeSync(fd)
+  }
+}
+
+// 'wx' (O_CREAT | O_EXCL) never follows a symlink or reuses a file, so the output is always a new 0600 file
+// even if something appears at that path after the early check; --force removes the old one first.
+function writeOutput(out, data, force) {
+  if (force) rmSync(out, { force: true })
+  try {
+    writeFileSync(out, data, { mode: 0o600, flag: 'wx' })
+  } catch (error) {
+    if (error?.code === 'EEXIST') throw new Error(`${out} exists; pass --force to overwrite`)
+    throw error
   }
 }
 
@@ -213,16 +285,27 @@ async function main() {
   } catch (error) {
     fail(error.message)
   }
-  writeFileSync(out, plain, { mode: 0o600 })
   let summary = null
-  if (!options.keepKeys) {
-    summary = await scrub(out)
-    if (!summary) {
-      process.stderr.write(
-        'moliya-decrypt: warning: this Node.js has no node:sqlite, so password verifiers, private-safe rows and sign-in check secrets were NOT removed from the output. ' +
-          'Use Node.js 22.13 or newer, or treat the file as secret.\n',
-      )
+  try {
+    const clean = options.keepKeys ? null : await scrubbed(plain)
+    if (clean) {
+      summary = clean.summary
+      try {
+        writeOutput(out, clean.bytes, options.force)
+      } finally {
+        clean.bytes.fill(0)
+      }
+    } else {
+      if (!options.keepKeys) {
+        process.stderr.write(
+          'moliya-decrypt: warning: this Node.js has no node:sqlite, so password verifiers, private-safe rows and sign-in check secrets were NOT removed from the output. ' +
+            'Use Node.js 22.13 or newer, or treat the file as secret.\n',
+        )
+      }
+      writeOutput(out, plain, options.force)
     }
+  } finally {
+    plain.fill(0)
   }
   process.stdout.write(
     `Wrote ${out}\n  backup format ${backup.version}, written by Moliya ${backup.appVersion}, schema ${summary?.schema ?? backup.schemaVersion}` +

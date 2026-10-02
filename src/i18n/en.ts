@@ -1,4 +1,7 @@
 import type { ExportMessages } from './export/en'
+import type { HealthMessages } from './health/en'
+import type { HelpMessages } from './help/en'
+import type { PeopleMessages } from './people/en'
 import type { TableMessages } from './table/en'
 
 export const en = {
@@ -20,6 +23,9 @@ export const en = {
     lock: 'Lock',
     collapse: 'Collapse sidebar',
     expand: 'Expand sidebar',
+    health: 'Health check',
+    help: 'Help',
+    helpPage: 'Help for this page',
   },
   setup: {
     title: 'Create your vault',
@@ -161,7 +167,7 @@ export const en = {
     when: 'When',
     actor: 'Actor',
     integrity: 'Integrity',
-    intact: 'Intact: no entries were changed or removed',
+    intact: 'Intact: every entry links to the one before it',
     broken: 'Broken: entries were changed outside the app',
     entries: 'Entries',
     actions: {
@@ -669,6 +675,13 @@ export const en = {
     expired: 'Expired',
     revoke: 'Revoke',
     revoked: 'Code revoked.',
+    clockTitle: 'Clock check for codes',
+    clockHelp:
+      'Codes are refused when this device’s clock is behind the latest time the vault or this browser has seen, so turning the clock back cannot revive an expired code. If a wrong clock pushed that time into the future, reset it here after correcting the clock.',
+    clockVault: 'Latest time seen by the vault',
+    clockDevice: 'Latest time seen by this browser',
+    clockReset: 'Reset to the current time',
+    clockDone: 'Clock check reset to the current time.',
     advanced: 'Advanced: set a temporary password instead',
     advancedHelp:
       'You choose a password and tell it to them. They must change it at their first sign-in. An invite code is safer because only they ever know their password.',
@@ -725,6 +738,12 @@ export const en = {
     weakAction: 'Change password',
     storageNear: 'The vault is close to its size limit. Remove large receipts to make room.',
     failuresSeen: 'Failed sign-in attempts for your account in this browser since your last sign-in:',
+    checkFailuresSeen: 'Sign-ins where your password was correct but the sign-in check was not passed (wrong code, cancelled or timed out):',
+    auditBroken: 'The audit log does not link up: something was changed or removed outside the app, starting at entry',
+    auditShorter: 'The audit log is shorter than when this vault was last opened in this browser. Entries may have been removed.',
+    auditChanged: 'The audit log differs from what this browser saw last time. Entries may have been rewritten.',
+    auditAccept: 'Accept the log as it is',
+    auditOpen: 'Open the audit log',
     throttled: 'Too many attempts. Try again in',
     passwordHint: 'At least 12 characters. A few unrelated words work well.',
     replaceTitle: 'Replace this vault with a backup',
@@ -749,9 +768,9 @@ export const en = {
     PASSWORD_COMMON: 'This password is too common or too easy to guess. Try a few unrelated words.',
     PASSWORD_CONTEXT: 'Do not build the password from your email or the vault name.',
     INVITE_CODE: 'That code is not complete or has a typo. Check it and try again.',
-    INVITE_INVALID: 'That email and code do not match an open invitation.',
+    INVITE_INVALID: 'That email and code do not match an open invitation. Codes stop working once they expire or are used; ask for a new one if needed.',
     INVITE_EXPIRED: 'This code has expired. Ask your administrator for a new one.',
-    CLOCK_BEHIND: 'This device’s clock is behind. Correct the date and time, then try again.',
+    CLOCK_BEHIND: 'This device’s clock is behind the latest time seen. Correct the date and time and try again. If the clock is right, an Admin can reset the clock check on the People page.',
     INVITE_LIMIT: 'Too many open codes. Revoke some first.',
     MEMBER_LIMIT: 'This vault already has the maximum number of people (256).',
     GRANT_OPEN: 'There is already an open code for this email. Revoke it first.',
@@ -778,9 +797,15 @@ export const en = {
     TOTP_DISABLED: 'Sign-in check turned off',
     TOTP_CLEARED: 'Sign-in check removed',
     TOTP_RECOVERY_USED: 'Sign-in recovery code used',
+    CLOCK_FLOOR_RESET: 'Clock check reset',
+    AUDIT_MARK_RESET: 'Audit log accepted after a warning',
+    USER_SUSPENDED: 'User suspended',
+    USER_REACTIVATED: 'User reactivated',
+    USER_MUST_CHANGE_PASSWORD: 'New password required',
+    TRANSACTIONS_REASSIGNED: 'Records moved to another person',
   },
 }
 
-/** Everything except the export strings, which load with the export panel, and the table strings, which load with the table chunk. */
+/** Everything except the export, health and help strings, which load with their pages, and the table strings, which load with the table chunk. */
 export type CoreMessages = typeof en
-export type Messages = CoreMessages & { export: ExportMessages; table: TableMessages }
+export type Messages = CoreMessages & { export: ExportMessages; table: TableMessages; health: HealthMessages; help: HelpMessages; people: PeopleMessages }

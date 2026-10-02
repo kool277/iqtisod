@@ -311,8 +311,13 @@ function readPrevious(out: string): FxSnapshot | null {
   return existsSync(path) ? parseSnapshot(readFileSync(path, 'utf8')) : null
 }
 
+/** GitHub workflow commands end at a line break; `%`, CR and LF must be escaped so a message cannot start another command. */
+export function commandMessage(text: string): string {
+  return text.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A')
+}
+
 function report(result: BuildResult): void {
-  for (const warning of result.warnings) console.log(`::warning::${warning}`)
+  for (const warning of result.warnings) console.log(`::warning::${commandMessage(warning)}`)
   const lines = result.snapshot.quotes.map(
     (quote) => `| USD/${quote.quote} | ${quote.rate} | ${quote.date} | ${quote.source} ${quote.method} | ${quote.previous?.rate ?? '—'} |`,
   )
@@ -361,7 +366,7 @@ export async function main(argv: string[]): Promise<number> {
     for (const path of written) console.log(`wrote ${path}`)
     return 0
   } catch (error) {
-    console.error(`::error::${error instanceof Error ? error.message : String(error)}`)
+    console.error(`::error::${commandMessage(error instanceof Error ? error.message : String(error))}`)
     return 1
   }
 }

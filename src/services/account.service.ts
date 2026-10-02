@@ -1,7 +1,8 @@
-import { CURRENT_KDF, SALT_BYTES, deriveKeyAndVerifier, randomBytes, wrapDek } from '../crypto/crypto.service'
+import { CURRENT_KDF, SALT_BYTES, deriveKeyAndVerifier, randomBytes } from '../crypto/crypto.service'
 import { bytesToBase64 } from '../crypto/encoding'
+import { newUserWrap } from '../crypto/user-wrap'
 import { ValidationError } from '../domain/errors'
-import type { OpenVault, UserWrap } from '../domain/types'
+import type { OpenVault } from '../domain/types'
 import { assertNewPassword } from '../lib/password-policy'
 import { writeAudit } from './audit.service'
 import { verifyOwnPassword } from './auth.service'
@@ -16,7 +17,7 @@ export async function changeOwnPassword(vault: OpenVault, current: string, next:
   const salt = randomBytes(SALT_BYTES)
   const kdf = { ...CURRENT_KDF }
   const { key, verifier } = await deriveKeyAndVerifier(next, salt, kdf)
-  const wrapped = await wrapDek(vault.dek, key)
+  const wrap = await newUserWrap(vault.dek, key, { userId, email: vault.user.email, kdf, salt })
   const rewrap = await preparePasswordRewrap(vault, current, next)
   const totpRewrap = await prepareTotpRewrap(vault, current, next)
   const changedAt = new Date().toISOString()
@@ -29,7 +30,6 @@ export async function changeOwnPassword(vault: OpenVault, current: string, next:
     totpRewrap?.(vault.db, changedAt)
     writeAudit(vault.db, userId, 'PASSWORD_CHANGED', 'user', userId)
   })
-  const wrap: UserWrap = { userId, email: vault.user.email, kdf, salt, iv: wrapped.iv, wrappedDek: wrapped.cipherText }
   const index = vault.wraps.findIndex((item) => item.userId === userId)
   if (index >= 0) vault.wraps[index] = wrap
   else vault.wraps.push(wrap)

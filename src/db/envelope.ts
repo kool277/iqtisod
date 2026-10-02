@@ -4,6 +4,7 @@ import {
   LEGACY_KDF,
   SALT_BOUNDS,
   WRAPPED_DEK_BYTES,
+  WRAP_AAD_V1,
   isKdfParams,
   type KdfParams,
 } from '../crypto/crypto.service'
@@ -11,6 +12,7 @@ import { base64ToBytes, bytesToBase64, cloneBuffer, cloneBytes } from '../crypto
 import { CorruptRecordError, FormatTooNewError, ValidationError } from '../domain/errors'
 import { LIMITS } from '../lib/limits'
 import { parseJsonSafely } from '../lib/safe-json'
+import { isAuditHead, type AuditHead } from './audit-chain'
 import { BACKUP_VERSION, RECORD_VERSION, SCHEMA_VERSION } from './versions'
 
 export const BACKUP_FORMAT = 'moliya-vault'
@@ -27,6 +29,7 @@ export type WrapRecord = {
   salt: ArrayBuffer
   iv: ArrayBuffer
   wrappedDek: ArrayBuffer
+  aad?: typeof WRAP_AAD_V1
 }
 
 export type GrantKind = 'INVITE' | 'RESET'
@@ -39,6 +42,7 @@ export type GrantRecord = {
   salt: ArrayBuffer
   iv: ArrayBuffer
   wrappedDek: ArrayBuffer
+  expiresAt?: string
 }
 
 export type VaultRecord = {
@@ -51,6 +55,8 @@ export type VaultRecord = {
   cipher: PayloadCipher
   wraps: WrapRecord[]
   grants?: GrantRecord[]
+  /** The audit log's last entry when the record was sealed (1.4.2+). Advisory: lets a reader notice a shortened or rewritten log. */
+  audit?: AuditHead
   body: { iv: ArrayBuffer; ciphertext: ArrayBuffer }
 }
 
@@ -71,6 +77,7 @@ type BackupWrapJson = {
   salt: string
   iv: string
   wrappedDek: string
+  aad?: typeof WRAP_AAD_V1
 }
 
 type BackupGrantJson = {
@@ -81,6 +88,7 @@ type BackupGrantJson = {
   salt: string
   iv: string
   wrappedDek: string
+  expiresAt?: string
 }
 
 export type BackupFileV2 = {
@@ -94,6 +102,7 @@ export type BackupFileV2 = {
   cipher: PayloadCipher
   wraps: BackupWrapJson[]
   grants?: BackupGrantJson[]
+  audit?: AuditHead
   body: { iv: string; ciphertext: string }
 }
 
@@ -153,6 +162,39 @@ function readVersion(value: unknown, supported: number, invalid: Invalid): numbe
 
 type ByteReader = (value: unknown, invalid: Invalid) => Uint8Array
 
+function readWrapAad(value: unknown, invalid: Invalid): { aad?: typeof WRAP_AAD_V1 } {
+  if (value === undefined) return {}
+  if (value !== WRAP_AAD_V1) throw invalid()
+  return { aad: WRAP_AAD_V1 }
+}
+
+/** Accepts only the canonical `Date.toISOString()` form. */
+export function isIsoInstant(value: unknown): value is string {
+  if (typeof value !== 'string' || value.length !== 24) return false
+  const time = Date.parse(value)
+  return Number.isFinite(time) && new Date(time).toISOString() === value
+}
+
+function readExpiry(value: unknown, invalid: Invalid): { expiresAt?: string } {
+  if (value === undefined) return {}
+  if (!isIsoInstant(value)) throw invalid()
+  return { expiresAt: value }
+}
+
+/**
+ * Two wraps for one person or one email let a relabelled wrap shadow the real one, and the decoder refuses more
+ * than the limits, so a record that breaks these rules must never be read or written.
+ */
+export function envelopeProblem(wraps: readonly { userId: string; email: string }[], grants: readonly { id: string; email: string }[]): string | null {
+  if (wraps.length === 0 || wraps.length > LIMITS.wraps) return 'WRAP_COUNT'
+  if (grants.length > LIMITS.grants) return 'GRANT_COUNT'
+  if (new Set(wraps.map((wrap) => wrap.userId)).size !== wraps.length) return 'WRAP_DUPLICATE'
+  if (new Set(wraps.map((wrap) => wrap.email.toLowerCase())).size !== wraps.length) return 'WRAP_DUPLICATE'
+  if (new Set(grants.map((grant) => grant.id)).size !== grants.length) return 'GRANT_DUPLICATE'
+  if (new Set(grants.map((grant) => grant.email.toLowerCase())).size !== grants.length) return 'GRANT_DUPLICATE'
+  return null
+}
+
 function readWraps(value: unknown, fallbackKdf: KdfParams | null, bytes: ByteReader, invalid: Invalid): WrapRecord[] {
   if (!Array.isArray(value) || value.length === 0 || value.length > LIMITS.wraps) throw invalid()
   return value.map((item) => {
@@ -164,6 +206,7 @@ function readWraps(value: unknown, fallbackKdf: KdfParams | null, bytes: ByteRea
       salt: checkLength(bytes(wrap.salt, invalid), SALT_BOUNDS.min, SALT_BOUNDS.max, invalid),
       iv: checkLength(bytes(wrap.iv, invalid), IV_BYTES, IV_BYTES, invalid),
       wrappedDek: checkLength(bytes(wrap.wrappedDek, invalid), WRAPPED_DEK_BYTES, WRAPPED_DEK_BYTES, invalid),
+      ...(fallbackKdf ? {} : readWrapAad(wrap.aad, invalid)),
     }
   })
 }
@@ -184,6 +227,7 @@ function readGrants(value: unknown, bytes: ByteReader, invalid: Invalid): GrantR
       salt: checkLength(bytes(grant.salt, invalid), SALT_BOUNDS.min, SALT_BOUNDS.max, invalid),
       iv: checkLength(bytes(grant.iv, invalid), IV_BYTES, IV_BYTES, invalid),
       wrappedDek: checkLength(bytes(grant.wrappedDek, invalid), WRAPPED_DEK_BYTES, WRAPPED_DEK_BYTES, invalid),
+      ...readExpiry(grant.expiresAt, invalid),
     }
   })
   return grants.length > 0 ? grants : undefined
@@ -204,6 +248,18 @@ function readSchemaVersion(value: unknown, invalid: Invalid): number {
 }
 
 function decode(
+  source: Record<string, unknown>,
+  version: number,
+  bytes: ByteReader,
+  invalid: Invalid,
+  updatedAtFallback: () => string,
+): VaultRecord {
+  const record = decodeFields(source, version, bytes, invalid, updatedAtFallback)
+  if (envelopeProblem(record.wraps, record.grants ?? [])) throw invalid()
+  return record
+}
+
+function decodeFields(
   source: Record<string, unknown>,
   version: number,
   bytes: ByteReader,
@@ -234,8 +290,14 @@ function decode(
     cipher: readCipher(source.cipher, invalid),
     wraps: readWraps(source.wraps, null, bytes, invalid),
     ...optionalGrants(readGrants(source.grants, bytes, invalid)),
+    ...readAudit(source.audit),
     body: readBody(source.body, bytes, invalid),
   }
+}
+
+/** Advisory metadata: a malformed value is dropped rather than refusing the vault. */
+function readAudit(value: unknown): { audit?: AuditHead } {
+  return isAuditHead(value) ? { audit: { seq: value.seq, hash: value.hash } } : {}
 }
 
 function optionalGrants<T>(grants: T[] | undefined): { grants?: T[] } {
@@ -267,6 +329,7 @@ export function encodeStoredRecord(record: VaultRecord): VaultRecord {
       salt: cloneBuffer(wrap.salt),
       iv: cloneBuffer(wrap.iv),
       wrappedDek: cloneBuffer(wrap.wrappedDek),
+      ...(wrap.aad ? { aad: wrap.aad } : {}),
     })),
     ...optionalGrants(
       record.grants?.map((grant) => ({
@@ -277,8 +340,10 @@ export function encodeStoredRecord(record: VaultRecord): VaultRecord {
         salt: cloneBuffer(grant.salt),
         iv: cloneBuffer(grant.iv),
         wrappedDek: cloneBuffer(grant.wrappedDek),
+        ...(grant.expiresAt ? { expiresAt: grant.expiresAt } : {}),
       })),
     ),
+    ...(record.audit ? { audit: { seq: record.audit.seq, hash: record.audit.hash } } : {}),
     body: {
       iv: cloneBuffer(record.body.iv),
       ciphertext: cloneBuffer(record.body.ciphertext),
@@ -328,6 +393,7 @@ export function toBackupJson(record: VaultRecord, exportedAt: string): BackupFil
       salt: bytesToBase64(cloneBytes(wrap.salt)),
       iv: bytesToBase64(cloneBytes(wrap.iv)),
       wrappedDek: bytesToBase64(cloneBytes(wrap.wrappedDek)),
+      ...(wrap.aad ? { aad: wrap.aad } : {}),
     })),
     ...optionalGrants(
       record.grants?.map((grant) => ({
@@ -338,8 +404,10 @@ export function toBackupJson(record: VaultRecord, exportedAt: string): BackupFil
         salt: bytesToBase64(cloneBytes(grant.salt)),
         iv: bytesToBase64(cloneBytes(grant.iv)),
         wrappedDek: bytesToBase64(cloneBytes(grant.wrappedDek)),
+        ...(grant.expiresAt ? { expiresAt: grant.expiresAt } : {}),
       })),
     ),
+    ...(record.audit ? { audit: { seq: record.audit.seq, hash: record.audit.hash } } : {}),
     body: {
       iv: bytesToBase64(cloneBytes(record.body.iv)),
       ciphertext: bytesToBase64(cloneBytes(record.body.ciphertext)),

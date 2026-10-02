@@ -49,20 +49,26 @@ Groups cannot be renamed from the app yet.
 
 ## People
 
-Open **Users** (the page is titled **People**).
+Open **Users** (the page is titled **People**). Managers see the page too, read-only and only for the people in their own group: no overview, no actions, no audit activity, sign-in times or sign-in-check status. Viewers do not see it.
+
+### Overview
+
+**Overview** at the top counts people (former members apart), the places used out of 256 (password copies plus places held for open invites and for resets that stopped the old password), the share of active people with a sign-in check, and **Needs attention**: people who must change their password, cannot sign in (no password copy and no open code), Managers or Viewers without a group, suspended people, and **older password copies** (a copy made before 1.4.2 or with an older key stretch; it is rewritten the next time that person changes their password). It also shows the five most recent sign-ins, how many people signed in within 30 days, the open codes with their expiry, and charts by role and by group. It shows counts and emails only, never codes, passwords or keys.
+
+Sign-ins are recorded from 1.6.0 on, at most once every 10 minutes per person, inside the encrypted vault.
 
 ### Inviting a person
 
 An invite is a one-time code. The person enters it with their email and chooses their own password, so you never know it.
 
-1. Under **Invite someone**, enter **Their email**.
+1. Choose **Add user**; **Send an invite code** is selected. Enter **Their email**.
 2. Choose how long the code works under **Code works for**: 15 minutes, 1 hour, 24 hours (the default), 3 days, or 7 days. Shorter is safer.
 3. Choose a **role**, and a **group** for Managers and Viewers. You can invite another Admin; Admins need no group.
 4. Choose **Create invite code**.
 
 Jaybi shows the code once, with the time it stops working. **Copy code** copies the code; **Copy link** copies a link that opens the join page with their email and the code filled in. Jaybi clears the clipboard after 60 seconds where the browser allows it. Choose **Done** when you have passed it on. The code is not stored anywhere in readable form, so it cannot be shown again. If it is lost, revoke it and create a new one.
 
-Give the code in person, or over a channel you trust (not a group chat, not a public email thread). The person then follows [Joining with a code](user-guide.md#joining-with-a-code): on **Unlock vault** they choose **Have a one-time code? Join the vault**.
+Give the code in person, or over a channel you trust (not a group chat, not a public email thread). The person then follows [Joining with a code](user-guide.md#joining): on **Unlock vault** they choose **Have a one-time code? Join the vault**.
 
 **A code works only in the browser where the vault is stored.** There is no server: the code opens the vault that is in this browser's storage, nowhere else. If the person opens the app on their own phone or computer, they see an empty setup screen and the code does nothing there. Either they join on this device, in this browser, or you [move a copy](#moving-to-another-device) of the vault to their device first; a backup made while the code is open contains it.
 
@@ -70,7 +76,7 @@ Things to know:
 
 - **Backups made before the code is used contain it.** Jaybi shows this warning with every code: "Backups made before the code is used also contain it. Anyone with such a backup and the code can join until it expires. Revoke the code if it was shared by mistake." Expiry and revocation are checked by the app on the device that holds the copy. Someone with an old backup, the code, and a computer clock set back could still open that old copy after the code expired. Use short validity, and do not hand out backups while codes are open.
 - **One open code per email.** Creating another code for the same email is refused until you revoke the first. At most 20 invites can be open at once.
-- **The device clock matters.** Codes use this device's clock. If it is more than 5 minutes behind the latest time the vault has seen, creating and using codes is refused with "This device’s clock is behind…". Correct the date and time.
+- **The device clock matters.** Codes use this device's clock. If it is more than 5 minutes behind the latest time the vault or this browser has seen, creating and using codes is refused with "This device’s clock is behind…". Correct the date and time. If a clock that was wrong in the future pushed that time ahead, the refusals continue for up to two days after the clock is corrected (each save or visit can move it forward by at most two days); an Admin can end them at once under **People → Clock check for codes → Reset to the current time**, with their password. This is recorded as "Clock check reset".
 - **Failed attempts are limited.** Wrong codes count like wrong passwords (see [Security limits](#security-limits-to-know)).
 
 ### Open codes
@@ -81,7 +87,7 @@ Choose **Revoke** to end a code at once, for example if it was sent to the wrong
 
 ### Adding a person with a temporary password
 
-**Advanced: set a temporary password instead** opens the old way of adding people: enter their **Email**, a **Password**, a role and a group, and choose **Add user**. The password must follow the same rules as any other (at least 12 characters, not common). Give it privately. At their first sign-in Jaybi makes them choose a new password that only they know, and every page leads to **Account** until they do.
+In **Add user**, choose **Set a temporary password**: enter their **Email**, optionally a **Name**, a **Password**, a role and a group, and choose **Add user**. The password must follow the same rules as any other (at least 12 characters, not common). Give it privately. At their first sign-in Jaybi makes them choose a new password that only they know, and every page leads to **Account** until they do.
 
 Prefer an invite. With a temporary password you know their password until they change it, and a backup made in between opens with it. Adding someone this way ends any open invite for the same email.
 
@@ -89,12 +95,12 @@ After joining, people change their password themselves under **Account → Chang
 
 ### Resetting a password
 
-Choose **Issue reset code** on the person's row. The same form shows a warning about private safes, a **Code works for** choice (24 hours by default), and a box, ticked by default:
+Choose **Issue reset code** on the person's row or on their page. The same form shows a warning about private safes, a **Code works for** choice (24 hours by default), and a box, ticked by default:
 
 - **Stop their current password from working now**: choose this if someone else may know the password. The old password stops working as soon as the change is saved, and the person cannot sign in at all until they use the code. If the code expires or you revoke it, they stay locked out until you issue a new code or set a temporary password.
 - Untick it if the person simply forgot their password. The old password keeps working until the code is used.
 
-Choose **Issue reset code**. The code is shown once, as for invites. The person uses it with **Have a reset code?** on **Unlock vault** and chooses a new password; see [Resetting your password with a code](user-guide.md#resetting-your-password-with-a-code). Using the code also turns off their sign-in check. Issuing a new reset code for the same person replaces the open one they had; the audit log shows the old one as revoked.
+Choose **Issue reset code**. The code is shown once, as for invites. The person uses it with **Have a reset code?** on **Unlock vault** and chooses a new password; see [Resetting your password with a code](user-guide.md#reset-code). Using the code also turns off their sign-in check. Issuing a new reset code for the same person replaces the open one they had; the audit log shows the old one as revoked.
 
 **Set a temporary password instead** (in the same form) is the advanced option: enter a **New password** and choose **Save**. The old password stops working when the change is saved, any open reset code for the person is ended, their sign-in check is turned off, and at their next sign-in they must replace the temporary password. Give it privately.
 
@@ -112,15 +118,25 @@ You cannot reset your own password from **Users**. Use **Account → Change pass
 
 People who turned on the [sign-in check](user-guide.md#sign-in-check) show **Sign-in check on** next to their role. If they lose both their authenticator app and their recovery codes, choose **Turn off sign-in check** on their row and confirm. They can then sign in with their password alone and set it up again. Do this only after you have confirmed who is asking. You cannot turn off your own check here; use **Account**, which asks for your password.
 
-### Removing a person
+### A person's page
 
-Choose **Remove** and confirm. The dialog always warns that removing a person also permanently destroys their private safes; nobody can recover them afterwards. Any open reset code for them ends too. Removal is blocked in three cases:
+Choose the email in the list, or **Open**, to reach `#/app/users/<id>`. It shows the profile (name, email, role, group, added, updated, last sign-in, sign-in check, pending password change, how they sign in, any open code), their records per currency within what you can see (amounts in different currencies are never added together), and for Admins their last 50 audit entries. Admins get these actions there; Managers only read.
 
-- The person still has records. Delete or reassign those records first.
-- The person is the last Admin.
-- The person is you.
+- **Edit**: name, email, role and group. The email stays unique. After a change the person signs in with the new email and their current password; the password copy is relabelled, not rewritten. A change is refused while a code is open for the person or for the new email, because codes are bound to the email they were made for. Demoting the last active Admin is refused. Recorded as "User updated" with the old and new email.
+- **Require a new password**: at the next sign-in they must choose a new password, and every page leads to **Account** until they do. Recorded as "New password required".
+- **Suspend**: removes their password copy from the vault and revokes their open codes, so they cannot sign in; records, private safes and history stay. Recorded as "User suspended". The vault key does not change, so **a copy of the vault file saved before the suspension still opens with their old password**: treat any copy they could have as theirs. You cannot suspend yourself or the last active Admin.
+- **Reactivate**: issues a reset code (the old password stays off) and shows it once. Recorded as "User reactivated" and "Reset code issued".
+- **Delete**: type their email to confirm. If they entered records, choose:
+  - **Move them to another person**: their records are reassigned to someone you pick, recorded as "Records moved to another person", then the person is removed.
+  - **Keep them under this person as a former member**: the person stays in the list as **Former member**, with no password, codes, sign-in check or private safes, so their records still name them. A former member can later be deleted with reassignment.
 
-Changing someone's role or group after creation is not available from the screen yet. For now, remove the person and add them again with the new role (possible only if they have no records), or ask a developer to expose the existing `updateUser` service.
+  Without records the person is simply removed. Deleting always destroys their private safes for good. The audit log keeps their entries; for a removed person the log shows the email recorded when they were deleted. You cannot delete yourself or the last active Admin.
+
+### Changing several people at once
+
+Tick people in the list; a bar appears with **Role** and **Group**. Choose one or both, **Apply to selected**, and confirm. The change is all or nothing: if one person cannot be changed (for example it would leave no active Admin) nothing changes. Each changed person gets their own "User updated" entry. Former members are skipped.
+
+All actions on this page are checked again by the services, not only hidden on screen: only Admins can change people, and a forced password change blocks everything else. They respect the 256-person limit, including places held for open codes.
 
 ## Private safes and Admins
 
@@ -179,14 +195,18 @@ From 1.3.0 it also shows:
 | Password reset with code | Someone set a new password with a reset code |
 | Code expired | An invite or reset code passed its time unused. Written at the next sign-in, with no person attached |
 | Vault replaced by a backup | An Admin replaced the vault. Written into the old vault, which is kept as **Before import** |
-| Failed sign-in attempts seen | Someone signed in after failed attempts for their email in this browser, with the count |
+| Failed sign-in attempts seen | Someone completed a sign-in after failed attempts for their email in this browser, with the count. From 1.4.2 it also counts sign-ins where the password was right but the sign-in check was not passed (wrong code, cancelled, or timed out); the person sees both counts in a banner |
+| Clock check reset | An Admin reset the clock check for codes to the current time |
+| Audit log accepted after a warning | An Admin accepted the audit log after Jaybi warned that it was shorter or different than this browser last saw it, with the warning's details |
 | Sign-in check turned on / Sign-in check turned off | A person turned their own sign-in check on or off |
 | Sign-in check removed | An Admin turned off someone's sign-in check, or a password reset turned it off |
 | Sign-in recovery code used | Someone signed in with a sign-in recovery code |
 
 No code, password, or authenticator secret is ever written to the log. The log lives inside the encrypted vault, so it is included in backups. Nothing about private safes is written to it: each person's safe activity is kept in their own encrypted activity list, which only they can read.
 
-Entries cannot be edited or deleted from the app. Each entry also contains a fingerprint of the one before it, so **Integrity** at the top of the page shows **Intact** only if no entry was changed or removed, even by someone editing a decrypted copy of the database with other tools. If it ever shows **Broken**, restore from a backup you trust and find out who had access to the passwords.
+Entries cannot be edited or deleted from the app. Each entry also contains a fingerprint of the one before it, so **Integrity** at the top of the page shows **Broken** if an entry in the middle was changed or removed outside the app, for example by damage to the file or by someone editing a decrypted copy. If it ever shows **Broken**, restore from a backup you trust and find out who had access to the passwords.
+
+The fingerprints are not a signature. Anyone who knows a vault password can decrypt the database, so they could also cut entries off the end or rewrite entries and all fingerprints after them. From 1.4.2 Jaybi remembers, in each browser, the last entry it saw, and the vault file records its last entry too. If the log is shorter or different at the next sign-in, Admins see a warning at the top of the page. Find out what happened before choosing **Accept the log as it is**, which records "Audit log accepted after a warning". This does not help on a browser that never opened the vault, or if someone also clears this browser's data.
 
 ## Backups
 
@@ -246,7 +266,7 @@ Each copy shows when it was taken and which version saved it. **Download** turns
    - **Encrypted ZIP (AES-256)**, the default. Open it with [7-Zip](https://www.7-zip.org/) (Windows), [Keka](https://www.keka.io/) (macOS), WinZip, or WinRAR. The built-in Windows and macOS archive tools **cannot** open it and will say the archive is damaged or ask for a password they cannot use. File names inside the archive are visible without the password; the contents are not.
    - **Encrypted SQLite database (SQLCipher 4)**. Stronger password protection, database only. Open it in [DB Browser for SQLite](https://sqlitebrowser.org/): choose **Open Database**, enter the password, and pick **SQLCipher 4 defaults**. With the command-line tool: `sqlcipher file.sqlite`, then `PRAGMA key = 'your export password';`.
    - **No encryption**. You must tick "I understand this file is not encrypted". Anyone who gets the file can read every record.
-7. **Export password**: at least 14 characters using Latin letters, digits, and symbols, not too easy to guess (the **Strength** meter must show at least **Fair**), and not your sign-in password. **Generate** makes a strong one; **Copy** puts it on the clipboard. The app does not keep the password. If you lose it, nobody can open the file.
+7. **Export password**: at least 14 characters using Latin letters, digits, and symbols, and not your sign-in password. Common passwords (also with letters swapped for look-alike symbols, like `P@ssw0rd`) and passwords built from the vault name or a member's email are refused. For the **AES-256 ZIP**, the **Strength** meter must show **Strong**: ZIP encryption derives its key quickly, so a weaker password can be guessed offline. For **SQLCipher**, **Fair** is enough. The form starts with a generated password for ZIP; keep it, or press **Generate** for a new one, and **Copy** puts it on the clipboard. The app does not keep the password. If you lose it, nobody can open the file.
 
 Press **Export**. Progress is shown below the form, and **Cancel** stops it. The file name contains the vault name and the date, even for encrypted files. Each export is written to the audit log as **Data exported**, with the formats and scope but never the content or password.
 
@@ -375,18 +395,20 @@ Versions 1.0.0 and 1.1.0 stored, for every person, a value in the database that 
 Jaybi protects data at rest well. It is important to understand what it does **not** do:
 
 1. **Roles are enforced by the app, not by encryption.** There is one vault key for everything. Anyone who has a valid password and a copy of the encrypted data could decrypt the entire database with technical tools, including other groups' records. Only give accounts to people you would trust with the whole ledger. Private safes are the exception: they are encrypted again with keys only their owner holds.
-2. **Removing someone or resetting a password does not change the vault key.** A removed person who kept an old backup file, or an old copy of the browser storage, could still open that copy with their old password. If they also get a newer copy, they could decrypt it too. After removing someone you do not trust, the only full protection today is to start a new vault. Rotating the vault key is on the developers' list; the **Change encryption key** option in private safes only re-encrypts one safe.
+2. **Removing someone or resetting a password does not change the vault key.** A removed person who kept an old backup file, or an old copy of the browser storage, could still open that copy with their old password. If they also get a newer copy, they could decrypt it too. After removing someone you do not trust, the only full protection today is to start a new vault. Rotating the vault key (which needs a key pair per person, so an Admin can re-wrap the new key for everyone who stays) is planned but not in 1.4.2; the **Change encryption key** option in private safes only re-encrypts one safe.
 3. **Old backups keep old passwords.** A backup opens with the passwords that were valid when it was exported.
 4. **Emails are visible.** Email addresses are stored unencrypted next to the encrypted data, in the browser and in backup files, so that Jaybi knows whose key to try. Amounts, notes, and everything else are encrypted.
-5. **Backup files can be guessed offline.** Someone who steals a backup, or copies the browser's storage, can try passwords on their own computer. PBKDF2 (600,000 rounds) slows each guess, but a short or common password will still fall. Use long, unique passwords, especially for Admin accounts. Older backups keep the protection they were made with (200,000 rounds before 1.1.0).
+5. **Backup files can be guessed offline.** Someone who steals a backup, or copies the browser's storage, can try passwords on their own computer. PBKDF2 (600,000 rounds) slows each guess, but it runs fast on graphics cards, and a short or common password will still fall. A memory-hard method (Argon2id) is planned but not in 1.4.2. Use long, unique passwords, especially for Admin accounts. Older backups keep the protection they were made with (200,000 rounds before 1.1.0).
 6. **Exports leave the vault's protection.** An unencrypted export is readable by anyone who has the file. An encrypted ZIP is only as strong as its password, because the ZIP format guesses passwords quickly; use a generated one. Once someone opens an export, the data is theirs.
 7. **The browser is the security boundary.** Malware on the device, a malicious browser extension, or another website served from the same address could read the vault while it is unlocked, or delete the stored copy, and could capture passwords typed to open private safes. See the [DevOps guide](devops-guide.md#origin-and-storage-isolation) about hosting on a dedicated address.
 8. **Backups from before 1.2.0 hold key material.** They contain a value per person that opens that person's key to the vault (see [Upgrading to 1.2.0](#upgrading-to-120)). Replace them after upgrading.
-9. **Private safes hide contents, not their existence.** Anyone with the decrypted database can count each person's safes and items and see when they changed. Deletions and rollbacks of safe rows are not detected.
-10. **The attempt limit only slows guessing in the app.** After five wrong passwords or codes for an email, Jaybi makes the next try wait, doubling up to 15 minutes. It protects against someone trying passwords at this device. It does not protect a copied vault or backup, and someone with the browser's developer tools can clear it. Only a strong password stops offline guessing.
+9. **Private safes hide contents, not their existence.** Anyone with the decrypted database can count each person's safes and items, see when they changed, and since 1.4.2 tell only an item's size class (1, 2, 4… 32 KiB), not its kind. Deletions are not detected, and someone with the vault key can put back an older copy of an item, which its owner then sees as current; a new item format that detects this is planned but not in 1.4.2.
+10. **The attempt limit only slows guessing in the app.** After five wrong passwords or codes for an email, Jaybi makes the next try wait, doubling up to 15 minutes. It protects against someone trying passwords at this device. It does not protect a copied vault or backup, and someone with the browser's developer tools can clear it (from 1.4.2 it is kept in two places, local storage and IndexedDB, so clearing one is not enough). Only a strong password stops offline guessing.
 11. **The sign-in check is not encryption.** Jaybi says so next to it: "This adds a second step to signing in to the app. It does not add encryption: anyone with a copy of the vault and your password can still open it with the recovery tool." It helps when a password leaks and someone tries it in the app. It does nothing for backups.
 12. **Code expiry is enforced by the app, not by encryption.** A backup made while a code was open, together with that code, opens the vault on a device with its clock set back, even after the code expired or was revoked in your vault. Keep validity short, revoke codes that went astray, and avoid handing out backups while codes are open.
 13. **Codes and temporary passwords do not change the vault key.** Like point 2: whoever held a code or a temporary password can open copies made while it was valid.
+14. **The audit log is not signed.** Its entries are chained by fingerprints, which catch damage and edits by people without a password. Anyone with a password can decrypt the database and rewrite the log with other tools. From 1.4.2 Jaybi warns an Admin when the log is shorter or different than the last time this browser saw it, but a browser that never opened the vault, or whose data was cleared, cannot tell. Entries signed by each person are planned but not in 1.4.2.
+15. **The unencrypted parts of the vault file are checked piece by piece, not sealed as a whole.** Emails, dates, the app and schema versions, the password-stretching settings, code expiry times, and the audit head sit next to the encrypted data. Jaybi binds each password copy to its person and each code to its email and expiry, and refuses files that break its rules, but someone could still change, for example, the creation date shown in the app.
 
 ## Checklist for a new vault
 

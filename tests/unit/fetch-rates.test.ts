@@ -7,7 +7,7 @@ import { promisify } from 'node:util'
 import { afterAll, describe, expect, it } from 'vitest'
 import { parseSnapshot, sealSnapshot, type FxSnapshot } from '../../src/domain/fx'
 import { sha256Hex } from '../../src/lib/sha256'
-import { FxBuildError, buildSnapshot, collect, type Fetcher } from '../../tools/fetch-rates'
+import { FxBuildError, buildSnapshot, collect, commandMessage, type Fetcher } from '../../tools/fetch-rates'
 import { RAW_FILES, type RawKey } from '../../tools/fx-sources'
 
 const run = promisify(execFile)
@@ -127,6 +127,22 @@ describe('fetch-rates CLI', () => {
     const out = join(work, 'rejected')
     await expect(cli(['--out', out, '--replay', raw])).rejects.toMatchObject({ code: 1, stderr: expect.stringContaining('::error::') })
     expect(existsSync(join(out, 'rates/latest.json'))).toBe(false)
+  })
+
+  it('escapes workflow commands in warnings and errors', async () => {
+    expect(commandMessage('a%0Ab\r\n::error::x')).toBe('a%250Ab%0D%0A::error::x')
+    const raw = join(work, 'forged')
+    cpSync(FIXTURES, raw, { recursive: true })
+    const cbu = readFileSync(join(FIXTURES, 'cbu-latest.json'), 'utf8').replace(/"Date":"[^"]*"/g, '"Date":"29.09.2026\\n::error title=forged::x"')
+    writeFileSync(join(raw, 'cbu-latest.json'), cbu)
+    const output = await cli(['--out', join(work, 'forged-out'), '--replay', raw]).then(
+      (result) => `${result.stdout}\n${result.stderr}`,
+      (error: { stdout: string; stderr: string }) => `${error.stdout}\n${error.stderr}`,
+    )
+    const commands = output.split(/\r?\n/).filter((line) => line.startsWith('::'))
+    expect(commands.length).toBeGreaterThan(0)
+    for (const line of commands) expect(line, line).toMatch(/^::(warning|error)::/)
+    expect(output).not.toMatch(/^::error title=forged::/m)
   })
 
   it('prints usage without --out', async () => {

@@ -2,6 +2,7 @@ import { ArrowUpRight } from 'lucide-react'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { Button, Field, Notice, controlClass } from './ui'
+import { HelpLink } from './help/HelpLink'
 import { useI18n } from '../context/I18nContext'
 import { usePeriod } from '../context/PeriodContext'
 import { useVault } from '../context/VaultContext'
@@ -14,7 +15,7 @@ import { downloadFile } from '../lib/download'
 import { persistenceState, type PersistenceState } from '../lib/persistence'
 import { ReplaceVaultPanel } from './admin/ReplaceVaultPanel'
 import { archiveFileText, backupFileName, backupFileText, noteExport } from '../services/backup.service'
-import { AUDIT_PAGE_LIMIT, auditIntegrity, listAudit } from '../services/audit.service'
+import { AUDIT_PAGE_LIMIT, auditIntegrity, listAudit } from '../services/audit-log'
 import { ExportPanel } from './ExportPanel'
 import { createGroup, deleteGroup, listGroups } from '../services/group.service'
 import { PeriodPicker } from './PeriodPicker'
@@ -24,6 +25,7 @@ import type { AuditEntry, Group } from '../domain/types'
 import type { GroupSummary } from '../domain/group-summary'
 import { ledgerPathForGroup } from '../lib/ledger-link'
 import { DataTable, type Column } from './table/DataTable'
+import { auditLabel } from './audit-label'
 import { optionsFrom } from './table/model'
 
 type ArchiveRow = Omit<ArchiveEntry, 'raw'>
@@ -187,13 +189,6 @@ export function GroupsPage() {
       />
     </div>
   )
-}
-
-const auditLabel = (action: string, t: (key: MessageKey) => string) => {
-  const key = `audit.actions.${action}` as MessageKey
-  const securityKey = `securityAudit.${action}` as MessageKey
-  const label = t(key) === key ? t(securityKey) : t(key)
-  return label === securityKey ? action : label
 }
 
 export function AuditPage() {
@@ -393,7 +388,10 @@ export function BackupPage() {
   return (
     <div className="grid max-w-2xl gap-6">
       <div>
-        <h1 className="font-display text-4xl">{t('backup.title')}</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="font-display text-4xl">{t('backup.title')}</h1>
+          <HelpLink section="backup" />
+        </div>
         <p className="mt-2 text-sm text-muted">{t('backup.exportHelp')}</p>
       </div>
       {error ? <Notice>{error}</Notice> : null}

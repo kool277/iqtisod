@@ -191,7 +191,7 @@ describe('CSV export', () => {
       expect(row.notes).toBe(/^ *[=+\-@\t\r\n\uff1d\uff0b\uff0d\uff20]/.test(note) ? `'${note}` : note)
     }
     expect(text).toContain('Oʻzbekcha izoh — Ўзбекча')
-    expect(text).toContain(",9999999999999.99,USD,999999999999999,2,")
+    expect(text).toContain(`,9999999999999.99,"USD",999999999999999,2,`)
     expect(text).toContain("'@SUM(1+1) csv trap")
   })
 

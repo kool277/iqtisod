@@ -14,7 +14,7 @@ import { eachMonth, isIsoDate } from '../lib/dates'
 import { LIMITS } from '../lib/limits'
 import { parseAmount, percentOf } from '../lib/money'
 import { assertReceipt } from '../lib/receipt'
-import { Permission, canUser } from '../rbac'
+import { Permission, canUser, seesAllGroups } from '../rbac'
 import { isCurrency } from '../domain/types'
 import { writeAudit } from './audit.service'
 
@@ -23,7 +23,7 @@ export const MAX_RECEIPT_BYTES = LIMITS.receiptBytes
 type LocaleName = 'en' | 'uz-Latn' | 'uz-Cyrl' | 'ru'
 
 export function scope(user: SessionUser): { sql: string; params: SqlValue[] } {
-  if (user.roleName === 'Admin') return { sql: '1 = 1', params: [] }
+  if (seesAllGroups(user)) return { sql: '1 = 1', params: [] }
   if (user.groupId == null) return { sql: '1 = 0', params: [] }
   return { sql: 't.group_id = ?', params: [user.groupId] }
 }
@@ -91,7 +91,7 @@ export function listCategories(vault: OpenVault): Category[] {
 }
 
 function assertEntryAccess(user: SessionUser, groupId: number): void {
-  if (user.roleName === 'Admin') return
+  if (seesAllGroups(user)) return
   if (user.groupId !== groupId) throw new ForbiddenError()
 }
 
@@ -340,7 +340,7 @@ export function loadDashboard(vault: OpenVault, range: DateRange, locale: Locale
       [range.start, range.end, currency, ...group.params],
     )
     .map((row) => ({ date: String(row.date), total: Number(row.total) }))
-  const breakdownMode = vault.user.roleName === 'Admin' && groupId == null ? 'group' : 'user'
+  const breakdownMode = seesAllGroups(vault.user) && groupId == null ? 'group' : 'user'
   const breakdown =
     breakdownMode === 'group'
       ? vault.db.query(

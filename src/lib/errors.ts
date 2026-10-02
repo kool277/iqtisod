@@ -107,6 +107,12 @@ export function errorText(code: string, t: (key: MessageKey) => string): string 
       return t('export.errors.passwordAscii')
     case 'EXPORT_PASSWORD_WEAK':
       return t('export.errors.passwordWeak')
+    case 'EXPORT_PASSWORD_ZIP_WEAK':
+      return t('export.errors.passwordZipWeak')
+    case 'EXPORT_PASSWORD_COMMON':
+      return t('export.errors.passwordCommon')
+    case 'EXPORT_PASSWORD_CONTEXT':
+      return t('export.errors.passwordContext')
     case 'EXPORT_PASSWORD_MISMATCH':
       return t('export.errors.passwordMismatch')
     case 'EXPORT_PASSWORD_REUSED':

@@ -9,13 +9,13 @@ import {
   generateDek,
   kdfNeedsUpgrade,
   randomBytes,
-  unwrapDek,
-  wrapDek,
 } from '../crypto/crypto.service'
+import { auditHead } from '../db/audit-chain'
 import { assertKnownSchema, migrate, readSchemaVersion, type MigrationResult } from '../db/migrations'
 import { seedCategories, seedRoles, syncRolePermissions } from '../db/seed'
 import { getSetting, setSetting } from '../db/settings'
-import { SqlDatabase } from '../db/sqlite'
+import { SqlDatabase, type SqlValue } from '../db/sqlite'
+import { newUserWrap, unwrapUserDek } from '../crypto/user-wrap'
 import { grantsFromRecord, recordFromSession, wrapsFromRecord, type VaultRecord } from '../db/storage'
 import { SCHEMA_VERSION } from '../db/versions'
 import { AuthError, ValidationError } from '../domain/errors'
@@ -25,7 +25,9 @@ import { LIMITS } from '../lib/limits'
 import { assertNewPassword } from '../lib/password-policy'
 import { APP_VERSION } from '../lib/version'
 import { writeAudit } from './audit.service'
-import { CLOCK_KEY, sweepGrants } from './grant-store'
+import { observeClock } from '../lib/device-clock'
+import { recordClock, sweepGrants } from './grant-store'
+import { userStatus } from './user-profile'
 
 export { assertEmail, normalizeEmail }
 
@@ -53,13 +55,30 @@ export async function spendPasswordWork(password: string): Promise<void> {
 }
 
 function loadUser(db: SqlDatabase, email: string): SessionUser | null {
-  const row = db.queryOne(
-    `SELECT u.id, u.email, u.role_id, u.group_id, u.must_change_password, r.name AS role_name, r.permissions
-     FROM users u
-     JOIN roles r ON r.id = u.role_id
-     WHERE u.email = ?`,
-    [email],
+  return userFromRow(
+    db.queryOne(
+      `SELECT u.id, u.email, u.role_id, u.group_id, u.must_change_password, r.name AS role_name, r.permissions
+       FROM users u
+       JOIN roles r ON r.id = u.role_id
+       WHERE u.email = ?`,
+      [email],
+    ),
   )
+}
+
+function loadUserById(db: SqlDatabase, id: string): SessionUser | null {
+  return userFromRow(
+    db.queryOne(
+      `SELECT u.id, u.email, u.role_id, u.group_id, u.must_change_password, r.name AS role_name, r.permissions
+       FROM users u
+       JOIN roles r ON r.id = u.role_id
+       WHERE u.id = ?`,
+      [id],
+    ),
+  )
+}
+
+function userFromRow(row: Record<string, SqlValue> | null): SessionUser | null {
   if (!row) return null
   let permissions: string[] = []
   try {
@@ -85,15 +104,17 @@ function roleId(db: SqlDatabase, name: string): number {
   return Number(value)
 }
 
-function recordClock(db: SqlDatabase, now: string): void {
-  const previous = getSetting(db, CLOCK_KEY)
-  if (!previous || previous < now) setSetting(db, CLOCK_KEY, now)
-}
-
 async function seal(db: SqlDatabase, dek: CryptoKey, wraps: UserWrap[], grants: GrantWrap[], createdAt: string | null): Promise<VaultRecord> {
-  if (readSchemaVersion(db) >= 4) recordClock(db, new Date().toISOString())
+  const now = Date.now()
+  observeClock(now)
+  if (readSchemaVersion(db) >= 4) recordClock(db, now)
   const exported = db.export()
-  const sealed = await encryptDatabase(exported, dek)
+  let sealed: Awaited<ReturnType<typeof encryptDatabase>>
+  try {
+    sealed = await encryptDatabase(exported, dek)
+  } finally {
+    exported.fill(0)
+  }
   return recordFromSession({
     wraps,
     grants,
@@ -102,6 +123,7 @@ async function seal(db: SqlDatabase, dek: CryptoKey, wraps: UserWrap[], grants: 
     schemaVersion: readSchemaVersion(db),
     createdAt,
     updatedAt: new Date().toISOString(),
+    audit: auditHead(db),
   })
 }
 
@@ -123,7 +145,7 @@ export async function createVault(input: SetupInput): Promise<{ vault: OpenVault
     const kdf = { ...CURRENT_KDF }
     const { key, verifier } = await deriveKeyAndVerifier(input.password, salt, kdf)
     const dek = await generateDek()
-    const wrapped = await wrapDek(dek, key)
+    const wrap = await newUserWrap(dek, key, { userId, email, kdf, salt })
     const createdAt = new Date().toISOString()
     db.withTransaction(() => {
       db.exec(
@@ -136,7 +158,6 @@ export async function createVault(input: SetupInput): Promise<{ vault: OpenVault
       setSetting(db, 'vault_created_at', createdAt)
       writeAudit(db, userId, 'VAULT_CREATED', 'vault', 'primary', { email, appVersion: APP_VERSION })
     })
-    const wrap: UserWrap = { userId, email, kdf, salt, iv: wrapped.iv, wrappedDek: wrapped.cipherText }
     const user = loadUser(db, email)
     if (!user) throw new Error('Admin user was not created')
     const record = await seal(db, dek, [wrap], [], createdAt)
@@ -166,16 +187,29 @@ async function strengthenWrap(db: SqlDatabase, dek: CryptoKey, wrap: UserWrap, p
   const kdf = { ...CURRENT_KDF }
   const kdfChanged = kdfNeedsUpgrade(wrap.kdf)
   const { key, verifier } = await deriveKeyAndVerifier(password, salt, kdf)
-  const wrapped = await wrapDek(dek, key)
-  await unwrapDek(wrapped.cipherText, key, wrapped.iv)
+  const next = await newUserWrap(dek, key, { userId, email: wrap.email, kdf, salt })
+  await unwrapUserDek(next, key)
   db.withTransaction(() => {
     db.exec('UPDATE users SET password_hash = ?, salt = ? WHERE id = ?', [verifier, bytesToBase64(salt), userId])
     if (kdfChanged) writeAudit(db, userId, 'CREDENTIALS_UPGRADED', 'user', userId, { from: wrap.kdf, to: kdf })
   })
-  wrap.kdf = kdf
-  wrap.salt = salt
-  wrap.iv = wrapped.iv
-  wrap.wrappedDek = wrapped.cipherText
+  Object.assign(wrap, next)
+}
+
+/**
+ * The plain-text wrap labels are not authenticated on older wraps, so the wrap must belong to the user row it names,
+ * and that row's salt and check value must be the ones this password produced. Otherwise a member who relabels their
+ * own wrap would be signed in as someone else and overwrite that person's credentials.
+ */
+function assertWrapOwner(db: SqlDatabase, wrap: UserWrap, email: string, verifier: string): SessionUser {
+  const user = loadUserById(db, wrap.userId)
+  if (!user || user.email !== email || wrap.email.toLowerCase() !== email) throw new AuthError()
+  const row = db.queryOne('SELECT password_hash, salt FROM users WHERE id = ?', [user.id])
+  if (!row || String(row.salt) !== bytesToBase64(wrap.salt)) throw new AuthError()
+  const stored = String(row.password_hash ?? '')
+  // Empty until the first sign-in after migration 3; anything else must be this password's check value.
+  if (stored !== '' && stored !== verifier) throw new AuthError()
+  return user
 }
 
 export function decryptRecordBody(record: VaultRecord, dek: CryptoKey): Promise<Uint8Array> {
@@ -244,15 +278,22 @@ export async function unlockVault(record: VaultRecord, email: string, password: 
   try {
     const derived = await deriveKeyAndVerifier(password, wrap.salt, wrap.kdf)
     verifier = derived.verifier
-    dek = await unwrapDek(wrap.wrappedDek, derived.key, wrap.iv)
+    dek = await unwrapUserDek(wrap, derived.key)
     plain = await decryptRecordBody(record, dek)
   } catch {
     throw new AuthError()
   }
-  const { db, migration } = await openRecordDatabase(plain)
+  let opened: Awaited<ReturnType<typeof openRecordDatabase>>
   try {
-    const user = loadUser(db, normalized)
-    if (!user) throw new AuthError()
+    opened = await openRecordDatabase(plain)
+  } finally {
+    plain.fill(0)
+  }
+  const { db, migration } = opened
+  try {
+    const user = assertWrapOwner(db, wrap, normalized, verifier)
+    // Suspension removes the password copy; this also refuses a copy put back from an older envelope.
+    if (userStatus(db, user.id) !== 'ACTIVE') throw new AuthError()
     recordMigration(db, user.id, migration)
     // A legacy hash was the raw KEK for this salt, so re-salting makes any copy of it useless.
     const strengthen = kdfNeedsUpgrade(wrap.kdf) || db.queryValue('SELECT password_hash FROM users WHERE id = ?', [user.id]) !== verifier
@@ -268,7 +309,7 @@ export async function verifyOwnPassword(vault: OpenVault, password: string): Pro
   const wrap = vault.wraps.find((item) => item.userId === vault.user.id)
   if (!wrap) throw new AuthError()
   try {
-    await unwrapDek(wrap.wrappedDek, await deriveKey(password, wrap.salt, wrap.kdf), wrap.iv)
+    await unwrapUserDek(wrap, await deriveKey(password, wrap.salt, wrap.kdf))
   } catch {
     throw new AuthError()
   }

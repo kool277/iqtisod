@@ -1,7 +1,9 @@
 import {
   Archive,
   BookOpen,
+  HeartPulse,
   Layers,
+  LifeBuoy,
   LayoutDashboard,
   Lock,
   PanelLeftClose,
@@ -19,10 +21,12 @@ import { SafeProvider } from '../context/SafeContext'
 import { useI18n } from '../context/I18nContext'
 import { useVault } from '../context/VaultContext'
 import type { MessageKey } from '../i18n'
+import { readPreference, writePreference } from '../lib/preference'
 import { BUILD } from '../lib/version'
-import { Permission, canUser } from '../rbac'
+import { Permission, canUser, seesMembers } from '../rbac'
 import { backupReminder } from '../services/backup.service'
 import { BrandMark } from './Brand'
+import { HelpLink, type HelpSectionId } from './help/HelpLink'
 import { Preferences } from './Preferences'
 
 const SIDEBAR_KEY = 'moliya.sidebar'
@@ -34,34 +38,54 @@ const links: {
   label: MessageKey
   icon: typeof Users
   permission?: (typeof Permission)[keyof typeof Permission]
+  visible?: typeof seesMembers
 }[] = [
   { to: '/app', end: true, testId: 'nav-dashboard', label: 'nav.dashboard', icon: LayoutDashboard, permission: Permission.READ_DASHBOARD },
   { to: '/app/transactions', testId: 'nav-transactions', label: 'nav.transactions', icon: BookOpen, permission: Permission.READ_TRANSACTIONS },
   { to: '/app/safes', testId: 'nav-safes', label: 'nav.safes', icon: Vault },
-  { to: '/app/users', testId: 'nav-users', label: 'nav.users', icon: Users, permission: Permission.MANAGE_USERS },
+  { to: '/app/users', testId: 'nav-users', label: 'nav.users', icon: Users, visible: seesMembers },
   { to: '/app/groups', testId: 'nav-groups', label: 'nav.groups', icon: Layers, permission: Permission.READ_DASHBOARD },
   { to: '/app/audit', testId: 'nav-audit', label: 'nav.audit', icon: ScrollText, permission: Permission.READ_AUDIT },
   { to: '/app/backup', testId: 'nav-backup', label: 'nav.backup', icon: Archive, permission: Permission.EXPORT_VAULT },
   { to: '/app/settings', testId: 'nav-settings', label: 'nav.settings', icon: Settings, permission: Permission.MANAGE_SETTINGS },
   { to: '/app/account', testId: 'nav-account', label: 'nav.account', icon: UserRound },
+  { to: '/app/health', testId: 'nav-health', label: 'nav.health', icon: HeartPulse },
+  { to: '/app/help', testId: 'nav-help', label: 'nav.help', icon: LifeBuoy },
 ]
+
+const HELP_SECTIONS: [prefix: string, section: HelpSectionId][] = [
+  ['/app/transactions', 'transactions'],
+  ['/app/safes', 'safes'],
+  ['/app/users', 'users'],
+  ['/app/groups', 'groups'],
+  ['/app/audit', 'audit'],
+  ['/app/backup', 'backup'],
+  ['/app/settings', 'settings'],
+  ['/app/account', 'account'],
+  ['/app/health', 'health'],
+]
+
+/** The guide section about the page at `pathname`. */
+function helpSectionFor(pathname: string): HelpSectionId {
+  return HELP_SECTIONS.find(([prefix]) => pathname === prefix || pathname.startsWith(`${prefix}/`))?.[1] ?? 'dashboard'
+}
 
 const ACCOUNT_PATH = '/app/account'
 
 export function AppShell() {
   const { t } = useI18n()
-  const { user, vaultName, lock, saveState, query, revision, lastBackupAt, weakPassword, storageNearLimit, recoveryLeft, clearRecoveryNotice, failuresSeen, clearFailuresSeen } = useVault()
-  const [collapsed, setCollapsed] = useState(() => localStorage.getItem(SIDEBAR_KEY) === 'collapsed')
+  const { user, vaultName, lock, saveState, query, revision, lastBackupAt, weakPassword, storageNearLimit, recoveryLeft, clearRecoveryNotice, failuresSeen, checkFailuresSeen, clearFailuresSeen, auditWarning, dismissAuditWarning, acceptAuditLog } = useVault()
+  const [collapsed, setCollapsed] = useState(() => readPreference(SIDEBAR_KEY) === 'collapsed')
   const [reminderDismissed, setReminderDismissed] = useState(false)
   const reminder = useMemo(() => (user ? query((vault) => backupReminder(vault)) : null), [user, query, revision, lastBackupAt])
   const location = useLocation()
   if (!user) return null
   const forced = user.mustChangePassword
-  const visibleLinks = links.filter((link) => (forced ? link.to === ACCOUNT_PATH : !link.permission || canUser(user, link.permission)))
+  const visibleLinks = links.filter((link) => (forced ? link.to === ACCOUNT_PATH : (link.visible ? link.visible(user) : !link.permission || canUser(user, link.permission))))
 
   const toggleSidebar = () => {
     const next = !collapsed
-    localStorage.setItem(SIDEBAR_KEY, next ? 'collapsed' : 'expanded')
+    writePreference(SIDEBAR_KEY, next ? 'collapsed' : 'expanded')
     setCollapsed(next)
   }
   const ToggleIcon = collapsed ? PanelLeftOpen : PanelLeftClose
@@ -107,6 +131,7 @@ export function AppShell() {
             <span data-testid="save-state" className="sr-only text-xs text-muted sm:not-sr-only sm:whitespace-nowrap">
               {t(`status.${saveState}`)}
             </span>
+            {forced ? null : <HelpLink section={helpSectionFor(location.pathname)} testId="header-help" />}
             <Preferences compact />
             <button
               type="button"
@@ -172,10 +197,50 @@ export function AppShell() {
               </Link>
             </div>
           ) : null}
-          {failuresSeen > 0 && !forced ? (
-            <div role="status" data-testid="failures-seen-banner" className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-clay/50 bg-clay/10 px-4 py-3 text-sm text-clay-ink">
+          {auditWarning && !forced ? (
+            <div role="alert" data-testid="audit-warning" data-kind={auditWarning.kind} className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-clay bg-clay/10 px-4 py-3 text-sm text-clay-ink">
               <span className="min-w-0">
-                {t('security.failuresSeen')} <strong className="tabular-nums">{failuresSeen}</strong>
+                {auditWarning.kind === 'BROKEN' ? (
+                  <>
+                    {t('security.auditBroken')} <strong className="tabular-nums">#{auditWarning.brokenAt}</strong>
+                  </>
+                ) : (
+                  <>
+                    {t(auditWarning.kind === 'SHORTER' ? 'security.auditShorter' : 'security.auditChanged')}{' '}
+                    <span className="tabular-nums">
+                      ({auditWarning.expected.seq} → {auditWarning.actual.seq})
+                    </span>
+                  </>
+                )}
+              </span>
+              <span className="flex shrink-0 flex-wrap gap-2">
+                <Link to="/app/audit" className="rounded-xl px-3 py-1.5 underline hover:text-ink">
+                  {t('security.auditOpen')}
+                </Link>
+                {auditWarning.kind !== 'BROKEN' ? (
+                  <button type="button" data-testid="audit-accept" className="rounded-xl px-3 py-1.5 hover:text-ink" onClick={() => void acceptAuditLog().catch(() => undefined)}>
+                    {t('security.auditAccept')}
+                  </button>
+                ) : null}
+                <button type="button" className="rounded-xl px-3 py-1.5 hover:text-ink" onClick={dismissAuditWarning}>
+                  {t('common.close')}
+                </button>
+              </span>
+            </div>
+          ) : null}
+          {(failuresSeen > 0 || checkFailuresSeen > 0) && !forced ? (
+            <div role="status" data-testid="failures-seen-banner" className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-clay/50 bg-clay/10 px-4 py-3 text-sm text-clay-ink">
+              <span className="min-w-0 space-y-1">
+                {failuresSeen > 0 ? (
+                  <span className="block">
+                    {t('security.failuresSeen')} <strong className="tabular-nums">{failuresSeen}</strong>
+                  </span>
+                ) : null}
+                {checkFailuresSeen > 0 ? (
+                  <span className="block" data-testid="check-failures-seen">
+                    {t('security.checkFailuresSeen')} <strong className="tabular-nums">{checkFailuresSeen}</strong>
+                  </span>
+                ) : null}
               </span>
               <button type="button" className="shrink-0 rounded-xl px-3 py-1.5 hover:text-ink" onClick={clearFailuresSeen}>
                 {t('common.close')}

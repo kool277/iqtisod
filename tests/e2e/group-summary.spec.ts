@@ -123,6 +123,7 @@ test('groups page shows income, expenses and net per group and currency, scoped 
   await expect.poll(() => ledgerAmounts(page)).toHaveLength(5)
 
   await page.getByTestId('nav-users').click()
+  await page.getByTestId('user-add').click()
   await page.getByTestId('advanced-temp-toggle').click()
   await page.getByTestId('user-email').fill('manager@example.com')
   await page.getByTestId('user-password').fill('Temp maple kettle 101')

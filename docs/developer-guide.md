@@ -38,7 +38,7 @@ Implemented in `src/crypto/crypto.service.ts`, orchestrated in `src/services/aut
 - **Re-wrap on login**: when `kdfNeedsUpgrade(wrap.kdf)` or the stored verifier differs, `unlockVault` wraps the same DEK with a fresh salt and `CURRENT_KDF` and verifies the new wrap. It writes `CREDENTIALS_UPGRADED` only when the KDF parameters change. The session is marked `needsSave` and saved immediately.
 - **Wraps**: `wrapDek` and `unwrapDek` use AES-GCM `wrapKey('raw')` with a fresh 12-byte IV.
 - **Snapshot**: `sqlite3_js_db_export` gives the database bytes, which are encrypted with `encryptDatabase` (fresh 12-byte IV per save).
-- **Bounds**: `KDF_ITERATION_BOUNDS` is 100,000 to 2,000,000 from 1.3.0 (it was 10,000,000), so a crafted file cannot make the importer's own browser run PBKDF2 for minutes. The recovery CLI keeps 10,000,000.
+- **Bounds**: `KDF_ITERATION_BOUNDS` is 100,000 to 2,000,000 from 1.3.0 (it was 10,000,000), so a crafted file cannot make the importer's own browser run PBKDF2 for minutes. The recovery CLI uses the same 2,000,000 bound from 1.4.2 (10,000,000 before).
 - **Equal timing**: `unlockVault` (unknown email) and `redeemGrant` (no matching grant) call `spendPasswordWork`, one real PBKDF2 derivation with a random salt, so an unknown address fails as slowly as a wrong password. Emails are plaintext in the envelope anyway; this only removes the obvious timing difference.
 
 ### One-time codes and the sign-in check
@@ -85,9 +85,9 @@ Private safes are owner-only containers for cards, subscriptions, and notes, sto
 - `sizeBytes()` is `page_count × page_size`, used for the 48 MiB database budget.
 - `export()` returns the database bytes.
 
-The database is always in memory on the main thread. OPFS is deliberately not used, because it would store plaintext on disk. Vite emits `sqlite3-worker1` and `sqlite3-opfs-async-proxy` assets from the package even though they are unused.
+The database is always in memory on the main thread. OPFS is deliberately not used, because it would store plaintext on disk. The `dropSqliteWorkers` plugin in `vite.config.ts` replaces the package's references to `sqlite3-worker1` and `sqlite3-opfs-async-proxy` with a stub that throws, so neither file is shipped (from 1.4.2); the build fails if a package update changes how they are referenced.
 
-Schema: built only by migrations in `src/db/migrations/` (`0001-baseline.sql`, `0002-exact-money.ts`, `0003-private-safes.sql`, `0004-access-grants.sql`, listed in `index.ts`). `openRecordDatabase` (in `auth.service.ts`) opens every decrypted database the same way: `assertKnownSchema` compares `sqlite_master` with the objects the app's own migrations create for the stored version (trigger and view SQL must match exactly; anything unknown or missing is `SCHEMA_UNKNOWN`), then `migrate(db, { appVersion })`, then `assertKnownSchema` again if a migration ran, then `syncRolePermissions`. `migrate` runs `PRAGMA quick_check` even when nothing is pending. It runs on create, unlock, redemption, and therefore after an import. Seed data: `src/db/seed.ts`. Settings keys: `currency`, `vault_name`, `vault_created_at`, `last_backup_at`, and `clock_high_water` (schema 4).
+Schema: built only by migrations in `src/db/migrations/` (`0001-baseline.sql`, `0002-exact-money.ts`, `0003-private-safes.sql`, `0004-access-grants.sql`, listed in `index.ts`). `openRecordDatabase` (in `auth.service.ts`) opens every decrypted database the same way: `assertKnownSchema` compares `sqlite_master` with the objects the app's own migrations create for the stored version (the SQL of every table, index, trigger, and view must match, whitespace aside; anything unknown, missing, or changed is `SCHEMA_UNKNOWN`), then `migrate(db, { appVersion })`, then `assertKnownSchema` again if a migration ran, then `syncRolePermissions`. `migrate` runs `PRAGMA quick_check` even when nothing is pending. It runs on create, unlock, redemption, and therefore after an import. Seed data: `src/db/seed.ts`. Settings keys: `currency`, `vault_name`, `vault_created_at`, `last_backup_at`, and `clock_high_water` (schema 4).
 
 Money is stored as `transactions.amount_minor` (integer minor units, ISO 4217 exponent from the `currencies` table). `src/lib/money.ts` is the only place that converts: `parseAmount(text, currency)` accepts `.` or `,` as the decimal separator and spaces as grouping, and rejects extra decimals (`AMOUNT_PRECISION`) or amounts over `MAX_AMOUNT_MINOR`. Display uses `formatMoney(minor, …)`, inputs use `minorToDecimal`, charts use `toMajor`. Percentages use `percentOf` (exact, half-even). Never add amounts of different currencies.
 
@@ -228,9 +228,11 @@ Repeat for `NotoSans-Bold.ttf`.
 - Charts: `Charts.tsx` registers only the Chart.js pieces that are used, and picks colors from the resolved theme.
 - Styling: Tailwind 4 with design tokens in `src/index.css` (`paper`, `card`, `ink`, `muted`, `line`, `pine`, `clay`, `brass`, `brass-soft`, `on-pine`, `pine-ink`, `clay-ink`). `pine`/`clay` are dark green/red fills in both themes; use `text-pine-ink`/`text-clay-ink` for green/red text (lighter in dark mode for AA contrast). Dark mode is the `.dark` class on `<html>`, set by `ThemeContext`.
 - i18n: `src/i18n/en.ts` is the source of truth. `Messages = typeof en`, so TypeScript forces `ru`, `uz-Latn`, and `uz-Cyrl` to have the same keys. `t('section.key')` is type-checked.
+- Health check (`src/health/`, `components/health/HealthPage.tsx`, `#/app/health` and `#/health` before sign-in): `collect.ts` reads browser, storage, app, rates, and security facts through injectable globals; `vault.ts` reads the vault facts through the open session, and only Admins get the audit chain and head, earlier copies, and the member limit; `evaluate.ts` turns facts into `HealthResult`s (`pass`, `warn`, `fail`, `info`) whose texts are `health.checks.<id>.<title|detail|fix>`; `report.ts` builds the copied report from ids, statuses, and numeric facts only, never names, emails, or the vault name. Every check id, group, and detail is listed in `model.ts`, and the unit tests fail if a text is missing. Nothing is sent anywhere; the only requests are `version.json` (skipped on the dev server, which has none) and the rates file the app already uses.
+- Help (`components/help/HelpPage.tsx`, `#/app/help` and `#/help`): the user guides in `docs/` are the only source. The `helpGuides()` Vite plugin parses each guide with `tools/help-markdown.ts` (a small Markdown subset: headings with `<a id>` anchors, paragraphs, lists, tables, notes, pictures, links) into `virtual:help/<locale>`, loaded lazily per language, and React renders it, so no HTML string reaches the page. Pictures under `docs/images/<locale>/` are served as `help/<locale>/*.webp`, by middleware in development and as emitted assets in the build, and load lazily with their width and height set. A paragraph that holds only a `https://jaybi.uz/#/app/…` link becomes an in-app button. `HelpLink` and the header **?** open `?section=<id>`; the ids they may use are `HelpSectionId`, and `help-guides.test.ts` checks that every guide has them.
 - Exchange rates: `ExchangeRates.tsx` is lazy-loaded by the dashboard in its own `Suspense`, and a failed chunk renders nothing, so the panel can never block the dashboard.
 - Groups page: `useGroupSummaries()` runs `loadGroupSummaries` (one `GROUP BY group_id, currency, type` query over the shared period, scoped like the dashboard) and `summarizeGroups` folds it into `bigint` totals per group and currency. The Groups `DataTable` shows them as columns through `SummaryAmounts` (one line per currency, `data-currency` on each figure); the money columns sort by the vault currency's minor units only, counting a group without that currency as zero, so currencies are never mixed. The group name links to `ledgerPathForGroup(id)` (`src/lib/ledger-link.ts`, `#/app/transactions?group=<id>`) for readers with `READ_TRANSACTIONS`. `Timeline` reads the parameter with `useSearchParams`, accepts it only through `linkedGroup(value, listGroups(vault))` (digits only, and only a group the reader can see), and passes it to the ledger table as `initialFilters` for the `group` column. The ledger rows are already scoped by `listTransactions`, so a hand-edited link can only narrow them.
-- Local storage keys: `moliya.locale`, `moliya.theme`, `moliya.sidebar` (`collapsed` or `expanded`), `moliya.idleMinutes`, `moliya.guard.v1` (throttle counters keyed by hashed emails; no passwords or codes), `moliya.fx.snapshot.v1` (the last verified rates snapshot, public data), `moliya.dashboard.group` (a group id), and `moliya.table.<id>` (table layout only).
+- Local storage keys: `moliya.locale`, `moliya.theme`, `moliya.sidebar` (`collapsed` or `expanded`), `moliya.idleMinutes`, `moliya.guard.v1` (throttle counters keyed by hashed emails; no passwords or codes; mirrored in IndexedDB as `guard.throttle.v1`), `moliya.clock.v1` (the latest time this device has seen, for the clock check), `moliya.auditMark.v1` (the last audit entry this browser saw: `{ seq, hash }`), `moliya.fx.snapshot.v1` (the last verified rates snapshot, public data), `moliya.dashboard.group` (a group id), and `moliya.table.<id>` (table layout only). Session storage: `moliya.lockNotice` (why the vault locked, carried across the reload on lock). Display preferences go through `src/lib/preference.ts`, so blocked storage never stops the app.
 
 ## Threat model
 
@@ -265,7 +267,7 @@ Rules that follow from this:
 ```text
 .github/workflows/             ci.yml (checks), deploy.yml (main → Pages), release.yml (tags), codeql.yml, fx-rates.yml (rates)
 .github/dependabot.yml         weekly npm and Actions updates, 7-day cooldown
-.github/CODEOWNERS             owner review for crypto, db, auth, grants, users, account, sign-in check, limits, public/, CI
+.github/CODEOWNERS             owner review for crypto, db, rbac, auth, audit, grants, users, safes, exports, entry/redirects, rates job, public/, CI
 index.html                     loads coi-config.js and coi-serviceworker.js before the app
 public/coi-config.js           frame flag, Trusted Types default policy, coi-serviceworker options
 public/coi-serviceworker.js    vendored v0.1.7 (MIT), not bundled
@@ -275,6 +277,7 @@ src/
   context/                     Vault, Safe, I18n, Theme, Period providers
   crypto/                      Web Crypto wrappers (vault, private safes, codes and sign-in check), byte helpers
   db/                          versions, envelope, IndexedDB, migrations, audit chain, SQLite wrapper, seed
+  health/                      health check facts, evaluation, and report
   domain/                      shared types, error classes, safes, cards, subscriptions, item validation; fx.ts (rates, validation, conversion)
   i18n/                        en, ru, uz-Latn, uz-Cyrl dictionaries
   lib/                         money, decimal, dates, version, updates, persistence, session lock, sha256, clipboard, errors,
@@ -290,6 +293,7 @@ tests/
   e2e/                         Playwright
 tools/
   build-info.ts                version, commit, and build date for the bundle
+  help-markdown.ts             parses the user guides for in-app help
   fetch-rates.ts               exchange-rate publisher (npm run rates:fetch)
   fx-sources.ts                CBU, ECB, and BOI URLs and parsers
   fixtures/<version>/          generators that produced each fixture set
@@ -359,6 +363,18 @@ Then call it from the UI with `run((vault) => renameGroup(vault, id, name), { di
 3. Record fresh responses with `npm run rates:fetch -- --out <dir>` (the raw bytes land in `<dir>/archive/<date>/`), copy them to `tests/fixtures/fx`, and regenerate `snapshot.json` with `--replay tests/fixtures/fx --now <fetch time>`.
 4. Changing the shape of a quote means a new `FX_SCHEMA` and cache key. Old builds reject the new file and keep showing their cached rates as stale.
 
+### Update the user guide or its screenshots
+
+1. Edit `docs/user-guide.md`, then the same lines in `docs/ru/`, `docs/uz-Latn/`, and `docs/uz-Cyrl/`. Keep the `<a id>` anchors and picture names identical; quote buttons and messages exactly as each language's dictionary has them.
+2. Pictures come from `tests/e2e/docs-screenshots.spec.ts`, which builds a demo vault in each language and saves WebP files to `docs/images/<locale>/`. Run it against the production build, twice when pictures are new, so the help page shown in the screenshots has its own pictures:
+
+   ```bash
+   E2E_TARGET=preview DOCS_SCREENS=1 npx playwright test tests/e2e/docs-screenshots.spec.ts
+   ```
+
+   `DOCS_LOCALES=en,ru` limits it to some languages.
+3. `npx vitest run tests/unit/help-guides.test.ts` checks the anchors, links, pictures, and the Uzbek Latin apostrophes in all four guides.
+
 ### Change the storage or backup format
 
 Bump `RECORD_VERSION` or `BACKUP_VERSION`, add a new branch in `src/db/envelope.ts` while keeping every existing one, rename or add a field that older builds will fail on rather than misread, update [data-format.md](data-format.md), and add a fixture from the release.
@@ -386,6 +402,7 @@ Bump `RECORD_VERSION` or `BACKUP_VERSION`, add a new branch in `src/db/envelope.
   - `password-policy.test.ts`, `email.test.ts`, `regex-safety.test.ts`: the password rules and blocklist, email validation and its length cap, and that patterns stay fast on hostile input.
   - `limits.test.ts`: pinned caps, `parseJsonSafely` (size, depth, prototype keys), and the envelope caps. `receipt.test.ts`: raster types and file signatures. `csv.test.ts`: the widened formula guard.
   - `sqlite-hardening.test.ts`: `ATTACH` refused, the 8 MiB value limit, defensive mode, `vacuum()`, and the schema allowlist (unknown, missing, or changed objects, and every fixture accepted as stored and upgraded).
+  - `health.test.ts`: every check's evaluation from fixed facts, admin-only rows hidden from other roles, the audit chain and head from a real vault (including a tampered one), and a report with no emails or names. `help-guides.test.ts`: the guide parser and all four guides (see [Update the user guide](#update-the-user-guide-or-its-screenshots)).
   - `i18n-security.test.ts`: every security error and audit label translated in all four locales, and the Uzbek Latin apostrophes (`ʻ` U+02BB, `ʼ` U+02BC).
   - `crypto.service.test.ts`, `rbac.test.ts`, `i18n.test.ts`, `dates.test.ts`, `vault.test.ts`, `settings.test.ts`: primitives, permissions, locale parity, periods, the full vault flow, and settings.
   - `decimal.test.ts`: parsing, arithmetic, half-even ties, and thousands of random divisions checked against exact rational bounds.
@@ -406,6 +423,7 @@ Bump `RECORD_VERSION` or `BACKUP_VERSION`, add a new branch in `src/db/envelope.
   - `move.spec.ts`: with `window.__jaybiHostname` set, the old address shows the moving notice and backup download, other addresses show none, and `jaybi.uz` points people with an old vault to the import.
   - `brand.spec.ts`: the Jaybi name and the Arabic mark on the sign-in screens and in the sidebar.
   - `datatables.spec.ts`: ledger sort, search, hidden columns, inline edit, and current-view export; admin table actions; the dashboard group filter for an Admin and a Manager.
+  - `health-help.spec.ts`: the health check before sign-in, as an Admin (admin rows, copied report without personal data, run again, fix links) and as a Viewer (no admin rows); help search, the header **?** and page help links, in-app buttons, every language with its pictures; no CSP or Trusted Types violations. `docs-screenshots.spec.ts` only runs with `DOCS_SCREENS=1`.
   - `group-summary.spec.ts`: the Groups table's per-currency figures, sorting by net, the totals strip, period changes, the link from a group to its filtered ledger (an unknown or foreign group id is ignored), and a Manager seeing only their own group.
 
 Test helpers for safes (a household vault with an Admin and a Manager, sample card, subscription, and note, and byte search for plaintext leaks) are in `tests/support/safes.ts`, and for codes and the sign-in check in `tests/support/access.ts`. The v3 fixture was produced by `tools/fixtures/v3/generate.gen.ts` with 1.2.0, and the v4 fixture by `tools/fixtures/v4/generate.gen.ts` with 1.3.0.

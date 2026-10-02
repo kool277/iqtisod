@@ -22,8 +22,16 @@ Three formats are versioned independently of the app version. A change to one do
 | 1.3.0 | 2 | 2 | 4 | PBKDF2-SHA-256, 600,000 iterations |
 | 1.3.1 | 2 | 2 | 4 | PBKDF2-SHA-256, 600,000 iterations |
 | 1.4.0 | 2 | 2 | 4 | PBKDF2-SHA-256, 600,000 iterations |
+| 1.4.1 | 2 | 2 | 4 | PBKDF2-SHA-256, 600,000 iterations |
+| 1.4.2 | 2 | 2 | 4 | PBKDF2-SHA-256, 600,000 iterations |
+| 1.5.0 | 2 | 2 | 4 | PBKDF2-SHA-256, 600,000 iterations |
+| 1.6.0 | 2 | 2 | 4 | PBKDF2-SHA-256, 600,000 iterations |
 
 1.3.0, 1.3.1, and 1.4.0 read every row above them: record and backup versions 1–2 and schema versions 1–4. They write record 2, backup 2, and schema 4. Readers never lose support for a version once it has been released. Private safes (1.2.0) live inside the encrypted database, so they changed only the schema version; the record and backup formats are the same as in 1.1.0. One-time codes and the sign-in check (1.3.0) add two tables (schema 4) and an optional `grants` field to the record and backup; the record and backup version numbers stay at 2 (see [One-time code wraps](#one-time-code-wraps-grants)). Because the backup carries `schemaVersion`, 1.1.0 refuses a 1.2.0 vault or backup, and 1.1.0 and 1.2.0 refuse a 1.3.0 one, with `FORMAT_TOO_NEW` instead of misreading it. The data is left untouched.
+
+1.4.2 adds three optional fields without changing any version number: `aad` on wraps, `expiresAt` on grants, and `audit` on the record and backup. It reads everything earlier releases wrote. Earlier releases ignore the new fields, which is safe for `audit` but not for the other two: they cannot open a wrap that has `aad` (written for every new person, every new or reset password, and every KDF upgrade from 1.4.2) or redeem a grant that has `expiresAt` (every code issued from 1.4.2), and report a wrong password. So after 1.4.2 has saved a vault, going back to 1.4.1 locks out exactly those people and codes until an Admin resets them there; see [Rollback](devops-guide.md#rollback). The 1.4.2 recovery tool reads both kinds of wrap.
+
+1.6.0 changes no version number. People details live in `settings` rows (see [People](#people-user_profile)) that earlier releases ignore, so 1.5.0 and earlier open a 1.6.0 vault unchanged; a suspended or former member has no wrap there either.
 
 The constants live in `src/db/versions.ts`. The KDF parameters live in `src/crypto/crypto.service.ts`.
 
@@ -51,14 +59,14 @@ All algorithms are from the W3C Web Crypto API and are available natively in eve
 | Step | Algorithm | Parameters |
 | --- | --- | --- |
 | Password to key-encryption key (KEK) | PBKDF2 | Password as UTF-8 bytes, no normalisation. Salt from the wrap (16 to 64 bytes; 32 in practice). Hash and iteration count from the wrap. Output: 256 bits. |
-| Unwrap the data key (DEK) | AES-256-GCM | Key: KEK. IV: the wrap's 12-byte `iv`. Ciphertext: the wrap's 48-byte `wrappedDek` (32-byte raw key + 16-byte tag). No additional data. The plaintext is the raw 32-byte DEK. |
+| Unwrap the data key (DEK) | AES-256-GCM | Key: KEK. IV: the wrap's 12-byte `iv`. Ciphertext: the wrap's 48-byte `wrappedDek` (32-byte raw key + 16-byte tag). Additional data: `UTF-8("moliya/wrap/v1|" + userId)` when the wrap has `aad: "moliya/wrap/v1"` (wraps written from 1.4.2), none otherwise. The plaintext is the raw 32-byte DEK. |
 | Decrypt the database | AES-256-GCM | Key: DEK. IV: `body.iv` (12 bytes). Ciphertext: `body.ciphertext` (database + 16-byte tag). No additional data. The plaintext is a complete SQLite 3 database file. |
 
 Readers accept any KDF parameter set in these bounds, so a file written with stronger settings in the future, or older weaker ones, still opens:
 
 - `name`: `PBKDF2`
 - `hash`: `SHA-256`, `SHA-384`, or `SHA-512`
-- `iterations`: an integer from 100,000 to 2,000,000 in the app from 1.3.0 (10,000,000 in 1.1.0 and 1.2.0). The recovery tool accepts up to 10,000,000.
+- `iterations`: an integer from 100,000 to 2,000,000 in the app from 1.3.0 (10,000,000 in 1.1.0 and 1.2.0, which never wrote more than 600,000). The recovery tool accepts up to 10,000,000 until 1.4.1 and up to 2,000,000 from 1.4.2.
 
 Anything outside the bounds is rejected as damaged, which also stops a tampered file from forcing a trivially weak or a denial-of-service iteration count. Every released version wrote 200,000 or 600,000, so the lower app ceiling rejects no real file. The same bounds apply to `grants[]`, `user_keys.kdf`, and `user_totp.kdf`.
 
@@ -115,8 +123,9 @@ A `.moliya` file is a single JSON object encoded as UTF-8. Readers must ignore u
 | `updatedAt` | string | ISO 8601 UTC time of the last save. |
 | `exportedAt` | string | ISO 8601 UTC time the file was downloaded. |
 | `cipher` | object | Body cipher. Only `AES-GCM` with `length` 256 exists. |
-| `wraps[]` | array | One entry per person. `email` is lower case and unencrypted. `kdf` is per wrap. |
+| `wraps[]` | array | One entry per person. `email` is lower case and unencrypted. `kdf` is per wrap. From 1.4.2 a wrap may carry `aad: "moliya/wrap/v1"`, which binds its `userId` into the unwrap (see [Cryptography](#cryptography)); any other `aad` value is refused. Sign-in also requires the wrap's email, the `users.salt`, and the stored password verifier of the person named by `userId` to match, so a wrap relabelled to another person is refused. |
 | `grants[]` | array, optional | One entry per open invite or reset code (1.3.0). Present only when there is at least one. See [One-time code wraps](#one-time-code-wraps-grants). |
+| `audit` | object, optional | `{ seq, hash }` of the last audit entry when the file was written (1.4.2). Unencrypted. Readers ignore it if it is missing or malformed. See [Audit chain](#audit-chain). |
 | `body` | object | Encrypted SQLite database. |
 
 ### One-time code wraps (`grants`)
@@ -146,14 +155,16 @@ From 1.3.0 an Admin can issue one-time invite and reset codes. Each open code ad
 | `salt` | base64 | 16 to 64 bytes (32 in practice). |
 | `iv` | base64 | 12 bytes. |
 | `wrappedDek` | base64 | 48 bytes: the raw DEK wrapped with AES-256-GCM. |
+| `expiresAt` | string, optional | From 1.4.2: the code's expiry, a canonical ISO 8601 UTC instant (`Date.toISOString()`), equal to `access_grants.expires_at` and bound into the wrap's additional data. Without a key, the app removes grants past this time from the stored record at every load. |
 
-Grants live in their own array rather than in `wraps[]` on purpose: older recovery tools pick the first wrap whose email matches, so a reset grant for the same email could otherwise hide the person's real wrap. Older readers ignore the unknown `grants` key. The key derivation and the additional data are in [One-time codes](#one-time-codes). The app removes a grant from the array when its code is used, revoked, or replaced, and at the first sign-in after it expires.
+Grants live in their own array rather than in `wraps[]` on purpose: older recovery tools pick the first wrap whose email matches, so a reset grant for the same email could otherwise hide the person's real wrap. Older readers ignore the unknown `grants` key. The key derivation and the additional data are in [One-time codes](#one-time-codes). The app removes a grant from the array when its code is used, revoked, or replaced, and at the first sign-in after it expires (from 1.4.2, at the first load after `expiresAt`, even before anyone signs in).
 
 ### Reader limits
 
 From 1.3.0 the app refuses a backup file larger than 72 MiB before reading it, and refuses as damaged a backup whose JSON nests deeper than 8 levels or has a key named `__proto__`, `constructor`, or `prototype` anywhere. It refuses a backup or a stored record, as damaged, when:
 
 - `wraps[]` is empty or has more than 256 entries, or `grants[]` has more than 64;
+- from 1.4.2, two wraps share a `userId` or an email (case-insensitive), two grants share an `id` or an email, a wrap's `aad` is not `moliya/wrap/v1`, or a grant's `expiresAt` is not a canonical ISO instant (the app also refuses to seal such an envelope);
 - a salt is outside 16–64 bytes, an IV is not 12 bytes, a wrapped key is not 48 bytes, or `body.ciphertext` is shorter than 17 bytes or longer than 64 MiB;
 - a KDF parameter set is outside the bounds in [Cryptography](#cryptography).
 
@@ -181,10 +192,11 @@ Differences from version 2: one `kdf` for all wraps at the top level (if absent,
 | Object store | `vault` (out-of-line keys) |
 | Current vault | key `primary` |
 | Earlier copies | keys `archive:<ISO 8601 time>:<reason>`, at most 3, oldest removed first |
+| Sign-in attempt counters | key `guard.throttle.v1` (from 1.4.2): a copy of the `moliya.guard.v1` local storage counters (hashed emails, counts, and times; no passwords or codes). The app merges both and keeps the larger values, so clearing one of them does not reset the attempt limits |
 
 The record under `primary` has the same fields as the backup of the same version, including the optional `grants`, except that binary fields are `ArrayBuffer`s, there is no `format` or `exportedAt`, and it has `id: "primary"`. Version 1 records also carry `updatedAt`. Version 2 records rename `payload` to `body` on purpose: 1.0.0 reads `record.payload.iv`, so if an old cached copy of the app meets a version 2 record it fails with an error screen instead of misreading or overwriting it.
 
-Archive entries have the shape `{ key, reason, archivedAt, archivedBy, sourceVersion, sourceAppVersion, sourceUpdatedAt, raw }`, where `raw` is the untouched record as it was stored before the change. `reason` is `upgrade` (written in the same IndexedDB transaction as the first save after a format upgrade) or `import` (written in the same transaction as an imported backup replaces the vault; from 1.3.0 the archived copy is sealed after a `VAULT_REPLACED_BY_IMPORT` audit entry is written into it). The Backup page offers each archive as a download; a version 1 archive downloads as a byte-for-byte version 1 backup.
+Archive entries have the shape `{ key, reason, archivedAt, archivedBy, sourceVersion, sourceAppVersion, sourceUpdatedAt, raw }`, where `raw` is the record as it was stored before the change. From 1.4.2 `raw` never contains `grants`: a code that was later used, revoked, or expired, together with an old archive, would otherwise open the vault key offline. Archives written by earlier releases lose their `grants` the next time the app loads, and an archive download never includes them. `reason` is `upgrade` (written in the same IndexedDB transaction as the first save after a format upgrade) or `import` (written in the same transaction as an imported backup replaces the vault; from 1.3.0 the archived copy is sealed after a `VAULT_REPLACED_BY_IMPORT` audit entry is written into it). The Backup page offers each archive as a download; a version 1 archive downloads as a byte-for-byte version 1 backup.
 
 Writes are compare-and-swap: a save only succeeds if `updatedAt` in IndexedDB is still the value the session loaded. Otherwise the app stops saving and asks the person to lock and unlock. A Web Lock named `moliya-vault-session` allows only one unlocked session per browser profile.
 
@@ -200,7 +212,7 @@ The body decrypts to a standard SQLite 3 database file. Open it with any SQLite 
 
 The connection runs with `PRAGMA foreign_keys = ON` and, from 1.2.0, `PRAGMA secure_delete = ON`, so deleted rows are overwritten with zeros in the database file instead of lingering in free pages.
 
-From 1.3.0 every database the app opens, new or decrypted, is also hardened: `SQLITE_DBCONFIG_DEFENSIVE` on, `trusted_schema` off, `cell_size_check` on, strings and blobs limited to 8 MiB, and `ATTACH` disabled (one attach slot is opened only while `VACUUM` runs). Before migrating, the app compares `sqlite_master` with the exact set of tables, indexes, triggers, and views that its own migrations create for the stored schema version, and compares the SQL of every trigger and view. An unknown, missing, or changed object stops the unlock with `SCHEMA_UNKNOWN`, shown as a damaged vault. The same check runs again after a migration, and `PRAGMA quick_check` runs on every open, even when no migration is needed. Other SQLite tools can still read the file normally.
+From 1.3.0 every database the app opens, new or decrypted, is also hardened: `SQLITE_DBCONFIG_DEFENSIVE` on, `trusted_schema` off, `cell_size_check` on, strings and blobs limited to 8 MiB, and `ATTACH` disabled (one attach slot is opened only while `VACUUM` runs; from 1.4.2 the scratch database that builds a SQLite export gets the same settings, with one slot for its source). Before migrating, the app compares `sqlite_master` with the exact set of tables, indexes, triggers, and views that its own migrations create for the stored schema version, and compares the SQL of every one of them, whitespace aside (only triggers and views before 1.4.2). An unknown, missing, or changed object stops the unlock with `SCHEMA_UNKNOWN`, shown as a damaged vault. The same check runs again after a migration, and `PRAGMA quick_check` runs on every open, even when no migration is needed. Other SQLite tools can still read the file normally.
 
 ### Size limits
 
@@ -216,6 +228,7 @@ From 1.3.0:
 | Vault name, group name, setup display name | 80 characters |
 | Record notes | 2,000 characters |
 | Open invite codes | 20 per vault, and at most 64 code wraps in the envelope |
+| People | 256 wraps. From 1.4.2 a person whose open reset code stopped their old password still holds a place, so adding people or inviting cannot use it up while the code is open (`MEMBER_LIMIT`) |
 
 New passwords must also not be on a list of common passwords (the SecLists 10k list, entries of 6 or more characters, plus the NCSC 100k list, entries of 12 or more characters, compared in lower case), not be built mainly from the email or the vault name, and not be a repetition or keyboard run. Existing passwords that do not meet this keep working.
 
@@ -265,7 +278,7 @@ CREATE TABLE user_totp (
 
 `user_totp` holds one row per person who turned on the sign-in check. The secret is encrypted with a key derived from that person's password only; see [Sign-in check](#sign-in-check-user_totp). `last_step` is the last accepted 30-second time step, and `recovery_hashes` is a JSON array of hex strings, one per unused recovery code.
 
-New settings key: `clock_high_water`, the latest ISO 8601 UTC time at which this vault was saved (every seal stores `max(previous, now)`). Creating or using a code is refused with `CLOCK_BEHIND` when the device clock is more than 5 minutes earlier than it, so turning the clock back does not revive an expired code.
+New settings key: `clock_high_water`, the latest ISO 8601 UTC time at which this vault was saved (every seal stores `max(previous, now)`; from 1.4.2 each save raises it by at most two days). Creating or using a code is refused with `CLOCK_BEHIND` when the device clock is more than 5 minutes earlier than it, so turning the clock back does not revive an expired code. From 1.4.2 each browser also keeps the latest time it has seen in local storage (`moliya.clock.v1`, milliseconds since 1970 as decimal text), raised on every load, focus, save, and code attempt, again by at most two days at a time. Code expiry and the clock check use the larger of the two marks. An Admin can reset both to now from the People page with their password; this writes `CLOCK_FLOOR_RESET`.
 
 ### Schema version 3 (1.2.0)
 
@@ -306,7 +319,16 @@ Money: the decimal amount is `amount_minor / 10^minor_unit` in `currency`. Amoun
 
 The schema uses `CHECK` constraints instead of SQLite `STRICT` tables so that older SQLite tools (before 3.37) can still read the file.
 
-Audit chain: for each row, `hash = hex(SHA-256(UTF-8(JSON.stringify([seq, id, actor_id, action, entity_type, entity_id, details, created_at, prev_hash]))))`, where nulls are JSON `null` and the rest are strings except `seq`. The first row's `prev_hash` is 64 zeros, and each later row's `prev_hash` is the previous row's `hash`. If any row is changed, removed, or reordered outside the app, recomputing the chain fails at that row. The Audit page shows the result.
+#### Audit chain
+
+For each row, `hash = hex(SHA-256(UTF-8(JSON.stringify([seq, id, actor_id, action, entity_type, entity_id, details, created_at, prev_hash]))))`, where nulls are JSON `null` and the rest are strings except `seq`. The first row's `prev_hash` is 64 zeros, and each later row's `prev_hash` is the previous row's `hash`. If a row in the middle is changed, removed, or reordered and the rest is left alone, recomputing the chain fails at that row; the Audit page shows the result. The chain is not a signature: there is no secret in it, so anyone who can decrypt the database can cut rows off the end, or rewrite rows and recompute every hash after them, and the chain still verifies.
+
+From 1.4.2 two marks make those two cases visible on a browser that saw the log before:
+
+- The record and backup carry `audit: { seq, hash }`, the head of the chain at the time of sealing.
+- Each browser keeps the furthest head it saw in `localStorage` under `moliya.auditMark.v1` (same shape). It only moves forward after a save and is replaced only when this browser creates a vault, imports a backup, or replaces the vault with one.
+
+At sign-in the app checks the opened database against both heads: if the head's `seq` no longer exists, the log is `SHORTER`; if the row at that `seq` has a different `hash`, the log was `CHANGED`. Admins with the audit log see a warning, and can accept the log as it is now, which writes an `AUDIT_MARK_RESET` entry with the warning as details. Neither mark is secret or signed, so a person who holds the vault key and also edits the record and this browser's storage is not detected; per-person signed entries are planned.
 
 Audit `details` for records: `TRANSACTION_CREATED` stores a snapshot of the record, `TRANSACTION_UPDATED` stores `{ before, after }`, and `TRANSACTION_DELETED` stores the full snapshot of what was deleted. Snapshots use `type`, `amountMinor`, `currency`, `date`, `categoryId`, `groupId`, and `notes`; receipts are not copied into the log.
 
@@ -384,7 +406,7 @@ The AAD is the UTF-8 encoding of a compact JSON array, `JSON.stringify([label, 1
 
 `userId` is the owner's `users.id`. Because the AAD names the owner, the safe, the item, and the key version, a row copied to another person, safe, or item id fails to decrypt instead of being accepted.
 
-JSON payloads (user meta, events, safe meta, items) are padded before encryption: `uint32 big-endian length ‖ UTF-8 JSON ‖ zero bytes`, up to the next multiple of 256 bytes. The padded plaintext may not exceed 32 KiB (32,768 bytes, including the 4-byte length). Readers check that the length fits and every padding byte is zero. The padding hides whether an item is a card, a subscription, or a short note: they all produce ciphertexts of the same size.
+JSON payloads (user meta, events, safe meta, items) are padded before encryption: `uint32 big-endian length ‖ UTF-8 JSON ‖ zero bytes`. Since 1.4.2, items are padded to a size class: 1 KiB, then the next power of two (2, 4, 8, 16 or 32 KiB). Everything else (user meta, events, safe meta, the TOTP secret) is padded to the next multiple of 256 bytes, because those columns have SQL length limits sized for it. The padded plaintext may not exceed 32 KiB (32,768 bytes, including the 4-byte length). Readers accept any multiple of 256 bytes, so items written before 1.4.2 (256-byte padding) still open and are moved to a size class the next time they are saved. Readers check that the length fits and every padding byte is zero. The size classes hide whether an item is a card, a subscription, a login or a short note: every item whose JSON is under about 1 KiB produces a ciphertext of the same size, and longer items reveal only their size class, not their kind. Before 1.4.2 the 256-byte padding still let a long card or subscription be told apart from a short note.
 
 ### Recovery code
 
@@ -502,13 +524,13 @@ code (canonical, UTF-8) ──PBKDF2(grant.kdf, salt = grant.salt)──► 256 
    └─HKDF-SHA-256(salt = empty, info = "moliya/grant-verifier/v1")──► 256 bits ──hex──► access_grants.code_verifier
 ```
 
-The grant KEK wraps the raw 32-byte DEK with AES-256-GCM, a fresh 12-byte IV (`grant.iv`), and additional data `UTF-8("moliya/grant/v1|" + id + "|" + kind + "|" + email)`, so a grant whose id, kind, or email was altered fails to unwrap. An empty HKDF salt is HKDF's default of 32 zero bytes.
+The grant KEK wraps the raw 32-byte DEK with AES-256-GCM, a fresh 12-byte IV (`grant.iv`), and additional data `UTF-8("moliya/grant/v1|" + id + "|" + kind + "|" + email)`, so a grant whose id, kind, or email was altered fails to unwrap. Grants issued from 1.4.2 carry `expiresAt` and use `UTF-8("moliya/grant/v2|" + id + "|" + kind + "|" + email + "|" + expiresAt)` instead, so the expiry cannot be changed or removed either; grants without `expiresAt` keep the v1 data and still open. An empty HKDF salt is HKDF's default of 32 zero bytes.
 
 ### Using a code
 
 1. Find the `grants[]` entry with the chosen kind and the normalised email. If there is none, the app still runs one PBKDF2 derivation, so an unknown address takes as long as a wrong code.
 2. Derive the grant KEK and verifier, unwrap the DEK, and decrypt the body.
-3. In the database, the `access_grants` row with the same `id` must be open, have the same kind and email, and have a `code_verifier` equal to the derived one (compared in constant time). The device clock must not be more than 5 minutes behind `clock_high_water`, and `expires_at` must be later than now.
+3. In the database, the `access_grants` row with the same `id` must be open, have the same kind and email, the same expiry as the grant's `expiresAt` when it has one, and a `code_verifier` equal to the derived one (compared in constant time). The device clock must not be more than 5 minutes behind the clock marks (see [Schema version 4](#schema-version-4-130)), and `expires_at` must be later than the latest of now and the marks. From 1.4.2 a grant whose `expiresAt` has passed is refused before any key derivation.
 4. For `INVITE`, a new `users` row is created with the row's role and group, the chosen password, and `must_change_password = 0`. For `RESET`, the person's `password_hash`, `salt`, and `password_changed_at` are replaced, `must_change_password` is set to 0, and their `user_totp` row is deleted. The row is ended as `USED`, and `INVITE_ACCEPTED` or `RESET_COMPLETED` is written, all in one transaction.
 5. A normal password wrap replaces the grant in the envelope, and the vault is saved at once.
 
@@ -524,6 +546,34 @@ The optional sign-in check (1.3.0) asks for a time-based one-time password after
 - **Recovery codes**: 10 codes of 10 random bytes (80 bits) each, written as 16 Crockford base32 characters and shown as `XXXX-XXXX-XXXX-XXXX`, without a check symbol. Input is normalised like a one-time code. Each is stored as `hex(HMAC-SHA-256(key = recovery_salt, UTF-8("moliya/totp-recovery/v1|" + code)))`, where `recovery_salt` is 32 random bytes. Using a code removes its hash from `recovery_hashes` and writes `TOTP_RECOVERY_USED` with the number left.
 - **Lifecycle**: changing one's own password re-encrypts the secret under the new password with a new salt in the same transaction and sets `rewrapped_at`. The row is deleted when its owner turns the check off (with their password), when an Admin turns it off for them (`TOTP_CLEARED`), and when an Admin sets a temporary password or the person uses a reset code.
 
+## People (`user_profile`)
+
+1.6.0 keeps the schema at version 4. Per-person details are one `settings` row each, key `user_profile:<userId>`, value a JSON object of at most 1,024 characters with these optional members (absent means not set):
+
+| Member | Meaning |
+| --- | --- |
+| `displayName` | Name shown next to the email, trimmed, at most the name length limit. |
+| `updatedAt` | ISO 8601 UTC time an Admin last changed the person. |
+| `lastSignInAt` | ISO 8601 UTC time of the last completed sign-in, recorded at most every 10 minutes. |
+| `status` | `SUSPENDED` or `FORMER`; absent means active. |
+| `statusAt` | ISO 8601 UTC time the status last changed. |
+
+Readers ignore unknown members and treat a malformed value as empty. The row is removed when nothing is left in it and when the person is removed. It is not included in SQLite exports (see [SQLite export](#sqlite-export)).
+
+- **Suspended**: the person's wrap leaves the envelope and their open codes end as `REVOKED`; unlocking and redeeming codes refuse them. Their data stays. The DEK does not change, so a copy of the vault saved before the suspension still opens with their old password. Reactivating issues a reset code that stops the old password (`stop_old_password = 1`) and clears the status.
+- **Former**: what is left when a person with records is removed and their records are kept. The `users` row stays so transactions and audit entries still name them; the wrap, codes, sign-in check, and private safes are gone, and they cannot be edited, reactivated, or chosen as a target.
+
+Audit actions added in 1.6.0 (entity `user`, entity ID the person's ID):
+
+| Action | Details |
+| --- | --- |
+| `USER_SUSPENDED` | `email`, `hadPassword` (whether a wrap was removed), `codesRevoked` (count). Each revoked code also writes `INVITE_REVOKED` or `RESET_REVOKED` with `reason: "SUSPENDED"`. |
+| `USER_REACTIVATED` | `email`, `expiresAt` of the reset code issued with it. |
+| `USER_MUST_CHANGE_PASSWORD` | `email`. Sets `users.must_change_password = 1`. |
+| `TRANSACTIONS_REASSIGNED` | `email` of the removed person, `to` and `toEmail` of the new owner, `count`. Written just before `USER_DELETED`. |
+
+`USER_DELETED` details now also carry `records` (`KEPT` or `REASSIGNED`) and `count` when the person had records, plus `to` when they were moved; with `KEPT`, revoked codes write `reason: "DELETED"`. `USER_UPDATED` details carry `role` and `groupId`, plus `email` and `previousEmail` when the email changed, `displayName` when the name changed, and `bulk: true` when the change was part of a bulk change.
+
 ## Compatibility rules
 
 1. **Readers are forever.** Code that reads a released record, backup, or schema version is never removed. A new version adds a branch; it does not replace one.
@@ -534,7 +584,7 @@ The optional sign-in check (1.3.0) asks for a time-based one-time password after
 6. **Fixtures are immutable.** Every released format has a golden backup produced by that release. Fixtures are never edited or deleted.
 7. **Old passwords keep working.** KDF parameters are stored per wrap and accepted within the bounds above. Strengthening happens by re-wrapping on sign-in, never by rejecting old parameters. The same holds for the password rules: a password that no longer meets them still opens the vault.
 8. **Open formats only.** The payload is a plain SQLite file (a Library of Congress preferred format for datasets), wrapped in documented Web Crypto primitives, inside JSON.
-9. **Safe rows carry their own version.** Every private safe row has `enc_version` (1 today: AES-256-GCM, 12-byte random IV, the AAD layout above, 256-byte padding). A new scheme gets a new number and a new reader branch; rows are upgraded when they are rewritten, never in bulk by a migration, because only the owner holds the keys.
+9. **Safe rows carry their own version.** Every private safe row has `enc_version` (1 today: AES-256-GCM, 12-byte random IV, the AAD layout above, the padding above; the 1.4.2 item size classes need no new version because readers already accept them). A new scheme gets a new number and a new reader branch; rows are upgraded when they are rewritten, never in bulk by a migration, because only the owner holds the keys.
 
 ## Golden fixtures
 
@@ -578,7 +628,7 @@ A single file downloads as-is; several files (or any encrypted choice) download 
 
 **Money** is always exact: an integer `amountMinor`/`amount_minor` in the currency's minor unit plus a decimal string `amount`, never a float. Totals are summed with `BigInt`. Audit `details` is the original JSON text, so the hash chain can be recomputed from the export.
 
-**CSV formula protection** (OWASP): a text cell whose first non-space character is `=`, `+`, `-`, `@`, tab, CR, LF, or a full-width `＝＋－＠` gets a leading `'`. Numeric columns are never prefixed. Excel may drop the `'` after a save and reopen; use JSON, JSON Lines, or SQLite when exact data matters.
+**CSV formula protection** (OWASP): every text cell is quoted, so a spreadsheet that splits on `;` or tab (Excel with a Russian or Uzbek list separator) still keeps it in one cell. A text cell whose first non-space character is `=`, `+`, `-`, `@`, tab, CR, LF, or a full-width `＝＋－＠` gets a leading `'`, and so does each of those characters when it follows a `;`, tab, CR, or LF (after optional spaces) inside the cell, from 1.4.2. Numeric and boolean columns are never quoted or prefixed. Excel may drop the `'` after a save and reopen; use JSON, JSON Lines, or SQLite when exact data matters.
 
 ### SQLite export
 
@@ -602,7 +652,7 @@ The file is built fresh, not copied: a new database attaches the vault as `src` 
 
 It opens in DB Browser for SQLite ("SQLCipher 4 defaults"), `sqlcipher` (`PRAGMA key = '…'`), and SQLite3 Multiple Ciphers (`cipher=sqlcipher; legacy=4`).
 
-**Export passwords** (both encrypted outputs; enforced by the service): at least 14 printable ASCII characters, a strength estimate of at least "fair", and not the current user's sign-in password (checked by trying to unwrap the vault key with it). The built-in generator makes 6 groups of 4 characters from a 32-character alphabet (120 bits). Passwords are never stored or audited.
+**Export passwords** (both encrypted outputs; enforced by the service): at least 14 printable ASCII characters; a strength estimate of at least "fair" for SQLCipher and "strong" for the AES ZIP, because the ZIP key derivation above costs an attacker almost nothing per guess; not on the sign-in common-password list (after undoing look-alike characters, separators and repeated words) and not built from the vault name or any member's email (`EXPORT_PASSWORD_COMMON`, `EXPORT_PASSWORD_CONTEXT`, `EXPORT_PASSWORD_ZIP_WEAK`); and not the current user's sign-in password (checked by trying to unwrap the vault key with it). The export form pre-fills a generated password when ZIP is chosen. The built-in generator makes 6 groups of 4 characters from a 32-character alphabet (120 bits). Passwords are never stored or audited.
 
 ### Table view exports
 
@@ -627,11 +677,11 @@ MOLIYA_PASSWORD='…' node tools/moliya-decrypt.mjs backup.moliya --email admin@
 sqlite3 ledger.sqlite "SELECT transaction_date, type, amount_minor / 100.0, currency, notes FROM transactions ORDER BY 1"
 ```
 
-The password comes from `MOLIYA_PASSWORD`, or the tool prompts for it. Without `--out` the output is the backup's name with `.sqlite`; an existing file is only overwritten with `--force`. `--help` prints the usage. Exit code 2 means bad arguments.
+The password comes from `MOLIYA_PASSWORD`, or the tool prompts for it. A wrong password and a damaged wrap or body give the same message, `wrong email or password, or the backup is damaged` (from 1.4.2). Without `--out` the output is the backup's name with `.sqlite`; an existing file is only replaced with `--force`. The output is always created new with mode 0600 and never through a symbolic link (from 1.4.2). `--help` prints the usage. Exit code 2 means bad arguments.
 
 For schema version 1 files the amount column is `amount` instead of `amount_minor`. The tool is about 240 lines of dependency-free JavaScript and doubles as a reference implementation of this document. Any language with PBKDF2 and AES-GCM can do the same in three steps: derive the KEK, decrypt `wrappedDek` to get the DEK, decrypt `body.ciphertext`.
 
-With Node.js 22.13 or newer, the tool blanks `users.password_hash` and `users.salt`, deletes every row of `safe_events`, `secure_items`, `safes`, `user_keys`, and `user_totp`, and blanks `access_grants.code_verifier` in the output before vacuuming it. `--keep-keys` skips this step, which keeps the verifiers, salts, the private safe rows, and the sign-in check rows, still encrypted with each owner's keys. On older Node.js versions without `node:sqlite` nothing is removed and the tool prints a warning.
+With Node.js 22.13 or newer, the tool blanks `users.password_hash` and `users.salt`, deletes every row of `safe_events`, `secure_items`, `safes`, `user_keys`, and `user_totp`, and blanks `access_grants.code_verifier` before vacuuming (with `secure_delete` on). From 1.4.2 it does this on a copy in a fresh `0700` temporary directory, which it overwrites and removes afterwards, so the output path only ever receives the scrubbed database; until 1.4.1 it wrote the full plaintext to the output first and scrubbed it in place. `--keep-keys` skips this step, which keeps the verifiers, salts, the private safe rows, and the sign-in check rows, still encrypted with each owner's keys. On older Node.js versions without `node:sqlite` nothing is removed and the tool prints a warning.
 
 The tool only opens a backup with a person's password. It never tries invite or reset codes. `--list` prints the people and their KDF parameters and, as `pendingCodes`, the kind and email of every entry in `grants[]` (never the code, which the file does not contain).
 
@@ -650,7 +700,7 @@ If the wrap is stale, the current password does not open it; use the previous pa
 
 The dashboard's exchange rates are public data, not part of the vault. They are never written to SQLite, backups, or IndexedDB, and the ten-year guarantee above does not cover them. The format is still versioned so that old and new builds fail safely.
 
-`rates/latest.json` on the site (and `rates/history/YYYY-MM-DD.json` for each UTC day a run changed it) holds one JSON object, schema 1. The browser keeps the last verified copy, as the exact text it received, in `localStorage` under `moliya.fx.snapshot.v1`.
+`rates/latest.json` on the site (and `rates/history/YYYY-MM-DD.json` for each UTC day a run changed it) holds one JSON object, schema 1. The browser keeps the last verified copy, as the exact text it received, in `localStorage` under `moliya.fx.snapshot.v1`. From 1.4.2 a snapshot whose `generatedAt` is more than one hour ahead of the device clock is refused, both from the network and from this cache, so a forged future date cannot hide later updates.
 
 | Field | Meaning |
 | --- | --- |

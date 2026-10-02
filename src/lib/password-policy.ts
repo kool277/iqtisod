@@ -54,6 +54,34 @@ function baseWords(lower: string): string[] {
   return words.filter((word) => word.length >= 6)
 }
 
+const LEET: Record<string, string> = { '0': 'o', '3': 'e', '4': 'a', '5': 's', '7': 't', '8': 'b', '9': 'g', '@': 'a', $: 's', '+': 't' }
+
+function deleet(text: string, one: 'i' | 'l'): string {
+  return [...text].map((char) => (char === '1' || char === '!' || char === '|' ? one : (LEET[char] ?? char))).join('')
+}
+
+/** Drops leading and trailing digits and symbols, keeping look-alike characters inside the word. */
+function core(text: string): string {
+  return text.replace(/^[^\p{L}]+|[^\p{L}]+$/gu, '')
+}
+
+/** The password plus its forms with separators removed and look-alike characters undone, e.g. P@ssw0rd2024! and letmein!letmein. */
+function candidateWords(lower: string): string[] {
+  const forms = new Set<string>()
+  for (const base of [lower, compact(lower)]) {
+    forms.add(base)
+    for (const one of ['i', 'l'] as const) {
+      forms.add(deleet(base, one))
+      forms.add(deleet(core(base), one))
+    }
+  }
+  for (const separator of [/[^\p{L}\p{N}]+/u, /[^\p{L}]+/u]) {
+    const parts = lower.split(separator).filter(Boolean)
+    if (parts.length >= 2 && parts.every((part) => part === parts[0])) forms.add(parts[0])
+  }
+  return [...forms].flatMap(baseWords)
+}
+
 function contextTokens(context: PasswordContext): string[] {
   const tokens: string[] = []
   const email = context.email?.trim().toLowerCase() ?? ''
@@ -66,8 +94,9 @@ function contextTokens(context: PasswordContext): string[] {
 }
 
 export function violatesContext(password: string, context: PasswordContext): boolean {
-  const normalized = compact(password)
-  return contextTokens(context).some((token) => normalized.includes(token) && normalized.split(token).join('').length < 8)
+  const lower = password.toLowerCase()
+  const forms = [compact(lower), ...(['i', 'l'] as const).flatMap((one) => [compact(deleet(lower, one)), deleet(compact(lower), one)])]
+  return contextTokens(context).some((token) => forms.some((form) => form.includes(token) && form.split(token).join('').length < 8))
 }
 
 export async function passwordProblem(password: string, context: PasswordContext = {}): Promise<string | null> {
@@ -79,7 +108,7 @@ export async function passwordProblem(password: string, context: PasswordContext
   const lower = password.toLowerCase()
   if (isRepetitive(lower) || isKeyboardRun(lower)) return 'PASSWORD_COMMON'
   const common = await loadBlocklist()
-  if (baseWords(lower).some((word) => common.has(word))) return 'PASSWORD_COMMON'
+  if (candidateWords(lower).some((word) => common.has(word))) return 'PASSWORD_COMMON'
   if (violatesContext(password, context)) return 'PASSWORD_CONTEXT'
   return null
 }

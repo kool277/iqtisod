@@ -1,100 +1,84 @@
-import { useMemo, useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { useCallback, useMemo, useState, type FormEvent } from 'react'
+import { Link, useLocation } from 'react-router-dom'
+import { AddUserDialog } from './AddUserDialog'
 import { IssuedCode } from './IssuedCode'
-import { RoleGroupFields, selectedGroupFor } from './RoleGroupFields'
-import { PasswordHint } from '../auth/AuthBits'
+import { Forbidden, PeopleStrings, peopleErrorText, ROLES, StatusBadge, ValiditySelect, roleLabel } from './shared'
+import { UsersOverview } from './UsersOverview'
 import { Button, Field, Notice, controlClass } from '../ui'
 import { useI18n } from '../../context/I18nContext'
 import { useVault } from '../../context/VaultContext'
-import type { RoleName, VaultUser } from '../../domain/types'
-import type { MessageKey } from '../../i18n'
-import { textForError } from '../../lib/errors'
+import type { RoleName, UserStatus, VaultUser } from '../../domain/types'
 import { LIMITS } from '../../lib/limits'
 import { formatWhen } from '../../lib/money'
-import { Permission, canUser } from '../../rbac'
+import { Permission, canUser, seesMembers } from '../../rbac'
 import {
   DEFAULT_GRANT_VALIDITY,
-  GRANT_VALIDITY,
-  createInvite,
-  isGrantValidity,
   issueReset,
   listGrants,
+  readClockFloor,
+  resetClockFloor,
   revokeGrant,
   type GrantSummary,
   type GrantValidity,
   type IssuedGrant,
 } from '../../services/grant.service'
-import { DataTable, type Column } from '../table/DataTable'
+import { DataTable, type Column, type Selection } from '../table/DataTable'
+import { fill } from '../table/model'
 import { listGroups } from '../../services/group.service'
 import { clearUserTotp } from '../../services/totp.service'
-import { createUser, deleteUser, listUsers, resetUserPassword } from '../../services/user.service'
+import { bulkUpdateUsers, listUsers, resetUserPassword, usersOverview, type BulkChange } from '../../services/user.service'
 
-const VALIDITY_LABELS: Record<GrantValidity, MessageKey> = {
-  '15m': 'invites.v15m',
-  '1h': 'invites.v1h',
-  '24h': 'invites.v24h',
-  '72h': 'invites.v72h',
-  '7d': 'invites.v7d',
-}
+export { UserDetailPage } from './UserDetailPage'
 
-const ROLES: RoleName[] = ['Admin', 'Manager', 'Viewer']
-
-function roleLabel(role: string | null, t: (key: MessageKey) => string): string {
-  if (role === 'Admin' || role === 'Manager' || role === 'Viewer') return t(`roles.${role}`)
-  return role ?? ''
-}
-
-function ValiditySelect({ testId, value, onChange }: { testId: string; value: GrantValidity; onChange: (value: GrantValidity) => void }) {
-  const { t } = useI18n()
-  return (
-    <Field label={t('invites.validity')}>
-      <select
-        data-testid={testId}
-        className={controlClass}
-        value={value}
-        onChange={(event) => {
-          if (isGrantValidity(event.target.value)) onChange(event.target.value)
-        }}
-      >
-        {(Object.keys(GRANT_VALIDITY) as GrantValidity[]).map((key) => (
-          <option key={key} value={key}>
-            {t(VALIDITY_LABELS[key])}
-          </option>
-        ))}
-      </select>
-    </Field>
-  )
-}
-
-function Forbidden() {
-  const { t } = useI18n()
-  return (
-    <p data-testid="forbidden" className="text-clay-ink">
-      {t('errors.forbidden')}
-    </p>
-  )
-}
+const STATUSES: UserStatus[] = ['ACTIVE', 'SUSPENDED', 'FORMER']
 
 export function UsersPage() {
+  const { user } = useVault()
+  if (!user || !seesMembers(user)) return <Forbidden />
+  return (
+    <PeopleStrings>
+      <UsersView />
+    </PeopleStrings>
+  )
+}
+
+function UsersView() {
   const { t, locale } = useI18n()
   const { user, query, run, revision } = useVault()
   const [error, setError] = useState<string | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
+  const location = useLocation()
+  const [notice, setNotice] = useState<string | null>(() => ((location.state as { notice?: string } | null)?.notice === 'deleted' ? t('people.actions.done') : null))
   const [issued, setIssued] = useState<IssuedGrant | null>(null)
-  const [inviteEmail, setInviteEmail] = useState('')
-  const [inviteRole, setInviteRole] = useState<RoleName>('Viewer')
-  const [inviteGroup, setInviteGroup] = useState('')
-  const [validity, setValidity] = useState<GrantValidity>(DEFAULT_GRANT_VALIDITY)
-  const [inviting, setInviting] = useState(false)
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [role, setRole] = useState<RoleName>('Viewer')
-  const [groupId, setGroupId] = useState('')
-  const allowed = Boolean(user && canUser(user, Permission.MANAGE_USERS))
-  const people = useMemo(() => (allowed ? query((vault) => listUsers(vault)) : []), [allowed, query, revision])
-  const groups = useMemo(() => (allowed ? query((vault) => listGroups(vault)) : []), [allowed, query, revision])
-  const grants = useMemo(() => (allowed ? query((vault) => listGrants(vault)) : []), [allowed, query, revision])
+  const [adding, setAdding] = useState(false)
+  const admin = Boolean(user && canUser(user, Permission.MANAGE_USERS))
+  const people = useMemo(() => query((vault) => listUsers(vault)), [query, revision])
+  const groups = useMemo(() => (admin ? query((vault) => listGroups(vault)) : []), [admin, query, revision])
+  const grants = useMemo(() => (admin ? query((vault) => listGrants(vault)) : []), [admin, query, revision])
+  const overview = useMemo(() => (admin ? query((vault) => usersOverview(vault)) : null), [admin, query, revision])
   const [open, setOpen] = useState<{ id: string; mode: RowMode } | null>(null)
+  const [picked, setPicked] = useState<ReadonlySet<string>>(() => new Set())
+  const selection = useMemo<Selection>(
+    () => ({
+      picked,
+      toggle: (key) =>
+        setPicked((current) => {
+          const next = new Set(current)
+          if (next.has(key)) next.delete(key)
+          else next.add(key)
+          return next
+        }),
+      set: (keys, on) =>
+        setPicked((current) => {
+          const next = new Set(current)
+          for (const key of keys) {
+            if (on) next.add(key)
+            else next.delete(key)
+          }
+          return next
+        }),
+    }),
+    [picked],
+  )
   const roleOptions = useMemo(() => ROLES.map((role) => ({ value: role, label: roleLabel(role, t) })), [t])
   const yesNo = useMemo(
     () => [
@@ -108,16 +92,33 @@ export function UsersPage() {
     const role = (person: VaultUser) => roleLabel(person.roleName, t)
     const group = (person: VaultUser) => person.groupName ?? '—'
     const check = (person: VaultUser) => (person.signInCheck ? t('invites.checkOn') : '—')
-    return [
+    const status = (person: VaultUser) => t(`people.status.${person.status}`)
+    const access = (person: VaultUser) => t(`people.access.${person.access}`)
+    const columns: Column<VaultUser>[] = [
       {
         id: 'email',
         header: t('common.email'),
         hideable: false,
-        cell: (person) => <span className="break-all font-medium">{person.email}</span>,
+        cell: (person) => (
+          <span className="grid min-w-0">
+            <Link to={`/app/users/${person.id}`} className="break-all font-medium hover:underline" data-testid="user-link">
+              {person.email}
+            </Link>
+            {person.displayName ? <span className="break-words text-xs text-muted">{person.displayName}</span> : null}
+          </span>
+        ),
         sort: { type: 'text', value: (person) => person.email },
-        search: (person) => person.email,
+        search: (person) => `${person.email} ${person.displayName ?? ''}`,
         filter: { kind: 'text', value: (person) => person.email },
         exportAs: { kind: 'text', value: (person) => person.email },
+      },
+      {
+        id: 'name',
+        header: t('people.table.name'),
+        hidden: true,
+        cell: (person) => person.displayName ?? '—',
+        sort: { type: 'text', value: (person) => person.displayName },
+        exportAs: { kind: 'text', value: (person) => person.displayName },
       },
       {
         id: 'role',
@@ -138,12 +139,58 @@ export function UsersPage() {
         exportAs: { kind: 'text', value: (person) => person.groupName },
       },
       {
+        id: 'status',
+        header: t('people.table.status'),
+        cell: (person) => <StatusBadge status={person.status} />,
+        sort: { type: 'text', value: status },
+        search: status,
+        filter: { kind: 'select', value: (person) => person.status, options: STATUSES.map((value) => ({ value, label: t(`people.status.${value}`) })) },
+        exportAs: { kind: 'text', value: status },
+      },
+      {
+        id: 'records',
+        header: t('people.table.records'),
+        align: 'end',
+        cell: (person) => person.records,
+        sort: { type: 'number', value: (person) => person.records },
+        exportAs: { kind: 'number', value: (person) => person.records },
+      },
+    ]
+    if (!admin) return columns
+    return [
+      ...columns,
+      {
         id: 'signInCheck',
         header: t('table.col.signInCheck'),
         cell: (person) => (person.signInCheck ? <span className="rounded-full bg-pine/10 px-2 py-0.5 text-xs text-pine-ink">{t('invites.checkOn')}</span> : '—'),
         sort: { type: 'text', value: check },
         filter: { kind: 'select', value: (person) => (person.signInCheck ? 'yes' : 'no'), options: yesNo },
         exportAs: { kind: 'boolean', value: (person) => person.signInCheck },
+      },
+      {
+        id: 'lastSignIn',
+        header: t('people.table.lastSignIn'),
+        cell: (person) => <span className="whitespace-nowrap tabular-nums">{person.lastSignInAt ? formatWhen(person.lastSignInAt, locale) : t('people.table.never')}</span>,
+        sort: { type: 'date', value: (person) => person.lastSignInAt },
+        filter: { kind: 'date', value: (person) => person.lastSignInAt },
+        exportAs: { kind: 'when', value: (person) => person.lastSignInAt },
+      },
+      {
+        id: 'mustChange',
+        header: t('people.table.mustChange'),
+        hidden: true,
+        cell: (person) => (person.mustChange ? t('table.yes') : '—'),
+        filter: { kind: 'select', value: (person) => (person.mustChange ? 'yes' : 'no'), options: yesNo },
+        exportAs: { kind: 'boolean', value: (person) => person.mustChange },
+      },
+      {
+        id: 'access',
+        header: t('people.table.access'),
+        hidden: true,
+        cell: access,
+        sort: { type: 'text', value: access },
+        filter: { kind: 'select', value: (person) => person.access, options: (['PASSWORD', 'CODE', 'NONE'] as const).map((value) => ({ value, label: t(`people.access.${value}`) })) },
+        exportAs: { kind: 'text', value: access },
       },
       {
         id: 'created',
@@ -154,8 +201,16 @@ export function UsersPage() {
         filter: { kind: 'date', value: (person) => person.createdAt },
         exportAs: { kind: 'when', value: (person) => person.createdAt },
       },
+      {
+        id: 'updated',
+        header: t('people.table.updated'),
+        hidden: true,
+        cell: (person) => <span className="whitespace-nowrap tabular-nums">{person.updatedAt ? formatWhen(person.updatedAt, locale) : '—'}</span>,
+        sort: { type: 'date', value: (person) => person.updatedAt },
+        exportAs: { kind: 'when', value: (person) => person.updatedAt },
+      },
     ]
-  }, [locale, roleOptions, t, yesNo])
+  }, [admin, locale, roleOptions, t, yesNo])
 
   const grantColumns = useMemo<Column<GrantSummary>[]>(() => {
     const kind = (grant: GrantSummary) => (grant.kind === 'RESET' ? t('invites.kindReset') : t('invites.kindInvite'))
@@ -234,41 +289,18 @@ export function UsersPage() {
     ]
   }, [locale, roleOptions, t])
 
-  if (!allowed) return <Forbidden />
-
-  async function guarded(action: () => Promise<void>) {
-    setError(null)
-    setNotice(null)
-    try {
-      await action()
-    } catch (caught) {
-      setError(textForError(caught, t))
-    }
-  }
-
-  const onInvite = (event: FormEvent) => {
-    event.preventDefault()
-    setInviting(true)
-    void guarded(async () => {
-      const group = selectedGroupFor(inviteRole, inviteGroup, groups)
-      const grant = await run(
-        (vault) => createInvite(vault, { email: inviteEmail, roleName: inviteRole, groupId: group ? Number(group) : null, validity }),
-        { dirty: true },
-      )
-      setIssued(grant)
-      setInviteEmail('')
-    }).finally(() => setInviting(false))
-  }
-
-  const onCreate = (event: FormEvent) => {
-    event.preventDefault()
-    void guarded(async () => {
-      const group = selectedGroupFor(role, groupId, groups)
-      await run((vault) => createUser(vault, { email, password, roleName: role, groupId: group ? Number(group) : null }), { dirty: true })
-      setEmail('')
-      setPassword('')
-    })
-  }
+  const guarded = useCallback(
+    async (action: () => Promise<void>) => {
+      setError(null)
+      setNotice(null)
+      try {
+        await action()
+      } catch (caught) {
+        setError(peopleErrorText(caught, t))
+      }
+    },
+    [t],
+  )
 
   const onRevoke = (id: string) =>
     guarded(async () => {
@@ -276,11 +308,20 @@ export function UsersPage() {
       setNotice(t('invites.revoked'))
     })
 
+  const closeAdd = useCallback(() => setAdding(false), [])
+
   return (
     <div className="grid gap-6">
-      <div>
-        <h1 className="font-display text-4xl">{t('users.title')}</h1>
-        <p className="mt-1 text-sm text-muted">{t('users.intro')}</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="font-display text-4xl">{t('users.title')}</h1>
+          <p className="mt-1 text-sm text-muted">{t('users.intro')}</p>
+        </div>
+        {admin ? (
+          <Button data-testid="user-add" onClick={() => setAdding(true)}>
+            {t('people.add.button')}
+          </Button>
+        ) : null}
       </div>
       {error ? <Notice>{error}</Notice> : null}
       {notice ? (
@@ -289,122 +330,243 @@ export function UsersPage() {
         </p>
       ) : null}
       {issued ? <IssuedCode grant={issued} onDone={() => setIssued(null)} /> : null}
+      {!admin ? (
+        <p role="note" data-testid="users-read-only" className="rounded-2xl border border-line bg-card px-4 py-3 text-sm text-muted">
+          {t('people.detail.readOnly')}
+        </p>
+      ) : null}
+      {overview ? <UsersOverview overview={overview} /> : null}
+      {adding ? (
+        <AddUserDialog
+          groups={groups}
+          onClose={closeAdd}
+          onIssued={(grant) => {
+            setAdding(false)
+            setNotice(null)
+            setIssued(grant)
+          }}
+          onCreated={() => {
+            setAdding(false)
+            setNotice(t('people.add.created'))
+          }}
+        />
+      ) : null}
 
-      <form data-testid="invite-form" className="grid gap-4 rounded-3xl border border-line bg-card p-5 md:grid-cols-2" onSubmit={onInvite}>
-        <div className="md:col-span-2">
-          <h2 className="font-display text-2xl">{t('invites.title')}</h2>
-          <p className="mt-1 text-sm text-muted">{t('invites.intro')}</p>
-        </div>
-        <Field label={t('invites.email')}>
-          <input
-            data-testid="invite-email"
-            type="email"
-            className={controlClass}
-            maxLength={LIMITS.emailChars}
-            value={inviteEmail}
-            onChange={(event) => setInviteEmail(event.target.value)}
-            required
+      <section className="grid gap-3" aria-labelledby="users-table-title">
+        <h2 id="users-table-title" className="sr-only">
+          {t('users.title')}
+        </h2>
+        {admin && picked.size > 0 ? (
+          <BulkBar
+            ids={[...picked]}
+            people={people}
+            groups={groups}
+            onDone={(count) => {
+              setPicked(new Set())
+              setNotice(fill(t('people.bulk.done'), { count }))
+            }}
+            onClear={() => setPicked(new Set())}
+            guarded={guarded}
           />
-        </Field>
-        <ValiditySelect testId="invite-validity" value={validity} onChange={setValidity} />
-        <RoleGroupFields prefix="invite" role={inviteRole} groupId={inviteGroup} groups={groups} onRole={setInviteRole} onGroup={setInviteGroup} />
-        <div className="md:col-span-2">
-          <Button type="submit" data-testid="invite-create" disabled={inviting}>
-            {inviting ? t('invites.working') : t('invites.create')}
-          </Button>
-        </div>
-      </form>
-
-      <section className="rounded-3xl border border-line bg-card p-5">
-        <h2 className="font-display text-2xl">{t('invites.pending')}</h2>
-        <div className="mt-3">
-          <DataTable
-            id="grants"
-            label={t('invites.pending')}
-            rows={grants}
-            columns={grantColumns}
-            rowKey={(grant) => grant.id}
-            rowAttributes={() => ({ 'data-testid': 'grant-row' })}
-            exportTable="grants"
-            empty={t('invites.pendingNone')}
-            rowActions={(grant) => (
-              <Button variant="quiet" data-testid="grant-revoke" onClick={() => void onRevoke(grant.id)}>
-                {t('invites.revoke')}
-              </Button>
-            )}
-          />
-        </div>
+        ) : null}
+        <DataTable
+          id="users"
+          label={t('users.title')}
+          rows={people}
+          columns={peopleColumns}
+          rowKey={(person) => person.id}
+          groupAttributes={(person) => ({ 'data-testid': 'person-row', 'data-status': person.status })}
+          exportTable="users"
+          empty={t('people.table.empty')}
+          selection={admin ? selection : undefined}
+          rowActions={(person) =>
+            admin ? (
+              <PersonActions person={person} self={person.id === user?.id} mode={open?.id === person.id ? open.mode : 'idle'} setMode={(mode) => setOpen({ id: person.id, mode })} />
+            ) : (
+              <OpenLink person={person} />
+            )
+          }
+          expanded={(person) =>
+            admin && open?.id === person.id && open.mode !== 'idle' ? (
+              <PersonPanel
+                key={`${person.id}:${open.mode}`}
+                person={person}
+                mode={open.mode}
+                setMode={(mode) => setOpen({ id: person.id, mode })}
+                onIssued={setIssued}
+                guarded={guarded}
+                setNotice={setNotice}
+              />
+            ) : null
+          }
+        />
       </section>
 
-      <details data-testid="advanced-temp" className="rounded-3xl border border-line bg-card p-5">
-        <summary className="cursor-pointer font-medium" data-testid="advanced-temp-toggle">
-          {t('invites.advanced')}
-        </summary>
-        <p className="mt-2 text-sm text-muted">{t('invites.advancedHelp')}</p>
-        <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={onCreate}>
-          <Field label={t('common.email')}>
-            <input
-              data-testid="user-email"
-              type="email"
-              className={controlClass}
-              maxLength={LIMITS.emailChars}
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              required
+      {admin ? (
+        <section className="rounded-3xl border border-line bg-card p-5">
+          <h2 className="font-display text-2xl">{t('invites.pending')}</h2>
+          <div className="mt-3">
+            <DataTable
+              id="grants"
+              label={t('invites.pending')}
+              rows={grants}
+              columns={grantColumns}
+              rowKey={(grant) => grant.id}
+              rowAttributes={() => ({ 'data-testid': 'grant-row' })}
+              exportTable="grants"
+              empty={t('invites.pendingNone')}
+              rowActions={(grant) => (
+                <Button variant="quiet" data-testid="grant-revoke" onClick={() => void onRevoke(grant.id)}>
+                  {t('invites.revoke')}
+                </Button>
+              )}
             />
-          </Field>
-          <Field label={t('common.password')}>
-            <input
-              data-testid="user-password"
-              type="password"
-              autoComplete="new-password"
-              className={controlClass}
-              maxLength={LIMITS.passwordMax}
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-            />
-            <PasswordHint />
-          </Field>
-          <RoleGroupFields prefix="user" role={role} groupId={groupId} groups={groups} onRole={setRole} onGroup={setGroupId} />
-          <div className="md:col-span-2">
-            <Button type="submit" variant="quiet" data-testid="user-save">
-              {t('users.create')}
-            </Button>
           </div>
-        </form>
-      </details>
+        </section>
+      ) : null}
 
-      <DataTable
-        id="users"
-        label={t('users.title')}
-        rows={people}
-        columns={peopleColumns}
-        rowKey={(person) => person.id}
-        groupAttributes={() => ({ 'data-testid': 'person-row' })}
-        exportTable="users"
-        rowActions={(person) => (
-          <PersonActions person={person} self={person.id === user?.id} mode={open?.id === person.id ? open.mode : 'idle'} setMode={(mode) => setOpen({ id: person.id, mode })} />
-        )}
-        expanded={(person) =>
-          open?.id === person.id && open.mode !== 'idle' ? (
-            <PersonPanel
-              key={`${person.id}:${open.mode}`}
-              person={person}
-              mode={open.mode}
-              setMode={(mode) => setOpen({ id: person.id, mode })}
-              onIssued={setIssued}
-              guarded={guarded}
-              setNotice={setNotice}
-            />
-          ) : null
-        }
-      />
+      {admin ? <ClockFloorPanel guarded={guarded} setNotice={setNotice} /> : null}
     </div>
   )
 }
 
-type RowMode = 'idle' | 'reset' | 'temp' | 'clear' | 'delete'
+const KEEP = ''
+
+function BulkBar({
+  ids,
+  people,
+  groups,
+  onDone,
+  onClear,
+  guarded,
+}: {
+  ids: string[]
+  people: VaultUser[]
+  groups: { id: number; name: string }[]
+  onDone: (count: number) => void
+  onClear: () => void
+  guarded: (action: () => Promise<void>) => Promise<void>
+}) {
+  const { t } = useI18n()
+  const { run } = useVault()
+  const [role, setRole] = useState<RoleName | typeof KEEP>(KEEP)
+  const [group, setGroup] = useState(KEEP)
+  const [confirming, setConfirming] = useState(false)
+  const targets = ids.filter((id) => people.some((person) => person.id === id && person.status !== 'FORMER'))
+  const change: BulkChange = {
+    ...(role !== KEEP ? { roleName: role } : {}),
+    ...(group !== KEEP ? { groupId: group === 'none' ? null : Number(group) } : {}),
+  }
+  const empty = Object.keys(change).length === 0 || targets.length === 0
+
+  const apply = () =>
+    guarded(async () => {
+      const count = await run((vault) => bulkUpdateUsers(vault, targets, change), { dirty: true })
+      onDone(count)
+    })
+
+  return (
+    <div data-testid="users-bulk" className="grid gap-3 rounded-2xl border border-line bg-card px-4 py-3">
+      <div className="flex flex-wrap items-end gap-3">
+        <p className="self-center text-sm font-medium" role="status">
+          {fill(t('people.bulk.selected'), { count: ids.length })}
+        </p>
+        <div className="w-full sm:w-44">
+          <Field label={t('people.bulk.role')}>
+            <select data-testid="bulk-role" className={controlClass} value={role} onChange={(event) => setRole(event.target.value as RoleName | typeof KEEP)}>
+              <option value={KEEP}>{t('people.bulk.keep')}</option>
+              {ROLES.map((item) => (
+                <option key={item} value={item}>
+                  {roleLabel(item, t)}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+        <div className="w-full sm:w-44">
+          <Field label={t('people.bulk.group')}>
+            <select data-testid="bulk-group" className={controlClass} value={group} onChange={(event) => setGroup(event.target.value)}>
+              <option value={KEEP}>{t('people.bulk.keep')}</option>
+              <option value="none">{t('people.overview.noGroupLabel')}</option>
+              {groups.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+        <Button data-testid="bulk-apply" disabled={empty} onClick={() => setConfirming(true)}>
+          {t('people.bulk.apply')}
+        </Button>
+        <Button variant="quiet" data-testid="bulk-clear" onClick={onClear}>
+          {t('people.bulk.clear')}
+        </Button>
+      </div>
+      {confirming && !empty ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="w-full text-sm">{fill(t('people.bulk.confirm'), { count: targets.length })}</p>
+          <Button data-testid="bulk-confirm" onClick={() => void apply().finally(() => setConfirming(false))}>
+            {t('people.bulk.apply')}
+          </Button>
+          <Button variant="quiet" onClick={() => setConfirming(false)}>
+            {t('common.cancel')}
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function ClockFloorPanel({ guarded, setNotice }: { guarded: (action: () => Promise<void>) => Promise<void>; setNotice: (notice: string | null) => void }) {
+  const { t, locale } = useI18n()
+  const { query, run, revision } = useVault()
+  const [password, setPassword] = useState('')
+  const [working, setWorking] = useState(false)
+  const floor = useMemo(() => query((vault) => readClockFloor(vault)), [query, revision])
+  const onReset = (event: FormEvent) => {
+    event.preventDefault()
+    setWorking(true)
+    void guarded(async () => {
+      await run((vault) => resetClockFloor(vault, password), { dirty: true })
+      setPassword('')
+      setNotice(t('invites.clockDone'))
+    }).finally(() => setWorking(false))
+  }
+  return (
+    <details data-testid="clock-floor" className="rounded-3xl border border-line bg-card p-5">
+      <summary className="cursor-pointer font-medium">{t('invites.clockTitle')}</summary>
+      <p className="mt-2 text-sm text-muted">{t('invites.clockHelp')}</p>
+      <dl className="mt-3 grid gap-1 text-sm sm:grid-cols-[auto_1fr] sm:gap-x-4">
+        <dt className="text-muted">{t('invites.clockVault')}</dt>
+        <dd className="tabular-nums">{floor.vault ? formatWhen(floor.vault, locale) : '—'}</dd>
+        <dt className="text-muted">{t('invites.clockDevice')}</dt>
+        <dd className="tabular-nums">{floor.device ? formatWhen(floor.device, locale) : '—'}</dd>
+      </dl>
+      <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={onReset}>
+        <Field label={t('security.replacePassword')}>
+          <input
+            data-testid="clock-floor-password"
+            type="password"
+            autoComplete="current-password"
+            className={controlClass}
+            maxLength={LIMITS.passwordMax}
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            required
+          />
+        </Field>
+        <div className="flex items-end">
+          <Button type="submit" variant="quiet" data-testid="clock-floor-reset" disabled={working}>
+            {t('invites.clockReset')}
+          </Button>
+        </div>
+      </form>
+    </details>
+  )
+}
+
+type RowMode = 'idle' | 'reset' | 'temp' | 'clear'
 
 function PersonActions({ person, self, mode, setMode }: { person: VaultUser; self: boolean; mode: RowMode; setMode: (mode: RowMode) => void }) {
   const { t } = useI18n()
@@ -415,7 +577,7 @@ function PersonActions({ person, self, mode, setMode }: { person: VaultUser; sel
         <Link to="/app/account" className="self-center text-sm text-pine-ink hover:underline" data-testid="user-use-account">
           {t('users.useAccount')}
         </Link>
-      ) : (
+      ) : person.status === 'ACTIVE' ? (
         <>
           <Button variant="quiet" aria-expanded={mode === 'reset' || mode === 'temp'} onClick={() => toggle('reset')} data-testid="user-issue-reset">
             {t('invites.issueReset')}
@@ -426,11 +588,23 @@ function PersonActions({ person, self, mode, setMode }: { person: VaultUser; sel
             </Button>
           ) : null}
         </>
-      )}
-      <Button variant="danger" aria-expanded={mode === 'delete'} onClick={() => toggle('delete')}>
-        {t('users.remove')}
-      </Button>
+      ) : null}
+      <OpenLink person={person} />
     </>
+  )
+}
+
+function OpenLink({ person }: { person: VaultUser }) {
+  const { t } = useI18n()
+  return (
+    <Link
+      to={`/app/users/${person.id}`}
+      data-testid="user-open"
+      aria-label={`${t('people.table.open')}: ${person.email}`}
+      className="inline-flex items-center justify-center rounded-xl border border-line bg-card px-4 py-2.5 text-sm font-medium hover:border-brass"
+    >
+      {t('people.table.open')}
+    </Link>
   )
 }
 
@@ -477,12 +651,6 @@ function PersonPanel({
     guarded(async () => {
       await run((vault) => clearUserTotp(vault, person.id), { dirty: true })
       setNotice(t('invites.clearCheckDone'))
-      setMode('idle')
-    })
-
-  const onDelete = () =>
-    guarded(async () => {
-      await run((vault) => deleteUser(vault, person.id), { dirty: true })
       setMode('idle')
     })
 
@@ -550,20 +718,6 @@ function PersonPanel({
           <p className="w-full text-sm">{t('invites.clearCheckConfirm')}</p>
           <Button variant="danger" data-testid="user-clear-check-confirm" onClick={() => void onClear()}>
             {t('invites.clearCheck')}
-          </Button>
-          <Button variant="quiet" onClick={() => setMode('idle')}>
-            {t('common.cancel')}
-          </Button>
-        </div>
-      ) : null}
-      {mode === 'delete' ? (
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <p className="w-full text-sm text-clay-ink" data-testid="remove-safes-warn">
-            {t('users.removeSafesWarn')}
-          </p>
-          <p className="text-sm">{t('users.removeConfirm')}</p>
-          <Button variant="danger" onClick={() => void onDelete()}>
-            {t('users.remove')}
           </Button>
           <Button variant="quiet" onClick={() => setMode('idle')}>
             {t('common.cancel')}

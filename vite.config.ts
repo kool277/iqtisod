@@ -1,3 +1,4 @@
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { join } from 'node:path'
@@ -6,6 +7,7 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig, type Plugin } from 'vite'
 import { buildDefines, buildInfo, type BuildInfo } from './tools/build-info.ts'
+import { HELP_LOCALES, guidePath, imageSize, parseGuide, type HelpLocale } from './tools/help-markdown.ts'
 
 const isolationHeaders = {
   'Cross-Origin-Opener-Policy': 'same-origin',
@@ -55,6 +57,28 @@ function releaseMetadata(info: BuildInfo): Plugin {
 }
 
 /** Not-a-file navigations a GitHub Pages site answers with 404.html; `/` was already rewritten to `/index.html`. */
+const SQLITE_ENTRY = /@sqlite\.org[\\/]sqlite-wasm[\\/]dist[\\/]index\.mjs$/
+const SQLITE_UNUSED_WORKERS = ['sqlite3-opfs-async-proxy.js', 'sqlite3-worker1.mjs']
+const SQLITE_WORKER_STUB = '(() => { throw new Error("This SQLite worker is not shipped") })()'
+
+/** The database stays in memory on the main thread, so the OPFS proxy and the worker1 promiser are never started; without this Vite still ships both. */
+function dropSqliteWorkers(): Plugin {
+  return {
+    name: 'jaybi-drop-sqlite-workers',
+    enforce: 'pre',
+    transform(code, id) {
+      if (!SQLITE_ENTRY.test(id)) return null
+      let out = code
+      for (const file of SQLITE_UNUSED_WORKERS) {
+        const reference = `new URL("${file}", import.meta.url)`
+        if (!out.includes(reference)) this.error(`@sqlite.org/sqlite-wasm no longer loads ${file} as expected; review dropSqliteWorkers`)
+        out = out.replaceAll(reference, SQLITE_WORKER_STUB)
+      }
+      return { code: out, map: null }
+    },
+  }
+}
+
 function isMissingPage(req: IncomingMessage): boolean {
   if (req.method !== 'GET' && req.method !== 'HEAD') return false
   const accept = req.headers.accept ?? ''
@@ -96,6 +120,65 @@ function pagesFallback(): Plugin {
   }
 }
 
+const HELP_MODULE = 'virtual:help/'
+const HELP_IMAGE = /^\/help\/(en|ru|uz-Latn|uz-Cyrl)\/([a-z0-9][a-z0-9-]*\.(?:webp|png))$/
+const IMAGE_TYPES: Record<string, string> = { webp: 'image/webp', png: 'image/png' }
+
+/**
+ * The in-app Help: `virtual:help/<locale>` is that language's docs guide turned into data at build time, one lazy
+ * chunk per language, and the guide's screenshots under docs/images/ are served as same-origin files at
+ * help/<locale>/, never inlined into the JavaScript.
+ */
+function helpGuides(): Plugin {
+  const root = fileURLToPath(new URL('.', import.meta.url))
+  const imagesDir = join(root, 'docs/images')
+  const sizeOf = (src: string) => {
+    const file = join(imagesDir, src.replace(/^help\//, ''))
+    return existsSync(file) ? imageSize(readFileSync(file)) : null
+  }
+  return {
+    name: 'jaybi-help-guides',
+    resolveId(id) {
+      return id.startsWith(HELP_MODULE) ? `\0${id}` : null
+    },
+    load(id) {
+      if (!id.startsWith(`\0${HELP_MODULE}`)) return null
+      const locale = id.slice(HELP_MODULE.length + 1) as HelpLocale
+      if (!(HELP_LOCALES as readonly string[]).includes(locale)) this.error(`No help guide for ${locale}`)
+      const path = join(root, guidePath(locale))
+      this.addWatchFile(path)
+      const doc = parseGuide(readFileSync(path, 'utf8'), { locale, imageSize: sizeOf })
+      return `export default JSON.parse(${JSON.stringify(JSON.stringify(doc))})`
+    },
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const match = HELP_IMAGE.exec((req.url ?? '').split('?')[0])
+        if (!match || (req.method !== 'GET' && req.method !== 'HEAD')) return next()
+        const file = join(imagesDir, match[1], match[2])
+        readFile(file).then(
+          (bytes) => {
+            res.setHeader('Content-Type', IMAGE_TYPES[match[2].split('.').pop()!])
+            res.setHeader('Cache-Control', 'no-cache')
+            res.end(req.method === 'HEAD' ? undefined : bytes)
+          },
+          () => next(),
+        )
+      })
+    },
+    generateBundle() {
+      if (!existsSync(imagesDir)) return
+      for (const locale of HELP_LOCALES) {
+        const dir = join(imagesDir, locale)
+        if (!existsSync(dir)) continue
+        for (const name of readdirSync(dir).sort()) {
+          if (!HELP_IMAGE.test(`/help/${locale}/${name}`)) continue
+          this.emitFile({ type: 'asset', fileName: `help/${locale}/${name}`, source: readFileSync(join(dir, name)) })
+        }
+      }
+    },
+  }
+}
+
 const info = buildInfo()
 
 const emptyModule = fileURLToPath(new URL('./src/lib/empty-module.ts', import.meta.url))
@@ -111,7 +194,7 @@ export default defineConfig({
     },
   },
   define: buildDefines(info),
-  plugins: [react(), tailwindcss(), releaseMetadata(info), pagesFallback()],
+  plugins: [dropSqliteWorkers(), react(), tailwindcss(), releaseMetadata(info), helpGuides(), pagesFallback()],
   resolve: {
     alias: {
       html2canvas: emptyModule,

@@ -6,6 +6,7 @@ import { ValidationError } from '../../src/domain/errors'
 import { FxDataError, sealSnapshot, type FxSnapshot } from '../../src/domain/fx'
 import {
   FX_CACHE_KEY,
+  FX_FUTURE_SKEW_MS,
   cacheSnapshot,
   fetchLatestSnapshot,
   parseAmountInput,
@@ -70,6 +71,27 @@ describe('snapshot cache', () => {
     cacheSnapshot({ snapshot: JSON.parse(TEXT) as FxSnapshot, text: TEXT }, storage)
     expect(storage.getItem(FX_CACHE_KEY)).toBe(TEXT)
     expect(readCachedSnapshot(storage)?.snapshot.digest).toBe((JSON.parse(TEXT) as FxSnapshot).digest)
+  })
+
+  it('refuses a snapshot dated beyond a small skew ahead of this device, so it cannot pin old rates', async () => {
+    const generatedAt = (JSON.parse(TEXT) as FxSnapshot).generatedAt
+    const now = Date.parse(generatedAt)
+    const storage = new MemoryStorage()
+    const soon = later(new Date(now + FX_FUTURE_SKEW_MS - 1000).toISOString())
+    storage.setItem(FX_CACHE_KEY, soon)
+    expect(readCachedSnapshot(storage, now)?.text).toBe(soon)
+
+    const future = later('2099-01-01T00:00:00.000Z')
+    storage.setItem(FX_CACHE_KEY, future)
+    expect(readCachedSnapshot(storage, now)).toBeNull()
+    expect(storage.getItem(FX_CACHE_KEY)).toBeNull()
+    const fetcher = vi.fn(async () => new Response(future, { status: 200 }))
+    await expect(fetchLatestSnapshot(fetcher as unknown as typeof fetch, BASE, now)).rejects.toThrow(/future/)
+  })
+
+  it('reads nothing when storage itself is blocked', () => {
+    const blocked = { getItem: () => { throw new DOMException('denied', 'SecurityError') } } as unknown as Storage
+    expect(readCachedSnapshot(blocked)).toBeNull()
   })
 
   it('discards a corrupted cache entry', () => {

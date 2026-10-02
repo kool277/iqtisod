@@ -33,6 +33,13 @@ export function openAs(record: VaultRecord, who: { email: string; password: stri
   return open(record, who.email, password)
 }
 
+/** Stands in for the person replacing the temporary password an admin gave them. */
+export function settlePassword(vault: OpenVault): OpenVault {
+  vault.db.exec('UPDATE users SET must_change_password = 0 WHERE id = ?', [vault.user.id])
+  vault.user.mustChangePassword = false
+  return vault
+}
+
 export function userId(db: SqlDatabase, email: string): string {
   return String(db.queryValue('SELECT id FROM users WHERE email = ?', [email]))
 }

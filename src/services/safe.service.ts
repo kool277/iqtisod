@@ -278,7 +278,7 @@ async function readItem(vault: OpenVault, keyring: SafeKeyring, row: ItemRow, sa
 }
 
 async function sealItem(keyring: SafeKeyring, key: CryptoKey, safeId: string, itemId: string, version: number, payload: SecureItemPayload) {
-  return sealJson(payload, key, itemAad(keyring.userId, safeId, itemId, version))
+  return sealJson(payload, key, itemAad(keyring.userId, safeId, itemId, version), { sizeClasses: true })
 }
 
 function payloadOf(item: SecureItem): SecureItemPayload {

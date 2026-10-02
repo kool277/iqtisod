@@ -35,6 +35,7 @@ async function lockVault(page: Page) {
 
 async function createMember(page: Page, email: string, password: string, role: 'Manager' | 'Viewer') {
   await page.getByTestId('nav-users').click()
+  await page.getByTestId('user-add').click()
   await page.getByTestId('advanced-temp-toggle').click()
   await page.getByTestId('user-email').fill(email)
   await page.getByTestId('user-password').fill(password)

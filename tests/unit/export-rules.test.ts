@@ -5,6 +5,7 @@ import { exportFileName, validateRequest, vaultSlug, type ExportRequest } from '
 import {
   GENERATOR_ALPHABET,
   assertExportPassword,
+  commonExportPasswordProblem,
   estimateBits,
   estimateStrength,
   generateExportPassword,
@@ -35,6 +36,29 @@ function codeOf(fn: () => unknown): string | null {
 }
 
 describe('export passwords', () => {
+  it('needs a strong password for ZIP, whose key derivation is fixed and fast, but allows fair for SQLCipher', () => {
+    const fair = 'qzmfkrwpxlbvnt'
+    expect(estimateStrength(fair)).toBe('fair')
+    expect(passwordProblem(fair, undefined, 'zip')).toBe('EXPORT_PASSWORD_ZIP_WEAK')
+    expect(passwordProblem(fair, undefined, 'sqlcipher')).toBeNull()
+    expect(codeOf(() => validateRequest({ ...base, password: fair, passwordConfirm: fair }))).toBe('EXPORT_PASSWORD_ZIP_WEAK')
+    expect(validateRequest({ ...base, protection: 'sqlcipher', password: fair, passwordConfirm: fair }).protection).toBe('sqlcipher')
+    const generated = generateExportPassword()
+    expect(passwordProblem(generated, generated, 'zip')).toBeNull()
+  })
+
+  it('refuses common passwords and the vault name or members’ emails, like sign-in passwords', async () => {
+    const context = { vaultName: 'Maple House', emails: ['keeper@maple.test', 'dilnoza.rahimova@maple.test'] }
+    for (const password of ['P@ssw0rd2024!!', 'letmein!letmein', 'Password12345678', 'sunshine-sunshine']) {
+      expect(await commonExportPasswordProblem(password, context), password).toBe('EXPORT_PASSWORD_COMMON')
+    }
+    for (const password of ['MapleHouse-2026!', 'Dilnoza.Rahimova!9', 'K33per@Maple.test']) {
+      expect(await commonExportPasswordProblem(password, context), password).toBe('EXPORT_PASSWORD_CONTEXT')
+    }
+    expect(await commonExportPasswordProblem(generateExportPassword(), context)).toBeNull()
+    expect(await commonExportPasswordProblem('Plum-Otter-Vivid-42-Ranch', context)).toBeNull()
+  })
+
   it('requires 14 printable ASCII characters that are not easy to guess', () => {
     expect(passwordProblem('Short-1a')).toBe('EXPORT_PASSWORD_SHORT')
     expect(passwordProblem('Oʻzbekcha-parol-2026')).toBe('EXPORT_PASSWORD_ASCII')
@@ -105,13 +129,15 @@ describe('CSV cells', () => {
   it('neutralises every OWASP formula trigger, including LF and full-width characters', () => {
     const triggers = ['=SUM(A1)', '+1', '-2+3', '@cmd', '\tTAB', '\rCR', '\nLF', '＝1+1', '＋1', '－1', '＠SUM(1)']
     for (const value of triggers) expect(csvCell(value).replace(/^"|"$/g, '').startsWith("'"), JSON.stringify(value)).toBe(true)
-    expect(csvCell('  =cmd')).toBe("'  =cmd")
+    expect(csvCell('  =cmd')).toBe(`"'  =cmd"`)
     expect(csvCell(' leading space')).toBe('" leading space"')
-    expect(csvCell('plain')).toBe('plain')
+    expect(csvCell('plain')).toBe('"plain"')
+    expect(csvCell('x;=1+1')).toBe(`"x;'=1+1"`)
+    expect(csvCell('x\t@cmd')).toBe(`"x\t'@cmd"`)
     expect(csvCell('a,b')).toBe('"a,b"')
     expect(csvCell('say "hi"')).toBe('"say ""hi"""')
     expect(csvCell('line\nbreak')).toBe('"line\nbreak"')
-    expect(csvCell('Oʻzbekcha — Ўзбекча')).toBe('Oʻzbekcha — Ўзбекча')
+    expect(csvCell('Oʻzbekcha — Ўзбекча')).toBe('"Oʻzbekcha — Ўзбекча"')
     expect(csvCell(-5)).toBe('-5')
     expect(csvCell(null)).toBe('')
     expect(csvCell(true)).toBe('true')

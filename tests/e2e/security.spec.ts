@@ -93,6 +93,7 @@ function totpCode(secret: string, offsetMs = 0): Promise<string> {
 
 async function issueInvite(page: Page, email: string, validity?: string): Promise<string> {
   await page.getByTestId('nav-users').click()
+  await page.getByTestId('user-add').click()
   await page.getByTestId('invite-email').fill(email)
   if (validity) await page.getByTestId('invite-validity').selectOption(validity)
   await page.getByTestId('invite-role').selectOption('Manager')
@@ -294,6 +295,7 @@ test('a reset code replaces a password that someone else may know', async ({ pag
   const member = { email: 'member@example.com', temporary: 'Temporary lamp words 22', next: 'Member picks own words 4' }
   await createVault(page)
   await page.getByTestId('nav-users').click()
+  await page.getByTestId('user-add').click()
   await page.getByTestId('advanced-temp-toggle').click()
   await page.getByTestId('user-email').fill(member.email)
   await page.getByTestId('user-password').fill(member.temporary)
@@ -334,6 +336,10 @@ test('replacing a vault with a backup needs the password and the vault name', as
   const download = page.waitForEvent('download')
   await page.getByTestId('export-backup').click()
   const file = await (await download).path()
+  // An open code in the vault being replaced must not survive in the archived copy.
+  await issueInvite(page, 'archived.invite@example.com')
+  await expect(page.getByTestId('save-state')).toHaveText('Saved', { timeout: 30_000 })
+  await page.getByTestId('nav-backup').click()
   const panel = page.getByTestId('replace-panel')
   await panel.getByTestId('import-file').setInputFiles(file)
   await expect(panel.getByTestId('import-summary')).toBeVisible()
@@ -355,6 +361,58 @@ test('replacing a vault with a backup needs the password and the vault name', as
   await expect(page.getByTestId('app-shell')).toBeVisible({ timeout: 30_000 })
   await page.getByTestId('nav-backup').click()
   await expect(page.getByTestId('archive-row')).toHaveCount(1)
+  const archived = await page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('moliya', 1)
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+    const values = await new Promise<{ raw: Record<string, unknown> }[]>((resolve, reject) => {
+      const request = db.transaction('vault', 'readonly').objectStore('vault').getAll(IDBKeyRange.bound('archive:', 'archive:\uffff'))
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+    db.close()
+    return values.map((entry) => ({ hasGrants: 'grants' in entry.raw, wraps: Array.isArray(entry.raw.wraps) }))
+  })
+  expect(archived).toEqual([{ hasGrants: false, wraps: true }])
+  expect(await watcher.violations()).toEqual([])
+})
+
+test('locking reloads the page, so nothing from the unlocked session stays in memory', async ({ page }) => {
+  const watcher = await watch(page)
+  await createVault(page)
+  await page.evaluate(() => {
+    ;(window as unknown as { __unlockedRealm?: boolean }).__unlockedRealm = true
+  })
+  await lock(page)
+  expect(await page.evaluate(() => (window as unknown as { __unlockedRealm?: boolean }).__unlockedRealm ?? null)).toBeNull()
+  await expect(page).toHaveURL(/#\/login$/)
+  await expect(page.getByTestId('idle-locked')).toHaveCount(0)
+  await signIn(page, ADMIN.email, ADMIN.password)
+  await expect(page.getByTestId('kpi-net')).toBeVisible({ timeout: 30_000 })
+  expect(await watcher.violations()).toEqual([])
+})
+
+test('warns the admin when the audit log is shorter than this browser last saw it', async ({ page }) => {
+  const watcher = await watch(page)
+  await createVault(page)
+  await lock(page)
+  const mark = await page.evaluate(() => JSON.parse(localStorage.getItem('moliya.auditMark.v1') ?? 'null') as { seq: number; hash: string } | null)
+  expect(mark?.seq).toBeGreaterThan(0)
+  await page.evaluate((seq) => localStorage.setItem('moliya.auditMark.v1', JSON.stringify({ seq, hash: 'a'.repeat(64) })), mark!.seq + 50)
+
+  await signIn(page, ADMIN.email, ADMIN.password)
+  const warning = page.getByTestId('audit-warning')
+  await expect(warning).toHaveAttribute('data-kind', 'SHORTER', { timeout: 30_000 })
+  await page.getByTestId('audit-accept').click()
+  await expect(warning).toHaveCount(0)
+
+  await lock(page)
+  await signIn(page, ADMIN.email, ADMIN.password)
+  await expect(page.getByTestId('kpi-net')).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByTestId('audit-warning')).toHaveCount(0)
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('moliya.auditMark.v1') ?? 'null')?.seq)).toBeLessThan(mark!.seq + 50)
   expect(await watcher.violations()).toEqual([])
 })
 
