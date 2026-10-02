@@ -6,6 +6,7 @@ Jaybi (called Moliya before 1.3.0) is a private finance vault that runs entirely
 
 | Version | Supported |
 | --- | --- |
+| 1.6.x | Yes |
 | 1.5.x | Yes |
 | 1.4.x | Yes (1.4.2 and later; 1.4.2 fixes the findings of the September 2026 review) |
 | 1.3.x and older | No. Upgrade to the latest release |

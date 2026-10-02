@@ -32,6 +32,7 @@ It suits a household tracking a shared budget, a small business or community gro
 - Admin settings page for the vault name, vault currency, and income and expense categories in all four languages.
 - Private safes for every person: encrypted, owner-only places for payment cards, subscriptions (with monthly and yearly totals per currency and upcoming payments), and notes. Not even an Admin can open them. Password re-entry to open, locking with the vault, masked card numbers, an optional recovery code, a 30-day trash, and a private activity list.
 - One-time invite and reset codes (valid 24 hours by default), so people choose their own passwords and an Admin never needs to know them.
+- People dashboard for Admins: an overview against the member limit, a page for each person, editing name, email, role, and group (also for several people at once), suspending and reactivating, and deleting with a choice to move the person's records or keep them under a former member. Managers see their own group read-only, and every change is audited.
 - Account page where everyone changes their own password, turns on an optional sign-in check with an authenticator app, and chooses when the vault locks itself. People whose password was set by an Admin must choose their own at next sign-in.
 - Password rules (12+ characters, no common passwords) and attempt limits with a growing wait after repeated wrong passwords or codes.
 - Collapsible sidebar that remembers its state.
@@ -118,7 +119,7 @@ React 19, TypeScript, Vite, Tailwind CSS 4, Chart.js, Lucide icons, `@sqlite.org
 
 ## Status
 
-Version 1.5.0, in production since 1.0.0 and served from [jaybi.uz](https://jaybi.uz) since 1.3.0. The core features work and are covered by unit tests, browser tests, and golden backups from every release. Known gaps and suggested next steps are listed in the [developer guide](docs/developer-guide.md#known-gaps-and-next-steps).
+Version 1.6.0, in production since 1.0.0 and served from [jaybi.uz](https://jaybi.uz) since 1.3.0. The core features work and are covered by unit tests, browser tests, and golden backups from every release. Known gaps and suggested next steps are listed in the [developer guide](docs/developer-guide.md#known-gaps-and-next-steps).
 
 ## License
 
