@@ -1,0 +1,1 @@
+var e=1048576,t={emailChars:254,passwordMin:12,passwordMax:256,nameChars:80,notesChars:2e3,receiptBytes:Math.floor(1.5*e),databaseBudgetBytes:48*e,databaseWarnBytes:36*e,importFileBytes:72*e,ciphertextBytes:64*e,sqliteValueBytes:8*e,jsonDepth:8,wraps:256,grants:64,openInvites:20};function n(t){return`${Math.round(t/e)} MB`}export{n,t};
