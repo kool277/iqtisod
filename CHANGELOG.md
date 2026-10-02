@@ -314,7 +314,8 @@ Writes backup, record, and schema version 1.
 - Audit log, encrypted `.moliya` backups, day and night themes, and a collapsible sidebar.
 - Deployment to GitHub Pages.
 
-[Unreleased]: https://github.com/kool277/iqtisod/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/kool277/iqtisod/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/kool277/iqtisod/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/kool277/iqtisod/compare/v1.4.2...v1.5.0
 [1.4.2]: https://github.com/kool277/iqtisod/compare/v1.4.1...v1.4.2
 [1.4.1]: https://github.com/kool277/iqtisod/compare/v1.4.0...v1.4.1
