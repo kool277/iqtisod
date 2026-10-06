@@ -162,7 +162,8 @@ function attempt<T>(read: () => T, fallback: T): T {
 export function isMobile(g: CapacityGlobals): boolean {
   return attempt(() => {
     const nav = g.navigator
-    if (typeof nav?.userAgentData?.mobile === 'boolean') return nav.userAgentData.mobile
+    if (!nav) return true
+    if (typeof nav.userAgentData?.mobile === 'boolean') return nav.userAgentData.mobile
     const agent = nav?.userAgent ?? ''
     // iPadOS reports a Mac user agent; touch points tell them apart.
     return /Android|iPhone|iPad|iPod|Mobile/i.test(agent) || (/Macintosh/.test(agent) && (nav?.maxTouchPoints ?? 0) > 1)
