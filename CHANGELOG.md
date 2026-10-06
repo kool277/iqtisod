@@ -6,7 +6,7 @@ Data formats are versioned separately from the app. Each release lists the forma
 
 ## [Unreleased]
 
-## [1.6.0] - 2026-10-01
+## [1.6.0] - 2026-10-02
 
 Reads backup and record versions 1–2 and schema versions 1–4. Writes backup 2, record 2, schema 4, and export format 1, the same as 1.5.0. People details (name, status, last sign-in) are new `settings` rows that 1.5.0 ignores, so 1.5.0 still opens everything 1.6.0 saves; see [People](docs/data-format.md#people-user_profile).
 

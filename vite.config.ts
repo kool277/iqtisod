@@ -205,10 +205,6 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['@sqlite.org/sqlite-wasm'],
   },
-  // The Argon2 Worker is an ES module; public/coi-config.js approves only its built name, argon2.worker-<hash>.js.
-  worker: {
-    format: 'es',
-  },
   build: {
     target: 'es2022',
     chunkSizeWarningLimit: 600,

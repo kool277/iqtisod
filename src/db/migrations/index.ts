@@ -1,11 +1,10 @@
 import { FormatTooNewError, MigrationError, ValidationError } from '../../domain/errors'
 import { SqlDatabase } from '../sqlite'
-import { KEYS_SCHEMA_VERSION, SCHEMA_VERSION } from '../versions'
+import { SCHEMA_VERSION } from '../versions'
 import baselineSql from './0001-baseline.sql?raw'
 import { migrateExactMoney } from './0002-exact-money'
 import privateSafesSql from './0003-private-safes.sql?raw'
 import accessGrantsSql from './0004-access-grants.sql?raw'
-import signedRosterSql from './0005-signed-roster.sql?raw'
 
 export type Migration = {
   version: number
@@ -19,11 +18,6 @@ export const MIGRATIONS: readonly Migration[] = [
   { version: 3, name: 'private-safes-and-verifier', up: (db) => db.exec(privateSafesSql) },
   { version: 4, name: 'access-grants-and-sign-in-check', up: (db) => db.exec(accessGrantsSql) },
 ]
-
-/** Applied only when the founder upgrades a vault to per-person keys; a 1.6 vault never reaches it on its own. */
-export const KEYS_MIGRATION: Migration = { version: 5, name: 'signed-roster-and-key-bindings', up: (db) => db.exec(signedRosterSql) }
-
-export const KEYS_MIGRATIONS: readonly Migration[] = [...MIGRATIONS, KEYS_MIGRATION]
 
 export type MigrationResult = {
   from: number
@@ -90,8 +84,7 @@ export function migrate(
 export function assertMigrationsMatchSchemaVersion(): void {
   const last = MIGRATIONS[MIGRATIONS.length - 1]
   if (last.version !== SCHEMA_VERSION) throw new Error(`Last migration ${last.version} != SCHEMA_VERSION ${SCHEMA_VERSION}`)
-  if (KEYS_MIGRATION.version !== KEYS_SCHEMA_VERSION) throw new Error(`Keys migration ${KEYS_MIGRATION.version} != KEYS_SCHEMA_VERSION`)
-  KEYS_MIGRATIONS.forEach((migration, index) => {
+  MIGRATIONS.forEach((migration, index) => {
     if (migration.version !== index + 1) throw new Error(`Migration versions must be contiguous from 1`)
   })
 }
@@ -115,7 +108,7 @@ function expectedSchema(version: number): Promise<Schema> {
   if (!pending) {
     pending = SqlDatabase.openEmpty().then((db) => {
       try {
-        migrate(db, { appVersion: 'schema-check', migrations: KEYS_MIGRATIONS.slice(0, version) })
+        migrate(db, { appVersion: 'schema-check', migrations: MIGRATIONS.slice(0, version) })
         return readSchema(db)
       } finally {
         db.close()
@@ -127,9 +120,8 @@ function expectedSchema(version: number): Promise<Schema> {
   return pending
 }
 
-/** `max` is the newest schema the caller's record version may hold: 4 for a 1.6 record, 5 for a per-person-keys record. */
-export async function assertKnownSchema(db: SqlDatabase, version = readSchemaVersion(db), max = SCHEMA_VERSION): Promise<void> {
-  if (!Number.isSafeInteger(version) || version < 1 || version > max) throw new ValidationError('SCHEMA_UNKNOWN')
+export async function assertKnownSchema(db: SqlDatabase, version = readSchemaVersion(db)): Promise<void> {
+  if (!Number.isSafeInteger(version) || version < 1 || version > SCHEMA_VERSION) throw new ValidationError('SCHEMA_UNKNOWN')
   const expected = await expectedSchema(version)
   const actual = readSchema(db)
   if (actual.size !== expected.size) throw new ValidationError('SCHEMA_UNKNOWN')

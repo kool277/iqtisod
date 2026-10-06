@@ -7,7 +7,7 @@ import {
   parseBackupText,
   toBackupJson,
 } from '../../src/db/envelope'
-import { BACKUP_VERSION, KEYS_BACKUP_VERSION, KEYS_RECORD_VERSION, RECORD_VERSION, SCHEMA_VERSION } from '../../src/db/versions'
+import { BACKUP_VERSION, RECORD_VERSION, SCHEMA_VERSION } from '../../src/db/versions'
 import { AppError, CorruptRecordError, FormatTooNewError } from '../../src/domain/errors'
 import { fixtureByPath, v1StoredRecordFromBackup } from '../support/fixtures'
 
@@ -67,17 +67,11 @@ describe('vault envelope', () => {
   })
 
   it('refuses files and records written by a newer version', () => {
-    expect(codeOf(() => parseBackupJson(mutate(v2Text, (value) => (value.version = KEYS_BACKUP_VERSION + 1))))).toBe('FORMAT_TOO_NEW')
+    expect(codeOf(() => parseBackupJson(mutate(v2Text, (value) => (value.version = BACKUP_VERSION + 1))))).toBe('FORMAT_TOO_NEW')
     expect(codeOf(() => parseBackupJson(mutate(v2Text, (value) => (value.schemaVersion = SCHEMA_VERSION + 1))))).toBe('FORMAT_TOO_NEW')
     const stored = encodeStoredRecord(parseBackupText(v2Text).record)
-    expect(() => decodeStoredRecord({ ...stored, version: KEYS_RECORD_VERSION + 1 })).toThrow(FormatTooNewError)
+    expect(() => decodeStoredRecord({ ...stored, version: RECORD_VERSION + 1 })).toThrow(FormatTooNewError)
     expect(() => decodeStoredRecord({ ...stored, schemaVersion: SCHEMA_VERSION + 1 })).toThrow(FormatTooNewError)
-  })
-
-  it('refuses a 1.6 file that claims the per-person-keys version without its header', () => {
-    expect(codeOf(() => parseBackupJson(mutate(v2Text, (value) => (value.version = KEYS_BACKUP_VERSION))))).toBe('BACKUP')
-    const stored = encodeStoredRecord(parseBackupText(v2Text).record)
-    expect(() => decodeStoredRecord({ ...stored, version: KEYS_RECORD_VERSION })).toThrow(CorruptRecordError)
   })
 
   it('rejects damaged or tampered backups', () => {

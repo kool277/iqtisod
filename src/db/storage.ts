@@ -9,13 +9,10 @@ import {
   decodeStoredRecord,
   encodeStoredRecord,
   envelopeProblem,
-  peopleOf,
-  storedForm,
   type DecodedRecord,
   type VaultRecord,
 } from './envelope'
-import type { KeysHeader } from './keys-header'
-import { KEYS_RECORD_VERSION, RECORD_VERSION } from './versions'
+import { RECORD_VERSION } from './versions'
 
 export type { VaultRecord } from './envelope'
 
@@ -125,7 +122,7 @@ export async function readVault(): Promise<LoadedVault | null> {
 }
 
 export async function writeVault(record: VaultRecord, options: WriteOptions = {}): Promise<void> {
-  const stored = storedForm(record)
+  const stored = encodeStoredRecord(record)
   const database = await openDatabase()
   try {
     await new Promise<void>((resolve, reject) => {
@@ -266,14 +263,13 @@ export function recordFromSession(input: {
   createdAt: string | null
   updatedAt: string
   audit?: AuditHead
-  keys?: KeysHeader
 }): VaultRecord {
-  const problem = envelopeProblem(peopleOf(input), input.grants ?? [])
+  const problem = envelopeProblem(input.wraps, input.grants ?? [])
   if (problem === 'WRAP_COUNT') throw new ValidationError('MEMBER_LIMIT')
   if (problem) throw new CorruptRecordError()
   return encodeStoredRecord({
     id: RECORD_ID,
-    version: input.keys ? KEYS_RECORD_VERSION : RECORD_VERSION,
+    version: RECORD_VERSION,
     appVersion: APP_VERSION,
     schemaVersion: input.schemaVersion,
     createdAt: input.createdAt,
@@ -299,7 +295,6 @@ export function recordFromSession(input: {
       ...(grant.expiresAt ? { expiresAt: grant.expiresAt } : {}),
     })),
     ...(input.audit ? { audit: input.audit } : {}),
-    ...(input.keys ? { keys: input.keys } : {}),
     body: { iv: cloneBuffer(input.iv), ciphertext: cloneBuffer(input.ciphertext) },
   })
 }
