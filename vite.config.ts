@@ -223,6 +223,11 @@ export default defineConfig({
             { name: 'export-pdf', test: /node_modules[\\/](jspdf|jspdf-autotable|fast-png|iobuffer|pako|@babel[\\/]runtime)[\\/]/ },
             { name: 'export-xlsx', test: /node_modules[\\/]write-excel-file[\\/]/ },
             { name: 'export-zip', test: /node_modules[\\/]@zip\.js[\\/]/ },
+            // Small modules every page loads, which lazy chunks such as the backup reader share; one file instead of many.
+            {
+              name: 'vault-core',
+              test: /src[\\/](domain[\\/]errors|db[\\/](audit-chain|envelope)|crypto[\\/](crypto\.service|encoding)|lib[\\/](safe-json|limits|sha256))\.ts$/,
+            },
           ],
         },
       },

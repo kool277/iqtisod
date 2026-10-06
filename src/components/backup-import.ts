@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
 import type { MessageKey } from '../i18n'
-import { formatBytes, measureCapacity, type Capacity } from '../lib/capacity'
+import type { Capacity } from '../lib/capacity'
+import { formatBytes } from '../lib/limits'
 import { requestPersistence } from '../lib/persistence'
 import type { ParsedBackup } from '../services/backup.service'
+
+const measureCapacity = () => import('../lib/capacity').then((module) => module.measureCapacity())
 
 type Translate = (key: MessageKey) => string
 

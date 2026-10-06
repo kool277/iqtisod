@@ -8,7 +8,7 @@ import {
   isKdfParams,
   type KdfParams,
 } from '../crypto/crypto.service'
-import { base64ToExactBytes, bytesToBase64, cloneBuffer, cloneBytes } from '../crypto/encoding'
+import { base64ToBytes, bytesToBase64, cloneBuffer, cloneBytes } from '../crypto/encoding'
 import { CorruptRecordError, FormatTooNewError, ValidationError } from '../domain/errors'
 import { LIMITS } from '../lib/limits'
 import { parseJsonSafely } from '../lib/safe-json'
@@ -139,8 +139,9 @@ function sharedBinary(value: unknown, invalid: Invalid): Uint8Array {
 
 function base64(value: unknown, invalid: Invalid): Uint8Array {
   const text = asString(value, invalid)
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(text) || text.length % 4 !== 0) throw invalid()
   try {
-    return base64ToExactBytes(text)
+    return base64ToBytes(text)
   } catch {
     throw invalid()
   }

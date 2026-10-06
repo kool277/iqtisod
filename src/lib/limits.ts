@@ -24,3 +24,10 @@ export const LIMITS = {
 export function formatMiB(bytes: number): string {
   return `${Math.round(bytes / MIB)} MB`
 }
+
+/** Megabytes below a gigabyte, rounded down; one decimal above. */
+export function formatBytes(bytes: number): string {
+  const mib = bytes / MIB
+  if (mib >= 1024) return `${(mib / 1024).toFixed(1)} GB`
+  return `${Math.max(1, Math.floor(mib))} MB`
+}

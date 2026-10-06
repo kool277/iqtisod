@@ -9,7 +9,6 @@ import {
   backupFileBytesFor,
   computeCapacity,
   currentCapacity,
-  formatBytes,
   growthBudget,
   isMobile,
   measureCapacity,
@@ -18,7 +17,7 @@ import {
   type CapacityGlobals,
   type CapacitySignals,
 } from '../../src/lib/capacity'
-import { LIMITS } from '../../src/lib/limits'
+import { LIMITS, formatBytes } from '../../src/lib/limits'
 
 const MIB = 1024 * 1024
 const GIB = 1024 * MIB

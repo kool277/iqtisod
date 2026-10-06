@@ -219,9 +219,3 @@ export async function measureCapacity(g?: CapacityGlobals): Promise<Capacity> {
   latest = computeCapacity(await readCapacitySignals(g))
   return latest
 }
-
-export function formatBytes(bytes: number): string {
-  const mib = bytes / MIB
-  if (mib >= 1024) return `${(mib / 1024).toFixed(1)} GB`
-  return `${Math.max(1, Math.floor(mib))} MB`
-}

@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { Base64Decoder, Base64Error, base64Blob, base64ToExactBytes } from '../../src/crypto/encoding'
+import { Base64Decoder, Base64Error, base64ToExactBytes } from '../../src/crypto/base64-stream'
+import { base64Blob } from '../../src/crypto/encoding'
 import { LONG_STRING_BYTES, SKELETON_MAX_BYTES, readBackupFile } from '../../src/db/backup-reader'
 import { decodeStoredRecord, encodeStoredRecord, parseBackupText } from '../../src/db/envelope'
 import { recordFromSession, wrapsFromRecord } from '../../src/db/storage'

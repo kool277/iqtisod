@@ -8,7 +8,7 @@ import { AppError, AuthError, ConflictError, ForbiddenError, ValidationError, Va
 import { observeClock } from '../lib/device-clock'
 import { readIdleMinutes, storeIdleMinutes, watchIdle, type IdleMinutes } from '../lib/idle'
 import { advanceAuditMark, readAuditMark, resetAuditMark } from '../lib/audit-mark'
-import { growthBudget, measureCapacity, type Capacity } from '../lib/capacity'
+import { LIMITS } from '../lib/limits'
 import { clearLockNotice, lockUrl, peekLockNotice, rememberLockNotice } from '../lib/lock-reload'
 import { passwordProblem } from '../lib/password-policy'
 import { requestPersistence } from '../lib/persistence'
@@ -142,7 +142,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const [failuresSeen, setFailuresSeen] = useState(0)
   const [checkFailuresSeen, setCheckFailuresSeen] = useState(0)
   const [vaultBytes, setVaultBytes] = useState(0)
-  const [capacity, setCapacity] = useState<Capacity | null>(null)
+  const [warnBytes, setWarnBytes] = useState<number>(LIMITS.databaseWarnBytes)
   const [idleMinutes, setIdleMinutesState] = useState<IdleMinutes>(() => readIdleMinutes())
   const [lockReason, setLockReason] = useState<VaultLockReason | null>(() => peekLockNotice())
   const [auditWarning, setAuditWarning] = useState<AuditWarning | null>(null)
@@ -190,7 +190,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       setSaveState('saved')
       setLockReason(null)
       setStatus('ready')
-      void requestPersistence().then(() => measureCapacity()).then(setCapacity, () => undefined)
+      void requestPersistence()
+        .then(() => import('../lib/capacity'))
+        .then(async ({ growthBudget, measureCapacity }) => setWarnBytes(growthBudget(await measureCapacity()).warnBytes))
+        .catch(() => undefined)
     },
     [syncState],
   )
@@ -620,7 +623,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const storageNearLimit = vaultBytes >= growthBudget(capacity).warnBytes
+  const storageNearLimit = vaultBytes >= warnBytes
 
   const value = useMemo(
     () => ({

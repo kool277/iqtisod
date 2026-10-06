@@ -1,4 +1,4 @@
-import { Base64Decoder, Base64Error, base64DecodedLength } from '../crypto/encoding'
+import { Base64Decoder, Base64Error, base64DecodedLength } from '../crypto/base64-stream'
 import { ValidationError } from '../domain/errors'
 import { LIMITS } from '../lib/limits'
 import { parseJsonSafely } from '../lib/safe-json'
