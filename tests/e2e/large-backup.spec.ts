@@ -43,7 +43,7 @@ async function buildLargeBackup(dir: string): Promise<string> {
     const insert = db.prepare(`INSERT INTO transactions (${columns.join(', ')}) VALUES (${columns.map(() => '?').join(', ')})`)
     db.exec('BEGIN')
     for (let copy = 0; copy < COPIES; copy += 1) {
-      const values = { ...row, id: randomUUID(), receipt_data: `data:image/png;base64,${randomBytes(RECEIPT_BYTES).toString('base64')}` }
+      const values: Record<string, unknown> = { ...row, id: randomUUID(), receipt_data: `data:image/png;base64,${randomBytes(RECEIPT_BYTES).toString('base64')}` }
       insert.run(...columns.map((column) => values[column] as string | number | null))
     }
     db.exec('COMMIT')

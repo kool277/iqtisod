@@ -6,6 +6,28 @@ Data formats are versioned separately from the app. Each release lists the forma
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-10-06
+
+Reads backup and record versions 1–2 and schema versions 1–4. Writes backup 2, record 2, schema 4, and export format 1, the same as 1.6.0, so 1.6.0 opens everything 1.7.0 saves as long as the vault fits 1.6.0's limits (a 72 MB backup file, a 48 MB vault). The backup format version is unchanged.
+
+### Added
+
+- **Backups larger than 72 MB restore.** Up to 1.6.0 every device refused a backup file over 72 MB, a fixed limit chosen because restoring held about 13 copies of the vault in memory at once. The limit is now measured on each device: the smallest of free storage in the browser, what the device's memory allows, and the 640 MB (about 850 MB of file) that the database engine can open, each with a 20% margin; see [Device budget](docs/data-format.md#device-budget). Every device still accepts at least 72 MB. Typical budgets: about 430 MB of backup file on a desktop with 8 GB of memory, about 130 MB in Safari on an iPhone, and 72–80 MB on a low-end Android phone.
+- The restore screens (setup and **Backup → Replace this vault with a backup**) show the largest backup this device can restore and what limits it. A larger file is refused before it is read, with its size, the limit, and what to do: free up disk space or allow Jaybi to keep its data, close other tabs, or use a computer with more memory.
+- **Health check:** a **Largest vault on this device** row (36 checks in all) shows the budget, the limit that decides it, and the device memory used, and warns with a button for persistent storage when free storage is too low for an ordinary vault.
+- Jaybi asks the browser for persistent storage before a restore and after each sign-in.
+
+### Changed
+
+- **Less memory for large vaults.** A backup is read in 4 MB slices and its ciphertext decoded straight into one buffer, downloads are built from 3 MB pieces, and opening, saving, and storing a vault no longer make defensive copies. The most copies of the vault held at once falls from about 13 (restore) to 5 (save). See [Memory](docs/developer-guide.md#memory).
+- A vault may grow by adding receipts up to the device's budget, never less than the 48 MB of earlier versions; the size warning starts at three quarters of it.
+- The first download grows by about 1.1 KB (gzip); the budget and the backup reader load only when needed.
+
+### Known limitations
+
+- The vault is still stored and saved as one encrypted piece, so every save rewrites all of it. Chunked storage is planned for 1.8; it needs a new record format.
+- A vault that grew on a computer can be too large to restore on a phone. The recovery tool (`npm run decrypt`) decrypts backups of vaults up to about 380 MB.
+
 ## [1.6.0] - 2026-10-02
 
 Reads backup and record versions 1–2 and schema versions 1–4. Writes backup 2, record 2, schema 4, and export format 1, the same as 1.5.0. People details (name, status, last sign-in) are new `settings` rows that 1.5.0 ignores, so 1.5.0 still opens everything 1.6.0 saves; see [People](docs/data-format.md#people-user_profile).
