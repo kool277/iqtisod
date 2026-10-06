@@ -79,6 +79,9 @@ export const healthEn = {
     noAccess: 'Cannot sign in',
     expiredCodes: 'Expired codes',
     legacyWraps: 'Older password copies',
+    vaultLimit: 'Largest vault',
+    backupLimit: 'Largest backup file',
+    deviceMemory: 'Device memory',
   },
   checks: {
     crypto: {
@@ -158,7 +161,15 @@ export const healthEn = {
       low: 'There is room for the vault now, but not for a full-size vault plus its earlier copies.',
       full: 'There is less room left than one full-size vault needs. Saving may fail.',
       unknown: 'The browser does not say how much room it offers.',
-      fix: 'Free disk space on this device, or remove large receipts. The vault is limited to 48 MB.',
+      fix: 'Free disk space on this device, or remove large receipts. How large a vault fits is shown under “Largest vault on this device”.',
+    },
+    capacity: {
+      title: 'Largest vault on this device',
+      memory: 'This device’s memory decides how large a vault it can restore and open. A “~” means the browser does not report its memory, so a cautious estimate is used.',
+      storage: 'Free storage in this browser decides how large a vault it can restore and keep.',
+      engine: 'This device could hold more; the vault’s database engine sets the limit.',
+      low: 'This browser has less free storage than a vault of ordinary size needs. Restoring a backup or saving may fail.',
+      fix: 'To restore a larger backup, close other tabs and apps, free up disk space, or allow Jaybi to keep its data. A backup larger than this can still be restored on a computer with more memory or space.',
     },
     persisted: {
       title: 'Keep data when space runs low',

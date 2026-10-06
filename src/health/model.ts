@@ -22,6 +22,7 @@ export const HEALTH_CHECKS = {
   privateMode: { group: 'browser', details: ['ok', 'likely', 'unknown'] },
   storageWrite: { group: 'storage', details: ['ok', 'failed', 'missing'] },
   quota: { group: 'storage', details: ['ok', 'low', 'full', 'unknown'] },
+  capacity: { group: 'storage', details: ['memory', 'storage', 'engine', 'low'] },
   persisted: { group: 'storage', details: ['ok', 'notGranted', 'unsupported'] },
   localStorage: { group: 'storage', details: ['ok', 'blocked'] },
   storedVault: { group: 'storage', details: ['present', 'none', 'unreadable'] },
@@ -99,6 +100,9 @@ export const HEALTH_FACTS = [
   'noAccess',
   'expiredCodes',
   'legacyWraps',
+  'vaultLimit',
+  'backupLimit',
+  'deviceMemory',
 ] as const
 export type HealthFactKey = (typeof HEALTH_FACTS)[number]
 

@@ -1,4 +1,5 @@
 import { listArchives } from '../db/storage'
+import { measureCapacity } from '../lib/capacity'
 import type { OpenVault } from '../domain/types'
 import { readAuditMark } from '../lib/audit-mark'
 import { currentHostname } from '../lib/origin-move'
@@ -21,10 +22,11 @@ export async function runHealthChecks(vault: VaultAccess | null, now = Date.now(
   const dev = import.meta.env.DEV
   const base = document.baseURI
   const fetcher = (input: URL, init?: RequestInit) => fetch(input, init)
-  const [storage, app, rates] = await Promise.all([
+  const [storage, app, rates, capacity] = await Promise.all([
     collectStorageFacts(g),
     collectAppFacts(BUILD, fetcher, base, dev),
     collectRatesFacts(g, fetcher, base, now),
+    measureCapacity().catch(() => undefined),
   ])
   let vaultFacts = null
   if (vault) {
@@ -47,5 +49,6 @@ export async function runHealthChecks(vault: VaultAccess | null, now = Date.now(
     rates,
     security: collectSecurityFacts(g, currentHostname()),
     vault: vaultFacts,
+    capacity,
   })
 }

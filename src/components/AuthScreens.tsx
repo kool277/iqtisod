@@ -14,7 +14,8 @@ import { isNewAddress } from '../lib/origin-move'
 import { ThrottledError } from '../lib/throttle'
 import { useCountdown } from '../lib/use-countdown'
 import { APP_VERSION } from '../lib/version'
-import { parseBackup, type ParsedBackup } from '../services/backup.service'
+import type { ParsedBackup } from '../services/backup.service'
+import { BackupTooLargeError, budgetText, tooLargeText, useBackupImport } from './backup-import'
 
 const HealthPage = lazy(() => import('./health/HealthPage').then((module) => ({ default: module.HealthPage })))
 
@@ -114,6 +115,8 @@ export function SetupPage() {
   const [pending, setPending] = useState(false)
   const [backup, setBackup] = useState<ParsedBackup | null>(null)
   const importRef = useRef<HTMLInputElement>(null)
+  const [reading, setReading] = useState(false)
+  const { capacity, readFile } = useBackupImport()
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
@@ -136,14 +139,13 @@ export function SetupPage() {
     setBackup(null)
     setError(null)
     if (!file) return
-    if (file.size > LIMITS.importFileBytes) {
-      setError(errorText('IMPORT_TOO_LARGE', t))
-      return
-    }
+    setReading(true)
     try {
-      setBackup(parseBackup(await file.text()))
+      setBackup(await readFile(file))
     } catch (caught) {
-      setError(textForError(caught, t))
+      setError(caught instanceof BackupTooLargeError ? tooLargeText(caught, t) : textForError(caught, t))
+    } finally {
+      setReading(false)
     }
   }
 
@@ -198,14 +200,19 @@ export function SetupPage() {
       <div className="mt-8 border-t border-line pt-6">
         <h3 className="font-display text-2xl">{t('setup.import')}</h3>
         <p className="mt-1 text-sm text-muted">{t('backup.importHelp')}</p>
+        <p data-testid="import-budget" className="mt-1 text-xs text-muted">
+          {capacity ? budgetText(capacity, t) : t('security.importMeasuring')}
+        </p>
         <input
           ref={importRef}
           data-testid="import-file"
           className="mt-3 block w-full text-sm"
           type="file"
           accept=".moliya,application/json"
+          disabled={reading}
           onChange={(event) => void onFile(event.target.files?.[0])}
         />
+        {reading ? <p data-testid="import-reading" className="mt-2 text-sm text-muted">{t('security.importReading')}</p> : null}
         {backup ? (
           <Button
             className="mt-3"

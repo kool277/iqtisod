@@ -10,6 +10,7 @@ import type {
   SessionUser,
   TransactionInput,
 } from '../domain/types'
+import { currentCapacity, growthBudget } from '../lib/capacity'
 import { eachMonth, isIsoDate } from '../lib/dates'
 import { LIMITS } from '../lib/limits'
 import { parseAmount, percentOf } from '../lib/money'
@@ -113,7 +114,7 @@ function validateInput(vault: OpenVault, input: TransactionInput, previousReceip
   // An unchanged receipt was accepted by an earlier version; only new bytes are checked.
   if (receiptData && receiptData !== previousReceipt) {
     assertReceipt(receiptData)
-    if (vault.db.sizeBytes() + receiptData.length > LIMITS.databaseBudgetBytes) throw new ValidationError('VAULT_FULL')
+    if (vault.db.sizeBytes() + receiptData.length > growthBudget(currentCapacity()).budgetBytes) throw new ValidationError('VAULT_FULL')
   }
   return {
     type: input.type,

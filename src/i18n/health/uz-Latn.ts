@@ -81,6 +81,9 @@ export const healthUzLatn: HealthMessages = {
     noAccess: 'Kira olmaydi',
     expiredCodes: 'Muddati tugagan kodlar',
     legacyWraps: 'Eski parol nusxalari',
+    vaultLimit: 'Eng katta seyf',
+    backupLimit: 'Eng katta zaxira fayli',
+    deviceMemory: 'Qurilma xotirasi',
   },
   checks: {
     crypto: {
@@ -160,7 +163,15 @@ export const healthUzLatn: HealthMessages = {
       low: 'Hozir seyf uchun joy bor, lekin toʻliq hajmdagi seyf va uning oldingi nusxalari uchun yetmaydi.',
       full: 'Qolgan joy bitta toʻliq hajmdagi seyfga kerak boʻladiganidan kam. Saqlab boʻlmasligi mumkin.',
       unknown: 'Brauzer qancha joy ajratishini aytmaydi.',
-      fix: 'Shu qurilmada diskda joy boʻshating yoki katta cheklarni olib tashlang. Seyf hajmi 48 MB bilan cheklangan.',
+      fix: 'Shu qurilmada diskda joy boʻshating yoki katta cheklarni olib tashlang. Qanday hajmdagi seyf sigʻishi “Bu qurilmadagi eng katta seyf” qatorida koʻrsatilgan.',
+    },
+    capacity: {
+      title: 'Bu qurilmadagi eng katta seyf',
+      memory: 'Qanday hajmdagi seyfni tiklash va ochish mumkinligini qurilma xotirasi belgilaydi. “~” belgisi brauzer xotira hajmini aytmasligini, shuning uchun ehtiyotkor taxmin ishlatilganini bildiradi.',
+      storage: 'Qanday hajmdagi seyfni tiklash va saqlash mumkinligini brauzerdagi boʻsh joy belgilaydi.',
+      engine: 'Qurilma koʻproq sigʻdira olardi; chegarani seyfning maʼlumotlar bazasi dvigateli belgilaydi.',
+      low: 'Brauzerda oddiy hajmdagi seyf uchun kerak boʻlgandan kamroq boʻsh joy bor. Zaxira nusxani tiklash yoki saqlash muvaffaqiyatsiz boʻlishi mumkin.',
+      fix: 'Kattaroq zaxira nusxani tiklash uchun boshqa varaqlar va ilovalarni yoping, diskda joy boʻshating yoki Jaybi maʼlumotlarini saqlashga ruxsat bering. Bundan katta nusxani xotirasi yoki joyi koʻproq kompyuterda tiklash mumkin.',
     },
     persisted: {
       title: 'Joy kamayganda maʼlumotlarni saqlab qolish',

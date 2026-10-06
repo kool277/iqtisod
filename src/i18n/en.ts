@@ -752,7 +752,19 @@ export const en = {
     replaceName: 'Type the vault name to confirm',
     replaceSubmit: 'Replace vault',
     replaceWorking: 'Replacing…',
-    importLimit: 'Largest file accepted',
+    importLimit: 'Largest backup this device can restore',
+    importMeasuring: 'Checking how large a backup this device can restore…',
+    importReading: 'Reading the backup…',
+    importBy: {
+      storage: 'limited by free storage in this browser',
+      memory: 'limited by this device’s memory',
+      engine: 'the most any browser can open',
+    },
+    importTooLarge: {
+      storage: 'This backup is {file}, more than this browser can store here ({limit}). Free up disk space, or allow Jaybi to keep its data on the Health check page, then try again. You can also restore it on a device with more free space.',
+      memory: 'This backup is {file}, more than this device can safely open ({limit}). Close other tabs and apps and try again, or restore it on a computer with more memory.',
+      engine: 'This backup is {file}, more than any browser can open ({limit}).',
+    },
   },
   framed: {
     title: 'For your safety, Jaybi does not run inside another page.',

@@ -1,5 +1,6 @@
 import { RECORD_VERSION, SCHEMA_VERSION } from '../db/versions'
 import { isStale } from '../domain/fx'
+import { growthBudget, type Capacity } from '../lib/capacity'
 import { LIMITS } from '../lib/limits'
 import { isNewAddress, isOldAddress } from '../lib/origin-move'
 import { BACKUP_STALE_DAYS } from '../services/backup.service'
@@ -60,7 +61,7 @@ export function browserChecks(facts: BrowserFacts): HealthResult[] {
   ]
 }
 
-export function storageChecks(facts: StorageFacts): HealthResult[] {
+export function storageChecks(facts: StorageFacts, capacity?: Capacity): HealthResult[] {
   const results: HealthResult[] = []
   results.push(
     facts.quota === null
@@ -83,6 +84,7 @@ export function storageChecks(facts: StorageFacts): HealthResult[] {
           : result('quota', 'pass', 'ok', { facts: shown }),
     )
   }
+  if (capacity) results.push(capacityCheck(capacity))
   results.push(
     facts.persisted === true
       ? result('persisted', 'pass', 'ok')
@@ -100,6 +102,18 @@ export function storageChecks(facts: StorageFacts): HealthResult[] {
         : result('storedVault', 'pass', 'present', { facts: { record: stored.version ?? '?', schema: stored.schemaVersion ?? '?', saved: stamp(stored.updatedAt) } }),
   )
   return results
+}
+
+/** How large a vault this device can restore and open, and which of its limits decides that. */
+export function capacityCheck(capacity: Capacity): HealthResult {
+  const gib = capacity.deviceMemoryBytes / (1024 * MIB)
+  const shown = {
+    vaultLimit: megabytes(capacity.vaultBytes),
+    backupLimit: megabytes(capacity.fileBytes),
+    deviceMemory: `${capacity.deviceMemoryReported ? '' : '~'}${Number.isInteger(gib) ? gib : gib.toFixed(1)} GB`,
+  }
+  if (capacity.limitedBy === 'storage' && capacity.vaultBytes < LIMITS.databaseBudgetBytes) return result('capacity', 'warn', 'low', { facts: shown, ...(capacity.persisted === false ? { action: 'persist' as const } : {}) })
+  return result('capacity', 'pass', capacity.limitedBy, { facts: shown })
 }
 
 export function isUpdateAvailable(facts: AppFacts): boolean {
@@ -124,7 +138,7 @@ export function appChecks(facts: AppFacts): HealthResult[] {
   return [version, build, chunks]
 }
 
-export function vaultChecks(facts: VaultFacts, stored: StorageFacts['stored'], now: number): HealthResult[] {
+export function vaultChecks(facts: VaultFacts, stored: StorageFacts['stored'], now: number, budget = growthBudget(null)): HealthResult[] {
   const results: HealthResult[] = []
   const record = typeof stored === 'object' ? stored : null
   const formatFacts = { record: record?.version ?? '?', schema: facts.schemaVersion, writtenBy: record?.appVersion ?? undefined }
@@ -133,11 +147,11 @@ export function vaultChecks(facts: VaultFacts, stored: StorageFacts['stored'], n
     results.push(result('format', 'info', 'older', { facts: formatFacts }))
   else results.push(result('format', 'pass', 'current', { facts: formatFacts }))
 
-  const sizeFacts = { size: megabytes(facts.bytes), limit: megabytes(LIMITS.databaseBudgetBytes) }
+  const sizeFacts = { size: megabytes(facts.bytes), limit: megabytes(budget.budgetBytes) }
   results.push(
-    facts.bytes >= LIMITS.databaseBudgetBytes
+    facts.bytes >= budget.budgetBytes
       ? result('size', 'fail', 'full', { facts: sizeFacts })
-      : facts.bytes >= LIMITS.databaseWarnBytes
+      : facts.bytes >= budget.warnBytes
         ? result('size', 'warn', 'near', { facts: sizeFacts })
         : result('size', 'pass', 'ok', { facts: sizeFacts }),
   )
@@ -266,14 +280,15 @@ export type HealthInput = {
   rates: RatesFacts
   security: SecurityFacts
   vault: VaultFacts | null
+  capacity?: Capacity
 }
 
 export function evaluateHealth(input: HealthInput): HealthResult[] {
   return [
     ...browserChecks(input.browser),
-    ...storageChecks(input.storage),
+    ...storageChecks(input.storage, input.capacity),
     ...appChecks(input.app),
-    ...(input.vault ? vaultChecks(input.vault, input.storage.stored, input.now) : []),
+    ...(input.vault ? vaultChecks(input.vault, input.storage.stored, input.now, growthBudget(input.capacity ?? null)) : []),
     ...ratesChecks(input.rates, input.now),
     ...securityChecks(input.security, input.dev),
   ]

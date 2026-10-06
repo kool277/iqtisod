@@ -2,11 +2,12 @@ import { useState, type FormEvent } from 'react'
 import { Button, Field, Notice, controlClass } from '../ui'
 import { useI18n } from '../../context/I18nContext'
 import { useVault } from '../../context/VaultContext'
-import { errorText, textForError } from '../../lib/errors'
-import { LIMITS, formatMiB } from '../../lib/limits'
+import { textForError } from '../../lib/errors'
+import { LIMITS } from '../../lib/limits'
 import { formatWhen } from '../../lib/money'
 import { Permission, canUser } from '../../rbac'
-import { parseBackup, type ParsedBackup } from '../../services/backup.service'
+import type { ParsedBackup } from '../../services/backup.service'
+import { BackupTooLargeError, budgetText, tooLargeText, useBackupImport } from '../backup-import'
 
 /** Replacing the whole vault needs the import permission, the admin's password and the vault name typed out. */
 export function ReplaceVaultPanel() {
@@ -17,20 +18,21 @@ export function ReplaceVaultPanel() {
   const [confirmName, setConfirmName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
+  const [reading, setReading] = useState(false)
+  const { capacity, readFile } = useBackupImport()
   if (!user || !canUser(user, Permission.IMPORT_VAULT)) return null
 
   async function onFile(file: File | undefined) {
     setBackup(null)
     setError(null)
     if (!file) return
-    if (file.size > LIMITS.importFileBytes) {
-      setError(errorText('IMPORT_TOO_LARGE', t))
-      return
-    }
+    setReading(true)
     try {
-      setBackup(parseBackup(await file.text()))
+      setBackup(await readFile(file))
     } catch (caught) {
-      setError(textForError(caught, t))
+      setError(caught instanceof BackupTooLargeError ? tooLargeText(caught, t) : textForError(caught, t))
+    } finally {
+      setReading(false)
     }
   }
 
@@ -53,8 +55,8 @@ export function ReplaceVaultPanel() {
     <div data-testid="replace-panel" className="rounded-3xl border border-clay/50 bg-card p-5">
       <h2 className="font-display text-2xl">{t('security.replaceTitle')}</h2>
       <p className="mt-2 text-sm text-clay-ink">{t('security.replaceWarn')}</p>
-      <p className="mt-1 text-xs text-muted">
-        {t('security.importLimit')}: {formatMiB(LIMITS.importFileBytes)}
+      <p data-testid="import-budget" className="mt-1 text-xs text-muted">
+        {capacity ? budgetText(capacity, t) : t('security.importMeasuring')}
       </p>
       {error ? (
         <div className="mt-3">
@@ -66,8 +68,10 @@ export function ReplaceVaultPanel() {
         className="mt-4 block w-full text-sm"
         type="file"
         accept=".moliya,application/json"
+        disabled={reading}
         onChange={(event) => void onFile(event.target.files?.[0])}
       />
+      {reading ? <p data-testid="import-reading" className="mt-2 text-sm text-muted">{t('security.importReading')}</p> : null}
       {backup ? (
         <form className="mt-4 grid gap-3" onSubmit={(event) => void onSubmit(event)}>
           <p data-testid="import-summary" className="text-sm text-muted">

@@ -748,7 +748,19 @@ export const uzLatn: CoreMessages = {
     replaceName: 'Tasdiqlash uchun seyf nomini kiriting',
     replaceSubmit: 'Seyfni almashtirish',
     replaceWorking: 'Almashtirilmoqda…',
-    importLimit: 'Eng katta fayl hajmi',
+    importLimit: 'Bu qurilmada tiklash mumkin boʻlgan eng katta zaxira nusxa',
+    importMeasuring: 'Bu qurilma qanday hajmdagi zaxira nusxani tiklay olishi tekshirilmoqda…',
+    importReading: 'Zaxira nusxa oʻqilmoqda…',
+    importBy: {
+      storage: 'brauzerdagi boʻsh joy bilan cheklangan',
+      memory: 'qurilma xotirasi bilan cheklangan',
+      engine: 'har qanday brauzer ochishi mumkin boʻlgan eng katta hajm',
+    },
+    importTooLarge: {
+      storage: 'Bu zaxira nusxa {file}, brauzer esa bu yerda koʻpi bilan {limit} saqlay oladi. Diskda joy boʻshating yoki “Holat tekshiruvi” sahifasida Jaybi maʼlumotlarini saqlashga ruxsat bering va qayta urinib koʻring. Nusxani boʻsh joyi koʻproq qurilmada ham tiklashingiz mumkin.',
+      memory: 'Bu zaxira nusxa {file}, bu qurilma esa koʻpi bilan {limit} hajmni xavfsiz ocha oladi. Boshqa varaqlar va ilovalarni yopib, qayta urinib koʻring yoki nusxani xotirasi kattaroq kompyuterda tiklang.',
+      engine: 'Bu zaxira nusxa {file}: bu har qanday brauzer ocha oladigan hajmdan ({limit}) katta.',
+    },
   },
   framed: {
     title: 'Xavfsizligingiz uchun Jaybi boshqa sahifa ichida ishlamaydi.',
