@@ -9,11 +9,13 @@ import {
   type KdfParams,
 } from '../crypto/crypto.service'
 import { base64ToBytes, bytesToBase64, cloneBuffer, cloneBytes } from '../crypto/encoding'
+import { copyArgon2Params, isArgon2Params, type Argon2Params } from '../crypto/kdf'
 import { CorruptRecordError, FormatTooNewError, ValidationError } from '../domain/errors'
 import { LIMITS } from '../lib/limits'
 import { parseJsonSafely } from '../lib/safe-json'
 import { isAuditHead, type AuditHead } from './audit-chain'
-import { BACKUP_VERSION, RECORD_VERSION, SCHEMA_VERSION } from './versions'
+import { copyKeysHeader, readKeysHeader, type KeysHeader } from './keys-header'
+import { BACKUP_VERSION, KEYS_BACKUP_VERSION, KEYS_RECORD_VERSION, KEYS_SCHEMA_VERSION, RECORD_VERSION, SCHEMA_VERSION } from './versions'
 
 export const BACKUP_FORMAT = 'moliya-vault'
 export const RECORD_ID = 'primary'
@@ -34,11 +36,14 @@ export type WrapRecord = {
 
 export type GrantKind = 'INVITE' | 'RESET'
 
+/** PBKDF2 for a 1.6 vault's codes, Argon2id for a per-person-keys vault's invites. */
+export type GrantKdf = KdfParams | Argon2Params
+
 export type GrantRecord = {
   id: string
   kind: GrantKind
   email: string
-  kdf: KdfParams
+  kdf: GrantKdf
   salt: ArrayBuffer
   iv: ArrayBuffer
   wrappedDek: ArrayBuffer
@@ -47,7 +52,7 @@ export type GrantRecord = {
 
 export type VaultRecord = {
   id: typeof RECORD_ID
-  version: typeof RECORD_VERSION
+  version: typeof RECORD_VERSION | typeof KEYS_RECORD_VERSION
   appVersion: string
   schemaVersion: number
   createdAt: string | null
@@ -57,6 +62,8 @@ export type VaultRecord = {
   grants?: GrantRecord[]
   /** The audit log's last entry when the record was sealed (1.4.2+). Advisory: lets a reader notice a shortened or rewritten log. */
   audit?: AuditHead
+  /** Version 3 only. Its `wraps` is then always empty: each member's key is in `keys.identities` and `keys.dekWraps`. */
+  keys?: KeysHeader
   body: { iv: ArrayBuffer; ciphertext: ArrayBuffer }
 }
 
@@ -84,7 +91,7 @@ type BackupGrantJson = {
   id: string
   kind: GrantKind
   email: string
-  kdf: KdfParams
+  kdf: GrantKdf
   salt: string
   iv: string
   wrappedDek: string
@@ -105,6 +112,8 @@ export type BackupFileV2 = {
   audit?: AuditHead
   body: { iv: string; ciphertext: string }
 }
+
+export type BackupFileV3 = Omit<BackupFileV2, 'version' | 'wraps'> & { version: typeof KEYS_BACKUP_VERSION } & KeysHeader
 
 type Invalid = () => Error
 
@@ -146,6 +155,10 @@ function checkLength(bytes: Uint8Array, min: number, max: number, invalid: Inval
 function readKdf(value: unknown, invalid: Invalid): KdfParams {
   if (!isKdfParams(value)) throw invalid()
   return { name: value.name, hash: value.hash, iterations: value.iterations }
+}
+
+function copyGrantKdf(kdf: GrantKdf): GrantKdf {
+  return kdf.name === 'Argon2id' ? copyArgon2Params(kdf) : { name: kdf.name, hash: kdf.hash, iterations: kdf.iterations }
 }
 
 function readCipher(value: unknown, invalid: Invalid): PayloadCipher {
@@ -211,7 +224,7 @@ function readWraps(value: unknown, fallbackKdf: KdfParams | null, bytes: ByteRea
   })
 }
 
-function readGrants(value: unknown, bytes: ByteReader, invalid: Invalid): GrantRecord[] | undefined {
+function readGrants(value: unknown, bytes: ByteReader, invalid: Invalid, argon2 = false): GrantRecord[] | undefined {
   if (value === undefined || value === null) return undefined
   if (!Array.isArray(value) || value.length > LIMITS.grants) throw invalid()
   const grants = value.map((item) => {
@@ -223,14 +236,19 @@ function readGrants(value: unknown, bytes: ByteReader, invalid: Invalid): GrantR
       id: asString(grant.id, invalid),
       kind: grant.kind as GrantKind,
       email,
-      kdf: readKdf(grant.kdf, invalid),
+      kdf: argon2 ? readArgon2(grant.kdf, invalid) : readKdf(grant.kdf, invalid),
       salt: checkLength(bytes(grant.salt, invalid), SALT_BOUNDS.min, SALT_BOUNDS.max, invalid),
       iv: checkLength(bytes(grant.iv, invalid), IV_BYTES, IV_BYTES, invalid),
       wrappedDek: checkLength(bytes(grant.wrappedDek, invalid), WRAPPED_DEK_BYTES, WRAPPED_DEK_BYTES, invalid),
-      ...readExpiry(grant.expiresAt, invalid),
+      ...(argon2 ? { expiresAt: readExpiry(grant.expiresAt ?? null, invalid).expiresAt } : readExpiry(grant.expiresAt, invalid)),
     }
   })
   return grants.length > 0 ? grants : undefined
+}
+
+function readArgon2(value: unknown, invalid: Invalid): Argon2Params {
+  if (!isArgon2Params(value)) throw invalid()
+  return copyArgon2Params(value)
 }
 
 function readBody(value: unknown, bytes: ByteReader, invalid: Invalid): VaultRecord['body'] {
@@ -241,9 +259,10 @@ function readBody(value: unknown, bytes: ByteReader, invalid: Invalid): VaultRec
   }
 }
 
-function readSchemaVersion(value: unknown, invalid: Invalid): number {
+function readSchemaVersion(value: unknown, invalid: Invalid, keys = false): number {
   if (!Number.isSafeInteger(value) || (value as number) < 1) throw invalid()
-  if ((value as number) > SCHEMA_VERSION) throw new FormatTooNewError()
+  if ((value as number) > (keys ? KEYS_SCHEMA_VERSION : SCHEMA_VERSION)) throw new FormatTooNewError()
+  if (keys && value !== KEYS_SCHEMA_VERSION) throw invalid()
   return value as number
 }
 
@@ -255,7 +274,7 @@ function decode(
   updatedAtFallback: () => string,
 ): VaultRecord {
   const record = decodeFields(source, version, bytes, invalid, updatedAtFallback)
-  if (envelopeProblem(record.wraps, record.grants ?? [])) throw invalid()
+  if (envelopeProblem(peopleOf(record), record.grants ?? [])) throw invalid()
   return record
 }
 
@@ -280,6 +299,25 @@ function decodeFields(
       body: readBody(source.payload, bytes, invalid),
     }
   }
+  if (version === KEYS_RECORD_VERSION) {
+    if (source.wraps !== undefined) throw invalid()
+    const keys = readKeysHeader(source)
+    if (!keys) throw invalid()
+    return {
+      id: RECORD_ID,
+      version: KEYS_RECORD_VERSION,
+      appVersion: asString(source.appVersion, invalid),
+      schemaVersion: readSchemaVersion(source.schemaVersion, invalid, true),
+      createdAt: asOptionalString(source.createdAt),
+      updatedAt: asString(source.updatedAt, invalid),
+      cipher: readCipher(source.cipher, invalid),
+      wraps: [],
+      ...optionalGrants(readGrants(source.grants, bytes, invalid, true)),
+      ...readAudit(source.audit),
+      keys,
+      body: readBody(source.body, bytes, invalid),
+    }
+  }
   return {
     id: RECORD_ID,
     version: RECORD_VERSION,
@@ -293,6 +331,12 @@ function decodeFields(
     ...readAudit(source.audit),
     body: readBody(source.body, bytes, invalid),
   }
+}
+
+/** Who can open the record: its password wraps, or for version 3 its sealed identities. */
+export function peopleOf(record: { wraps: readonly { userId: string; email: string }[]; keys?: KeysHeader }): readonly { userId: string; email: string }[] {
+  if (!record.keys) return record.wraps
+  return Object.values(record.keys.identities).map((blob) => ({ userId: blob.memberId, email: blob.email }))
 }
 
 /** Advisory metadata: a malformed value is dropped rather than refusing the vault. */
@@ -309,20 +353,22 @@ const badBackup: Invalid = () => new ValidationError('BACKUP')
 
 export function decodeStoredRecord(raw: unknown): DecodedRecord {
   const source = asObject(raw, corrupt)
-  const version = readVersion(source.version, RECORD_VERSION, corrupt)
+  const version = readVersion(source.version, KEYS_RECORD_VERSION, corrupt)
   return { record: decode(source, version, binary, corrupt, () => new Date(0).toISOString()), sourceVersion: version }
 }
 
+/** A defensive copy of a record in its in-memory form. `storedForm` gives what IndexedDB holds. */
 export function encodeStoredRecord(record: VaultRecord): VaultRecord {
+  const keys = record.version === KEYS_RECORD_VERSION && record.keys ? copyKeysHeader(record.keys) : null
   return {
     id: RECORD_ID,
-    version: RECORD_VERSION,
+    version: keys ? KEYS_RECORD_VERSION : RECORD_VERSION,
     appVersion: record.appVersion,
     schemaVersion: record.schemaVersion,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
     cipher: { ...PAYLOAD_CIPHER },
-    wraps: record.wraps.map((wrap) => ({
+    wraps: keys ? [] : record.wraps.map((wrap) => ({
       userId: wrap.userId,
       email: wrap.email,
       kdf: { name: wrap.kdf.name, hash: wrap.kdf.hash, iterations: wrap.kdf.iterations },
@@ -336,7 +382,7 @@ export function encodeStoredRecord(record: VaultRecord): VaultRecord {
         id: grant.id,
         kind: grant.kind,
         email: grant.email,
-        kdf: { name: grant.kdf.name, hash: grant.kdf.hash, iterations: grant.kdf.iterations },
+        kdf: copyGrantKdf(grant.kdf),
         salt: cloneBuffer(grant.salt),
         iv: cloneBuffer(grant.iv),
         wrappedDek: cloneBuffer(grant.wrappedDek),
@@ -344,6 +390,7 @@ export function encodeStoredRecord(record: VaultRecord): VaultRecord {
       })),
     ),
     ...(record.audit ? { audit: { seq: record.audit.seq, hash: record.audit.hash } } : {}),
+    ...(keys ? { keys } : {}),
     body: {
       iv: cloneBuffer(record.body.iv),
       ciphertext: cloneBuffer(record.body.ciphertext),
@@ -351,10 +398,16 @@ export function encodeStoredRecord(record: VaultRecord): VaultRecord {
   }
 }
 
+/** The IndexedDB form. A version 3 record carries its header fields at the top level and has no `wraps`. */
+export function storedForm(record: VaultRecord): object {
+  const { wraps, keys, body, ...rest } = encodeStoredRecord(record)
+  return keys ? { ...rest, ...keys, body } : { ...rest, wraps, body }
+}
+
 export function parseBackupJson(value: unknown): DecodedBackup {
   const source = asObject(value, badBackup)
   if (source.format !== BACKUP_FORMAT) throw badBackup()
-  const version = readVersion(source.version, BACKUP_VERSION, badBackup)
+  const version = readVersion(source.version, KEYS_BACKUP_VERSION, badBackup)
   const now = new Date().toISOString()
   const record = decode(source, version, base64, badBackup, () => now)
   if (version === 1) record.updatedAt = now
@@ -376,7 +429,14 @@ export function parseBackupText(text: string): DecodedBackup {
   return parseBackupJson(parsed)
 }
 
-export function toBackupJson(record: VaultRecord, exportedAt: string): BackupFileV2 {
+export function toBackupJson(record: VaultRecord, exportedAt: string): BackupFileV2 | BackupFileV3 {
+  const v2 = toBackupJsonV2(record, exportedAt)
+  if (record.version !== KEYS_RECORD_VERSION || !record.keys) return v2
+  const { wraps: _wraps, version: _version, body, ...rest } = v2
+  return { ...rest, version: KEYS_BACKUP_VERSION, ...copyKeysHeader(record.keys), body }
+}
+
+function toBackupJsonV2(record: VaultRecord, exportedAt: string): BackupFileV2 {
   return {
     format: BACKUP_FORMAT,
     version: BACKUP_VERSION,
@@ -400,7 +460,7 @@ export function toBackupJson(record: VaultRecord, exportedAt: string): BackupFil
         id: grant.id,
         kind: grant.kind,
         email: grant.email,
-        kdf: { name: grant.kdf.name, hash: grant.kdf.hash, iterations: grant.kdf.iterations },
+        kdf: copyGrantKdf(grant.kdf),
         salt: bytesToBase64(cloneBytes(grant.salt)),
         iv: bytesToBase64(cloneBytes(grant.iv)),
         wrappedDek: bytesToBase64(cloneBytes(grant.wrappedDek)),
