@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { auditHead, type AuditHead } from '../db/audit-chain'
-import { encodeStoredRecord } from '../db/envelope'
+import { storedForm } from '../db/envelope'
 import { readVault, readVaultRaw, stampOf, stripArchivedGrants, writeVault, type LoadedVault, type VaultRecord } from '../db/storage'
 import { RECORD_VERSION, SCHEMA_VERSION } from '../db/versions'
 import type { OpenVault, SessionUser } from '../domain/types'
@@ -523,7 +523,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       const sealed = await sealVault(vault)
       await writeVault(backup.record, {
         expectedStamp: stampRef.current,
-        archive: { reason: 'import', raw: encodeStoredRecord(sealed) },
+        archive: { reason: 'import', raw: storedForm(sealed) },
       })
       closeAfterReplace()
     },
