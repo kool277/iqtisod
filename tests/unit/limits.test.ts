@@ -10,6 +10,7 @@ import {
   type VaultRecord,
 } from '../../src/db/envelope'
 import { AppError, CorruptRecordError } from '../../src/domain/errors'
+import { ENGINE_MAX_BYTES } from '../../src/lib/capacity'
 import { LIMITS, formatMiB } from '../../src/lib/limits'
 import { UnsafeJsonError, jsonDepth, parseJsonSafely } from '../../src/lib/safe-json'
 import { fixtureByPath } from '../support/fixtures'
@@ -75,13 +76,17 @@ describe('LIMITS', () => {
       passwordMin: 12,
       passwordMax: 256,
       receiptBytes: 1.5 * 1024 * 1024,
-      ciphertextBytes: 64 * 1024 * 1024,
+      ciphertextBytes: 640 * 1024 * 1024 + 16,
       sqliteValueBytes: 8 * 1024 * 1024,
       jsonDepth: 8,
       wraps: 256,
       grants: 64,
     })
     expect(formatMiB(LIMITS.importFileBytes)).toBe('72 MB')
+  })
+
+  it('caps ciphertext at the largest vault the SQLite engine can hold', () => {
+    expect(LIMITS.ciphertextBytes).toBe(ENGINE_MAX_BYTES + GCM_TAG_BYTES)
   })
 })
 

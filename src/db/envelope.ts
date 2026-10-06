@@ -8,7 +8,7 @@ import {
   isKdfParams,
   type KdfParams,
 } from '../crypto/crypto.service'
-import { base64ToBytes, bytesToBase64, cloneBuffer, cloneBytes } from '../crypto/encoding'
+import { base64ToExactBytes, bytesToBase64, cloneBuffer, cloneBytes } from '../crypto/encoding'
 import { CorruptRecordError, FormatTooNewError, ValidationError } from '../domain/errors'
 import { LIMITS } from '../lib/limits'
 import { parseJsonSafely } from '../lib/safe-json'
@@ -128,11 +128,19 @@ function binary(value: unknown, invalid: Invalid): Uint8Array {
   throw invalid()
 }
 
+/**
+ * The stored ciphertext is the record's largest part by far. IndexedDB hands every read its own copy, so the decoded
+ * record keeps that buffer instead of cloning it; ciphertext buffers are never written to.
+ */
+function sharedBinary(value: unknown, invalid: Invalid): Uint8Array {
+  if (value instanceof ArrayBuffer) return new Uint8Array(value)
+  return binary(value, invalid)
+}
+
 function base64(value: unknown, invalid: Invalid): Uint8Array {
   const text = asString(value, invalid)
-  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(text) || text.length % 4 !== 0) throw invalid()
   try {
-    return base64ToBytes(text)
+    return base64ToExactBytes(text)
   } catch {
     throw invalid()
   }
@@ -141,6 +149,13 @@ function base64(value: unknown, invalid: Invalid): Uint8Array {
 function checkLength(bytes: Uint8Array, min: number, max: number, invalid: Invalid): ArrayBuffer {
   if (bytes.byteLength < min || bytes.byteLength > max) throw invalid()
   return cloneBuffer(bytes)
+}
+
+/** Like {@link checkLength}, but keeps a buffer the reader already owns whole. */
+function checkLengthOwned(bytes: Uint8Array, min: number, max: number, invalid: Invalid): ArrayBuffer {
+  if (bytes.byteLength < min || bytes.byteLength > max) throw invalid()
+  const whole = bytes.buffer instanceof ArrayBuffer && bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength
+  return whole ? (bytes.buffer as ArrayBuffer) : cloneBuffer(bytes)
 }
 
 function readKdf(value: unknown, invalid: Invalid): KdfParams {
@@ -161,6 +176,9 @@ function readVersion(value: unknown, supported: number, invalid: Invalid): numbe
 }
 
 type ByteReader = (value: unknown, invalid: Invalid) => Uint8Array
+
+/** Small fields, and the ciphertext, which may be read without a copy. */
+type Readers = { bytes: ByteReader; ciphertext: ByteReader }
 
 function readWrapAad(value: unknown, invalid: Invalid): { aad?: typeof WRAP_AAD_V1 } {
   if (value === undefined) return {}
@@ -233,11 +251,11 @@ function readGrants(value: unknown, bytes: ByteReader, invalid: Invalid): GrantR
   return grants.length > 0 ? grants : undefined
 }
 
-function readBody(value: unknown, bytes: ByteReader, invalid: Invalid): VaultRecord['body'] {
+function readBody(value: unknown, readers: Readers, invalid: Invalid): VaultRecord['body'] {
   const body = asObject(value, invalid)
   return {
-    iv: checkLength(bytes(body.iv, invalid), IV_BYTES, IV_BYTES, invalid),
-    ciphertext: checkLength(bytes(body.ciphertext, invalid), GCM_TAG_BYTES + 1, LIMITS.ciphertextBytes, invalid),
+    iv: checkLength(readers.bytes(body.iv, invalid), IV_BYTES, IV_BYTES, invalid),
+    ciphertext: checkLengthOwned(readers.ciphertext(body.ciphertext, invalid), GCM_TAG_BYTES + 1, LIMITS.ciphertextBytes, invalid),
   }
 }
 
@@ -250,11 +268,11 @@ function readSchemaVersion(value: unknown, invalid: Invalid): number {
 function decode(
   source: Record<string, unknown>,
   version: number,
-  bytes: ByteReader,
+  readers: Readers,
   invalid: Invalid,
   updatedAtFallback: () => string,
 ): VaultRecord {
-  const record = decodeFields(source, version, bytes, invalid, updatedAtFallback)
+  const record = decodeFields(source, version, readers, invalid, updatedAtFallback)
   if (envelopeProblem(record.wraps, record.grants ?? [])) throw invalid()
   return record
 }
@@ -262,10 +280,11 @@ function decode(
 function decodeFields(
   source: Record<string, unknown>,
   version: number,
-  bytes: ByteReader,
+  readers: Readers,
   invalid: Invalid,
   updatedAtFallback: () => string,
 ): VaultRecord {
+  const { bytes } = readers
   if (version === 1) {
     const kdf = source.kdf === undefined ? LEGACY_KDF : readKdf(source.kdf, invalid)
     return {
@@ -277,7 +296,7 @@ function decodeFields(
       updatedAt: asOptionalString(source.updatedAt) ?? updatedAtFallback(),
       cipher: { ...PAYLOAD_CIPHER },
       wraps: readWraps(source.wraps, kdf, bytes, invalid),
-      body: readBody(source.payload, bytes, invalid),
+      body: readBody(source.payload, readers, invalid),
     }
   }
   return {
@@ -291,7 +310,7 @@ function decodeFields(
     wraps: readWraps(source.wraps, null, bytes, invalid),
     ...optionalGrants(readGrants(source.grants, bytes, invalid)),
     ...readAudit(source.audit),
-    body: readBody(source.body, bytes, invalid),
+    body: readBody(source.body, readers, invalid),
   }
 }
 
@@ -310,7 +329,7 @@ const badBackup: Invalid = () => new ValidationError('BACKUP')
 export function decodeStoredRecord(raw: unknown): DecodedRecord {
   const source = asObject(raw, corrupt)
   const version = readVersion(source.version, RECORD_VERSION, corrupt)
-  return { record: decode(source, version, binary, corrupt, () => new Date(0).toISOString()), sourceVersion: version }
+  return { record: decode(source, version, { bytes: binary, ciphertext: sharedBinary }, corrupt, () => new Date(0).toISOString()), sourceVersion: version }
 }
 
 export function encodeStoredRecord(record: VaultRecord): VaultRecord {
@@ -346,17 +365,32 @@ export function encodeStoredRecord(record: VaultRecord): VaultRecord {
     ...(record.audit ? { audit: { seq: record.audit.seq, hash: record.audit.hash } } : {}),
     body: {
       iv: cloneBuffer(record.body.iv),
-      ciphertext: cloneBuffer(record.body.ciphertext),
+      // Shared, not cloned: ciphertext buffers are never written to, and IndexedDB copies what it stores.
+      ciphertext: record.body.ciphertext,
     },
   }
 }
 
-export function parseBackupJson(value: unknown): DecodedBackup {
+/**
+ * A ciphertext a streaming reader decoded on its own, and the placeholder string it left in the JSON instead.
+ * Only `body.ciphertext` (`payload.ciphertext` in version 1) may hold the placeholder, and it must, exactly once.
+ */
+export type CiphertextSlot = { placeholder: string; bytes: Uint8Array }
+
+export function parseBackupJson(value: unknown, slot?: CiphertextSlot): DecodedBackup {
   const source = asObject(value, badBackup)
   if (source.format !== BACKUP_FORMAT) throw badBackup()
   const version = readVersion(source.version, BACKUP_VERSION, badBackup)
   const now = new Date().toISOString()
-  const record = decode(source, version, base64, badBackup, () => now)
+  let filled = false
+  const ciphertext: ByteReader = (field, invalid) => {
+    if (!slot || field !== slot.placeholder) return base64(field, invalid)
+    if (filled) throw invalid()
+    filled = true
+    return slot.bytes
+  }
+  const record = decode(source, version, { bytes: base64, ciphertext }, badBackup, () => now)
+  if (slot && !filled) throw badBackup()
   if (version === 1) record.updatedAt = now
   return {
     record,
@@ -376,7 +410,8 @@ export function parseBackupText(text: string): DecodedBackup {
   return parseBackupJson(parsed)
 }
 
-export function toBackupJson(record: VaultRecord, exportedAt: string): BackupFileV2 {
+/** `ciphertext` stands in for the base64 body, so a caller can stream the real one into the file instead. */
+export function toBackupJson(record: VaultRecord, exportedAt: string, ciphertext?: string): BackupFileV2 {
   return {
     format: BACKUP_FORMAT,
     version: BACKUP_VERSION,
@@ -410,14 +445,14 @@ export function toBackupJson(record: VaultRecord, exportedAt: string): BackupFil
     ...(record.audit ? { audit: { seq: record.audit.seq, hash: record.audit.hash } } : {}),
     body: {
       iv: bytesToBase64(cloneBytes(record.body.iv)),
-      ciphertext: bytesToBase64(cloneBytes(record.body.ciphertext)),
+      ciphertext: ciphertext ?? bytesToBase64(new Uint8Array(record.body.ciphertext)),
     },
   }
 }
 
-export function storedToBackupJson(raw: unknown, exportedAt: string): object {
+export function storedToBackupJson(raw: unknown, exportedAt: string, ciphertext?: string): object {
   const { record, sourceVersion } = decodeStoredRecord(raw)
-  if (sourceVersion !== 1) return toBackupJson(record, exportedAt)
+  if (sourceVersion !== 1) return toBackupJson(record, exportedAt, ciphertext)
   const kdf = record.wraps[0].kdf
   return {
     format: BACKUP_FORMAT,
@@ -432,7 +467,7 @@ export function storedToBackupJson(raw: unknown, exportedAt: string): object {
     })),
     payload: {
       iv: bytesToBase64(cloneBytes(record.body.iv)),
-      ciphertext: bytesToBase64(cloneBytes(record.body.ciphertext)),
+      ciphertext: ciphertext ?? bytesToBase64(new Uint8Array(record.body.ciphertext)),
     },
   }
 }

@@ -7,7 +7,7 @@ import { downloadFile } from '../lib/download'
 import { textForError } from '../lib/errors'
 import { currentHostname, moveNoticeKind, type MoveNoticeKind } from '../lib/origin-move'
 import { Permission, canUser } from '../rbac'
-import { backupFileName, backupFileText, noteExport } from '../services/backup.service'
+import { BACKUP_MIME, backupFileBlob, backupFileName, noteExport } from '../services/backup.service'
 
 const detail: Partial<Record<MoveNoticeKind, 'move.signIn' | 'move.askAdmin'>> = {
   signIn: 'move.signIn',
@@ -32,7 +32,7 @@ export function MoveNotice() {
     try {
       await run((vault) => noteExport(vault), { dirty: true })
       const record = await exportBackup()
-      downloadFile(backupFileText(record), backupFileName('backup'), 'application/json')
+      downloadFile(backupFileBlob(record), backupFileName('backup'), BACKUP_MIME)
       setDone(true)
     } catch (caught) {
       setError(textForError(caught, t))

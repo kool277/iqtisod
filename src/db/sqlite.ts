@@ -15,6 +15,13 @@ export function loadModule(): Promise<Sqlite3Static> {
   return modulePromise
 }
 
+const MIB = 1024 * 1024
+
+/** An eighth of the database, at least 1 MiB and at most 64 MiB. */
+export function growthRoom(size: number): number {
+  return Math.min(64 * MIB, Math.max(MIB, Math.ceil(size / 8)))
+}
+
 function normalize(value: WasmSqlValue | undefined): SqlValue {
   if (typeof value === 'bigint') return Number(value)
   if (typeof value === 'number' || typeof value === 'string') return value
@@ -78,29 +85,26 @@ export class SqlDatabase {
     return Number(this.queryValue('PRAGMA page_count') ?? 0) * Number(this.queryValue('PRAGMA page_size') ?? 0)
   }
 
+  /**
+   * Copies `bytes` straight into the WebAssembly heap (the caller wipes its own copy) with some room to grow, so the
+   * first writes after opening do not make memdb reallocate to twice the database size.
+   */
   static async openBytes(bytes: Uint8Array): Promise<SqlDatabase> {
     const sqlite3 = await loadModule()
     const db = new sqlite3.oo1.DB(':memory:', 'c')
-    if (db.pointer == null) throw new Error('SQLite handle is not open')
-    const copy = new Uint8Array(bytes.byteLength)
-    copy.set(bytes)
-    let pointer: number
     try {
-      pointer = sqlite3.wasm.allocFromTypedArray(copy)
-    } finally {
-      copy.fill(0)
+      if (db.pointer == null) throw new Error('SQLite handle is not open')
+      const size = bytes.byteLength
+      const room = size + growthRoom(size)
+      const pointer = sqlite3.wasm.alloc(room)
+      sqlite3.wasm.heap8u().set(bytes, pointer)
+      const flags = sqlite3.capi.SQLITE_DESERIALIZE_FREEONCLOSE | sqlite3.capi.SQLITE_DESERIALIZE_RESIZEABLE
+      // With FREEONCLOSE, SQLite frees the buffer itself even when this call fails.
+      db.checkRc(sqlite3.capi.sqlite3_deserialize(db.pointer, 'main', pointer, size, room, flags))
+    } catch (error) {
+      db.close()
+      throw error
     }
-    const flags =
-      sqlite3.capi.SQLITE_DESERIALIZE_FREEONCLOSE | sqlite3.capi.SQLITE_DESERIALIZE_RESIZEABLE
-    const rc = sqlite3.capi.sqlite3_deserialize(
-      db.pointer,
-      'main',
-      pointer,
-      copy.byteLength,
-      copy.byteLength,
-      flags,
-    )
-    db.checkRc(rc)
     const handle = new SqlDatabase(sqlite3, db)
     handle.configure()
     return handle
@@ -143,10 +147,25 @@ export class SqlDatabase {
     }
   }
 
+  /**
+   * A fresh copy of the database outside the WebAssembly heap. A deserialized database is read in place
+   * (`SQLITE_SERIALIZE_NOCOPY`), so SQLite does not first make a second copy inside the heap, which never shrinks.
+   */
   export(): Uint8Array {
-    if (this.db.pointer == null) throw new Error('SQLite handle is not open')
-    const exported = this.sqlite3.capi.sqlite3_js_db_export(this.db.pointer)
-    // Already a fresh copy out of the WASM heap; copying again would leave one more plaintext behind.
+    const pointer = this.db.pointer
+    if (pointer == null) throw new Error('SQLite handle is not open')
+    const { capi, wasm } = this.sqlite3
+    const scope = wasm.scopedAllocPush()
+    try {
+      const sizeOut = wasm.scopedAlloc(8)
+      const data = capi.sqlite3_serialize(pointer, 'main', sizeOut, capi.SQLITE_SERIALIZE_NOCOPY)
+      const size = Number(wasm.peek(sizeOut, 'i64'))
+      if (data && size > 0) return wasm.heap8u().slice(data, data + size)
+    } finally {
+      wasm.scopedAllocPop(scope)
+    }
+    // A database built in this session is not a memdb buffer, so SQLite has to assemble a copy.
+    const exported = capi.sqlite3_js_db_export(pointer)
     return exported instanceof Uint8Array ? exported : new Uint8Array(exported)
   }
 

@@ -295,6 +295,6 @@ export function recordFromSession(input: {
       ...(grant.expiresAt ? { expiresAt: grant.expiresAt } : {}),
     })),
     ...(input.audit ? { audit: input.audit } : {}),
-    body: { iv: cloneBuffer(input.iv), ciphertext: cloneBuffer(input.ciphertext) },
+    body: { iv: cloneBuffer(input.iv), ciphertext: input.ciphertext },
   })
 }

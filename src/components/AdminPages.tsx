@@ -14,7 +14,7 @@ import { listArchives, readArchive, type ArchiveEntry } from '../db/storage'
 import { downloadFile } from '../lib/download'
 import { persistenceState, type PersistenceState } from '../lib/persistence'
 import { ReplaceVaultPanel } from './admin/ReplaceVaultPanel'
-import { archiveFileText, backupFileName, backupFileText, noteExport } from '../services/backup.service'
+import { BACKUP_MIME, archiveFileBlob, backupFileBlob, backupFileName, noteExport } from '../services/backup.service'
 import { AUDIT_PAGE_LIMIT, auditIntegrity, listAudit } from '../services/audit-log'
 import { ExportPanel } from './ExportPanel'
 import { createGroup, deleteGroup, listGroups } from '../services/group.service'
@@ -375,14 +375,14 @@ export function BackupPage() {
     guarded(async () => {
       await run((vault) => noteExport(vault), { dirty: true })
       const record = await exportBackup()
-      downloadFile(backupFileText(record), backupFileName('backup'), 'application/json')
+      downloadFile(backupFileBlob(record), backupFileName('backup'), BACKUP_MIME)
     })
 
   const onArchive = (key: string) =>
     guarded(async () => {
       const entry = await readArchive(key)
       if (!entry) throw new Error('MISSING')
-      downloadFile(archiveFileText(entry), backupFileName('archive', new Date(entry.archivedAt)), 'application/json')
+      downloadFile(archiveFileBlob(entry), backupFileName('archive', new Date(entry.archivedAt)), BACKUP_MIME)
     })
 
   return (
