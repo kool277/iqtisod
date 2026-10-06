@@ -231,16 +231,16 @@ Importing **replaces** the vault in the current browser. It does not merge. Ther
 - **On a new browser or device** (no vault yet): open the app, and on the **Create your vault** screen, under **Import a backup instead**, choose the file, then **Replace vault**. Sign in with any account from the backup. This works only while the browser has no vault; otherwise Jaybi says "A vault already exists in this browser. Sign in and replace it from the Backup page."
 - **Replacing an existing vault**: sign in as Admin and open **Backup**. Under **Replace this vault with a backup**, choose the file and check the version and export date it shows. Enter **Your password**, and type the vault name under **Type the vault name to confirm** (capital letters and spaces at the ends do not matter). Choose **Replace vault**. Jaybi saves pending changes, writes "Vault replaced by a backup" into the current vault's audit log, keeps the current vault as **Before import**, and signs you out. Sign in with any account that exists in the backup.
 
-Only Admins can replace a vault. Backups from any earlier version can be imported. A backup made by a newer version is refused until the page is reloaded with the newer version. The largest file accepted is 72 MB, and Jaybi refuses files that are malformed or larger than a vault can be.
+Only Admins can replace a vault. Backups from any earlier version can be imported. A backup made by a newer version is refused until the page is reloaded with the newer version. Under the file picker, Jaybi shows the largest backup this device can restore and what limits it: free storage in this browser, the device's memory, or the most any browser can open (about 850 MB of file). Every device accepts at least 72 MB, the fixed limit before 1.7.0. A larger file is refused before it is read, with its size, the limit, and what to try: free up disk space or allow Jaybi to keep its data (on the **Health check** page), close other tabs, or use a computer with more memory. Jaybi also refuses files that are malformed.
 
 Only import backups you made yourself or got from someone you trust. A backup is a whole vault: whoever made it chose its people and passwords. Jaybi checks the file's structure and the database inside it when you sign in, and refuses anything it did not create.
 
 ### Size limits
 
-A vault can hold about 48 MB of data. Nearly all of it is receipts; records alone take very little.
+How large a vault can grow depends on the device: at least 48 MB everywhere, and up to the largest vault this device can restore (the **Health check** page shows it under **Largest vault on this device**). Nearly all of it is receipts; records alone take very little. A vault that grew large on a computer may be too large to restore on a phone, so keep receipts small if people use the vault on several devices.
 
 - Each receipt can be up to 1.5 MB and must be a PNG, JPEG, WebP, or GIF image. Other types, including SVG, are refused. Receipts added before 1.3.0 are kept as they are.
-- When the vault passes about 36 MB, everyone sees "The vault is close to its size limit. Remove large receipts to make room." At 48 MB, new receipts are refused with "The vault is full." Records without receipts can still be added.
+- When the vault passes three quarters of that limit (about 36 MB of 48 MB), everyone sees "The vault is close to its size limit. Remove large receipts to make room." At the limit, new receipts are refused with "The vault is full." Records without receipts can still be added.
 - Names are limited to 80 characters, emails to 254, and notes to 2,000.
 - A vault holds at most 256 people.
 

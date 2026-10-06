@@ -65,9 +65,8 @@ describe('computeCapacity', () => {
   it('never goes below the 72 MB every device accepted before 1.7.0', () => {
     const tiny = computeCapacity(signals({ mobile: true, deviceMemoryGiB: 0.5, jsHeap: { used: 200 * MIB, limit: GIB } }))
     expect(tiny.limitedBy).toBe('memory')
-    expect(tiny.vaultBytes).toBe(Math.floor(MEMORY_FLOOR_BYTES / MIB) * MIB)
-    expect(tiny.fileBytes).toBeLessThanOrEqual(LIMITS.importFileBytes)
-    expect(tiny.fileBytes).toBeGreaterThan(LIMITS.importFileBytes - 2 * MIB)
+    expect(tiny.vaultBytes).toBe(MEMORY_FLOOR_BYTES)
+    expect(tiny.fileBytes).toBe(LIMITS.importFileBytes)
     const lowEnd = computeCapacity(LOW_END_ANDROID)
     expect(lowEnd.vaultBytes).toBeGreaterThanOrEqual(tiny.vaultBytes)
   })

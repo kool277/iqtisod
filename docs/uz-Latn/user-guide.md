@@ -557,6 +557,8 @@ Sahifada **Bu brauzerdagi saqlash** holati ham koʻrsatiladi. «Himoyalanmagan»
 
 **Bu seyfni zaxira nusxa bilan almashtirish** ostida zaxira faylini tanlang, parolingizni kiriting va tasdiqlash uchun seyf nomini yozing, soʻng **Seyfni almashtirish** tugmasini bosing. Joriy seyf nusxasi **Bu brauzerdagi oldingi nusxalar** boʻlimida saqlanib qoladi.
 
+Fayl tanlash maydoni ostida Jaybi **Bu qurilmada tiklash mumkin boʻlgan eng katta zaxira nusxa** hajmini va uni nima cheklashini koʻrsatadi: brauzerdagi boʻsh joy, qurilma xotirasi yoki har qanday brauzer ochishi mumkin boʻlgan eng katta hajm. 72 MB gacha boʻlgan zaxira nusxalar istalgan qurilmada tiklanadi. Nusxa kattaroq boʻlsa, Jaybi buni faylni oʻqishdan oldin aytadi va nima qilishni maslahat beradi: diskda joy boʻshatish yoki [“Holat tekshiruvi”](#health) sahifasida Jaybi maʼlumotlarini saqlashga ruxsat berish, boshqa varaqlar va ilovalarni yopish yoki nusxani xotirasi kattaroq kompyuterda tiklash. Yangi qurilmadagi seyf yaratish ekranida ham shunday.
+
 ![Seyfni zaxira fayli bilan almashtirish](../images/uz-Latn/backup-import.webp)
 
 <a id="moving"></a>
@@ -656,9 +658,9 @@ Har bir qator qisqa izoh bilan **Joyida**, **Ogohlantirish**, **Muammo bor** yok
 | Boʻlim | Tekshiruvlar |
 | --- | --- |
 | **Brauzer imkoniyatlari** | Shifrlash, brauzer maʼlumotlar bazasi, WebAssembly, bir vaqtda bitta varaq, sahifani ajratish, service worker, xavfsiz ulanish, Trusted Types, cookie va sayt maʼlumotlari, maxfiy oyna |
-| **Saqlash joyi** | Saqlash joyiga yozish mumkinmi, boʻsh joy, joy kamayganda brauzer maʼlumotlarni saqlab qoladimi, kichik sozlamalar uchun joy, bu yerda seyf saqlanganmi |
+| **Saqlash joyi** | Saqlash joyiga yozish mumkinmi, boʻsh joy, joy kamayganda brauzer maʼlumotlarni saqlab qoladimi, kichik sozlamalar uchun joy, bu yerda seyf saqlanganmi, bu qurilmadagi eng katta seyf |
 | **Ilova va versiya** | Yangiroq versiya chiqqanmi, yigʻma va kerak boʻlganda yuklanadigan sahifalar ishlayotgan versiyaga mosmi |
-| **Seyf** | Maʼlumotlar formati, 48 MB chegaraga nisbatan seyf hajmi, saqlash, zaxira nusxa qanchalik eskiligi, oldingi nusxalar, audit jurnalining butunligi, qurilma soati, kirish tekshiruvingiz, parolingiz va odamlar soni |
+| **Seyf** | Maʼlumotlar formati, bu qurilma chegarasiga nisbatan seyf hajmi (kamida 48 MB), saqlash, zaxira nusxa qanchalik eskiligi, oldingi nusxalar, audit jurnalining butunligi, qurilma soati, kirish tekshiruvingiz, parolingiz va odamlar soni |
 | **Valyuta kurslari** | Kurslar joriymi va nazorat yigʻindisiga mosmi |
 | **Xavfsizlik** | Kontent xavfsizlik siyosati, boshqa sahifa ichida ishlamaslik va manzil |
 

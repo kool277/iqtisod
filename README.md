@@ -38,11 +38,11 @@ It suits a household tracking a shared budget, a small business or community gro
 - Collapsible sidebar that remembers its state.
 - Exact money: amounts are stored as whole minor units (cents, tiyin) and never rounded, with per-currency subtotals for records outside the vault currency.
 - Hash-chained audit log of every change, with before and after values. It catches damage and edits by people without a password, and warns Admins when the log got shorter or was rewritten since this browser last saw it. It is not signed, so a member who knows a password could still rewrite it.
-- Encrypted backup file (`.moliya`) for moving a vault to another browser or keeping a safe copy, with a reminder when the last backup is older than 7 days.
+- Encrypted backup file (`.moliya`) for moving a vault to another browser or keeping a safe copy, with a reminder when the last backup is older than 7 days. Restores accept backups as large as the device can hold (at least 72 MB, up to about 850 MB), and say which limit refuses a larger one.
 - Data exports for Admins, for spreadsheets, accountants, and long-term archiving: CSV, JSON, JSON Lines, Excel, PDF report, and SQLite, for all data or one period and group. Exports are encrypted by default (AES-256 ZIP or an SQLCipher 4 database) with an export password of at least 14 characters that must differ from the sign-in password and pass the same common-password and vault-name/email checks as sign-in passwords. ZIP needs a strong password (its key derivation is fixed and fast), so the form starts with a generated 120-bit one. Private safes are never exported.
 - Versioned data formats: every vault and backup made by any release keeps opening in every later release, and a standalone tool opens backups without the website.
 - In-app version display and a prompt to reload when a new version is deployed.
-- Health check for everyone, also before signing in: 35 local checks of the browser, storage, app version, vault, exchange rates, and site security, each with a plain explanation and a fix, plus a report to copy that holds no names, emails, or vault data. Admins also see the audit log, earlier copies, and the member limit.
+- Health check for everyone, also before signing in: 36 local checks of the browser, storage, app version, vault, exchange rates, and site security, each with a plain explanation and a fix, plus a report to copy that holds no names, emails, or vault data. Admins also see the audit log, earlier copies, and the member limit.
 - Built-in help: the illustrated user guide in all four languages, searchable, with links into the app and a help button on every page.
 - Day, night, and system themes. Language and theme choices are remembered.
 
@@ -119,7 +119,7 @@ React 19, TypeScript, Vite, Tailwind CSS 4, Chart.js, Lucide icons, `@sqlite.org
 
 ## Status
 
-Version 1.6.0, in production since 1.0.0 and served from [jaybi.uz](https://jaybi.uz) since 1.3.0. The core features work and are covered by unit tests, browser tests, and golden backups from every release. Known gaps and suggested next steps are listed in the [developer guide](docs/developer-guide.md#known-gaps-and-next-steps).
+Version 1.7.0, in production since 1.0.0 and served from [jaybi.uz](https://jaybi.uz) since 1.3.0. The core features work and are covered by unit tests, browser tests, and golden backups from every release. Known gaps and suggested next steps are listed in the [developer guide](docs/developer-guide.md#known-gaps-and-next-steps).
 
 ## License
 

@@ -557,6 +557,8 @@ The page also shows **Storage in this browser**. "Not protected" means the brows
 
 Under **Replace this vault with a backup**, choose the backup file, enter your password and type the vault name to confirm, then choose **Replace vault**. A copy of the current vault is kept under **Earlier copies in this browser**.
 
+Under the file picker, Jaybi shows the **Largest backup this device can restore** and what limits it: free storage in this browser, this device's memory, or the most any browser can open. Every device restores backups of at least 72 MB. If a backup is larger, Jaybi says so before reading it and suggests what to do: free up disk space or let Jaybi keep its data on the [Health check](#health) page, close other tabs and apps, or restore it on a computer with more memory. The same applies on the setup screen of a new device.
+
 ![Replacing the vault with a backup file](images/en/backup-import.webp)
 
 <a id="moving"></a>
@@ -656,9 +658,9 @@ Each row is marked **OK**, **Warning**, **Problem** or **Note**, with a short ex
 | Area | Checks |
 | --- | --- |
 | **Browser support** | Encryption, the browser database, WebAssembly, one tab at a time, page isolation, the service worker, a secure connection, Trusted Types, cookies and site data, private window |
-| **Storage** | Whether storage can be written, free space, whether the browser keeps the data when space runs low, small settings storage, whether a vault is stored here |
+| **Storage** | Whether storage can be written, free space, whether the browser keeps the data when space runs low, small settings storage, whether a vault is stored here, the largest vault this device can hold |
 | **App and version** | Whether a newer version is published, the build, and whether pages loaded on demand match the running version |
-| **Vault** | Data format, vault size against the 48 MB limit, saving, backup age, earlier copies, audit log integrity, the device clock, your sign-in check, your password, and the number of people |
+| **Vault** | Data format, vault size against this device's limit (at least 48 MB), saving, backup age, earlier copies, audit log integrity, the device clock, your sign-in check, your password, and the number of people |
 | **Exchange rates** | Whether rates are current and match their checksum |
 | **Security** | The content security policy, not running inside another page, and the address |
 

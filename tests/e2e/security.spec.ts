@@ -432,14 +432,30 @@ test('the vault locks itself after the chosen idle time', async ({ page }) => {
   expect(await watcher.violations()).toEqual([])
 })
 
-test('refuses an import file larger than any real backup before reading it', async ({ page }, testInfo) => {
+test('refuses an import file larger than this device can restore before reading it', async ({ page }, testInfo) => {
+  const watcher = await watch(page)
+  await page.addInitScript((quota) => {
+    Object.defineProperty(StorageManager.prototype, 'estimate', { value: async () => ({ quota, usage: 0 }) })
+  }, 64 * 1024 * 1024)
+  const big = testInfo.outputPath('huge.moliya')
+  writeFileSync(big, Buffer.alloc(73 * 1024 * 1024, 0x20))
+  await page.goto('/')
+  await page.getByTestId('import-file').setInputFiles(big)
+  await expect(page.getByTestId('form-error')).toContainText('This backup is 73 MB, more than this browser can store here', { timeout: 30_000 })
+  await expect(page.getByTestId('confirm-import')).toHaveCount(0)
+  await expect(page.getByTestId('import-reading')).toHaveCount(0)
+  expect(await watcher.violations()).toEqual([])
+})
+
+test('reads a large file that is not a backup in slices and refuses it', async ({ page }, testInfo) => {
   const watcher = await watch(page)
   const big = testInfo.outputPath('huge.moliya')
   writeFileSync(big, Buffer.alloc(73 * 1024 * 1024, 0x20))
   await page.goto('/')
   await page.getByTestId('import-file').setInputFiles(big)
-  await expect(page.getByTestId('form-error')).toContainText('too large', { timeout: 30_000 })
+  await expect(page.getByTestId('form-error')).toContainText('not a Jaybi backup', { timeout: 30_000 })
   await expect(page.getByTestId('confirm-import')).toHaveCount(0)
+  await expect(page.getByTestId('import-file')).toBeEnabled()
   expect(await watcher.violations()).toEqual([])
 })
 

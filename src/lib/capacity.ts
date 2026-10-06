@@ -105,7 +105,7 @@ export function computeCapacity(signals: CapacitySignals): Capacity {
   const deviceMemoryBytes = (reported ?? FALLBACK_DEVICE_MEMORY_GIB[form]) * GIB
   const used = positive(signals.jsHeap?.used) ?? 0
   const tab = Math.max(0, deviceMemoryBytes * TAB_SHARE[form] - used)
-  const memoryBytes = floorMiB(Math.max(MEMORY_FLOOR_BYTES, (tab / PEAK_MEMORY_MULTIPLE) * SAFETY_MARGIN))
+  const memoryBytes = Math.max(MEMORY_FLOOR_BYTES, floorMiB((tab / PEAK_MEMORY_MULTIPLE) * SAFETY_MARGIN))
   const quota = positive(signals.quota)
   const usage = nonNegative(signals.usage)
   const storageBytes = quota !== null && usage !== null ? floorMiB((Math.max(0, quota - usage) / STORAGE_MULTIPLE) * SAFETY_MARGIN) : null

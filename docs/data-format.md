@@ -161,14 +161,14 @@ Grants live in their own array rather than in `wraps[]` on purpose: older recove
 
 ### Reader limits
 
-From 1.3.0 the app refuses a backup file larger than 72 MiB before reading it, and refuses as damaged a backup whose JSON nests deeper than 8 levels or has a key named `__proto__`, `constructor`, or `prototype` anywhere. It refuses a backup or a stored record, as damaged, when:
+From 1.3.0 to 1.6.0 the app refused a backup file larger than 72 MiB before reading it. From 1.7.0 it refuses a file larger than this device's budget (see [Size limits](#size-limits)) before reading it, and reads larger files in 4 MiB slices: everything except the one long base64 string, `body.ciphertext` (or `payload.ciphertext`), must fit in 1 MiB of JSON, and that string is decoded straight into a buffer of the exact size with the same strict alphabet and padding rules. The app refuses as damaged a backup whose JSON nests deeper than 8 levels or has a key named `__proto__`, `constructor`, or `prototype` anywhere. It refuses a backup or a stored record, as damaged, when:
 
 - `wraps[]` is empty or has more than 256 entries, or `grants[]` has more than 64;
 - from 1.4.2, two wraps share a `userId` or an email (case-insensitive), two grants share an `id` or an email, a wrap's `aad` is not `moliya/wrap/v1`, or a grant's `expiresAt` is not a canonical ISO instant (the app also refuses to seal such an envelope);
-- a salt is outside 16–64 bytes, an IV is not 12 bytes, a wrapped key is not 48 bytes, or `body.ciphertext` is shorter than 17 bytes or longer than 64 MiB;
+- a salt is outside 16–64 bytes, an IV is not 12 bytes, a wrapped key is not 48 bytes, or `body.ciphertext` is shorter than 17 bytes or longer than 640 MiB plus the 16-byte tag (64 MiB up to 1.6.0);
 - a KDF parameter set is outside the bounds in [Cryptography](#cryptography).
 
-The limits leave room for every vault the app can create: the decrypted database is capped at 48 MiB (see [Size limits](#size-limits)).
+The limits leave room for every vault the app can create: no browser can open a decrypted database larger than 640 MiB (see [Size limits](#size-limits)).
 
 ### Backup version 1 (written by 1.0.0)
 
@@ -220,9 +220,9 @@ From 1.3.0:
 
 | Item | Limit |
 | --- | --- |
-| Decrypted database | 48 MiB. A new receipt that would push the database past it is refused (`VAULT_FULL`). The app warns from 36 MiB. |
+| Decrypted database | The device budget below, and never less than 48 MiB. A new receipt that would push the database past it is refused (`VAULT_FULL`). The app warns from 75% of it (36 MiB when the budget is 48 MiB). Up to 1.6.0 the limit was 48 MiB on every device. |
 | Receipt | 1.5 MB (1,572,864 bytes) decoded. Only `data:image/png`, `image/jpeg`, `image/webp`, or `image/gif` base64 data URLs whose first bytes match that type. SVG and anything else is refused. Receipts already stored by an earlier version are kept as they are. |
-| Backup file | 72 MiB |
+| Backup file | From 1.7.0, the device budget below, as a file: `ceil(vault / 3) × 4` bytes of base64 plus 512 KiB for the envelope. Every device accepts at least 72 MiB, the fixed limit of 1.3.0–1.6.0 |
 | Email | 254 characters |
 | Password | 12 to 256 characters for new passwords (see below) |
 | Vault name, group name, setup display name | 80 characters |
@@ -231,6 +231,18 @@ From 1.3.0:
 | People | 256 wraps. From 1.4.2 a person whose open reset code stopped their old password still holds a place, so adding people or inviting cannot use it up while the code is open (`MEMBER_LIMIT`) |
 
 New passwords must also not be on a list of common passwords (the SecLists 10k list, entries of 6 or more characters, plus the NCSC 100k list, entries of 12 or more characters, compared in lower case), not be built mainly from the email or the vault name, and not be a repetition or keyboard run. Existing passwords that do not meet this keep working.
+
+### Device budget
+
+From 1.7.0 the largest vault a device can restore, back up, and grow by adding receipts is the smallest of three limits, each in whole MiB (`src/lib/capacity.ts`):
+
+| Limit | Formula |
+| --- | --- |
+| Storage | `(quota − usage) / 3 × 0.8`, from `navigator.storage.estimate()`. A restore writes the vault, may archive it, and rewrites it at the first save. Skipped when the browser does not answer |
+| Memory | `(device memory × tab share − JavaScript heap in use) / 5 × 0.8`, and never less than the vault a 72 MiB file holds (about 53.6 MiB). Device memory is `navigator.deviceMemory` (Chromium; at most 8 GiB) or, where the browser does not report it, 8 GiB on a computer and 3 GiB on a phone or tablet. The tab share is 0.25 on a computer and 0.2 on a phone or tablet. 5 is the most copies of the vault the app holds at once (see the developer guide) |
+| Engine | `(2 GiB − 128 MiB) / 3` = 640 MiB: the bundled SQLite WebAssembly heap can grow to 2 GiB, SQLite needs room of its own, and an in-memory database briefly holds its old and new buffer while it grows |
+
+The backup and record formats do not change. A vault that grew on a device with a large budget can be too large to restore on a smaller one; that device names the limit. The recovery tool reads the whole file as one string, which Node.js caps at about 512 Mi characters, so it decrypts vaults up to about 380 MiB. The app asks for persistent storage before a restore and after each sign-in, because the browser may grant more quota and will not evict a persistent vault.
 
 ### Schema version 4 (1.3.0)
 
