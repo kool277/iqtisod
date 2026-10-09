@@ -1,40 +1,40 @@
 {
   "schema": 1,
-  "generatedAt": "2026-10-09T10:32:06.689Z",
+  "generatedAt": "2026-10-09T20:20:20.639Z",
   "quotes": [
     {
       "base": "USD",
       "quote": "UZS",
-      "rate": "11846.57",
-      "date": "2026-10-09",
+      "rate": "11897.90",
+      "date": "2026-10-10",
       "source": "CBU",
       "method": "official",
       "legs": null,
       "previous": {
-        "rate": "11809.19",
-        "date": "2026-10-08"
+        "rate": "11846.57",
+        "date": "2026-10-09"
       }
     },
     {
       "base": "USD",
       "quote": "KRW",
-      "rate": "1343.45610585",
-      "date": "2026-10-08",
+      "rate": "1341.48670355",
+      "date": "2026-10-09",
       "source": "ECB",
       "method": "cross",
       "legs": [
         {
           "pair": "EUR/KRW",
-          "rate": "1502.79"
+          "rate": "1503.27"
         },
         {
           "pair": "EUR/USD",
-          "rate": "1.1186"
+          "rate": "1.1206"
         }
       ],
       "previous": {
-        "rate": "1338.68658853",
-        "date": "2026-10-07"
+        "rate": "1343.45610585",
+        "date": "2026-10-08"
       }
     },
     {
@@ -55,57 +55,57 @@
     {
       "source": "CBU",
       "url": "https://cbu.uz/uz/arkhiv-kursov-valyut/json/",
-      "fetchedAt": "2026-10-09T10:32:06.689Z",
-      "sha256": "4f16860829defae5d7800406bbcb0e10d740dbc42ba659e25c6cafedfde9f0cc"
+      "fetchedAt": "2026-10-09T20:20:20.639Z",
+      "sha256": "d7c32d5d412a02d9994cbe5c71220beb3d88b1342070019d4b2a394d82691f09"
     },
     {
       "source": "CBU",
-      "url": "https://cbu.uz/uz/arkhiv-kursov-valyut/json/all/2026-10-08/",
-      "fetchedAt": "2026-10-09T10:32:06.689Z",
-      "sha256": "acbc2f88a55a945ed21ced53c4a53cc1429e16fd4f2f1bfa334f5df1fb7a4b6e"
+      "url": "https://cbu.uz/uz/arkhiv-kursov-valyut/json/all/2026-10-09/",
+      "fetchedAt": "2026-10-09T20:20:20.639Z",
+      "sha256": "4f16860829defae5d7800406bbcb0e10d740dbc42ba659e25c6cafedfde9f0cc"
     },
     {
       "source": "ECB",
       "url": "https://data-api.ecb.europa.eu/service/data/EXR/D.USD+KRW+ILS.EUR.SP00.A?lastNObservations=2&detail=dataonly&format=csvdata",
-      "fetchedAt": "2026-10-09T10:32:06.689Z",
-      "sha256": "e53a07a9796a42a83c3b79e1f812bc67c2e445d06a284446f289b386c10aaa10"
+      "fetchedAt": "2026-10-09T20:20:20.639Z",
+      "sha256": "eb4970aa24b345e12d2659dc0d3a01da7642b2db33017c3c48b873ed2d0c5214"
     },
     {
       "source": "BOI",
       "url": "https://edge.boi.gov.il/FusionEdgeServer/sdmx/v2/data/dataflow/BOI.STATISTICS/EXR/1.0/RER_USD_ILS?lastNObservations=2&format=csv",
-      "fetchedAt": "2026-10-09T10:32:06.689Z",
+      "fetchedAt": "2026-10-09T20:20:20.639Z",
       "sha256": "3bfee0a02062bc890d16763fbed4b9333f8c38d1cb5adbb2e653d577f456755c"
     }
   ],
   "checks": [
     {
       "subject": "EUR/USD implied by CBU",
-      "reference": "ECB EUR/USD (2026-10-08)",
-      "deviationPercent": "0.0805",
+      "reference": "ECB EUR/USD (2026-10-09)",
+      "deviationPercent": "0.0268",
       "tolerancePercent": "2",
       "passed": true
     },
     {
       "subject": "USD/KRW ECB cross via EUR",
-      "reference": "CBU cross via UZS (2026-10-09)",
-      "deviationPercent": "0.0229",
+      "reference": "CBU cross via UZS (2026-10-10)",
+      "deviationPercent": "0.0091",
       "tolerancePercent": "2",
       "passed": true
     },
     {
       "subject": "USD/ILS BOI official",
-      "reference": "ECB cross via EUR (2026-10-08)",
-      "deviationPercent": "0.7256",
+      "reference": "ECB cross via EUR (2026-10-09)",
+      "deviationPercent": "0.0749",
       "tolerancePercent": "1.5",
       "passed": true
     },
     {
       "subject": "USD/ILS BOI official",
-      "reference": "CBU cross via UZS (2026-10-09)",
-      "deviationPercent": "0.7665",
+      "reference": "CBU cross via UZS (2026-10-10)",
+      "deviationPercent": "0.0392",
       "tolerancePercent": "2",
       "passed": true
     }
   ],
-  "digest": "721dc1eca09f57ceb8afb19ee10fda2f87c51eb8f19ddd2fce9d7a8de285bc91"
+  "digest": "83ebdb60f54289a7cf16096617c346703bfc5904085c7cb6bb263bdc42342ec2"
 }
