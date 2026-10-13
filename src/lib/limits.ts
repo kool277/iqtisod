@@ -21,6 +21,15 @@ export const LIMITS = {
   openInvites: 20,
 } as const
 
+/**
+ * The largest backup a restore accepts: the device budget as a file, never less than `importFileBytes`. The budget
+ * itself has no such floor so the health check can report low storage; a restore that runs out of room fails in one
+ * IndexedDB transaction and leaves the stored vault as it was.
+ */
+export function restoreLimitBytes(budgetFileBytes: number): number {
+  return Math.max(budgetFileBytes, LIMITS.importFileBytes)
+}
+
 export function formatMiB(bytes: number): string {
   return `${Math.round(bytes / MIB)} MB`
 }

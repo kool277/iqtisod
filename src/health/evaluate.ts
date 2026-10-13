@@ -1,7 +1,7 @@
 import { RECORD_VERSION, SCHEMA_VERSION } from '../db/versions'
 import { isStale } from '../domain/fx'
 import { growthBudget, type Capacity } from '../lib/capacity'
-import { LIMITS } from '../lib/limits'
+import { LIMITS, restoreLimitBytes } from '../lib/limits'
 import { isNewAddress, isOldAddress } from '../lib/origin-move'
 import { BACKUP_STALE_DAYS } from '../services/backup.service'
 import { CLOCK_TOLERANCE_MS } from '../services/grant-store'
@@ -109,7 +109,7 @@ export function capacityCheck(capacity: Capacity): HealthResult {
   const gib = capacity.deviceMemoryBytes / (1024 * MIB)
   const shown = {
     vaultLimit: megabytes(capacity.vaultBytes),
-    backupLimit: megabytes(capacity.fileBytes),
+    backupLimit: megabytes(restoreLimitBytes(capacity.fileBytes)),
     deviceMemory: `${capacity.deviceMemoryReported ? '' : '~'}${Number.isInteger(gib) ? gib : gib.toFixed(1)} GB`,
   }
   if (capacity.limitedBy === 'storage' && capacity.vaultBytes < LIMITS.databaseBudgetBytes) return result('capacity', 'warn', 'low', { facts: shown, ...(capacity.persisted === false ? { action: 'persist' as const } : {}) })

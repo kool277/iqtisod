@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { MessageKey } from '../i18n'
 import type { Capacity } from '../lib/capacity'
-import { formatBytes } from '../lib/limits'
+import { formatBytes, restoreLimitBytes } from '../lib/limits'
 import { requestPersistence } from '../lib/persistence'
 import type { ParsedBackup } from '../services/backup.service'
 
@@ -22,13 +22,13 @@ export class BackupTooLargeError extends Error {
 
 /** "Largest backup this device can restore: 428 MB, limited by this device's memory." */
 export function budgetText(capacity: Capacity, t: Translate): string {
-  return `${t('security.importLimit')}: ${formatBytes(capacity.fileBytes)} · ${t(`security.importBy.${capacity.limitedBy}`)}`
+  return `${t('security.importLimit')}: ${formatBytes(restoreLimitBytes(capacity.fileBytes))} · ${t(`security.importBy.${capacity.limitedBy}`)}`
 }
 
 export function tooLargeText(error: BackupTooLargeError, t: Translate): string {
   return fillTemplate(t(`security.importTooLarge.${error.capacity.limitedBy}`), {
     file: formatBytes(error.fileBytes),
-    limit: formatBytes(error.capacity.fileBytes),
+    limit: formatBytes(restoreLimitBytes(error.capacity.fileBytes)),
   })
 }
 
@@ -49,7 +49,7 @@ export function useBackupImport() {
     await requestPersistence()
     const measured = await measureCapacity()
     setCapacity(measured)
-    if (file.size > measured.fileBytes) throw new BackupTooLargeError(measured, file.size)
+    if (file.size > restoreLimitBytes(measured.fileBytes)) throw new BackupTooLargeError(measured, file.size)
     const { readBackupFile } = await import('../db/backup-reader')
     return readBackupFile(file)
   }

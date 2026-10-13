@@ -15,16 +15,19 @@ const MIB = 1024 * 1024
 /** 1.0.0–1.6.0 refused any backup file larger than this. */
 const LEGACY_FILE_LIMIT = 72 * MIB
 const COPIES = 48
+/** Enough for a file well above the 512 KiB envelope allowance and well below {@link LEGACY_FILE_LIMIT}. */
+const MEDIUM_COPIES = 2
 const RECEIPT_BYTES = 0.9375 * MIB
 
 const { subtle } = webcrypto
 const bytes = (text: string) => new Uint8Array(Buffer.from(text, 'base64'))
 
 /**
- * The golden 1.3.0 household backup with {@link COPIES} more copies of its one expense, each with a receipt of
- * about 1.25 MiB, re-encrypted under the same data key: a vault of about 60 MiB in a backup file of about 80 MiB.
+ * The golden 1.3.0 household backup with `copies` more copies of its one expense, each with a receipt of about
+ * 1.25 MiB, re-encrypted under the same data key: with {@link COPIES}, a vault of about 60 MiB in a backup file of
+ * about 80 MiB.
  */
-async function buildLargeBackup(dir: string): Promise<string> {
+async function buildLargeBackup(dir: string, copies = COPIES): Promise<string> {
   const backup = JSON.parse(readFileSync(FIXTURE, 'utf8'))
   const wrap = backup.wraps.find((item: { email: string }) => item.email === ADMIN.email)
   const material = await subtle.importKey('raw', new TextEncoder().encode(ADMIN.password), 'PBKDF2', false, ['deriveBits'])
@@ -42,7 +45,7 @@ async function buildLargeBackup(dir: string): Promise<string> {
     const columns = Object.keys(row)
     const insert = db.prepare(`INSERT INTO transactions (${columns.join(', ')}) VALUES (${columns.map(() => '?').join(', ')})`)
     db.exec('BEGIN')
-    for (let copy = 0; copy < COPIES; copy += 1) {
+    for (let copy = 0; copy < copies; copy += 1) {
       const values: Record<string, unknown> = { ...row, id: randomUUID(), receipt_data: `data:image/png;base64,${randomBytes(RECEIPT_BYTES).toString('base64')}` }
       insert.run(...columns.map((column) => values[column] as string | number | null))
     }
@@ -54,19 +57,29 @@ async function buildLargeBackup(dir: string): Promise<string> {
   const iv = randomBytes(12)
   const ciphertext = new Uint8Array(await subtle.encrypt({ name: 'AES-GCM', iv }, dek, readFileSync(path)))
   backup.body = { iv: iv.toString('base64'), ciphertext: Buffer.from(ciphertext).toString('base64') }
-  const file = join(dir, 'large-household.moliya')
+  const file = join(dir, `household-${copies}.moliya`)
   writeFileSync(file, JSON.stringify(backup))
   return file
 }
 
 let workDir = ''
 let largeFile = ''
+let mediumFile = ''
 
 test.beforeAll(async () => {
   workDir = mkdtempSync(join(tmpdir(), 'jaybi-large-backup-'))
   largeFile = await buildLargeBackup(workDir)
   expect(statSync(largeFile).size).toBeGreaterThan(LEGACY_FILE_LIMIT)
+  mediumFile = await buildLargeBackup(workDir, MEDIUM_COPIES)
+  expect(statSync(mediumFile).size).toBeGreaterThan(MIB)
 })
+
+/** Makes the page believe the browser has `quota` bytes of storage, all free. */
+async function reportQuota(page: Page, quota: number) {
+  await page.addInitScript((value) => {
+    Object.defineProperty(StorageManager.prototype, 'estimate', { value: async () => ({ quota: value, usage: 0 }) })
+  }, quota)
+}
 
 test.afterAll(() => {
   if (workDir) rmSync(workDir, { recursive: true, force: true })
@@ -85,12 +98,12 @@ async function login(page: Page) {
   await expect(page.getByTestId('kpi-net')).toBeVisible({ timeout: 60_000 })
 }
 
-async function expectTotals(page: Page) {
+async function expectTotals(page: Page, copies = COPIES) {
   await page.getByTestId('period-custom').click()
   await page.getByTestId('period-from').fill('2026-02-01')
   await page.getByTestId('period-to').fill('2026-02-28')
   await expect(page.getByTestId('kpi-income')).toHaveAttribute('data-amount', '12500000')
-  await expect(page.getByTestId('kpi-expense')).toHaveAttribute('data-amount', String(185000 * (COPIES + 1)))
+  await expect(page.getByTestId('kpi-expense')).toHaveAttribute('data-amount', String(185000 * (copies + 1)))
 }
 
 test('restores, saves and backs up a vault whose backup is larger than the old 72 MB limit', async ({ page }) => {
@@ -126,15 +139,28 @@ test('restores, saves and backs up a vault whose backup is larger than the old 7
 
 test('explains which limit refuses a backup that is too large for this device', async ({ page }) => {
   const violations = await watchViolations(page)
-  await page.addInitScript((quota) => {
-    Object.defineProperty(StorageManager.prototype, 'estimate', { value: async () => ({ quota, usage: 0 }) })
-  }, 120 * MIB)
+  // Free storage for about 43 MB of backup, below the 72 MB every device accepts.
+  await reportQuota(page, 120 * MIB)
   await openSetup(page)
-  await expect(page.getByTestId('import-budget')).toContainText('limited by free storage in this browser')
+  await expect(page.getByTestId('import-budget')).toContainText('72 MB · limited by free storage in this browser')
 
   await page.getByTestId('import-file').setInputFiles(largeFile)
-  await expect(page.getByText(/This backup is \d+ MB, more than this browser can store here \(43 MB\)/)).toBeVisible()
+  await expect(page.getByText(/This backup is \d+ MB, more than this browser can store here \(72 MB\)/)).toBeVisible()
   await expect(page.getByTestId('confirm-import')).toHaveCount(0)
   await expect(page.getByTestId('import-file')).toBeEnabled()
+  expect(await violations()).toEqual([])
+})
+
+test('restores a backup within the old 72 MB limit even when the browser reports almost no free storage', async ({ page }) => {
+  const violations = await watchViolations(page)
+  await reportQuota(page, 3 * MIB)
+  await openSetup(page)
+  await expect(page.getByTestId('import-budget')).toContainText('72 MB · limited by free storage in this browser')
+
+  await page.getByTestId('import-file').setInputFiles(mediumFile)
+  await expect(page.getByTestId('confirm-import')).toBeVisible({ timeout: 60_000 })
+  await page.getByTestId('confirm-import').click()
+  await login(page)
+  await expectTotals(page, MEDIUM_COPIES)
   expect(await violations()).toEqual([])
 })

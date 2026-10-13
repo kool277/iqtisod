@@ -17,7 +17,7 @@ import {
   type CapacityGlobals,
   type CapacitySignals,
 } from '../../src/lib/capacity'
-import { LIMITS, formatBytes } from '../../src/lib/limits'
+import { LIMITS, formatBytes, restoreLimitBytes } from '../../src/lib/limits'
 
 const MIB = 1024 * 1024
 const GIB = 1024 * MIB
@@ -110,6 +110,19 @@ describe('growthBudget', () => {
     expect(growthBudget(computeCapacity({ ...CHROME_DESKTOP, quota: 100 * MIB, usage: 90 * MIB })).budgetBytes).toBe(LIMITS.databaseBudgetBytes)
     const desktop = computeCapacity(CHROME_DESKTOP)
     expect(growthBudget(desktop)).toEqual({ budgetBytes: desktop.vaultBytes, warnBytes: Math.floor((desktop.vaultBytes * 0.75) / MIB) * MIB })
+  })
+})
+
+describe('restoreLimitBytes', () => {
+  it('accepts the 72 MB of earlier versions when free storage is the tighter limit, and the budget above it', () => {
+    for (const [quota, usage] of [[120 * MIB, 0], [3 * MIB, 0], [10 * MIB, 20 * MIB]]) {
+      const low = computeCapacity({ ...CHROME_DESKTOP, quota, usage })
+      expect(low.limitedBy).toBe('storage')
+      expect(low.fileBytes).toBeLessThan(LIMITS.importFileBytes)
+      expect(restoreLimitBytes(low.fileBytes)).toBe(LIMITS.importFileBytes)
+    }
+    const desktop = computeCapacity(CHROME_DESKTOP)
+    expect(restoreLimitBytes(desktop.fileBytes)).toBe(desktop.fileBytes)
   })
 })
 
