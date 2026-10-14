@@ -135,15 +135,18 @@ export function SetupPage() {
     }
   }
 
-  async function onFile(file: File | undefined) {
+  async function onFile(input: HTMLInputElement) {
     setBackup(null)
     setError(null)
+    const file = input.files?.[0]
     if (!file) return
     setReading(true)
     try {
       setBackup(await readFile(file))
     } catch (caught) {
       setError(caught instanceof BackupTooLargeError ? tooLargeText(caught, t) : textForError(caught, t))
+      // Choosing the same file again (after freeing space, say) must fire `change` once more.
+      input.value = ''
     } finally {
       setReading(false)
     }
@@ -210,7 +213,7 @@ export function SetupPage() {
           type="file"
           accept=".moliya,application/json"
           disabled={reading}
-          onChange={(event) => void onFile(event.target.files?.[0])}
+          onChange={(event) => void onFile(event.currentTarget)}
         />
         {reading ? <p data-testid="import-reading" className="mt-2 text-sm text-muted">{t('security.importReading')}</p> : null}
         {backup ? (

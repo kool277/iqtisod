@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { MessageKey } from '../i18n'
 import type { Capacity } from '../lib/capacity'
 import { formatBytes, restoreLimitBytes } from '../lib/limits'
-import { requestPersistence } from '../lib/persistence'
+import { requestPersistenceBriefly } from '../lib/persistence'
 import type { ParsedBackup } from '../services/backup.service'
 
 const measureCapacity = () => import('../lib/capacity').then((module) => module.measureCapacity())
@@ -46,12 +46,12 @@ export function useBackupImport() {
 
   async function readFile(file: File): Promise<ParsedBackup> {
     // Persistent storage raises the quota in some browsers and keeps a large vault from being evicted.
-    await requestPersistence()
+    await requestPersistenceBriefly()
     const measured = await measureCapacity()
     setCapacity(measured)
     if (file.size > restoreLimitBytes(measured.fileBytes)) throw new BackupTooLargeError(measured, file.size)
-    const { readBackupFile } = await import('../db/backup-reader')
-    return readBackupFile(file)
+    const { readBackup } = await import('../db/backup-reader')
+    return readBackup(file)
   }
 
   return { capacity, readFile }

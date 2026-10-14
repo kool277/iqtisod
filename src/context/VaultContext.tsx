@@ -11,7 +11,7 @@ import { advanceAuditMark, readAuditMark, resetAuditMark } from '../lib/audit-ma
 import { LIMITS } from '../lib/limits'
 import { clearLockNotice, lockUrl, peekLockNotice, rememberLockNotice } from '../lib/lock-reload'
 import { passwordProblem } from '../lib/password-policy'
-import { requestPersistence } from '../lib/persistence'
+import { requestPersistenceBriefly } from '../lib/persistence'
 import { acquireSessionLock } from '../lib/session-lock'
 import { ThrottledError, createThrottle, indexedDbThrottleMirror, type ThrottleScope } from '../lib/throttle'
 import { Permission, canUser } from '../rbac'
@@ -190,7 +190,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       setSaveState('saved')
       setLockReason(null)
       setStatus('ready')
-      void requestPersistence()
+      void requestPersistenceBriefly()
         .then(() => import('../lib/capacity'))
         .then(async ({ growthBudget, measureCapacity }) => setWarnBytes(growthBudget(await measureCapacity()).warnBytes))
         .catch(() => undefined)
@@ -535,10 +535,14 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   )
 
   const exportBackup = useCallback(async () => {
-    if (!vaultRef.current) throw new Error('LOCKED')
+    const vault = vaultRef.current
+    if (!vault) throw new Error('LOCKED')
     if (dirtyRef.current) enqueuePersist()
     await chainRef.current
     if (conflictRef.current) throw new ConflictError()
+    // The save failed (the browser refused to store the vault, or ran out of room): the stored copy is behind, so the
+    // backup is sealed from the open vault, the only place the latest changes are.
+    if (dirtyRef.current) return sealVault(vault)
     const loaded = await readVault()
     if (!loaded) throw new Error('MISSING')
     return loaded.record

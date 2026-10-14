@@ -2,10 +2,11 @@ import { randomBytes } from 'node:crypto'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Base64Decoder, Base64Error, base64ToExactBytes } from '../../src/crypto/base64-stream'
 import { base64Blob } from '../../src/crypto/encoding'
-import { LONG_STRING_BYTES, SKELETON_MAX_BYTES, readBackupFile } from '../../src/db/backup-reader'
+import { LONG_STRING_BYTES, SKELETON_MAX_BYTES, readBackup, readBackupFile } from '../../src/db/backup-reader'
 import { decodeStoredRecord, encodeStoredRecord, parseBackupText } from '../../src/db/envelope'
 import { recordFromSession, wrapsFromRecord } from '../../src/db/storage'
 import { AppError } from '../../src/domain/errors'
+import { LIMITS } from '../../src/lib/limits'
 import { archiveFileBlob, archiveFileText, backupFileBlob, backupFileText } from '../../src/services/backup.service'
 import { fixtureByPath, readFixture, readManifest, v1StoredRecordFromBackup } from '../support/fixtures'
 
@@ -91,6 +92,40 @@ describe('backup downloads', () => {
     const { record } = parseBackupText(backupWithBody(5 * MIB + 1).text)
     const streamed = await backupFileBlob(record, NOW.toISOString()).text()
     expect(streamed).toBe(backupFileText(record, NOW.toISOString()))
+  })
+
+  it('stream the same bytes whatever text the envelope holds', async () => {
+    const { record } = parseBackupText(v4Text)
+    // 1.7.0 searched the JSON for this marker and refused to build the file when another field held it too.
+    const odd = { ...record, createdAt: 'ciphertext stand-in', appVersion: '"ciphertext":"' }
+    expect(await backupFileBlob(odd, NOW.toISOString()).text()).toBe(backupFileText(odd, NOW.toISOString()))
+  })
+})
+
+describe('readBackup', () => {
+  it('opens a backup up to 72 MB that a JSON tool saved again with escapes, as 1.6.0 did', async () => {
+    const { text } = backupWithBody(LONG_STRING_BYTES * 3)
+    const escaped = text.replaceAll('/', '\\/')
+    expect(escaped).not.toBe(text)
+    expect(await codeOf(readBackupFile(blob(escaped)))).toBe('BACKUP')
+    expect(await readBackup(blob(escaped))).toEqual(parseBackupText(text))
+  })
+
+  it('says a newer backup is newer, whatever its layout', async () => {
+    const { text } = backupWithBody(LONG_STRING_BYTES * 2, (json) => {
+      json.version = 99
+      json.chunks = ['A'.repeat(LONG_STRING_BYTES * 2)]
+    })
+    expect(await codeOf(readBackupFile(blob(text)))).toBe('BACKUP')
+    expect(await codeOf(readBackup(blob(text)))).toBe('FORMAT_TOO_NEW')
+  })
+
+  it('never reads a file larger than 1.6.0 accepted as one string', async () => {
+    const real = blob(backupWithBody(LONG_STRING_BYTES * 2).text.replaceAll('/', '\\/'))
+    const text = vi.fn(() => real.text())
+    const large = { size: LIMITS.importFileBytes + 1, slice: (start?: number, end?: number) => real.slice(start, end), text } as unknown as Blob
+    expect(await codeOf(readBackup(large))).toBe('BACKUP')
+    expect(text).not.toHaveBeenCalled()
   })
 })
 

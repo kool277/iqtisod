@@ -2,7 +2,7 @@ import { Base64Decoder, Base64Error, base64DecodedLength } from '../crypto/base6
 import { ValidationError } from '../domain/errors'
 import { LIMITS } from '../lib/limits'
 import { parseJsonSafely } from '../lib/safe-json'
-import { parseBackupJson, type DecodedBackup } from './envelope'
+import { parseBackupJson, parseBackupText, type DecodedBackup } from './envelope'
 
 /**
  * Reads a backup file in pieces, so the file is never held whole: not as text, not as parsed JSON, and its base64
@@ -161,6 +161,20 @@ async function decodeLongString(file: Blob, long: LongString): Promise<Uint8Arra
     throw error
   }
   return bytes
+}
+
+/**
+ * {@link readBackupFile}, falling back for a file no larger than 1.6.0 accepted to the whole-text reader 1.6.0 used,
+ * which the streaming reader's stricter layout rules can refuse: a backup re-saved by a JSON tool with escapes in its
+ * body still opens, and a newer format still says it is newer (FORMAT_TOO_NEW) instead of "not a backup".
+ */
+export async function readBackup(file: Blob): Promise<DecodedBackup> {
+  try {
+    return await readBackupFile(file)
+  } catch (error) {
+    if (!(error instanceof ValidationError) || file.size > LIMITS.importFileBytes) throw error
+    return parseBackupText(await file.text())
+  }
 }
 
 export async function readBackupFile(file: Blob, options: { longStringBytes?: number } = {}): Promise<DecodedBackup> {
