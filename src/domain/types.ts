@@ -1,4 +1,5 @@
 import type { KdfParams, WRAP_AAD_V1 } from '../crypto/crypto.service'
+import type { GrantKdf } from '../db/envelope'
 import type { SqlDatabase } from '../db/sqlite'
 
 export type RoleName = 'Admin' | 'Manager' | 'Viewer'
@@ -40,7 +41,7 @@ export type GrantWrap = {
   id: string
   kind: 'INVITE' | 'RESET'
   email: string
-  kdf: KdfParams
+  kdf: GrantKdf
   salt: Uint8Array
   iv: Uint8Array
   wrappedDek: ArrayBuffer

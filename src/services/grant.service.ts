@@ -283,10 +283,11 @@ export async function redeemGrant(record: VaultRecord, input: RedeemInput, now =
   const canonical = normalizeAccessCode(input.code)
   assertPasswordLength(input.password)
   const grant = (record.grants ?? []).find((item) => item.kind === input.kind && item.email === email)
-  if (!grant) {
+  if (!grant || grant.kdf.name !== 'PBKDF2') {
     await spendPasswordWork(canonical)
     throw invalid()
   }
+  const grantKdf = grant.kdf
   // Every attempt is a clock reading: a later attempt with the clock turned back is then refused.
   const deviceFloor = deviceClockFloor()
   observeClock(now.getTime())
@@ -298,7 +299,7 @@ export async function redeemGrant(record: VaultRecord, input: RedeemInput, now =
   let verifier: string
   let plain: Uint8Array
   try {
-    const keys = await deriveGrantKeys(canonical, cloneBytes(grant.salt), grant.kdf)
+    const keys = await deriveGrantKeys(canonical, cloneBytes(grant.salt), grantKdf)
     verifier = keys.verifier
     dek = await unwrapGrantDek(grant.wrappedDek, keys.kek, cloneBytes(grant.iv), grantAad(grant.id, grant.kind, grant.email, grant.expiresAt))
     plain = await decryptRecordBody(record, dek)
