@@ -39,7 +39,9 @@ export const DEVICE_MEMORY_MAX_GIB = 8
 /**
  * Copies of the vault alive at once at the worst moment of any operation, counting the WebAssembly heap
  * (see docs/developer-guide.md, "Memory"). From 1.7.0 the worst moment is an autosave after memdb has doubled:
- * the heap (2), the exported plaintext, the browser's copy of it while encrypting, and the ciphertext.
+ * the heap (2), the exported plaintext, the browser's copy of it while encrypting, and the ciphertext. From 1.7.2 a
+ * save encrypts straight from the heap, so it holds 4; the fifth stays for VACUUM's scratch copy and for replacing a
+ * vault, which briefly holds the backup too, and so that budgets measured by earlier versions do not grow.
  */
 export const PEAK_MEMORY_MULTIPLE = 5
 /** Up to 1.6.0 the backup text, its JSON and binary strings, and several defensive clones were alive together. */

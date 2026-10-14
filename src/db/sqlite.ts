@@ -180,6 +180,34 @@ export class SqlDatabase {
     return exported instanceof Uint8Array ? exported : new Uint8Array(exported)
   }
 
+  /**
+   * Hands `use` the database as SQLite keeps it, without copying it out of the WebAssembly heap where it is one memdb
+   * buffer. The view is only valid while `use` runs: `use` must not keep it or call SQLite. A database built in this
+   * session is not one buffer, so it gets the copy {@link export} assembles, wiped once `use` returns.
+   */
+  withImage<T>(use: (image: Uint8Array) => T): T {
+    const pointer = this.db.pointer
+    if (pointer == null) throw new Error('SQLite handle is not open')
+    const { capi, wasm } = this.sqlite3
+    let image: Uint8Array | null = null
+    const scope = wasm.scopedAllocPush()
+    try {
+      const sizeOut = wasm.scopedAlloc(8)
+      const data = capi.sqlite3_serialize(pointer, 'main', sizeOut, capi.SQLITE_SERIALIZE_NOCOPY)
+      const size = Number(wasm.peek(sizeOut, 'i64'))
+      if (data && size > 0) image = wasm.heap8u().subarray(data, data + size)
+    } finally {
+      wasm.scopedAllocPop(scope)
+    }
+    if (image) return use(image)
+    const copy = this.export()
+    try {
+      return use(copy)
+    } finally {
+      copy.fill(0)
+    }
+  }
+
   close(): void {
     this.db.close()
   }

@@ -122,14 +122,16 @@ export async function generateDek(): Promise<CryptoKey> {
   return crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt'])
 }
 
-/** Encrypts `data` where it is; the caller still owns it and wipes it afterwards. */
-export async function encryptDatabase(data: Uint8Array, key: CryptoKey): Promise<CipherPayload> {
+/**
+ * Encrypts `data` where it is. WebCrypto copies the bytes before `encrypt()` returns, so once this returns the caller
+ * may wipe `data`, or let SQLite change it when it is a view onto the WebAssembly heap.
+ */
+export function encryptDatabase(data: Uint8Array, key: CryptoKey): Promise<CipherPayload> {
   const iv = randomBytes(IV_BYTES)
   const plain = data.buffer instanceof ArrayBuffer ? (data as Uint8Array<ArrayBuffer>) : null
   const copy = plain ? null : copyToBuffer(data)
   try {
-    const cipherText = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: copyToBuffer(iv) }, key, plain ?? copy!)
-    return { cipherText, iv }
+    return crypto.subtle.encrypt({ name: 'AES-GCM', iv: copyToBuffer(iv) }, key, plain ?? copy!).then((cipherText) => ({ cipherText, iv }))
   } finally {
     if (copy) new Uint8Array(copy).fill(0)
   }

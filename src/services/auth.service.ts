@@ -125,13 +125,9 @@ async function seal(db: SqlDatabase, dek: CryptoKey, wraps: UserWrap[], grants: 
   observeClock(now)
   if (readSchemaVersion(db) >= 4) recordClock(db, now)
   compactIfSparse(db)
-  const exported = db.export()
-  let sealed: Awaited<ReturnType<typeof encryptDatabase>>
-  try {
-    sealed = await encryptDatabase(exported, dek)
-  } finally {
-    exported.fill(0)
-  }
+  // Encrypted where SQLite keeps it: WebCrypto copies the bytes before encryptDatabase returns, so saving makes no
+  // plaintext copy of the vault outside SQLite's own memory.
+  const sealed = await db.withImage((image) => encryptDatabase(image, dek))
   return recordFromSession({
     wraps,
     grants,
