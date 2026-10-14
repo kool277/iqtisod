@@ -6,6 +6,17 @@ Data formats are versioned separately from the app. Each release lists the forma
 
 ## [Unreleased]
 
+### Fixed
+
+- **Health check:** the storage row counts a full-size vault as large as this device lets receipts make it, not the 48 MB of 1.6.0, so it no longer reports room for a full vault that is not there. Reading a large stored vault may take up to 20 seconds before it counts as unreadable, so a big vault on a slow phone is no longer reported as unreadable, with advice to import a backup.
+- The size warning follows the same budget as the limit on new receipts, also after the health check or a restore screen measures the device again.
+
+### Changed
+
+- Downloading a backup is about seventy times faster where the browser encodes base64 itself (Chrome 140, Firefox 133, Safari 18.2 and later), so a large vault no longer freezes the page for seconds.
+- Starting Jaybi no longer reads every earlier copy of the vault whole to remove one-time code wraps that versions before 1.4.2 left in them; that now happens once per browser.
+- An SQLite export of a large vault needs one vault-sized copy less memory.
+
 ## [1.7.1] - 2026-10-14
 
 Reads backup and record versions 1–2 and schema versions 1–4. Writes backup 2, record 2, schema 4, and export format 1, the same as 1.7.0. No stored format changed, so 1.7.0 opens everything 1.7.1 saves.
