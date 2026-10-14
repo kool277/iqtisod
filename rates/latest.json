@@ -1,53 +1,53 @@
 {
   "schema": 1,
-  "generatedAt": "2026-10-13T20:49:36.800Z",
+  "generatedAt": "2026-10-14T19:42:24.789Z",
   "quotes": [
     {
       "base": "USD",
       "quote": "UZS",
-      "rate": "11913.35",
-      "date": "2026-10-14",
+      "rate": "11963.16",
+      "date": "2026-10-15",
       "source": "CBU",
       "method": "official",
       "legs": null,
       "previous": {
-        "rate": "11899.09",
-        "date": "2026-10-13"
+        "rate": "11913.35",
+        "date": "2026-10-14"
       }
     },
     {
       "base": "USD",
       "quote": "KRW",
-      "rate": "1341.44619235",
-      "date": "2026-10-13",
+      "rate": "1336.79321126",
+      "date": "2026-10-14",
       "source": "ECB",
       "method": "cross",
       "legs": [
         {
           "pair": "EUR/KRW",
-          "rate": "1500.81"
+          "rate": "1496.54"
         },
         {
           "pair": "EUR/USD",
-          "rate": "1.1188"
+          "rate": "1.1195"
         }
       ],
       "previous": {
-        "rate": "1333.09185225",
-        "date": "2026-10-12"
+        "rate": "1341.44619235",
+        "date": "2026-10-13"
       }
     },
     {
       "base": "USD",
       "quote": "ILS",
-      "rate": "3.074",
-      "date": "2026-10-13",
+      "rate": "3.075",
+      "date": "2026-10-14",
       "source": "BOI",
       "method": "official",
       "legs": null,
       "previous": {
-        "rate": "3.078",
-        "date": "2026-10-12"
+        "rate": "3.074",
+        "date": "2026-10-13"
       }
     }
   ],
@@ -55,57 +55,57 @@
     {
       "source": "CBU",
       "url": "https://cbu.uz/uz/arkhiv-kursov-valyut/json/",
-      "fetchedAt": "2026-10-13T20:49:36.800Z",
-      "sha256": "18ee2fb52bbf052ecffab6a89de86147649853cc0ccb088a6028ddd1848a2809"
+      "fetchedAt": "2026-10-14T19:42:24.789Z",
+      "sha256": "f0dcd3fee5adaf69cade98770e928293148b88e48b5c0d2152078df2761733d1"
     },
     {
       "source": "CBU",
-      "url": "https://cbu.uz/uz/arkhiv-kursov-valyut/json/all/2026-10-13/",
-      "fetchedAt": "2026-10-13T20:49:36.800Z",
-      "sha256": "50a94e77911a0090ac0225bf0f7230123c2052ef48c1c176b4355148b348d2e1"
+      "url": "https://cbu.uz/uz/arkhiv-kursov-valyut/json/all/2026-10-14/",
+      "fetchedAt": "2026-10-14T19:42:24.789Z",
+      "sha256": "18ee2fb52bbf052ecffab6a89de86147649853cc0ccb088a6028ddd1848a2809"
     },
     {
       "source": "ECB",
       "url": "https://data-api.ecb.europa.eu/service/data/EXR/D.USD+KRW+ILS.EUR.SP00.A?lastNObservations=2&detail=dataonly&format=csvdata",
-      "fetchedAt": "2026-10-13T20:49:36.800Z",
-      "sha256": "e1e842bf63f5341d69fe18583bc358bb7906b5a3bbff2116fb28b33f5d0b3b67"
+      "fetchedAt": "2026-10-14T19:42:24.789Z",
+      "sha256": "a8915d1c792b4e36881c4e12eb1f34c2f51cd0ae8e3239612e8d1217f648c54b"
     },
     {
       "source": "BOI",
       "url": "https://edge.boi.gov.il/FusionEdgeServer/sdmx/v2/data/dataflow/BOI.STATISTICS/EXR/1.0/RER_USD_ILS?lastNObservations=2&format=csv",
-      "fetchedAt": "2026-10-13T20:49:36.800Z",
-      "sha256": "1824674bb6586f717e6f1ffad7e8e0ddf134b8947a1141f094a69c876bb0f0bf"
+      "fetchedAt": "2026-10-14T19:42:24.789Z",
+      "sha256": "c235625c08317287dbb6622ea97e4c6f55254505d870bd3a93b05dc064b74caa"
     }
   ],
   "checks": [
     {
       "subject": "EUR/USD implied by CBU",
-      "reference": "ECB EUR/USD (2026-10-13)",
-      "deviationPercent": "0.0000",
+      "reference": "ECB EUR/USD (2026-10-14)",
+      "deviationPercent": "0.0179",
       "tolerancePercent": "2",
       "passed": true
     },
     {
       "subject": "USD/KRW ECB cross via EUR",
-      "reference": "CBU cross via UZS (2026-10-14)",
-      "deviationPercent": "0.1016",
+      "reference": "CBU cross via UZS (2026-10-15)",
+      "deviationPercent": "0.0095",
       "tolerancePercent": "2",
       "passed": true
     },
     {
       "subject": "USD/ILS BOI official",
-      "reference": "ECB cross via EUR (2026-10-13)",
-      "deviationPercent": "0.0351",
+      "reference": "ECB cross via EUR (2026-10-14)",
+      "deviationPercent": "0.0533",
       "tolerancePercent": "1.5",
       "passed": true
     },
     {
       "subject": "USD/ILS BOI official",
-      "reference": "CBU cross via UZS (2026-10-14)",
-      "deviationPercent": "0.0684",
+      "reference": "CBU cross via UZS (2026-10-15)",
+      "deviationPercent": "0.0943",
       "tolerancePercent": "2",
       "passed": true
     }
   ],
-  "digest": "dcb5a90b2b067c31bf78153efdaf9a2fcc3f24332c16c91f1ca3531e2d4a40b2"
+  "digest": "b28016d29d84c524bfbb8183d70396aa6ad075e8e06bcbef1fec9b39bf97708d"
 }
