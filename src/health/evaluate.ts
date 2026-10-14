@@ -12,8 +12,6 @@ import type { VaultFacts } from './vault'
 
 const MIB = 1024 * 1024
 const DAY_MS = 24 * 60 * 60 * 1000
-/** The vault at its size limit plus the earlier copies kept beside it. */
-export const ROOM_NEEDED_BYTES = (MAX_ARCHIVES + 1) * LIMITS.databaseBudgetBytes
 /** Less room than this is offered to private windows in Chromium and Safari; normal windows get far more. */
 export const PRIVATE_QUOTA_HINT_BYTES = 400 * MIB
 export const MEMBER_WARN_SHARE = 0.9
@@ -75,11 +73,14 @@ export function storageChecks(facts: StorageFacts, capacity?: Capacity): HealthR
     results.push(result('quota', 'info', 'unknown'))
   } else {
     const free = Math.max(0, facts.quota - facts.usage)
-    const shown = { usage: megabytes(facts.usage), quota: megabytes(facts.quota), free: megabytes(free), limit: megabytes(LIMITS.databaseBudgetBytes) }
+    // Full size is as large as receipts may make the vault on this device (48 MiB until that is measured), and the
+    // earlier copies kept beside it can each be as large.
+    const fullSize = growthBudget(capacity ?? null).budgetBytes
+    const shown = { usage: megabytes(facts.usage), quota: megabytes(facts.quota), free: megabytes(free), limit: megabytes(fullSize) }
     results.push(
-      free < LIMITS.databaseBudgetBytes
+      free < fullSize
         ? result('quota', 'fail', 'full', { facts: shown })
-        : free < ROOM_NEEDED_BYTES
+        : free < (MAX_ARCHIVES + 1) * fullSize
           ? result('quota', 'warn', 'low', { facts: shown })
           : result('quota', 'pass', 'ok', { facts: shown }),
     )

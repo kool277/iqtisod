@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { afterAll, describe, expect, it } from 'vitest'
+import { afterAll, describe, expect, it, vi } from 'vitest'
 import { auditHead } from '../../src/db/audit-chain'
 import { RECORD_VERSION, SCHEMA_VERSION } from '../../src/db/versions'
 import { sealSnapshot, type FxSnapshot } from '../../src/domain/fx'
@@ -10,12 +10,14 @@ import {
   collectSecurityFacts,
   collectStorageFacts,
   probeIndexedDb,
+  RECORD_TIMEOUT_MS,
   storedRecordFacts,
   type BrowserFacts,
   type HealthGlobals,
   type StorageFacts,
 } from '../../src/health/collect'
-import { appChecks, browserChecks, evaluateHealth, ratesChecks, securityChecks, storageChecks, vaultChecks, type HealthInput } from '../../src/health/evaluate'
+import { appChecks, browserChecks, evaluateHealth, megabytes, ratesChecks, securityChecks, storageChecks, vaultChecks, type HealthInput } from '../../src/health/evaluate'
+import { computeCapacity, growthBudget } from '../../src/lib/capacity'
 import { HEALTH_CHECKS, HEALTH_FACTS, overall, summarize, type HealthResult } from '../../src/health/model'
 import { healthReport, shortAgent } from '../../src/health/report'
 import { collectVaultFacts, type VaultFacts } from '../../src/health/vault'
@@ -197,6 +199,35 @@ describe('storage', () => {
     expect(byId(storageChecks(healthy), 'quota').status).toBe('pass')
     expect(byId(storageChecks({ ...healthy, quota: 900 * MIB, usage: 800 * MIB }), 'quota')).toMatchObject({ status: 'warn', detail: 'low' })
     expect(byId(storageChecks({ ...healthy, quota: 900 * MIB, usage: 880 * MIB }), 'quota')).toMatchObject({ status: 'fail', detail: 'full', facts: { free: '20.0 MB', limit: '48.0 MB' } })
+  })
+
+  it('counts a full vault as large as this device lets receipts make it', () => {
+    const capacity = computeCapacity({ quota: 100_000 * MIB, usage: 0, persisted: true, deviceMemoryGiB: 8, jsHeap: null, mobile: false, chromium: false })
+    const fullSize = growthBudget(capacity).budgetBytes
+    expect(fullSize).toBeGreaterThan(250 * MIB)
+    const free = (bytes: number): StorageFacts => ({ ...healthy, quota: bytes, usage: 0 })
+    // Before the budget is measured, a full vault is the fixed 48 MB of earlier versions.
+    expect(byId(storageChecks(free(300 * MIB)), 'quota').status).toBe('pass')
+    // 1.7.0 said the same 300 MB was enough room for a full-size vault, though receipts could make it nearly that large.
+    expect(byId(storageChecks(free(300 * MIB), capacity), 'quota')).toMatchObject({ status: 'warn', detail: 'low' })
+    expect(byId(storageChecks(free(fullSize - MIB), capacity), 'quota')).toMatchObject({ status: 'fail', detail: 'full', facts: { limit: megabytes(fullSize) } })
+    expect(byId(storageChecks(free(4 * fullSize), capacity), 'quota')).toMatchObject({ status: 'pass', detail: 'ok' })
+  })
+
+  it('waits for a large stored vault to be read instead of calling it unreadable', async () => {
+    vi.useFakeTimers()
+    try {
+      const record = (ms: number) => () => new Promise((resolve) => setTimeout(() => resolve({ version: 2, schemaVersion: 4, appVersion: '1.7.1', updatedAt: null }), ms))
+      const read = (ms: number) => collectStorageFacts(fullBrowser({ navigator: {} }), { indexedDb: () => Promise.resolve('ok'), record: record(ms) })
+      const slow = read(10_000)
+      await vi.advanceTimersByTimeAsync(10_000)
+      expect((await slow).stored).toMatchObject({ version: 2, schemaVersion: 4 })
+      const stuck = read(RECORD_TIMEOUT_MS + 1000)
+      await vi.advanceTimersByTimeAsync(RECORD_TIMEOUT_MS)
+      expect((await stuck).stored).toBe('unreadable')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('hints at a private window when the browser offers very little room', () => {
