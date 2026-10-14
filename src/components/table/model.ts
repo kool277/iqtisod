@@ -308,6 +308,4 @@ export function optionsFrom<T>(rows: readonly T[], value: (row: T) => string, la
   return [...seen].map((item) => ({ value: item, label: label(item) })).sort((a, b) => collator.compare(a.label, b.label))
 }
 
-export function fill(template: string, values: Record<string, string | number>): string {
-  return template.replace(/\{(\w+)\}/g, (match, key: string) => (key in values ? String(values[key]) : match))
-}
+export { fillTemplate as fill } from '../../lib/template'

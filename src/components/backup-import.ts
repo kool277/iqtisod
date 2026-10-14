@@ -3,15 +3,12 @@ import type { MessageKey } from '../i18n'
 import type { Capacity } from '../lib/capacity'
 import { formatBytes, restoreLimitBytes } from '../lib/limits'
 import { requestPersistenceBriefly } from '../lib/persistence'
+import { fillTemplate } from '../lib/template'
 import type { ParsedBackup } from '../services/backup.service'
 
 const measureCapacity = () => import('../lib/capacity').then((module) => module.measureCapacity())
 
 type Translate = (key: MessageKey) => string
-
-export function fillTemplate(template: string, values: Record<string, string>): string {
-  return template.replace(/\{(\w+)\}/g, (whole, name: string) => values[name] ?? whole)
-}
 
 export class BackupTooLargeError extends Error {
   constructor(readonly capacity: Capacity, readonly fileBytes: number) {

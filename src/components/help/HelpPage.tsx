@@ -5,6 +5,7 @@ import { useI18n } from '../../context/I18nContext'
 import { useLazyCatalog } from '../../context/useLazyCatalog'
 import { hasHelpMessages, loadHelpMessages, type Locale } from '../../i18n'
 import type { HelpBlock, HelpDoc, HelpInline, HelpSection } from '../../help/types'
+import { fillTemplate as fill } from '../../lib/template'
 import { fold, matchesTerms, searchTerms } from '../table/model'
 import { controlClass } from '../ui'
 
@@ -17,10 +18,6 @@ const GUIDES: Record<Locale, () => Promise<{ default: HelpDoc }>> = {
 
 const SECTION_PARAM = 'section'
 const MOBILE_SHOT_MAX = 600
-
-function fill(template: string, values: Record<string, string | number>): string {
-  return template.replace(/\{(\w+)\}/g, (match, name: string) => (name in values ? String(values[name]) : match))
-}
 
 function useGuide(locale: Locale): HelpDoc | null | 'failed' {
   const [loaded, setLoaded] = useState<{ locale: Locale; doc: HelpDoc | 'failed' } | null>(null)
