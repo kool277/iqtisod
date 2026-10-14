@@ -97,15 +97,16 @@ export class SqlDatabase {
 
   /**
    * Copies `bytes` straight into the WebAssembly heap (the caller wipes its own copy) with some room to grow, so the
-   * first writes after opening do not make memdb reallocate to twice the database size.
+   * first writes after opening do not make memdb reallocate to twice the database size. A copy that is only read
+   * (an export's snapshot) passes `growth: 0`; it can still grow, by reallocating.
    */
-  static async openBytes(bytes: Uint8Array): Promise<SqlDatabase> {
+  static async openBytes(bytes: Uint8Array, options: { growth?: number } = {}): Promise<SqlDatabase> {
     const sqlite3 = await loadModule()
     const db = new sqlite3.oo1.DB(':memory:', 'c')
     try {
       if (db.pointer == null) throw new Error('SQLite handle is not open')
       const size = bytes.byteLength
-      const room = size + growthRoom(size)
+      const room = size + (options.growth ?? growthRoom(size))
       const pointer = sqlite3.wasm.alloc(room)
       sqlite3.wasm.heap8u().set(bytes, pointer)
       const flags = sqlite3.capi.SQLITE_DESERIALIZE_FREEONCLOSE | sqlite3.capi.SQLITE_DESERIALIZE_RESIZEABLE
