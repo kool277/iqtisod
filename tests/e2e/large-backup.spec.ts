@@ -110,6 +110,8 @@ test('restores, saves and backs up a vault whose backup is larger than the old 7
   test.setTimeout(300_000)
   const violations = await watchViolations(page)
   await openSetup(page)
+  // Chromium stores at most a 127 MiB IndexedDB value, so a vault there is capped at 126 MiB (a 168 MB backup).
+  await expect(page.getByTestId('import-budget')).toContainText('168 MB · limited by what this browser can save')
 
   await page.getByTestId('import-file').setInputFiles(largeFile)
   await expect(page.getByTestId('confirm-import')).toBeVisible({ timeout: 60_000 })

@@ -170,6 +170,7 @@ export const healthUzLatn: HealthMessages = {
       memory: 'Qanday hajmdagi seyfni tiklash va ochish mumkinligini qurilma xotirasi belgilaydi. “~” belgisi brauzer xotira hajmini aytmasligini, shuning uchun ehtiyotkor taxmin ishlatilganini bildiradi.',
       storage: 'Qanday hajmdagi seyfni tiklash va saqlash mumkinligini brauzerdagi boʻsh joy belgilaydi.',
       engine: 'Qurilma koʻproq sigʻdira olardi; chegarani seyfning maʼlumotlar bazasi dvigateli belgilaydi.',
+      browser: 'Bu brauzer seyfni faqat shu hajmgacha saqlay oladi. Firefox, Apple qurilmalarida esa Safari ham kattaroq seyflarni saqlay oladi.',
       low: 'Brauzerda oddiy hajmdagi seyf uchun kerak boʻlgandan kamroq boʻsh joy bor. Zaxira nusxani tiklash yoki saqlash muvaffaqiyatsiz boʻlishi mumkin.',
       fix: 'Kattaroq zaxira nusxani tiklash uchun boshqa varaqlar va ilovalarni yoping, diskda joy boʻshating yoki Jaybi maʼlumotlarini saqlashga ruxsat bering. Bundan katta nusxani xotirasi yoki joyi koʻproq kompyuterda tiklash mumkin.',
     },

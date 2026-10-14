@@ -72,13 +72,14 @@ describe('IndexedDB storage of a large vault', () => {
 
 describe('health: largest vault on this device', () => {
   const MIBS = (value: number) => value * MIB
-  const base: CapacitySignals = { quota: 100_000 * MIB, usage: 0, persisted: true, deviceMemoryGiB: 8, jsHeap: null, mobile: false }
+  const base: CapacitySignals = { quota: 100_000 * MIB, usage: 0, persisted: true, deviceMemoryGiB: 8, jsHeap: null, mobile: false, chromium: false }
 
   it('names the limit that decides and shows the budgets', () => {
     const check = capacityCheck(computeCapacity(base))
     expect(check).toMatchObject({ id: 'capacity', group: 'storage', status: 'pass', detail: 'memory' })
     expect(check.facts).toMatchObject({ deviceMemory: '8 GB' })
-    expect(capacityCheck(computeCapacity({ ...base, deviceMemoryGiB: 64 })).detail).toBe('engine')
+    expect(capacityCheck(computeCapacity({ ...base, chromium: true }))).toMatchObject({ status: 'pass', detail: 'browser', facts: { vaultLimit: '126 MB' } })
+    expect(capacityCheck(computeCapacity({ ...base, deviceMemoryGiB: 64 })).facts).toMatchObject({ deviceMemory: '8 GB' })
     expect(capacityCheck(computeCapacity({ ...base, deviceMemoryGiB: null })).facts).toMatchObject({ deviceMemory: '~8 GB' })
   })
 

@@ -755,11 +755,13 @@ export const uzLatn: CoreMessages = {
       storage: 'brauzerdagi boʻsh joy bilan cheklangan',
       memory: 'qurilma xotirasi bilan cheklangan',
       engine: 'har qanday brauzer ochishi mumkin boʻlgan eng katta hajm',
+      browser: 'bu brauzer saqlay oladigan hajm bilan cheklangan',
     },
     importTooLarge: {
       storage: 'Bu zaxira nusxa {file}, brauzer esa bu yerda koʻpi bilan {limit} saqlay oladi. Diskda joy boʻshating yoki “Holat tekshiruvi” sahifasida Jaybi maʼlumotlarini saqlashga ruxsat bering va qayta urinib koʻring. Nusxani boʻsh joyi koʻproq qurilmada ham tiklashingiz mumkin.',
-      memory: 'Bu zaxira nusxa {file}, bu qurilma esa koʻpi bilan {limit} hajmni xavfsiz ocha oladi. Boshqa varaqlar va ilovalarni yopib, qayta urinib koʻring yoki nusxani xotirasi kattaroq kompyuterda tiklang.',
+      memory: 'Bu zaxira nusxa {file}, bu qurilma esa koʻpi bilan {limit} hajmni xavfsiz ocha oladi. Nusxani xotirasi kattaroq kompyuterda tiklang.',
       engine: 'Bu zaxira nusxa {file}: bu har qanday brauzer ocha oladigan hajmdan ({limit}) katta.',
+      browser: 'Bu zaxira nusxa {file}: bu brauzer bitta seyf sifatida saqlay oladigan hajmdan ({limit}) katta. Uni Firefox brauzerida yoki Apple qurilmasidagi Safari brauzerida tiklang: ular kattaroq seyflarni saqlay oladi.',
     },
   },
   framed: {

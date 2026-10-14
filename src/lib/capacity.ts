@@ -11,7 +11,8 @@ import { LIMITS } from './limits'
  * - memory: what one tab can use on this device, divided by the peak number of copies held at once
  *   ({@link PEAK_MEMORY_MULTIPLE}); never below what every device accepted up to 1.6.0;
  * - engine: the WebAssembly heap the bundled sqlite-wasm can grow to, less SQLite's own room, divided by the
- *   copies memdb holds while it grows.
+ *   copies memdb holds while it grows;
+ * - browser: in Chromium, the largest single IndexedDB value it stores, since the vault is saved as one value.
  */
 
 const MIB = 1024 * 1024
@@ -25,6 +26,15 @@ export const WASM_RESERVED_BYTES = 128 * MIB
 export const MEMDB_GROWTH_FACTOR = 3
 /** The largest database the engine can keep. */
 export const ENGINE_MAX_BYTES = Math.floor((WASM_HEAP_MAX_BYTES - WASM_RESERVED_BYTES) / MEMDB_GROWTH_FACTOR / MIB) * MIB
+/**
+ * Chromium refuses an IndexedDB value whose serialized form is larger than this (Chrome 156: a 126.9 MiB vault
+ * stores, 127 MiB does not). Firefox and Safari store values of several hundred MiB.
+ */
+export const CHROMIUM_IDB_VALUE_MAX_BYTES = 133_169_152
+/** The largest vault Chromium can save: its value limit, less 1 MiB for the record's wraps, codes and other fields. */
+export const BROWSER_MAX_BYTES = Math.floor((CHROMIUM_IDB_VALUE_MAX_BYTES - MIB) / MIB) * MIB
+/** `navigator.deviceMemory` reported at most 8 until Chrome began reporting 16 and 32; the budgets assume at most 8. */
+export const DEVICE_MEMORY_MAX_GIB = 8
 
 /**
  * Copies of the vault alive at once at the worst moment of any operation, counting the WebAssembly heap
@@ -44,7 +54,12 @@ export const BACKUP_ENVELOPE_BYTES = 512 * 1024
 export const TAB_SHARE = { desktop: 0.25, mobile: 0.2 } as const
 /** Used where the browser does not report its memory (Safari, Firefox). Desktops have at least this; phones often more. */
 export const FALLBACK_DEVICE_MEMORY_GIB = { desktop: 8, mobile: 3 } as const
-/** The size warning starts at this share of the budget. */
+/**
+ * New receipts stop at this share of the budget, so a vault that keeps growing through ordinary records, or a budget
+ * measured a little lower another day, can still be saved and restored on the same device.
+ */
+export const GROWTH_SHARE = 0.9
+/** The size warning starts at this share of the growth budget. */
 export const WARN_SHARE = 0.75
 
 export function backupFileBytesFor(vaultBytes: number): number {
@@ -59,7 +74,7 @@ export function vaultBytesForFile(fileBytes: number): number {
 /** Every device accepted backups up to {@link LIMITS.importFileBytes} before 1.7.0, so the memory limit never goes below the vault they hold. */
 export const MEMORY_FLOOR_BYTES = vaultBytesForFile(LIMITS.importFileBytes)
 
-export type CapacityLimit = 'storage' | 'memory' | 'engine'
+export type CapacityLimit = 'storage' | 'memory' | 'engine' | 'browser'
 
 export type CapacitySignals = {
   quota: number | null
@@ -70,6 +85,8 @@ export type CapacitySignals = {
   /** `performance.memory`: Chromium only. */
   jsHeap: { used: number; limit: number } | null
   mobile: boolean
+  /** Chrome, Edge and the other Chromium browsers, whose IndexedDB value limit caps the vault. */
+  chromium: boolean
 }
 
 export type Capacity = {
@@ -81,6 +98,8 @@ export type Capacity = {
   storageBytes: number | null
   memoryBytes: number
   engineBytes: number
+  /** {@link BROWSER_MAX_BYTES} in Chromium, null elsewhere. */
+  browserBytes: number | null
   /** The device memory used for the estimate, and whether the browser reported it. */
   deviceMemoryBytes: number
   deviceMemoryReported: boolean
@@ -102,7 +121,7 @@ function nonNegative(value: unknown): number | null {
 export function computeCapacity(signals: CapacitySignals): Capacity {
   const form = signals.mobile ? 'mobile' : 'desktop'
   const reported = positive(signals.deviceMemoryGiB)
-  const deviceMemoryBytes = (reported ?? FALLBACK_DEVICE_MEMORY_GIB[form]) * GIB
+  const deviceMemoryBytes = Math.min(reported ?? FALLBACK_DEVICE_MEMORY_GIB[form], DEVICE_MEMORY_MAX_GIB) * GIB
   const used = positive(signals.jsHeap?.used) ?? 0
   const tab = Math.max(0, deviceMemoryBytes * TAB_SHARE[form] - used)
   const memoryBytes = Math.max(MEMORY_FLOOR_BYTES, floorMiB((tab / PEAK_MEMORY_MULTIPLE) * SAFETY_MARGIN))
@@ -110,9 +129,11 @@ export function computeCapacity(signals: CapacitySignals): Capacity {
   const usage = nonNegative(signals.usage)
   const storageBytes = quota !== null && usage !== null ? floorMiB((Math.max(0, quota - usage) / STORAGE_MULTIPLE) * SAFETY_MARGIN) : null
   const engineBytes = ENGINE_MAX_BYTES
+  const browserBytes = signals.chromium ? BROWSER_MAX_BYTES : null
   let limitedBy: CapacityLimit = 'engine'
   let vaultBytes = engineBytes
   if (memoryBytes < vaultBytes) [limitedBy, vaultBytes] = ['memory', memoryBytes]
+  if (browserBytes !== null && browserBytes < vaultBytes) [limitedBy, vaultBytes] = ['browser', browserBytes]
   if (storageBytes !== null && storageBytes < vaultBytes) [limitedBy, vaultBytes] = ['storage', storageBytes]
   return {
     vaultBytes,
@@ -121,6 +142,7 @@ export function computeCapacity(signals: CapacitySignals): Capacity {
     storageBytes,
     memoryBytes,
     engineBytes,
+    browserBytes,
     deviceMemoryBytes,
     deviceMemoryReported: reported !== null,
     persisted: signals.persisted,
@@ -128,11 +150,12 @@ export function computeCapacity(signals: CapacitySignals): Capacity {
 }
 
 /**
- * How large the open vault may grow by adding receipts. Never below the fixed budget of earlier versions, so
- * nothing that was allowed before is refused; low storage shows up in the health check instead.
+ * How large the open vault may grow by adding receipts: {@link GROWTH_SHARE} of the budget. Never below the fixed
+ * budget of earlier versions, so nothing that was allowed before is refused; low storage shows up in the health check
+ * instead.
  */
 export function growthBudget(capacity: Capacity | null): { budgetBytes: number; warnBytes: number } {
-  const budgetBytes = Math.max(LIMITS.databaseBudgetBytes, capacity?.vaultBytes ?? 0)
+  const budgetBytes = Math.max(LIMITS.databaseBudgetBytes, floorMiB((capacity?.vaultBytes ?? 0) * GROWTH_SHARE))
   return { budgetBytes, warnBytes: budgetBytes === LIMITS.databaseBudgetBytes ? LIMITS.databaseWarnBytes : floorMiB(budgetBytes * WARN_SHARE) }
 }
 
@@ -167,6 +190,21 @@ export function isMobile(g: CapacityGlobals): boolean {
     const agent = nav?.userAgent ?? ''
     // iPadOS reports a Mac user agent; touch points tell them apart.
     return /Android|iPhone|iPad|iPod|Mobile/i.test(agent) || (/Macintosh/.test(agent) && (nav?.maxTouchPoints ?? 0) > 1)
+  }, true)
+}
+
+/**
+ * Chrome, Edge, Opera, Samsung Internet and other Chromium browsers; not Chrome on iOS, which uses WebKit. Only
+ * Chromium has `navigator.userAgentData`. When unsure, Chromium, the stricter case.
+ */
+export function isChromium(g: CapacityGlobals): boolean {
+  return attempt(() => {
+    const nav = g.navigator
+    if (!nav) return true
+    if (nav.userAgentData) return true
+    const agent = nav.userAgent
+    if (typeof agent !== 'string' || agent === '') return true
+    return /\b(?:Chrome|Chromium)\/\d/.test(agent) && !/\b(?:CriOS|EdgiOS|FxiOS)\//.test(agent)
   }, true)
 }
 
@@ -205,6 +243,7 @@ export async function readCapacitySignals(g: CapacityGlobals = globalThis as unk
     deviceMemoryGiB: positive(attempt(() => g.navigator?.deviceMemory, undefined)),
     jsHeap: used !== null && limit !== null ? { used, limit } : null,
     mobile: isMobile(g),
+    chromium: isChromium(g),
   }
 }
 

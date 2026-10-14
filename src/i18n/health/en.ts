@@ -168,6 +168,7 @@ export const healthEn = {
       memory: 'This device’s memory decides how large a vault it can restore and open. A “~” means the browser does not report its memory, so a cautious estimate is used.',
       storage: 'Free storage in this browser decides how large a vault it can restore and keep.',
       engine: 'This device could hold more; the vault’s database engine sets the limit.',
+      browser: 'This browser can save a vault only up to this size. Firefox, and Safari on Apple devices, can save larger ones.',
       low: 'This browser has less free storage than a vault of ordinary size needs. Restoring a backup or saving may fail.',
       fix: 'To restore a larger backup, close other tabs and apps, free up disk space, or allow Jaybi to keep its data. A backup larger than this can still be restored on a computer with more memory or space.',
     },

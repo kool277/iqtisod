@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   BACKUP_ENVELOPE_BYTES,
+  BROWSER_MAX_BYTES,
+  CHROMIUM_IDB_VALUE_MAX_BYTES,
   ENGINE_MAX_BYTES,
+  GROWTH_SHARE,
   MEMORY_FLOOR_BYTES,
   PEAK_MEMORY_MULTIPLE,
   SAFETY_MARGIN,
@@ -10,6 +13,7 @@ import {
   computeCapacity,
   currentCapacity,
   growthBudget,
+  isChromium,
   isMobile,
   measureCapacity,
   readCapacitySignals,
@@ -30,23 +34,47 @@ const signals = (overrides: Partial<CapacitySignals> = {}): CapacitySignals => (
   deviceMemoryGiB: null,
   jsHeap: null,
   mobile: false,
+  chromium: false,
   ...overrides,
 })
 
-const CHROME_DESKTOP = signals({ deviceMemoryGiB: 8, jsHeap: { used: 40 * MIB, limit: 4 * GIB }, quota: 300 * GB, usage: 2 * MIB, persisted: true })
+const CHROME_DESKTOP = signals({ chromium: true, deviceMemoryGiB: 8, jsHeap: { used: 40 * MIB, limit: 4 * GIB }, quota: 300 * GB, usage: 2 * MIB, persisted: true })
+/** The same computer in a browser that stores large IndexedDB values (Firefox and Safari report no memory signals). */
+const LARGE_VALUES_DESKTOP = { ...CHROME_DESKTOP, chromium: false }
 const IPHONE_SAFARI = signals({ mobile: true, quota: 60 * GB, usage: 1 * MIB })
-const LOW_END_ANDROID = signals({ mobile: true, deviceMemoryGiB: 2, jsHeap: { used: 25 * MIB, limit: 1 * GIB }, quota: 8 * GB, usage: 1 * MIB })
+const LOW_END_ANDROID = signals({ chromium: true, mobile: true, deviceMemoryGiB: 2, jsHeap: { used: 25 * MIB, limit: 1 * GIB }, quota: 8 * GB, usage: 1 * MIB })
+const MEMORY_8GB_DESKTOP = Math.floor((((8 * GIB) / 4 - 40 * MIB) / PEAK_MEMORY_MULTIPLE) * SAFETY_MARGIN / MIB) * MIB
 
 describe('computeCapacity', () => {
-  it('gives desktop Chrome with 8 GB a budget far above the old 72 MB, limited by memory', () => {
+  it('limits Chrome to the largest vault it can save, far below what its memory allows', () => {
     const capacity = computeCapacity(CHROME_DESKTOP)
-    expect(capacity.limitedBy).toBe('memory')
+    expect(capacity.limitedBy).toBe('browser')
     expect(capacity.deviceMemoryReported).toBe(true)
-    const expected = Math.floor((((8 * GIB) / 4 - 40 * MIB) / PEAK_MEMORY_MULTIPLE) * SAFETY_MARGIN / MIB) * MIB
-    expect(capacity.vaultBytes).toBe(expected)
-    expect(capacity.vaultBytes).toBeGreaterThan(300 * MIB)
+    expect(capacity.memoryBytes).toBe(MEMORY_8GB_DESKTOP)
+    expect(capacity.browserBytes).toBe(BROWSER_MAX_BYTES)
+    expect(capacity.vaultBytes).toBe(126 * MIB)
+    // The stored record fits what Chromium accepts: ciphertext and GCM tag, plus an envelope of up to 256 wraps and
+    // 64 codes, which the backup budget puts at 512 KiB.
+    expect(BROWSER_MAX_BYTES + 16 + BACKUP_ENVELOPE_BYTES).toBeLessThanOrEqual(CHROMIUM_IDB_VALUE_MAX_BYTES)
     expect(capacity.fileBytes).toBe(backupFileBytesFor(capacity.vaultBytes))
+    expect(capacity.fileBytes).toBeGreaterThan(72 * MIB)
+  })
+
+  it('gives a desktop browser that stores large values a budget far above the old 72 MB, limited by memory', () => {
+    const capacity = computeCapacity(LARGE_VALUES_DESKTOP)
+    expect(capacity.limitedBy).toBe('memory')
+    expect(capacity.browserBytes).toBeNull()
+    expect(capacity.vaultBytes).toBe(MEMORY_8GB_DESKTOP)
+    expect(capacity.vaultBytes).toBeGreaterThan(300 * MIB)
     expect(capacity.fileBytes).toBeGreaterThan(400 * MIB)
+  })
+
+  it('counts at most 8 GB of device memory, though Chrome now reports 16 and 32', () => {
+    for (const deviceMemoryGiB of [16, 32, 64]) {
+      const capacity = computeCapacity({ ...LARGE_VALUES_DESKTOP, deviceMemoryGiB })
+      expect(capacity.deviceMemoryBytes).toBe(8 * GIB)
+      expect(capacity).toMatchObject({ limitedBy: 'memory', vaultBytes: MEMORY_8GB_DESKTOP })
+    }
   })
 
   it('assumes 3 GB for a phone that does not report its memory (Safari)', () => {
@@ -79,9 +107,11 @@ describe('computeCapacity', () => {
     expect(computeCapacity({ ...CHROME_DESKTOP, quota: 10 * MIB, usage: 20 * MIB })).toMatchObject({ limitedBy: 'storage', vaultBytes: 0 })
   })
 
-  it('is limited by the SQLite engine on a device with plenty of memory and space', () => {
-    const capacity = computeCapacity({ ...CHROME_DESKTOP, deviceMemoryGiB: 64 })
-    expect(capacity).toMatchObject({ limitedBy: 'engine', vaultBytes: ENGINE_MAX_BYTES, engineBytes: ENGINE_MAX_BYTES })
+  it('keeps every budget below the 640 MiB the SQLite engine can open, since memory counts up to 8 GB', () => {
+    const capacity = computeCapacity({ ...LARGE_VALUES_DESKTOP, deviceMemoryGiB: 64, jsHeap: null })
+    expect(capacity.limitedBy).toBe('memory')
+    expect(capacity.vaultBytes).toBeLessThan(ENGINE_MAX_BYTES)
+    expect(capacity.engineBytes).toBe(ENGINE_MAX_BYTES)
     expect(ENGINE_MAX_BYTES).toBe(640 * MIB)
   })
 
@@ -105,11 +135,15 @@ describe('computeCapacity', () => {
 })
 
 describe('growthBudget', () => {
-  it('is never below the fixed 48 MB budget and warns at three quarters of a larger one', () => {
+  it('stops receipts at nine tenths of the budget, never below the fixed 48 MB, and warns at three quarters of that', () => {
     expect(growthBudget(null)).toEqual({ budgetBytes: LIMITS.databaseBudgetBytes, warnBytes: LIMITS.databaseWarnBytes })
     expect(growthBudget(computeCapacity({ ...CHROME_DESKTOP, quota: 100 * MIB, usage: 90 * MIB })).budgetBytes).toBe(LIMITS.databaseBudgetBytes)
-    const desktop = computeCapacity(CHROME_DESKTOP)
-    expect(growthBudget(desktop)).toEqual({ budgetBytes: desktop.vaultBytes, warnBytes: Math.floor((desktop.vaultBytes * 0.75) / MIB) * MIB })
+    // 13 MiB of room in Chrome for records added after the last receipt, before the vault could no longer be saved.
+    expect(growthBudget(computeCapacity(CHROME_DESKTOP))).toEqual({ budgetBytes: 113 * MIB, warnBytes: 84 * MIB })
+    const desktop = computeCapacity(LARGE_VALUES_DESKTOP)
+    const budget = Math.floor((desktop.vaultBytes * GROWTH_SHARE) / MIB) * MIB
+    expect(growthBudget(desktop)).toEqual({ budgetBytes: budget, warnBytes: Math.floor((budget * 0.75) / MIB) * MIB })
+    expect(budget).toBeLessThan(desktop.vaultBytes)
   })
 })
 
@@ -143,6 +177,7 @@ describe('reading the signals', () => {
       deviceMemoryGiB: 4,
       jsHeap: { used: 30 * MIB, limit: GIB },
       mobile: true,
+      chromium: false,
     })
   })
 
@@ -160,7 +195,22 @@ describe('reading the signals', () => {
       },
     }
     expect(await readCapacitySignals(throwing)).toEqual(signals({ mobile: false }))
-    expect(await readCapacitySignals({})).toEqual(signals({ mobile: true }))
+    // Nothing known about the browser: the stricter limits of a phone and of Chromium.
+    expect(await readCapacitySignals({})).toEqual(signals({ mobile: true, chromium: true }))
+  })
+
+  it('tells Chromium browsers, whose IndexedDB caps the vault, from Firefox and Safari', () => {
+    const agent = (userAgent: string) => isChromium({ navigator: { userAgent } })
+    expect(agent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36')).toBe(true)
+    expect(agent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36 Edg/151.0.0.0')).toBe(true)
+    expect(agent('Mozilla/5.0 (Linux; Android 14; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/29.0 Chrome/140.0.0.0 Mobile Safari/537.36')).toBe(true)
+    expect(agent('Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:157.0) Gecko/20100101 Firefox/157.0')).toBe(false)
+    expect(agent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Safari/605.1.15')).toBe(false)
+    // Every iOS browser, Chrome included, runs on WebKit.
+    expect(agent('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/151.0 Mobile/15E148 Safari/604.1')).toBe(false)
+    expect(isChromium({ navigator: { userAgent: 'Firefox/157.0', userAgentData: { mobile: false } } })).toBe(true)
+    expect(isChromium({ navigator: { userAgent: '' } })).toBe(true)
+    expect(isChromium({})).toBe(true)
   })
 
   it('tells phones and tablets from desktops', () => {
