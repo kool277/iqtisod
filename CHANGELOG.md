@@ -6,6 +6,37 @@ Data formats are versioned separately from the app. Each release lists the forma
 
 ## [Unreleased]
 
+## [1.7.1] - 2026-10-14
+
+Reads backup and record versions 1–2 and schema versions 1–4. Writes backup 2, record 2, schema 4, and export format 1, the same as 1.7.0. No stored format changed, so 1.7.0 opens everything 1.7.1 saves.
+
+### Fixed
+
+- **Large vaults in Chrome could stop saving.** Chrome, Edge and the other Chromium browsers refuse to store a single IndexedDB value of 127 MiB or more, and the vault is stored as one value, but 1.7.0 let a vault grow there to about 320 MiB, or to 640 MiB on computers where Chrome now reports 16 or 32 GB of memory. Past 127 MiB every save failed ("Could not save"), and restoring such a backup failed at the last step. Chromium browsers now hold vaults of up to 126 MiB (backups of about 168 MB); Firefox and Safari keep the larger budget. If your vault in Chrome shows "Could not save", download a backup, which now holds your latest changes, and restore it in Firefox or Safari, or remove receipts until it saves again.
+- **Removing receipts gives their space back.** Deleted receipts left free pages in the database file, so a full vault stayed full (`VAULT_FULL`) however many receipts were removed. New receipts now count only the space in use, and saving compacts the file once 4 MiB or a quarter of it is free.
+- **A backup downloaded after a failed save held the last saved copy, without saying so.** It is now sealed from the open vault, with every change.
+- **Restores accept backups up to 72 MB on every device again**, as the guides promise. 1.7.0 refused smaller backups when the browser reported little free storage, and with none at all anything over about 1 MB. The health check still warns about low storage.
+- **A restore could wait forever in Firefox**, which keeps its persistent-storage question open until it is answered. Jaybi now goes on after 3 seconds.
+- **Backups that 1.6.0 opened open again**: a backup that a JSON tool saved with escape sequences (such as `\/`), and a backup from a newer version, which is again reported as newer instead of as not a backup. Files up to 72 MB that the new streaming reader refuses are read the way 1.6.0 read them.
+- New receipts stop at nine tenths of the device budget, so a vault that keeps growing through ordinary records, or a budget measured a little lower another day, can still be saved and restored on the same device.
+- After a backup is refused, choosing the same file again works. A backup too large for the device's memory no longer suggests closing tabs and trying again, which could not help.
+- A backup download no longer fails when another field of the file holds the text 1.7.0 used to mark the ciphertext.
+- The links at the bottom of this changelog compare 1.7.0 and 1.7.1 with the releases before them.
+
+### Security
+
+- Development tools: `source-map-js` 1.2.2 (used by Vite, PostCSS and Tailwind) fixes a denial-of-service advisory (GHSA-68fv-2mgg-jv7q). It was never part of the app. The app's own dependencies have no known vulnerabilities (`npm audit` and OSV.dev).
+
+### Changed
+
+- Updated the bundled SQLite WebAssembly build (3.53.4-build2), zip.js (2.23.0) and Lucide icons (1.56.0), and the development tools (Vite 8.3.4, Vitest 5.0.4, Playwright 1.64.0).
+- Device memory counts as at most 8 GB, as the budgets were designed for, although Chrome now reports 16 and 32 GB.
+
+### Known limitations
+
+- 1.6.0 shows a vault larger than 64 MiB as damaged. It is not: after a rollback, do not clear the site's data (see [Rollback](docs/devops-guide.md#rollback)).
+- Chromium browsers cannot hold a vault over 126 MiB until the vault is stored in pieces, planned for 1.8 with a new record format.
+
 ## [1.7.0] - 2026-10-06
 
 Reads backup and record versions 1–2 and schema versions 1–4. Writes backup 2, record 2, schema 4, and export format 1, the same as 1.6.0, so 1.6.0 opens everything 1.7.0 saves as long as the vault fits 1.6.0's limits (a 72 MB backup file, a 48 MB vault). The backup format version is unchanged.
@@ -336,7 +367,9 @@ Writes backup, record, and schema version 1.
 - Audit log, encrypted `.moliya` backups, day and night themes, and a collapsible sidebar.
 - Deployment to GitHub Pages.
 
-[Unreleased]: https://github.com/kool277/iqtisod/compare/v1.6.0...HEAD
+[Unreleased]: https://github.com/kool277/iqtisod/compare/v1.7.1...HEAD
+[1.7.1]: https://github.com/kool277/iqtisod/compare/v1.7.0...v1.7.1
+[1.7.0]: https://github.com/kool277/iqtisod/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/kool277/iqtisod/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/kool277/iqtisod/compare/v1.4.2...v1.5.0
 [1.4.2]: https://github.com/kool277/iqtisod/compare/v1.4.1...v1.4.2
