@@ -353,6 +353,7 @@ Running apps notice the new `version.json` within 30 minutes, or when the tab be
 
   Prefer rolling forward with a fix. For 1.3.0 in particular, a rollback also loses every invite, reset code, and sign-in check set up since the upgrade.
 
+- **1.7.x → 1.6.x.** No format version changes, but 1.6.0 caps the ciphertext at 64 MiB and backup files at 72 MB. A vault that grew past that under 1.7.x is shown by 1.6.0 as "The vault stored in this browser is damaged and cannot be opened". It is not damaged, and 1.6.0 changes nothing: do not clear the site's data. Roll forward again, or download a backup with 1.7.x first.
 - **1.4.2 → 1.4.1.** No version number changes, so 1.4.1 opens a vault 1.4.2 saved, but it cannot use wraps or codes that 1.4.2 wrote: people added, invited, or given a new or reset password under 1.4.2 (and anyone whose password protection was upgraded at sign-in) get "wrong password", and codes issued under 1.4.2 are refused. Another Admin whose wrap is older can sign in and reset them. 1.4.1 shows no audit-log warnings and drops the `audit` head when it saves; rolling forward again picks the check up without false warnings, because the log only grew. Prefer rolling forward.
 
 ## Origin and storage isolation

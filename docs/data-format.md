@@ -220,7 +220,7 @@ From 1.3.0:
 
 | Item | Limit |
 | --- | --- |
-| Decrypted database | The device budget below, and never less than 48 MiB. A new receipt that would push the database past it is refused (`VAULT_FULL`). The app warns from 75% of it (36 MiB when the budget is 48 MiB). Up to 1.6.0 the limit was 48 MiB on every device. |
+| Decrypted database | From 1.7.1, nine tenths of the device budget below (1.7.0: all of it), and never less than 48 MiB. A new receipt that would push the data past it is refused (`VAULT_FULL`); pages freed by removed receipts count as room, and once they reach 4 MiB or a quarter of the file, saving compacts the database (`VACUUM`). The app warns from 75% of it (36 MiB when the budget is 48 MiB). Up to 1.6.0 the limit was 48 MiB on every device. |
 | Receipt | 1.5 MB (1,572,864 bytes) decoded. Only `data:image/png`, `image/jpeg`, `image/webp`, or `image/gif` base64 data URLs whose first bytes match that type. SVG and anything else is refused. Receipts already stored by an earlier version are kept as they are. |
 | Backup file | From 1.7.0, the device budget below, as a file: `ceil(vault / 3) × 4` bytes of base64 plus 512 KiB for the envelope. Every device accepts at least 72 MiB, the fixed limit of 1.3.0–1.6.0 |
 | Email | 254 characters |
@@ -234,15 +234,16 @@ New passwords must also not be on a list of common passwords (the SecLists 10k l
 
 ### Device budget
 
-From 1.7.0 the largest vault a device can restore, back up, and grow by adding receipts is the smallest of three limits, each in whole MiB (`src/lib/capacity.ts`):
+From 1.7.0 the largest vault a device can restore, back up, and grow by adding receipts is the smallest of these limits, each in whole MiB (`src/lib/capacity.ts`; the browser limit from 1.7.1):
 
 | Limit | Formula |
 | --- | --- |
 | Storage | `(quota − usage) / 3 × 0.8`, from `navigator.storage.estimate()`. A restore writes the vault, may archive it, and rewrites it at the first save. Skipped when the browser does not answer |
-| Memory | `(device memory × tab share − JavaScript heap in use) / 5 × 0.8`, and never less than the vault a 72 MiB file holds (about 53.6 MiB). Device memory is `navigator.deviceMemory` (Chromium; at most 8 GiB) or, where the browser does not report it, 8 GiB on a computer and 3 GiB on a phone or tablet. The tab share is 0.25 on a computer and 0.2 on a phone or tablet. 5 is the most copies of the vault the app holds at once (see the developer guide) |
-| Engine | `(2 GiB − 128 MiB) / 3` = 640 MiB: the bundled SQLite WebAssembly heap can grow to 2 GiB, SQLite needs room of its own, and an in-memory database briefly holds its old and new buffer while it grows |
+| Memory | `(device memory × tab share − JavaScript heap in use) / 5 × 0.8`, and never less than the vault a 72 MiB file holds (about 53.6 MiB). Device memory is `navigator.deviceMemory` (Chromium), counted as at most 8 GiB although Chrome now reports 16 and 32, or, where the browser does not report it, 8 GiB on a computer and 3 GiB on a phone or tablet. The tab share is 0.25 on a computer and 0.2 on a phone or tablet. 5 is the most copies of the vault the app holds at once (see the developer guide) |
+| Engine | `(2 GiB − 128 MiB) / 3` = 640 MiB: the bundled SQLite WebAssembly heap can grow to 2 GiB, SQLite needs room of its own, and an in-memory database briefly holds its old and new buffer while it grows. With device memory counted up to 8 GiB, the memory limit stays below it |
+| Browser | Chrome, Edge and the other Chromium browsers only: 126 MiB. The vault is stored as one IndexedDB value, and Chromium refuses a value over 133,169,152 bytes (127 MiB); 1 MiB stays free for the rest of the record. Firefox and Safari store values of several hundred MiB. Chromium is recognised by `navigator.userAgentData`, or a `Chrome/` user agent that is not an iOS one |
 
-The backup and record formats do not change. A restore accepts a backup file up to this budget and never less than 72 MiB, even when free storage alone allows less (from 1.7.1; 1.7.0 refused such files): the health check warns about low storage instead, and a restore that runs out of room fails in one IndexedDB transaction without changing the stored vault. A vault that grew on a device with a large budget can be too large to restore on a smaller one; that device names the limit. The recovery tool reads the whole file as one string, which Node.js caps at about 512 Mi characters, so it decrypts vaults up to about 380 MiB. The app asks for persistent storage before a restore and after each sign-in, because the browser may grant more quota and will not evict a persistent vault.
+New receipts stop at nine tenths of the budget, so a vault that keeps growing through ordinary records, or a budget measured a little lower another day, can still be saved and restored on the same device. The backup and record formats do not change. A restore accepts a backup file up to this budget and never less than 72 MiB, even when free storage alone allows less (from 1.7.1; 1.7.0 refused such files): the health check warns about low storage instead, and a restore that runs out of room fails in one IndexedDB transaction without changing the stored vault. A vault that grew on a device with a large budget can be too large to restore on a smaller one; that device names the limit. The recovery tool reads the whole file as one string, which Node.js caps at about 512 Mi characters, so it decrypts vaults up to about 380 MiB. The app asks for persistent storage before a restore and after each sign-in, because the browser may grant more quota and will not evict a persistent vault.
 
 ### Schema version 4 (1.3.0)
 
