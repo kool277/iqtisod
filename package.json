@@ -19,7 +19,7 @@
     "rates:fetch": "node --experimental-strip-types tools/fetch-rates.ts"
   },
   "dependencies": {
-    "@sqlite.org/sqlite-wasm": "3.53.4-build1",
+    "@sqlite.org/sqlite-wasm": "3.53.4-build2",
     "@zip.js/zip.js": "^2.23.0",
     "chart.js": "^4.5.1",
     "jspdf": "^4.2.1",
