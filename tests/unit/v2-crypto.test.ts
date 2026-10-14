@@ -1,6 +1,7 @@
-import { argon2Sync } from 'node:crypto'
+import * as nodeCrypto from 'node:crypto'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { argon2idBits } from '../../src/crypto/argon2'
+import { MAX_SECRET_BYTES, readArgon2Request } from '../../src/crypto/argon2-request'
 import { canonicalize, signedBytes } from '../../src/crypto/canonical'
 import { generateDek } from '../../src/crypto/crypto.service'
 import { unwrapDekWith, wrapDekTo } from '../../src/crypto/ecies'
@@ -12,6 +13,11 @@ import { LABELS, fingerprintOf, formatFingerprint, signPayload, verifyPayload } 
 import { assertSuite, resetSuiteDetectionForTests, suiteSupported } from '../../src/crypto/suite'
 
 const FAST: Argon2Params = { name: 'Argon2id', m: 19_456, t: 2, p: 1, len: 32, v: 19 }
+
+/** Node added `crypto.argon2Sync` in 24.7; CI runs the `.nvmrc` version, which may not have it. */
+const argon2Sync = (nodeCrypto as Partial<typeof nodeCrypto>).argon2Sync
+/** `argon2Sync` output for 'correct horse', a salt of sixteen 9s, and ARGON2_DEFAULT, recorded with Node 26. */
+const DEFAULT_PARAMS_REFERENCE = '1ddfe7e9496633f1d57352e2fc396f7508d321fd1e6d9b38a70e40bac95ff1be'
 
 async function rawDek(key: CryptoKey): Promise<string> {
   return bytesToHex(new Uint8Array(await crypto.subtle.exportKey('raw', key)))
@@ -46,8 +52,8 @@ describe('JCS canonicalization (RFC 8785)', () => {
 })
 
 describe('Argon2id', () => {
-  it('matches the RFC 9106 Argon2id test vector (through Node, the reference the app is checked against)', () => {
-    const tag = argon2Sync('argon2id', {
+  it.skipIf(!argon2Sync)('matches the RFC 9106 Argon2id test vector (through Node, the reference the app is checked against)', () => {
+    const tag = argon2Sync!('argon2id', {
       message: Buffer.alloc(32, 1),
       nonce: Buffer.alloc(16, 2),
       secret: Buffer.alloc(8, 3),
@@ -63,8 +69,11 @@ describe('Argon2id', () => {
   it('gives the same bits as Node at the default parameters', async () => {
     const salt = new Uint8Array(16).fill(9)
     const ours = await argon2idBits('correct horse', salt, ARGON2_DEFAULT)
-    const node = argon2Sync('argon2id', { message: Buffer.from('correct horse'), nonce: salt, parallelism: 1, tagLength: 32, memory: 65_536, passes: 3 })
-    expect(bytesToHex(ours)).toBe(node.toString('hex'))
+    expect(bytesToHex(ours)).toBe(DEFAULT_PARAMS_REFERENCE)
+    if (argon2Sync) {
+      const node = argon2Sync('argon2id', { message: Buffer.from('correct horse'), nonce: salt, parallelism: 1, tagLength: 32, memory: 65_536, passes: 3 })
+      expect(node.toString('hex')).toBe(DEFAULT_PARAMS_REFERENCE)
+    }
   })
 
   it('refuses parameters outside the bounds before allocating', async () => {
@@ -82,6 +91,42 @@ describe('Argon2id', () => {
       expect(isArgon2Params(bad)).toBe(false)
       await expect(argon2idBits('x', new Uint8Array(16), bad as Argon2Params)).rejects.toThrow('Unsupported key derivation parameters')
     }
+  })
+})
+
+describe('Argon2id worker messages', () => {
+  const own = 'https://jaybi.uz'
+  const valid = () => ({ id: 1, secret: new Uint8Array(12).fill(1), salt: new Uint8Array(16).fill(2), m: ARGON2_DEFAULT.m, t: ARGON2_DEFAULT.t, p: ARGON2_DEFAULT.p })
+
+  it('accepts a well-formed request from the page that started the worker', () => {
+    expect(readArgon2Request({ origin: '', data: valid() }, own)).toMatchObject({ id: 1, m: ARGON2_DEFAULT.m })
+    expect(readArgon2Request({ origin: own, data: valid() }, own)).not.toBeNull()
+  })
+
+  it('drops messages from any other origin', () => {
+    expect(readArgon2Request({ origin: 'https://evil.example', data: valid() }, own)).toBeNull()
+    expect(readArgon2Request({ origin: 'null', data: valid() }, own)).toBeNull()
+  })
+
+  it('drops anything not shaped exactly like a request', () => {
+    const bad: unknown[] = [
+      null,
+      'x',
+      [valid()],
+      { ...valid(), extra: 1 },
+      { ...valid(), id: 0 },
+      { ...valid(), id: 1.5 },
+      { ...valid(), secret: 'password' },
+      { ...valid(), secret: new Uint8Array(0) },
+      { ...valid(), secret: new Uint8Array(MAX_SECRET_BYTES + 1) },
+      { ...valid(), salt: new Uint8Array(8) },
+      { ...valid(), salt: new Uint16Array(16) },
+      { ...valid(), m: 4 * 1024 * 1024 },
+      { ...valid(), t: 1 },
+      { ...valid(), p: 5 },
+      { ...valid(), m: '65536' },
+    ]
+    for (const data of bad) expect(readArgon2Request({ origin: '', data }, own)).toBeNull()
   })
 })
 

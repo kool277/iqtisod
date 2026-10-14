@@ -46,7 +46,8 @@ function isPlain(value: unknown): value is Record<string, unknown> {
 function shape(value: unknown, checks: Record<string, Check>): value is Record<string, unknown> {
   if (!isPlain(value)) return false
   const keys = Object.keys(value)
-  return keys.length === Object.keys(checks).length && keys.every((key) => key in checks && checks[key](value[key]))
+  // Own keys only: `in` would also match toString, valueOf and the rest of Object.prototype.
+  return keys.length === Object.keys(checks).length && keys.every((key) => Object.hasOwn(checks, key) && checks[key](value[key]))
 }
 
 const pub = b64(32)

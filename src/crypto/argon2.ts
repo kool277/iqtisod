@@ -22,11 +22,13 @@ function startWorker(): Worker | null {
     workerFailed = true
     return null
   }
-  worker.onmessage = (event: MessageEvent<{ id: number; bits?: Uint8Array; error?: string }>) => {
-    const entry = pending.get(event.data.id)
+  worker.onmessage = (event: MessageEvent<{ id?: unknown; bits?: unknown } | null>) => {
+    const id = event.data?.id
+    const entry = typeof id === 'number' ? pending.get(id) : undefined
     if (!entry) return
-    pending.delete(event.data.id)
-    if (event.data.bits) entry.resolve(event.data.bits)
+    pending.delete(id as number)
+    const bits = event.data?.bits
+    if (bits instanceof Uint8Array && bits.byteLength === 32) entry.resolve(bits)
     else entry.reject(new ValidationError('KDF_MEMORY'))
   }
   worker.onerror = () => {

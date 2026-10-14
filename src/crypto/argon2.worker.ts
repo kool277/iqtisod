@@ -1,14 +1,21 @@
 import { argon2id } from 'hash-wasm'
-
-type Request = { id: number; secret: Uint8Array; salt: Uint8Array; m: number; t: number; p: number }
+import { readArgon2Request } from './argon2-request'
 
 const scope = self as unknown as {
-  onmessage: ((event: MessageEvent<Request>) => void) | null
+  location: { origin: string }
+  onmessage: ((event: MessageEvent<unknown>) => void) | null
   postMessage: (message: unknown, transfer?: Transferable[]) => void
 }
 
 scope.onmessage = (event) => {
-  const { id, secret, salt, m, t, p } = event.data
+  if (event.origin !== '' && event.origin !== scope.location.origin) return
+  const request = readArgon2Request(event, scope.location.origin)
+  if (!request) {
+    const id = (event.data as { id?: unknown } | null)?.id
+    if (Number.isSafeInteger(id)) scope.postMessage({ id, error: 'BAD_REQUEST' })
+    return
+  }
+  const { id, secret, salt, m, t, p } = request
   argon2id({ password: secret, salt, parallelism: p, iterations: t, memorySize: m, hashLength: 32, outputType: 'binary' }).then(
     (bits) => {
       secret.fill(0)
