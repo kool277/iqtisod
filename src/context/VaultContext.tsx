@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { auditHead, type AuditHead } from '../db/audit-chain'
 import { encodeStoredRecord } from '../db/envelope'
-import { readVault, readVaultRaw, stampOf, stripArchivedGrants, writeVault, type LoadedVault, type VaultRecord } from '../db/storage'
+import { readVault, readVaultRaw, stampOf, stripArchivedGrantsOnce, writeVault, type LoadedVault, type VaultRecord } from '../db/storage'
 import { RECORD_VERSION, SCHEMA_VERSION } from '../db/versions'
 import type { OpenVault, SessionUser } from '../domain/types'
 import { AppError, AuthError, ConflictError, ForbiddenError, ValidationError, VaultInUseError } from '../domain/errors'
@@ -585,7 +585,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         setStatus('error')
       }
     })()
-    void stripArchivedGrants().catch(() => undefined)
+    void stripArchivedGrantsOnce().catch(() => undefined)
     const onVisible = () => {
       if (document.visibilityState === 'visible') observeClock()
     }

@@ -1,6 +1,7 @@
 import { cloneBuffer, cloneBytes } from '../crypto/encoding'
 import { ConflictError, CorruptRecordError, ValidationError } from '../domain/errors'
 import type { GrantWrap, UserWrap } from '../domain/types'
+import { readPreference, writePreference } from '../lib/preference'
 import { APP_VERSION } from '../lib/version'
 import type { AuditHead } from './audit-chain'
 import {
@@ -227,6 +228,19 @@ export async function stripArchivedGrants(): Promise<number> {
   } finally {
     database.close()
   }
+}
+
+/** Set once the archives in this browser hold no code wraps; every build since 1.4.2 archives without them. */
+export const ARCHIVES_CLEAN_KEY = 'moliya.archives.noGrants.v1'
+
+/**
+ * {@link stripArchivedGrants} until it has finished once in this browser. It reads every archive whole, which for a
+ * large vault is hundreds of MB at each start, and the app starts again after every lock.
+ */
+export async function stripArchivedGrantsOnce(): Promise<void> {
+  if (readPreference(ARCHIVES_CLEAN_KEY) === 'yes') return
+  await stripArchivedGrants()
+  writePreference(ARCHIVES_CLEAN_KEY, 'yes')
 }
 
 export function wrapsFromRecord(record: VaultRecord): UserWrap[] {
