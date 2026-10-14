@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { AppError } from '../domain/errors'
 import type { MessageKey } from '../i18n'
 import type { Capacity } from '../lib/capacity'
 import { formatBytes, restoreLimitBytes } from '../lib/limits'
@@ -10,7 +11,8 @@ const measureCapacity = () => import('../lib/capacity').then((module) => module.
 
 type Translate = (key: MessageKey) => string
 
-export class BackupTooLargeError extends Error {
+/** An AppError like any other, so a caller that does not word it itself still gets the IMPORT_TOO_LARGE text. */
+export class BackupTooLargeError extends AppError {
   constructor(readonly capacity: Capacity, readonly fileBytes: number) {
     super('IMPORT_TOO_LARGE')
     this.name = 'BackupTooLargeError'
