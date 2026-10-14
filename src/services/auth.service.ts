@@ -104,10 +104,27 @@ function roleId(db: SqlDatabase, name: string): number {
   return Number(value)
 }
 
+const MIB = 1024 * 1024
+
+/**
+ * Deleted receipts leave free pages that are saved with the vault and count against what the browser can store,
+ * so they are given back once they reach 4 MiB or a quarter of the file. Best effort: the save goes on either way.
+ */
+export function compactIfSparse(db: SqlDatabase): void {
+  const free = db.freeBytes()
+  if (free === 0 || (free < 4 * MIB && free < db.sizeBytes() / 4)) return
+  try {
+    db.vacuum()
+  } catch {
+    return
+  }
+}
+
 async function seal(db: SqlDatabase, dek: CryptoKey, wraps: UserWrap[], grants: GrantWrap[], createdAt: string | null): Promise<VaultRecord> {
   const now = Date.now()
   observeClock(now)
   if (readSchemaVersion(db) >= 4) recordClock(db, now)
+  compactIfSparse(db)
   const exported = db.export()
   let sealed: Awaited<ReturnType<typeof encryptDatabase>>
   try {

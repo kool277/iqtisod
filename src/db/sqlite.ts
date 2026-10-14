@@ -85,6 +85,16 @@ export class SqlDatabase {
     return Number(this.queryValue('PRAGMA page_count') ?? 0) * Number(this.queryValue('PRAGMA page_size') ?? 0)
   }
 
+  /** Pages freed by deletes. They stay in the file, and are written with it, until {@link vacuum}. */
+  freeBytes(): number {
+    return Number(this.queryValue('PRAGMA freelist_count') ?? 0) * Number(this.queryValue('PRAGMA page_size') ?? 0)
+  }
+
+  /** What the data takes: new rows fill freed pages before the file grows. */
+  usedBytes(): number {
+    return this.sizeBytes() - this.freeBytes()
+  }
+
   /**
    * Copies `bytes` straight into the WebAssembly heap (the caller wipes its own copy) with some room to grow, so the
    * first writes after opening do not make memdb reallocate to twice the database size.
