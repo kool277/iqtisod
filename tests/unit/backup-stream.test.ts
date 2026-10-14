@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Base64Decoder, Base64Error, base64ToExactBytes } from '../../src/crypto/base64-stream'
-import { base64Blob } from '../../src/crypto/encoding'
+import { base64Blob, bytesToBase64 } from '../../src/crypto/encoding'
 import { LONG_STRING_BYTES, SKELETON_MAX_BYTES, readBackup, readBackupFile } from '../../src/db/backup-reader'
 import { decodeStoredRecord, encodeStoredRecord, parseBackupText } from '../../src/db/envelope'
 import { recordFromSession, wrapsFromRecord } from '../../src/db/storage'
@@ -74,6 +74,25 @@ describe('Base64Decoder', () => {
       const out = base64Blob('{"a":"', new Uint8Array(source), '"}', 'application/json')
       expect(await out.text()).toBe(`{"a":"${source.toString('base64')}"}`)
     }
+  })
+})
+
+describe('bytesToBase64', () => {
+  it("gives Node's text with the browser's own encoder and without it", () => {
+    const lengths = [0, 1, 2, 3, 4, 5, 0x7fff, 0x8000, 0x8001, 3 * 0x8000 + 2, 1_000_003]
+    const cases = lengths.map((length) => randomBytes(length))
+    const native = Object.getOwnPropertyDescriptor(Uint8Array.prototype, 'toBase64')
+    expect(native, 'this Node has Uint8Array.prototype.toBase64').toBeDefined()
+    for (const bytes of cases) expect(bytesToBase64(new Uint8Array(bytes))).toBe(bytes.toString('base64'))
+    Object.defineProperty(Uint8Array.prototype, 'toBase64', { value: undefined, configurable: true, writable: true })
+    try {
+      for (const bytes of cases) expect(bytesToBase64(new Uint8Array(bytes))).toBe(bytes.toString('base64'))
+      // A view onto part of a larger buffer encodes only its own bytes.
+      expect(bytesToBase64(new Uint8Array(cases[8].buffer, cases[8].byteOffset + 3, 10))).toBe(cases[8].subarray(3, 13).toString('base64'))
+    } finally {
+      Object.defineProperty(Uint8Array.prototype, 'toBase64', native!)
+    }
+    expect(bytesToBase64(new Uint8Array(cases[8].buffer, cases[8].byteOffset + 3, 10))).toBe(cases[8].subarray(3, 13).toString('base64'))
   })
 })
 
