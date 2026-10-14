@@ -6,6 +6,7 @@ import { createVault, sealVault, unlockVault } from '../../src/services/auth.ser
 import { readVault, writeVault } from '../../src/db/storage'
 import { capacityCheck, vaultChecks } from '../../src/health/evaluate'
 import { computeCapacity, growthBudget, type CapacitySignals } from '../../src/lib/capacity'
+import { formatBytes, restoreLimitBytes } from '../../src/lib/limits'
 import { fixtureByPath } from '../support/fixtures'
 
 const MIB = 1024 * 1024
@@ -128,6 +129,15 @@ describe('health: largest vault on this device', () => {
     expect(roomy).toMatchObject({ status: 'pass', detail: 'storage' })
     const cramped = capacityCheck(computeCapacity({ ...base, quota: MIBS(100), usage: MIBS(20), persisted: false }))
     expect(cramped).toMatchObject({ status: 'warn', detail: 'low', action: 'persist' })
+    // No button where the browser cannot keep data at all: it could only say it was refused.
+    expect(capacityCheck(computeCapacity({ ...base, quota: MIBS(100), usage: MIBS(20), persisted: false }), false)).not.toHaveProperty('action')
+  })
+
+  it('shows the same figures as the restore screens', () => {
+    const capacity = computeCapacity(base)
+    expect(capacity.fileBytes % MIB).not.toBe(0)
+    const check = capacityCheck(capacity)
+    expect(check.facts).toMatchObject({ vaultLimit: formatBytes(capacity.vaultBytes), backupLimit: formatBytes(restoreLimitBytes(capacity.fileBytes)) })
   })
 
   it('measures the vault size against the device budget', () => {

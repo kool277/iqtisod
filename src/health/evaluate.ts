@@ -1,7 +1,7 @@
 import { RECORD_VERSION, SCHEMA_VERSION } from '../db/versions'
 import { isStale } from '../domain/fx'
 import { growthBudget, type Capacity } from '../lib/capacity'
-import { LIMITS, restoreLimitBytes } from '../lib/limits'
+import { LIMITS, formatBytes, restoreLimitBytes } from '../lib/limits'
 import { isNewAddress, isOldAddress } from '../lib/origin-move'
 import { BACKUP_STALE_DAYS } from '../services/backup.service'
 import { CLOCK_TOLERANCE_MS } from '../services/grant-store'
@@ -85,7 +85,7 @@ export function storageChecks(facts: StorageFacts, capacity?: Capacity): HealthR
           : result('quota', 'pass', 'ok', { facts: shown }),
     )
   }
-  if (capacity) results.push(capacityCheck(capacity))
+  if (capacity) results.push(capacityCheck(capacity, facts.canPersist))
   results.push(
     facts.persisted === true
       ? result('persisted', 'pass', 'ok')
@@ -106,14 +106,15 @@ export function storageChecks(facts: StorageFacts, capacity?: Capacity): HealthR
 }
 
 /** How large a vault this device can restore and open, and which of its limits decides that. */
-export function capacityCheck(capacity: Capacity): HealthResult {
+export function capacityCheck(capacity: Capacity, canPersist = true): HealthResult {
   const gib = capacity.deviceMemoryBytes / (1024 * MIB)
   const shown = {
-    vaultLimit: megabytes(capacity.vaultBytes),
-    backupLimit: megabytes(restoreLimitBytes(capacity.fileBytes)),
+    // Rounded down like the restore screens, so both show the same figure.
+    vaultLimit: formatBytes(capacity.vaultBytes),
+    backupLimit: formatBytes(restoreLimitBytes(capacity.fileBytes)),
     deviceMemory: `${capacity.deviceMemoryReported ? '' : '~'}${Number.isInteger(gib) ? gib : gib.toFixed(1)} GB`,
   }
-  if (capacity.limitedBy === 'storage' && capacity.vaultBytes < LIMITS.databaseBudgetBytes) return result('capacity', 'warn', 'low', { facts: shown, ...(capacity.persisted === false ? { action: 'persist' as const } : {}) })
+  if (capacity.limitedBy === 'storage' && capacity.vaultBytes < LIMITS.databaseBudgetBytes) return result('capacity', 'warn', 'low', { facts: shown, ...(capacity.persisted === false && canPersist ? { action: 'persist' as const } : {}) })
   return result('capacity', 'pass', capacity.limitedBy, { facts: shown })
 }
 
