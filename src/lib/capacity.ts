@@ -254,7 +254,21 @@ export function currentCapacity(): Capacity | null {
   return latest
 }
 
+const listeners = new Set<(capacity: Capacity) => void>()
+
+/**
+ * Calls `listener` with every later measurement (the health check and the restore screens measure again), so the
+ * size warning follows the budget that new receipts are held to. Returns the function that stops it.
+ */
+export function onCapacity(listener: (capacity: Capacity) => void): () => void {
+  listeners.add(listener)
+  return () => {
+    listeners.delete(listener)
+  }
+}
+
 export async function measureCapacity(g?: CapacityGlobals): Promise<Capacity> {
   latest = computeCapacity(await readCapacitySignals(g))
+  for (const listener of listeners) listener(latest)
   return latest
 }

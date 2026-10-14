@@ -127,6 +127,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   // While a log warning is open, this browser's mark stays where it was; an accepted warning moves it back to the log.
   const auditHeldRef = useRef(false)
   const auditResetRef = useRef(false)
+  const capacityRef = useRef<(() => void) | null>(null)
   const [throttle] = useState(() => createThrottle({ mirror: indexedDbThrottleMirror() }))
   const throttleRef = useRef(throttle)
   const [status, setStatus] = useState<Status>('checking')
@@ -192,7 +193,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       setStatus('ready')
       void requestPersistenceBriefly()
         .then(() => import('../lib/capacity'))
-        .then(async ({ growthBudget, measureCapacity }) => setWarnBytes(growthBudget(await measureCapacity()).warnBytes))
+        .then(async ({ growthBudget, measureCapacity, onCapacity }) => {
+          // Every measurement moves the receipt limit (finance.service reads the latest), so the warning follows it.
+          capacityRef.current ??= onCapacity((capacity) => setWarnBytes(growthBudget(capacity).warnBytes))
+          await measureCapacity()
+        })
         .catch(() => undefined)
     },
     [syncState],
@@ -624,6 +629,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     return () => {
       if (debounceRef.current != null) window.clearTimeout(debounceRef.current)
+      capacityRef.current?.()
     }
   }, [])
 
