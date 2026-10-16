@@ -1,8 +1,8 @@
 import { randomBytes } from 'node:crypto'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Base64Decoder, Base64Error, base64ToExactBytes } from '../../src/crypto/base64-stream'
-import { base64Blob } from '../../src/crypto/encoding'
-import { LONG_STRING_BYTES, SKELETON_MAX_BYTES, readBackup, readBackupFile } from '../../src/db/backup-reader'
+import { base64Blob, bytesToBase64 } from '../../src/crypto/encoding'
+import { LONG_STRING_BYTES, READ_BYTES, SKELETON_MAX_BYTES, readBackup, readBackupFile } from '../../src/db/backup-reader'
 import { decodeStoredRecord, encodeStoredRecord, parseBackupText } from '../../src/db/envelope'
 import { recordFromSession, wrapsFromRecord } from '../../src/db/storage'
 import { AppError } from '../../src/domain/errors'
@@ -73,6 +73,31 @@ describe('Base64Decoder', () => {
       const source = randomBytes(length)
       const out = base64Blob('{"a":"', new Uint8Array(source), '"}', 'application/json')
       expect(await out.text()).toBe(`{"a":"${source.toString('base64')}"}`)
+    }
+  })
+})
+
+describe('bytesToBase64', () => {
+  it("gives Node's text with the browser's own encoder and without it", () => {
+    const lengths = [0, 1, 2, 3, 4, 5, 0x7fff, 0x8000, 0x8001, 3 * 0x8000 + 2, 1_000_003]
+    const cases = lengths.map((length) => randomBytes(length))
+    const original = Object.getOwnPropertyDescriptor(Uint8Array.prototype, 'toBase64')
+    // Node 22, which CI runs, has no Uint8Array.prototype.toBase64; a stand-in still shows the native path is taken.
+    const standIn = vi.fn(function (this: Uint8Array) {
+      return Buffer.from(this.buffer, this.byteOffset, this.byteLength).toString('base64')
+    })
+    const setNative = (value: unknown) => Object.defineProperty(Uint8Array.prototype, 'toBase64', { value, configurable: true, writable: true })
+    try {
+      setNative(original?.value ?? standIn)
+      for (const bytes of cases) expect(bytesToBase64(new Uint8Array(bytes))).toBe(bytes.toString('base64'))
+      if (!original) expect(standIn).toHaveBeenCalledTimes(cases.length)
+      setNative(undefined)
+      for (const bytes of cases) expect(bytesToBase64(new Uint8Array(bytes))).toBe(bytes.toString('base64'))
+      // A view onto part of a larger buffer encodes only its own bytes.
+      expect(bytesToBase64(new Uint8Array(cases[8].buffer, cases[8].byteOffset + 3, 10))).toBe(cases[8].subarray(3, 13).toString('base64'))
+    } finally {
+      if (original) Object.defineProperty(Uint8Array.prototype, 'toBase64', original)
+      else delete (Uint8Array.prototype as { toBase64?: unknown }).toBase64
     }
   })
 })
@@ -171,6 +196,27 @@ describe('readBackupFile', () => {
     for (const [label, text] of cases) expect(await codeOf(readBackupFile(blob(text))), label).toBe('BACKUP')
     expect(await codeOf(readBackupFile(new Blob([new Uint8Array([0x7b, 0x22, 0xff, 0xfe, 0x22, 0x3a, 0x31, 0x7d])])))).toBe('BACKUP')
     expect(SKELETON_MAX_BYTES).toBe(MIB)
+  })
+
+  it('finds the end of the body and its padding wherever the closing quote falls between read pieces', async () => {
+    // About 4,000,000 characters of base64, so the quote can be moved onto the 4 MiB piece boundary; 0, 2 and 1 `=`.
+    for (const bodyBytes of [3_000_000, 3_000_001, 3_000_002]) {
+      const plain = backupWithBody(bodyBytes).text
+      const quote = plain.lastIndexOf('"}')
+      for (const at of [READ_BYTES - 1, READ_BYTES, READ_BYTES + 1, READ_BYTES + 2]) {
+        // JSON whitespace before the body moves its closing quote to file offset `at` (a long string would not do:
+        // only one string may be that long).
+        const text = plain.replace('"body":', `${' '.repeat(at - quote)}"body":`)
+        expect(Buffer.byteLength(text.slice(0, text.lastIndexOf('"}')))).toBe(at)
+        expect(await readBackupFile(blob(text)), `${bodyBytes} at ${at}`).toEqual(parseBackupText(text))
+      }
+    }
+  })
+
+  it('refuses an escaped quote right before the end of the body', async () => {
+    const { text } = backupWithBody(LONG_STRING_BYTES * 2)
+    const at = text.lastIndexOf('"}')
+    expect(await codeOf(readBackupFile(blob(`${text.slice(0, at - 1)}\\"${text.slice(at)}`)))).toBe('BACKUP')
   })
 
   it('keeps names and emails that are not ASCII', async () => {

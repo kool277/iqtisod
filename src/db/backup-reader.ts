@@ -14,7 +14,7 @@ import { parseBackupJson, parseBackupText, type DecodedBackup } from './envelope
  * and the placeholder is accepted only where the ciphertext belongs.
  */
 
-const READ_BYTES = 4 * 1024 * 1024
+export const READ_BYTES = 4 * 1024 * 1024
 /** Everything but the ciphertext: 256 wraps, 64 codes and the JSON around them fit many times over. */
 export const SKELETON_MAX_BYTES = 1024 * 1024
 /** Strings longer than this leave the skeleton. Every legitimate one except the ciphertext is far shorter. */
@@ -84,7 +84,9 @@ async function scan(file: Blob, longStringBytes: number): Promise<{ skeleton: st
   let skeletonStart = 0
   let length = 0
   let diverted = false
-  let padding = 0
+  // The two bytes before the current piece of a diverted string, which may hold its `=` padding.
+  let before1 = 0
+  let before2 = 0
   let long: LongString | null = null
 
   const divert = () => {
@@ -93,6 +95,8 @@ async function scan(file: Blob, longStringBytes: number): Promise<{ skeleton: st
     skeleton.truncate(skeletonStart - 1)
     for (let index = 0; index < PLACEHOLDER_JSON.length; index += 1) skeleton.push(PLACEHOLDER_JSON.charCodeAt(index))
     diverted = true
+    before1 = 0
+    before2 = 0
   }
 
   await readPieces(file, 0, file.size, (piece, offset) => {
@@ -106,24 +110,25 @@ async function scan(file: Blob, longStringBytes: number): Promise<{ skeleton: st
           skeletonStart = skeleton.length
           length = 0
           diverted = false
-          padding = 0
         }
         continue
       }
       if (diverted) {
-        if (code === QUOTE) {
-          if ((length + padding) % 4 !== 0) throw badBackup()
-          long = { start: fileStart, end: offset + index, padding }
-          inString = false
-          continue
+        // The rest of the ciphertext is only looked through for its closing quote, natively. Pass 2 decodes it and
+        // refuses anything that is not padded standard base64 (an escape included), so nothing is checked twice.
+        const end = piece.indexOf(QUOTE, index)
+        if (end < 0) {
+          before2 = piece.length > 1 ? piece[piece.length - 2] : before1
+          before1 = piece[piece.length - 1]
+          break
         }
-        if (code === PAD) {
-          if (++padding > 2) throw badBackup()
-        } else if (padding > 0 || !isBase64Char(code)) {
-          throw badBackup()
-        } else {
-          length += 1
-        }
+        const last = end > 0 ? piece[end - 1] : before1
+        const secondLast = end > 1 ? piece[end - 2] : end === 1 ? before1 : before2
+        const padding = (last === PAD ? 1 : 0) + (last === PAD && secondLast === PAD ? 1 : 0)
+        if ((offset + end - fileStart) % 4 !== 0) throw badBackup()
+        long = { start: fileStart, end: offset + end, padding }
+        inString = false
+        index = end
         continue
       }
       skeleton.push(code)

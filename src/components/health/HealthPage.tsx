@@ -8,6 +8,7 @@ import { hasHealthMessages, loadHealthMessages, type MessageKey } from '../../i1
 import { HEALTH_GROUPS, overall, summarize, type HealthAction, type HealthResult, type HealthStatus } from '../../health/model'
 import { healthReport, shortAgent } from '../../health/report'
 import { runHealthChecks } from '../../health/run'
+import { fillTemplate as fill } from '../../lib/template'
 import { BUILD } from '../../lib/version'
 import { HelpLink } from '../help/HelpLink'
 import { Button } from '../ui'
@@ -33,10 +34,6 @@ const ACTION_ROUTES: Partial<Record<HealthAction, string>> = {
   audit: '/app/audit',
   account: '/app/account',
   users: '/app/users',
-}
-
-function fill(template: string, values: Record<string, string | number>): string {
-  return template.replace(/\{(\w+)\}/g, (match, name: string) => (name in values ? String(values[name]) : match))
 }
 
 type Mode = 'app' | 'standalone' | 'embedded'

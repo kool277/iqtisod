@@ -73,6 +73,11 @@ const WASM_HEADER = new Uint8Array([0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x
 const PROBE_DB = 'jaybi-health-probe'
 const PROBE_KEY = 'jaybi.health.probe'
 const PROBE_TIMEOUT_MS = 4000
+/**
+ * Reading the stored vault means reading all of it, which for a vault of a few hundred MB can take seconds on a phone.
+ * Only a read that fails, or takes longer than this, counts as unreadable.
+ */
+export const RECORD_TIMEOUT_MS = 20_000
 const CSP_SELECTOR = 'meta[http-equiv="Content-Security-Policy"]'
 
 function safe<T>(read: () => T, fallback: T): T {
@@ -212,6 +217,7 @@ export async function collectStorageFacts(g: HealthGlobals, probes: StorageProbe
         () => null,
       ),
       null,
+      RECORD_TIMEOUT_MS,
     ),
   ])
   return {

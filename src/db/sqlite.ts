@@ -97,15 +97,16 @@ export class SqlDatabase {
 
   /**
    * Copies `bytes` straight into the WebAssembly heap (the caller wipes its own copy) with some room to grow, so the
-   * first writes after opening do not make memdb reallocate to twice the database size.
+   * first writes after opening do not make memdb reallocate to twice the database size. A copy that is only read
+   * (an export's snapshot) passes `growth: 0`; it can still grow, by reallocating.
    */
-  static async openBytes(bytes: Uint8Array): Promise<SqlDatabase> {
+  static async openBytes(bytes: Uint8Array, options: { growth?: number } = {}): Promise<SqlDatabase> {
     const sqlite3 = await loadModule()
     const db = new sqlite3.oo1.DB(':memory:', 'c')
     try {
       if (db.pointer == null) throw new Error('SQLite handle is not open')
       const size = bytes.byteLength
-      const room = size + growthRoom(size)
+      const room = size + (options.growth ?? growthRoom(size))
       const pointer = sqlite3.wasm.alloc(room)
       sqlite3.wasm.heap8u().set(bytes, pointer)
       const flags = sqlite3.capi.SQLITE_DESERIALIZE_FREEONCLOSE | sqlite3.capi.SQLITE_DESERIALIZE_RESIZEABLE
@@ -177,6 +178,34 @@ export class SqlDatabase {
     // A database built in this session is not a memdb buffer, so SQLite has to assemble a copy.
     const exported = capi.sqlite3_js_db_export(pointer)
     return exported instanceof Uint8Array ? exported : new Uint8Array(exported)
+  }
+
+  /**
+   * Hands `use` the database as SQLite keeps it, without copying it out of the WebAssembly heap where it is one memdb
+   * buffer. The view is only valid while `use` runs: `use` must not keep it or call SQLite. A database built in this
+   * session is not one buffer, so it gets the copy {@link export} assembles, wiped once `use` returns.
+   */
+  withImage<T>(use: (image: Uint8Array) => T): T {
+    const pointer = this.db.pointer
+    if (pointer == null) throw new Error('SQLite handle is not open')
+    const { capi, wasm } = this.sqlite3
+    let image: Uint8Array | null = null
+    const scope = wasm.scopedAllocPush()
+    try {
+      const sizeOut = wasm.scopedAlloc(8)
+      const data = capi.sqlite3_serialize(pointer, 'main', sizeOut, capi.SQLITE_SERIALIZE_NOCOPY)
+      const size = Number(wasm.peek(sizeOut, 'i64'))
+      if (data && size > 0) image = wasm.heap8u().subarray(data, data + size)
+    } finally {
+      wasm.scopedAllocPop(scope)
+    }
+    if (image) return use(image)
+    const copy = this.export()
+    try {
+      return use(copy)
+    } finally {
+      copy.fill(0)
+    }
   }
 
   close(): void {

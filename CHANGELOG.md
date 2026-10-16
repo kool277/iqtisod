@@ -6,6 +6,25 @@ Data formats are versioned separately from the app. Each release lists the forma
 
 ## [Unreleased]
 
+## [1.7.2] - 2026-10-16
+
+Reads backup and record versions 1–2 and schema versions 1–4. Writes backup 2, record 2, schema 4, and export format 1, the same as 1.7.1. No stored format changed, so 1.7.1 opens everything 1.7.2 saves.
+
+### Fixed
+
+- **Health check:** the storage row counts a full-size vault as large as this device lets receipts make it, not the 48 MB of 1.6.0, so it no longer reports room for a full vault that is not there. Reading a large stored vault may take up to 20 seconds before it counts as unreadable, so a big vault on a slow phone is no longer reported as unreadable, with advice to import a backup.
+- The size warning follows the same budget as the limit on new receipts, also after the health check or a restore screen measures the device again.
+- The health check shows the same restore figures as the restore screens, and offers to keep data only where the browser can.
+- The user guides and Help show the current restore screens and health check in all four languages.
+
+### Changed
+
+- Downloading a backup is about seventy times faster where the browser encodes base64 itself (Chrome 140, Firefox 133, Safari 18.2 and later), so a large vault no longer freezes the page for seconds.
+- Reading a backup to restore it is about two and a half times faster: the first pass only looks for the end of the encrypted body.
+- Saving encrypts the vault straight from the database engine's memory: one vault-sized copy less, and no copy of the decrypted vault outside the engine and the browser's own encryption.
+- Starting Jaybi no longer reads every earlier copy of the vault whole to remove one-time code wraps that versions before 1.4.2 left in them; that now happens once per browser.
+- An SQLite export of a large vault needs one vault-sized copy less memory.
+
 ## [1.7.1] - 2026-10-14
 
 Reads backup and record versions 1–2 and schema versions 1–4. Writes backup 2, record 2, schema 4, and export format 1, the same as 1.7.0. No stored format changed, so 1.7.0 opens everything 1.7.1 saves.
@@ -367,7 +386,8 @@ Writes backup, record, and schema version 1.
 - Audit log, encrypted `.moliya` backups, day and night themes, and a collapsible sidebar.
 - Deployment to GitHub Pages.
 
-[Unreleased]: https://github.com/kool277/iqtisod/compare/v1.7.1...HEAD
+[Unreleased]: https://github.com/kool277/iqtisod/compare/v1.7.2...HEAD
+[1.7.2]: https://github.com/kool277/iqtisod/compare/v1.7.1...v1.7.2
 [1.7.1]: https://github.com/kool277/iqtisod/compare/v1.7.0...v1.7.1
 [1.7.0]: https://github.com/kool277/iqtisod/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/kool277/iqtisod/compare/v1.5.0...v1.6.0

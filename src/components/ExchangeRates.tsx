@@ -2,6 +2,7 @@ import { ArrowLeftRight, ExternalLink, RefreshCw } from 'lucide-react'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useI18n } from '../context/I18nContext'
 import { AppError } from '../domain/errors'
+import { fillTemplate as fill } from '../lib/template'
 import {
   FX_BASE,
   FX_DIRECTIONS,
@@ -24,10 +25,6 @@ import { TREND_CLASSES, TrendBadge, trendOf } from './FxTrend'
 import { Button, controlClass } from './ui'
 
 type Failure = 'offline' | 'unavailable' | null
-
-function fill(template: string, values: Record<string, string>): string {
-  return template.replace(/\{(\w+)\}/g, (match, key: string) => values[key] ?? match)
-}
 
 function useExchangeRates() {
   const [loaded, setLoaded] = useState<LoadedSnapshot | null>(() => readCachedSnapshot())

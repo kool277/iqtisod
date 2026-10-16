@@ -16,6 +16,7 @@ import {
   isChromium,
   isMobile,
   measureCapacity,
+  onCapacity,
   readCapacitySignals,
   vaultBytesForFile,
   type CapacityGlobals,
@@ -219,6 +220,20 @@ describe('reading the signals', () => {
     // iPadOS reports a Mac user agent.
     expect(isMobile({ navigator: { userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)', maxTouchPoints: 5 } })).toBe(true)
     expect(isMobile({ navigator: { userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' } })).toBe(false)
+  })
+
+  it('tells subscribers about every new measurement until they stop listening', async () => {
+    const seen: number[] = []
+    const stop = onCapacity((capacity) => seen.push(capacity.vaultBytes))
+    const roomy = { navigator: { userAgent: 'Windows', storage: { estimate: async () => ({ quota: 50 * GB, usage: 0 }) } } }
+    const cramped = { navigator: { userAgent: 'Windows', storage: { estimate: async () => ({ quota: 200 * MIB, usage: 0 }) } } }
+    const first = await measureCapacity(roomy)
+    const second = await measureCapacity(cramped)
+    expect(seen).toEqual([first.vaultBytes, second.vaultBytes])
+    expect(second.vaultBytes).toBeLessThan(first.vaultBytes)
+    stop()
+    await measureCapacity(roomy)
+    expect(seen).toHaveLength(2)
   })
 
   it('remembers the last measurement for the rest of the app', async () => {

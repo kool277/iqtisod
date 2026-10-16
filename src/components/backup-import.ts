@@ -1,19 +1,18 @@
 import { useEffect, useState } from 'react'
+import { AppError } from '../domain/errors'
 import type { MessageKey } from '../i18n'
 import type { Capacity } from '../lib/capacity'
 import { formatBytes, restoreLimitBytes } from '../lib/limits'
 import { requestPersistenceBriefly } from '../lib/persistence'
+import { fillTemplate } from '../lib/template'
 import type { ParsedBackup } from '../services/backup.service'
 
 const measureCapacity = () => import('../lib/capacity').then((module) => module.measureCapacity())
 
 type Translate = (key: MessageKey) => string
 
-export function fillTemplate(template: string, values: Record<string, string>): string {
-  return template.replace(/\{(\w+)\}/g, (whole, name: string) => values[name] ?? whole)
-}
-
-export class BackupTooLargeError extends Error {
+/** An AppError like any other, so a caller that does not word it itself still gets the IMPORT_TOO_LARGE text. */
+export class BackupTooLargeError extends AppError {
   constructor(readonly capacity: Capacity, readonly fileBytes: number) {
     super('IMPORT_TOO_LARGE')
     this.name = 'BackupTooLargeError'

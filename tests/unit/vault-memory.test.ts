@@ -1,10 +1,12 @@
 import 'fake-indexeddb/auto'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { parseBackupText } from '../../src/db/envelope'
-import { SqlDatabase, growthRoom } from '../../src/db/sqlite'
+import { SqlDatabase, growthRoom, loadModule } from '../../src/db/sqlite'
+import { createVault, sealVault, unlockVault } from '../../src/services/auth.service'
 import { readVault, writeVault } from '../../src/db/storage'
 import { capacityCheck, vaultChecks } from '../../src/health/evaluate'
 import { computeCapacity, growthBudget, type CapacitySignals } from '../../src/lib/capacity'
+import { formatBytes, restoreLimitBytes } from '../../src/lib/limits'
 import { fixtureByPath } from '../support/fixtures'
 
 const MIB = 1024 * 1024
@@ -19,6 +21,45 @@ async function sampleDatabase(rows: number, bytes: number): Promise<Uint8Array> 
 }
 
 describe('SqlDatabase memory handling', () => {
+  it('hands out the database where SQLite keeps it, and a wiped copy for one built in this session', async () => {
+    const built = await SqlDatabase.openEmpty()
+    built.exec('CREATE TABLE t (x TEXT)')
+    built.exec("INSERT INTO t VALUES ('hello')")
+    let fallback: Uint8Array | null = null
+    const bytes = built.withImage((image) => {
+      fallback = image
+      return image.slice()
+    })
+    built.close()
+    expect(bytes.length).toBeGreaterThan(0)
+    expect(fallback!.every((byte) => byte === 0)).toBe(true)
+
+    const opened = await SqlDatabase.openBytes(bytes)
+    const { wasm } = await loadModule()
+    const seen = opened.withImage((image) => ({ inHeap: image.buffer === wasm.heap8u().buffer, bytes: image.slice() }))
+    expect(seen.inHeap).toBe(true)
+    expect(Buffer.from(seen.bytes).equals(Buffer.from(opened.export()))).toBe(true)
+    opened.close()
+  })
+
+  it('seals an opened vault without copying the plaintext out of SQLite', async () => {
+    const credentials = { email: 'admin@example.com', password: 'correct-horse' }
+    const created = await createVault({ ...credentials, displayName: 'Home', currency: 'USD' })
+    created.vault.db.close()
+    const vault = await unlockVault(created.record, credentials.email, credentials.password)
+    const exportSpy = vi.spyOn(SqlDatabase.prototype, 'export')
+    try {
+      const sealed = await sealVault(vault)
+      expect(exportSpy).not.toHaveBeenCalled()
+      const reopened = await unlockVault(sealed, credentials.email, credentials.password)
+      expect(reopened.vaultName).toBe('Home')
+      reopened.db.close()
+    } finally {
+      exportSpy.mockRestore()
+      vault.db.close()
+    }
+  })
+
   it('reserves an eighth of the database to grow into, between 1 and 64 MiB', () => {
     expect(growthRoom(0)).toBe(MIB)
     expect(growthRoom(16 * MIB)).toBe(2 * MIB)
@@ -88,6 +129,15 @@ describe('health: largest vault on this device', () => {
     expect(roomy).toMatchObject({ status: 'pass', detail: 'storage' })
     const cramped = capacityCheck(computeCapacity({ ...base, quota: MIBS(100), usage: MIBS(20), persisted: false }))
     expect(cramped).toMatchObject({ status: 'warn', detail: 'low', action: 'persist' })
+    // No button where the browser cannot keep data at all: it could only say it was refused.
+    expect(capacityCheck(computeCapacity({ ...base, quota: MIBS(100), usage: MIBS(20), persisted: false }), false)).not.toHaveProperty('action')
+  })
+
+  it('shows the same figures as the restore screens', () => {
+    const capacity = computeCapacity(base)
+    expect(capacity.fileBytes % MIB).not.toBe(0)
+    const check = capacityCheck(capacity)
+    expect(check.facts).toMatchObject({ vaultLimit: formatBytes(capacity.vaultBytes), backupLimit: formatBytes(restoreLimitBytes(capacity.fileBytes)) })
   })
 
   it('measures the vault size against the device budget', () => {

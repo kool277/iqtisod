@@ -98,13 +98,21 @@ export async function runExport(vault: OpenVault, input: ExportRequest, context:
   const source = vault.db.export()
   let snapshot: SqlDatabase
   try {
-    snapshot = await SqlDatabase.openBytes(source)
+    snapshot = await SqlDatabase.openBytes(source, { growth: 0 })
   } catch (error) {
     source.fill(0)
     throw error
   }
+  let open = true
+  const closeSnapshot = () => {
+    if (open) snapshot.close()
+    open = false
+  }
   try {
     const dataset = createDataset(snapshot, scope, { user: vault.user, now, app: context.app })
+    // An SQLite file is built from `source` and the metadata alone. Closing the snapshot first gives its memory back
+    // before buildExportDatabase opens `source` once more: one vault-sized copy fewer at the export's peak.
+    if (request.protection === 'sqlcipher' || request.formats.every((format) => format === 'sqlite')) closeSnapshot()
     const date = toIsoDate(now)
     const name = (suffix: string) => exportFileName(dataset.meta.vault.name, date, suffix)
 
@@ -147,7 +155,7 @@ export async function runExport(vault: OpenVault, input: ExportRequest, context:
     onProgress?.({ stage: 'done' })
     return { blob, fileName: name(request.protection === 'zip' ? '-encrypted.zip' : '.zip'), mime: MIME.zip }
   } finally {
-    snapshot.close()
+    closeSnapshot()
     source.fill(0)
   }
 }

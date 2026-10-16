@@ -1,7 +1,7 @@
 import { RECORD_VERSION, SCHEMA_VERSION } from '../db/versions'
 import { isStale } from '../domain/fx'
 import { growthBudget, type Capacity } from '../lib/capacity'
-import { LIMITS, restoreLimitBytes } from '../lib/limits'
+import { LIMITS, formatBytes, restoreLimitBytes } from '../lib/limits'
 import { isNewAddress, isOldAddress } from '../lib/origin-move'
 import { BACKUP_STALE_DAYS } from '../services/backup.service'
 import { CLOCK_TOLERANCE_MS } from '../services/grant-store'
@@ -12,8 +12,6 @@ import type { VaultFacts } from './vault'
 
 const MIB = 1024 * 1024
 const DAY_MS = 24 * 60 * 60 * 1000
-/** The vault at its size limit plus the earlier copies kept beside it. */
-export const ROOM_NEEDED_BYTES = (MAX_ARCHIVES + 1) * LIMITS.databaseBudgetBytes
 /** Less room than this is offered to private windows in Chromium and Safari; normal windows get far more. */
 export const PRIVATE_QUOTA_HINT_BYTES = 400 * MIB
 export const MEMBER_WARN_SHARE = 0.9
@@ -75,16 +73,19 @@ export function storageChecks(facts: StorageFacts, capacity?: Capacity): HealthR
     results.push(result('quota', 'info', 'unknown'))
   } else {
     const free = Math.max(0, facts.quota - facts.usage)
-    const shown = { usage: megabytes(facts.usage), quota: megabytes(facts.quota), free: megabytes(free), limit: megabytes(LIMITS.databaseBudgetBytes) }
+    // Full size is as large as receipts may make the vault on this device (48 MiB until that is measured), and the
+    // earlier copies kept beside it can each be as large.
+    const fullSize = growthBudget(capacity ?? null).budgetBytes
+    const shown = { usage: megabytes(facts.usage), quota: megabytes(facts.quota), free: megabytes(free), limit: megabytes(fullSize) }
     results.push(
-      free < LIMITS.databaseBudgetBytes
+      free < fullSize
         ? result('quota', 'fail', 'full', { facts: shown })
-        : free < ROOM_NEEDED_BYTES
+        : free < (MAX_ARCHIVES + 1) * fullSize
           ? result('quota', 'warn', 'low', { facts: shown })
           : result('quota', 'pass', 'ok', { facts: shown }),
     )
   }
-  if (capacity) results.push(capacityCheck(capacity))
+  if (capacity) results.push(capacityCheck(capacity, facts.canPersist))
   results.push(
     facts.persisted === true
       ? result('persisted', 'pass', 'ok')
@@ -105,14 +106,15 @@ export function storageChecks(facts: StorageFacts, capacity?: Capacity): HealthR
 }
 
 /** How large a vault this device can restore and open, and which of its limits decides that. */
-export function capacityCheck(capacity: Capacity): HealthResult {
+export function capacityCheck(capacity: Capacity, canPersist = true): HealthResult {
   const gib = capacity.deviceMemoryBytes / (1024 * MIB)
   const shown = {
-    vaultLimit: megabytes(capacity.vaultBytes),
-    backupLimit: megabytes(restoreLimitBytes(capacity.fileBytes)),
+    // Rounded down like the restore screens, so both show the same figure.
+    vaultLimit: formatBytes(capacity.vaultBytes),
+    backupLimit: formatBytes(restoreLimitBytes(capacity.fileBytes)),
     deviceMemory: `${capacity.deviceMemoryReported ? '' : '~'}${Number.isInteger(gib) ? gib : gib.toFixed(1)} GB`,
   }
-  if (capacity.limitedBy === 'storage' && capacity.vaultBytes < LIMITS.databaseBudgetBytes) return result('capacity', 'warn', 'low', { facts: shown, ...(capacity.persisted === false ? { action: 'persist' as const } : {}) })
+  if (capacity.limitedBy === 'storage' && capacity.vaultBytes < LIMITS.databaseBudgetBytes) return result('capacity', 'warn', 'low', { facts: shown, ...(capacity.persisted === false && canPersist ? { action: 'persist' as const } : {}) })
   return result('capacity', 'pass', capacity.limitedBy, { facts: shown })
 }
 

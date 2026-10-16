@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { auditHead, type AuditHead } from '../db/audit-chain'
 import { storedForm } from '../db/envelope'
-import { readVault, readVaultRaw, stampOf, stripArchivedGrants, writeVault, type LoadedVault, type VaultRecord } from '../db/storage'
+import { readVault, readVaultRaw, stampOf, stripArchivedGrantsOnce, writeVault, type LoadedVault, type VaultRecord } from '../db/storage'
 import { RECORD_VERSION, SCHEMA_VERSION } from '../db/versions'
 import type { OpenVault, SessionUser } from '../domain/types'
 import { AppError, AuthError, ConflictError, ForbiddenError, ValidationError, VaultInUseError } from '../domain/errors'
@@ -127,6 +127,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   // While a log warning is open, this browser's mark stays where it was; an accepted warning moves it back to the log.
   const auditHeldRef = useRef(false)
   const auditResetRef = useRef(false)
+  const capacityRef = useRef<(() => void) | null>(null)
   const [throttle] = useState(() => createThrottle({ mirror: indexedDbThrottleMirror() }))
   const throttleRef = useRef(throttle)
   const [status, setStatus] = useState<Status>('checking')
@@ -192,7 +193,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       setStatus('ready')
       void requestPersistenceBriefly()
         .then(() => import('../lib/capacity'))
-        .then(async ({ growthBudget, measureCapacity }) => setWarnBytes(growthBudget(await measureCapacity()).warnBytes))
+        .then(async ({ growthBudget, measureCapacity, onCapacity }) => {
+          // Every measurement moves the receipt limit (finance.service reads the latest), so the warning follows it.
+          capacityRef.current ??= onCapacity((capacity) => setWarnBytes(growthBudget(capacity).warnBytes))
+          await measureCapacity()
+        })
         .catch(() => undefined)
     },
     [syncState],
@@ -585,7 +590,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         setStatus('error')
       }
     })()
-    void stripArchivedGrants().catch(() => undefined)
+    void stripArchivedGrantsOnce().catch(() => undefined)
     const onVisible = () => {
       if (document.visibilityState === 'visible') observeClock()
     }
@@ -624,6 +629,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     return () => {
       if (debounceRef.current != null) window.clearTimeout(debounceRef.current)
+      capacityRef.current?.()
     }
   }, [])
 
