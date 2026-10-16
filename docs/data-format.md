@@ -33,6 +33,8 @@ Three formats are versioned independently of the app version. A change to one do
 
 1.6.0 changes no version number. People details live in `settings` rows (see [People](#people-user_profile)) that earlier releases ignore, so 1.5.0 and earlier open a 1.6.0 vault unchanged; a suspended or former member has no wrap there either.
 
+2.0 (unreleased; the alpha is built only with `VITE_V2_KEYS=1`) adds a second track beside these: record 3, backup 3 and schema 5 for vaults with per-person keys, described in [Record version 3](#record-version-3-per-person-keys-20-draft). It still reads and writes record 2 / schema 4 for every other vault, so 1.x opens a vault that 2.0 has not upgraded.
+
 The constants live in `src/db/versions.ts`. The KDF parameters live in `src/crypto/crypto.service.ts`.
 
 ## Layers
@@ -199,6 +201,83 @@ The record under `primary` has the same fields as the backup of the same version
 Archive entries have the shape `{ key, reason, archivedAt, archivedBy, sourceVersion, sourceAppVersion, sourceUpdatedAt, raw }`, where `raw` is the record as it was stored before the change. From 1.4.2 `raw` never contains `grants`: a code that was later used, revoked, or expired, together with an old archive, would otherwise open the vault key offline. Archives written by earlier releases lose their `grants` the next time the app loads, and an archive download never includes them. `reason` is `upgrade` (written in the same IndexedDB transaction as the first save after a format upgrade) or `import` (written in the same transaction as an imported backup replaces the vault; from 1.3.0 the archived copy is sealed after a `VAULT_REPLACED_BY_IMPORT` audit entry is written into it). The Backup page offers each archive as a download; a version 1 archive downloads as a byte-for-byte version 1 backup.
 
 Writes are compare-and-swap: a save only succeeds if `updatedAt` in IndexedDB is still the value the session loaded. Otherwise the app stops saving and asks the person to lock and unlock. A Web Lock named `moliya-vault-session` allows only one unlocked session per browser profile.
+
+## Record version 3: per-person keys (2.0, draft)
+
+**Status: draft.** Implemented in the 2.0 alpha, not released. It becomes part of [the guarantee](#the-guarantee) with the 2.0.0 release and may change until then. The reasons behind each choice are in [the 2.0 design](design/v2.0-key-redesign.md).
+
+A 2.0 app writes record 3, backup 3 and schema 5 only for vaults with per-person keys: a vault set up in a build with per-person keys, or a 1.x vault an admin upgraded (the founder upgrade). Every person has their own key pairs, sealed under their own password; the vault key (DEK) is wrapped to each person's public key; the list of people is a hash-chained document signed by an admin; and the record is signed by whoever saved it. 1.x refuses record and backup 3 with `FORMAT_TOO_NEW` and leaves them untouched.
+
+### Fields
+
+The backup file and the IndexedDB `primary` record carry the same fields (the record has `id: "primary"`, no `format` or `exportedAt`, and `ArrayBuffer`s for the body's binary fields; everything else is the same JSON). There is no `wraps` field.
+
+| Field | Meaning |
+| --- | --- |
+| `format`, `version` | `moliya-vault`, 3. In a file these are the first two fields. |
+| `appVersion`, `schemaVersion`, `createdAt`, `updatedAt`, `exportedAt`, `cipher`, `audit` | As in backup version 2; `schemaVersion` is 5. |
+| `grants` | Open invite and reset codes, as in version 2 but with Argon2id `kdf` (below) and an `expiresAt` on every entry. |
+| `suite` | `J2-X25519-ED25519`: X25519 for agreement, Ed25519 for signatures, HKDF-SHA-256, AES-256-GCM. |
+| `vaultId` | Random id of this vault (letters, digits, `-`, `_`; at most 64). |
+| `epoch` | Number of the current DEK, from 1. A new DEK gets the next number (rotation; not in the alpha). |
+| `founder` | `{ memberId, sigPub, fingerprint }`: the founder's member id, Ed25519 public key (base64, 32 bytes), and `hex(SHA-256(sigPub))` cut to 32 characters. |
+| `roster` | `{ version, hash }` of the latest signed list of people in the database. |
+| `identities` | Each person's sealed key pairs, by member id. |
+| `dekWraps` | The DEK wrapped to each person, by member id. |
+| `sig` | `{ by, alg: "Ed25519", value }`: the signature of whoever saved the record. |
+| `body` | The encrypted database in chunks, always the last field: `{ chunkSize, length, chunks, seal, ciphertext }` in a file; in IndexedDB `chunks` holds `{ iv, key }` and there is no `ciphertext`. |
+
+An identity is `{ v: 2, suite, memberId, email, kdf, salt (16 bytes), iv (12), sealed, encPub, sigPub }`; a DEK wrap is `{ v: 2, suite, epoch, memberId, epk (32), salt (32), iv (12), ct (48) }`. Binary values are base64. Every person is identified by their member id, which is their `users.id`; `email` on an identity is only the sign-in lookup.
+
+### Keys
+
+| Step | Algorithm |
+| --- | --- |
+| Password to identity key | Argon2id (version 0x13) of the password as UTF-8, with the identity's `salt` and `kdf` = `{ name: "Argon2id", m, t, p, len: 32, v: 19 }` (`m` in KiB), giving 32 bytes; then HKDF-SHA-256 with an empty salt and info `moliya/v2/identity-wrap\|kek` gives the AES-256-GCM key. |
+| Open an identity | AES-256-GCM of `sealed` with the identity's `iv` and additional data `moliya/v2/identity-wrap\|<vaultId>\|<memberId>\|J2-X25519-ED25519\|<encPub>\|<sigPub>`. The plaintext is a 2-byte big-endian length, the PKCS #8 X25519 private key, a 2-byte length, and the PKCS #8 Ed25519 private key. A failed decryption is the wrong-password answer; there is no separate check value. |
+| Unwrap the DEK | `shared = X25519(person's private key, epk)`; key = HKDF-SHA-256(ikm = shared, salt = the wrap's `salt`, info = `moliya/v2/dek-wrap\|J2-X25519-ED25519\|<epk>\|<encPub>`); AES-256-GCM of `ct` with `iv` and additional data `moliya/v2/dek-wrap-aad\|<vaultId>\|<epoch>\|<memberId>\|<hex SHA-256 of the raw encPub>\|J2-X25519-ED25519` gives the raw 32-byte DEK. The wrap's `epoch` must equal the record's. |
+| Open an invite | Argon2id of the code (28 characters, no dashes) with the grant's `salt` and `kdf` gives 32 bytes. HKDF-SHA-256 (empty salt) with info `moliya/v2/invite\|kek` gives the key that unwraps `wrappedDek` (AES-256-GCM, additional data `moliya/v2/invite\|<vaultId>\|<grant id>\|<kind>\|<email>\|<expiresAt>\|J2-X25519-ED25519`); with info `moliya/v2/invite\|sig` it gives the 32-byte seed of an Ed25519 key, whose public half is the grant's `code_verifier` in the database and its `inviteSigPub` in the roster. |
+
+Readers accept Argon2id only within `m` 19,456–262,144, `t` 2–10, `p` 1–4, `len` 32, `v` 19, and refuse anything else before allocating memory. The app writes `m` 65,536, `t` 3, `p` 1.
+
+### Body
+
+The SQLite image of `length` bytes is cut into `n = ceil(length / chunkSize)` chunks; chunk `i` is bytes `i·chunkSize` up to `min(length, (i+1)·chunkSize)`. `chunkSize` is a power of two from 4 KiB to 64 MiB (the app writes 1 MiB), and `n` is at most 4,096.
+
+- Chunk `i` is AES-256-GCM under the DEK with the IV `chunks[i]` and additional data `moliya/v2/chunk|<vaultId>|<epoch>|<i>|<chunkSize>`; its ciphertext is its plaintext plus a 16-byte tag.
+- `seal` is `{ iv, tag }`: AES-256-GCM under the DEK of an empty plaintext with `iv` and additional data `moliya/v2/body|<vaultId>|<epoch>|` followed by the JCS form of `{ chunkSize, length, chunks }` (the IVs in base64). Readers check the seal before any chunk, so a body is accepted only as one save wrote it.
+- In a file, `ciphertext` is base64 of all chunk ciphertexts in order; its decoded length must be exactly `length + 16·n`.
+- In IndexedDB each chunk ciphertext is its own value under `chunk:<key>`, where `key` is 32 hex characters picked when the chunk is written. A save writes only the chunks that changed. An archived version 3 record lists its chunk keys under `archive-chunks:<archivedAt>:<reason>`, and every write removes chunk values that neither `primary` nor an archive lists.
+
+### Signatures
+
+Signed bytes are the label as UTF-8, one zero byte, and the payload in the JCS form of RFC 8785 (sorted keys, no whitespace, integers only). Signatures are Ed25519, base64.
+
+| Document | Label | Payload |
+| --- | --- | --- |
+| Record | `moliya/v2/header` | `version`, `appVersion`, `schemaVersion`, `createdAt`, `updatedAt`, `cipher`, `audit` (when present), `suite`, `vaultId`, `epoch`, `founder`, `roster`, and `body` without `ciphertext` (with `seal`; chunks as IVs). Not `sig`, `identities`, `dekWraps`, `grants`, `format` or `exportedAt`. `sig.by` names the signer, who must be active in the roster. |
+| Roster version | `moliya/v2/roster` | `{ type: "roster", suite, vaultId, version, prev, epoch, issuedAt, issuedBy, members }`. `prev` is null in version 1 and the hash of the version before otherwise; a version's hash is `hex(SHA-256(JCS(version with its sig)))`. |
+| Key binding | `moliya/v2/binding` | `{ type: "binding", suite, vaultId, memberId, rosterVersion, inviteSigPub, encPub, sigPub, at }`, signed twice: `inviteSig` by the invite key, `memberSig` by the new `sigPub`. |
+
+A roster member is `{ id, email, role, group, status }` with `status` `active` (plus `encPub`, `sigPub`, and in the version that admits them a `proof`: the `rosterVersion`, `at`, `inviteSig` and `memberSig` of their binding), `invited` (plus `inviteSigPub`, `inviteExpiresAt`) or `removed` (with the keys they had, if any). Roles are `Admin`, `Manager`, `Viewer`; `group` is a `groups.id` or null.
+
+### Schema version 5
+
+Migration 5 adds `roster_versions (version, hash, doc)` (append-only, enforced by triggers), `key_bindings (member_id, doc)` and `audit_sigs` (empty until signed audit entries arrive). Every document is stored as its JCS text. `users.password_hash` and `users.salt` are empty for everyone. A person's private safes and sign-in check keep their own password-based keys, as in schema 4.
+
+### Opening a version 3 record
+
+A reader that wants the same guarantees as the app checks, in this order, before it trusts anything in the database:
+
+1. The founder matches the one this device saw before (the app pins it in local storage on the first sign-in, after the person compares its fingerprint).
+2. Every roster version links to the one before; version 1 lists the founder alone as an active Admin and is signed by them; every later version is signed by an Admin active in the version before (or by an invited Admin whose proof is in it); every key that becomes active comes with a valid proof; `roster` names the latest version and its hash; `founder` matches version 1.
+3. Every stored key binding redeems an invite of the latest version with both signatures valid.
+4. The record's signature verifies under the key of `sig.by`, active in the latest version or through a binding.
+5. Everyone active has a `users` row with the same email, role and group, not suspended or former.
+6. The person opening is active with the keys their identity holds, and `epoch` is the same in the record, the latest roster version and their DEK wrap.
+7. The roster version is not older than the newest this device saw.
+
+The body is opened (seal, then chunks) before steps 2–6, because the roster lives inside it; the seal and the chunk tags authenticate it first.
 
 ## SQLite database
 
@@ -682,7 +761,7 @@ The Groups table exports its **Income**, **Expenses**, and **Net** columns as te
 
 ## Recovering data without the app
 
-`tools/moliya-decrypt.mjs` needs only Node.js 22 or newer (22.13+ to blank password material automatically):
+`tools/moliya-decrypt.mjs` needs only Node.js 22 or newer (22.13+ to blank password material automatically). A backup with per-person keys (format 3) needs Node.js 24.7 or newer for Argon2id; with it the tool also takes `--verify`, which runs the checks of [Opening a version 3 record](#opening-a-version-3-record) on the decrypted database and exits with status 3 if one fails.
 
 ```bash
 node tools/moliya-decrypt.mjs backup.moliya --list
