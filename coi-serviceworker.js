@@ -5,7 +5,8 @@ if (typeof window === 'undefined') {
     self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
 
     self.addEventListener("message", (ev) => {
-        if (!ev.data) {
+        // Jaybi: browsers deliver only this origin's messages; check anyway instead of relying on that.
+        if (!ev.data || ev.origin !== self.location.origin) {
             return;
         } else if (ev.data.type === "deregister") {
             self.registration
