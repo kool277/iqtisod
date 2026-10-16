@@ -10,10 +10,14 @@ Data formats are versioned separately from the app. Each release lists the forma
 
 - **Health check:** the storage row counts a full-size vault as large as this device lets receipts make it, not the 48 MB of 1.6.0, so it no longer reports room for a full vault that is not there. Reading a large stored vault may take up to 20 seconds before it counts as unreadable, so a big vault on a slow phone is no longer reported as unreadable, with advice to import a backup.
 - The size warning follows the same budget as the limit on new receipts, also after the health check or a restore screen measures the device again.
+- The health check shows the same restore figures as the restore screens, and offers to keep data only where the browser can.
+- The user guides and Help show the current restore screens and health check in all four languages.
 
 ### Changed
 
 - Downloading a backup is about seventy times faster where the browser encodes base64 itself (Chrome 140, Firefox 133, Safari 18.2 and later), so a large vault no longer freezes the page for seconds.
+- Reading a backup to restore it is about two and a half times faster: the first pass only looks for the end of the encrypted body.
+- Saving encrypts the vault straight from the database engine's memory: one vault-sized copy less, and no copy of the decrypted vault outside the engine and the browser's own encryption.
 - Starting Jaybi no longer reads every earlier copy of the vault whole to remove one-time code wraps that versions before 1.4.2 left in them; that now happens once per browser.
 - An SQLite export of a large vault needs one vault-sized copy less memory.
 
