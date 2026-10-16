@@ -25,7 +25,6 @@ import { observeClock } from '../../lib/device-clock'
 import { assertEmail, normalizeEmail } from '../../lib/email'
 import { assertNewPassword } from '../../lib/password-policy'
 import { APP_VERSION } from '../../lib/version'
-import { Permission, canUser } from '../../rbac'
 import { writeAudit } from '../audit.service'
 import { assertDisplayName, buildOpenVault, compactIfSparse, loadUserById, type SetupInput } from '../auth.service'
 import { openGrantRows, recordClock } from '../grant-store'
@@ -103,14 +102,28 @@ function rosterCandidates(db: SqlDatabase, keys: KeysSession): RosterCandidate[]
 }
 
 /**
- * The roster version an admin's save should sign, if the people, their roles, groups or access changed since the
- * latest one, folding in redeemed invites. Signing is asynchronous, so the plan is applied only if the database still
- * derives the same members ({@link applyRosterPlan}).
+ * Whether the person saving may sign the next roster version, decided from the latest signed version and never from
+ * the session's role: an Admin there signs the version that demotes them. Otherwise an admin who changed their own role
+ * would save a `users` table the roster no longer matches, which blocks the vault for everyone. An invited Admin whose
+ * own binding redeems their invite may sign the version that admits them (see `signerKey` in crypto/roster.ts).
  */
-async function planRoster(vault: OpenVault & { keys: KeysSession }, now: string): Promise<RosterPlan | null> {
+async function maySignRoster(vault: OpenVault & { keys: KeysSession }, latest: RosterDoc): Promise<boolean> {
+  const { keys } = vault
+  const entry = latest.members.find((member) => member.id === keys.memberId)
+  if (entry?.role !== 'Admin') return false
+  if (entry.status === 'active') return entry.sigPub === keys.identity.sigPub
+  if (entry.status !== 'invited') return false
+  const binding = (readBindings(vault.db) ?? []).find((item) => item.memberId === keys.memberId)
+  return binding !== undefined && binding.sigPub === keys.identity.sigPub && (await bindingRedeems(binding, entry, keys.vaultId))
+}
+
+/**
+ * The roster version a save should sign, if the people, their roles, groups or access changed since `latest`, folding
+ * in redeemed invites. Signing is asynchronous, so the plan is applied only if the database still derives the same
+ * members ({@link applyRosterPlan}).
+ */
+async function planRoster(vault: OpenVault & { keys: KeysSession }, latest: RosterDoc, now: string): Promise<RosterPlan | null> {
   const { db, keys } = vault
-  const latest = await latestRosterDoc(db)
-  if (!latest || latest.version !== keys.roster.version) throw new CorruptRecordError()
   const bindings = new Map<string, KeyBinding>()
   for (const binding of readBindings(db) ?? []) {
     const invited = latest.members.find((member) => member.id === binding.memberId)
@@ -132,6 +145,8 @@ async function planRoster(vault: OpenVault & { keys: KeysSession }, now: string)
  */
 function applyRosterPlan(vault: OpenVault & { keys: KeysSession }, plan: RosterPlan | null, latest: RosterDoc): boolean {
   const { db, keys } = vault
+  // Another save may have signed a version meanwhile; the plan must then be made again on top of it.
+  if (Number(db.queryValue('SELECT MAX(version) FROM roster_versions')) !== latest.version) return false
   const members = nextRosterMembers({ latest, bindings: plan?.bindings ?? new Map(), people: rosterCandidates(db, keys), invites: rosterInvites(db) })
   if (plan === null ? members !== null : members === null || canonicalize(members) !== canonicalize(plan.members)) return false
   const current = plan?.doc.members ?? latest.members
@@ -160,29 +175,38 @@ export async function sealKeysVault(vault: OpenVault & { keys: KeysSession }, op
   observeClock(now)
   recordClock(db, now)
   const updatedAt = new Date().toISOString()
-  const admin = canUser(vault.user, Permission.MANAGE_USERS) && vault.user.roleName === 'Admin'
-  let sealing: ReturnType<typeof sealChunkedBody> | null = null
-  let schemaVersion = 0
-  let audit: ReturnType<typeof auditHead> | undefined
-  for (let attempt = 0; sealing === null; attempt += 1) {
+  type Snapshot = { sealing: ReturnType<typeof sealChunkedBody>; header: KeysHeader; grants: OpenVault['grants']; createdAt: string | null; schemaVersion: number; audit: ReturnType<typeof auditHead> }
+  let snapshot: Snapshot | null = null
+  for (let attempt = 0; snapshot === null; attempt += 1) {
     if (attempt === ROSTER_ATTEMPTS) throw new ValidationError('SAVE_BUSY')
-    const latest = admin ? await latestRosterDoc(db) : null
-    const plan = admin ? await planRoster(vault, updatedAt) : null
-    // From here to the image copy nothing awaits, so the roster, the image and the audit head describe one state.
-    if (latest && !applyRosterPlan(vault, plan, latest)) continue
+    const latest = await latestRosterDoc(db)
+    if (!latest || latest.version !== keys.roster.version) throw new CorruptRecordError()
+    const signer = await maySignRoster(vault, latest)
+    const plan = signer ? await planRoster(vault, latest, updatedAt) : null
+    // From here to the image copy nothing awaits, so the roster, the image, the audit head and everything the header
+    // names describe one state, even if the app or another save changes the session while this one encrypts.
+    if (signer && !applyRosterPlan(vault, plan, latest)) continue
     compactIfSparse(db)
-    sealing = sealChunkedBody(db, vault.dek, { vaultId: keys.vaultId, epoch: keys.epoch }, keys.chunks, { full: options.full })
-    schemaVersion = readSchemaVersion(db)
-    audit = auditHead(db)
+    snapshot = {
+      sealing: sealChunkedBody(db, vault.dek, { vaultId: keys.vaultId, epoch: keys.epoch }, keys.chunks, { full: options.full }),
+      header: headerOf(
+        { ...keys, roster: { ...keys.roster }, identities: structuredClone(keys.identities), dekWraps: structuredClone(keys.dekWraps) },
+        { by: keys.memberId, alg: 'Ed25519', value: bytesToBase64(new Uint8Array(64)) },
+      ),
+      grants: vault.grants.slice(),
+      createdAt: vault.createdAt,
+      schemaVersion: readSchemaVersion(db),
+      audit: auditHead(db),
+    }
   }
-  const { body, state } = await sealing
+  const { body, state } = await snapshot.sealing
   const unsigned = keysRecordFromSession({
-    grants: vault.grants,
-    schemaVersion,
-    createdAt: vault.createdAt,
+    grants: snapshot.grants,
+    schemaVersion: snapshot.schemaVersion,
+    createdAt: snapshot.createdAt,
     updatedAt,
-    ...(audit ? { audit } : {}),
-    keys: headerOf(keys, { by: keys.memberId, alg: 'Ed25519', value: bytesToBase64(new Uint8Array(64)) }),
+    audit: snapshot.audit,
+    keys: snapshot.header,
     body,
   })
   const record: KeysRecord = { ...unsigned, keys: { ...unsigned.keys, sig: await signHeader(unsigned, keys.memberId, keys.identity.sigPriv) } }

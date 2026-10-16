@@ -72,7 +72,8 @@ function UpgradeOfferBody({ reinvites }: { reinvites: number }) {
   }
 
   return (
-    <Dialog title={t('keys.upgrade.title')} onClose={postponeUpgrade} testId="upgrade-offer">
+    // Stays open while the upgrade runs: the vault must not be used, or closed, half way through it.
+    <Dialog title={t('keys.upgrade.title')} onClose={pending ? () => undefined : postponeUpgrade} testId="upgrade-offer">
       <form className="grid gap-4" onSubmit={(event) => void onSubmit(event)}>
         <p className="text-sm">{t('keys.upgrade.body')}</p>
         <p className="text-sm font-medium" data-testid="upgrade-reinvites">
@@ -92,7 +93,7 @@ function UpgradeOfferBody({ reinvites }: { reinvites: number }) {
           />
         </Field>
         <div className="flex flex-wrap justify-end gap-2">
-          <Button variant="quiet" data-testid="upgrade-later" onClick={postponeUpgrade}>
+          <Button variant="quiet" data-testid="upgrade-later" disabled={pending} onClick={postponeUpgrade}>
             {t('keys.upgrade.later')}
           </Button>
           <Button type="submit" data-testid="upgrade-confirm" disabled={pending || password === ''}>

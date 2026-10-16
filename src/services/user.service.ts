@@ -69,13 +69,18 @@ function userRow(vault: OpenVault, userId: string): UserRow {
   }
 }
 
-/** Admins who can still sign in: a suspended or former Admin does not keep the vault manageable. */
+/**
+ * Admins who can still sign in: a suspended or former Admin does not keep the vault manageable. In a per-person-keys
+ * vault an Admin also needs keys, so one who still waits for a new invite after the upgrade does not count either:
+ * otherwise the last admin with keys could step down and leave nobody who can sign the list of people.
+ */
 function activeAdminIds(vault: OpenVault): Set<string> {
   const profiles = readProfiles(vault.db)
   const ids = vault.db
     .query(`SELECT u.id FROM users u JOIN roles r ON r.id = u.role_id WHERE r.name = 'Admin'`)
     .map((row) => String(row.id))
     .filter((id) => (profiles.get(id)?.status ?? 'ACTIVE') === 'ACTIVE')
+    .filter((id) => !vault.keys || vault.keys.identities[id] !== undefined)
   return new Set(ids)
 }
 

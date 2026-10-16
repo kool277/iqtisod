@@ -569,6 +569,7 @@ export async function verifyKeysBackup(backup, plain) {
   let rows
   let bindingRows
   let people
+  let profiles
   try {
     chmodSync(dir, 0o700)
     writeFileSync(path, plain, { mode: 0o600 })
@@ -577,6 +578,7 @@ export async function verifyKeysBackup(backup, plain) {
       rows = db.prepare('SELECT version, hash, doc FROM roster_versions ORDER BY version').all()
       bindingRows = db.prepare('SELECT member_id, doc FROM key_bindings ORDER BY member_id').all()
       people = db.prepare('SELECT u.id, u.email, r.name AS role, u.group_id AS grp FROM users u JOIN roles r ON r.id = u.role_id').all()
+      profiles = db.prepare("SELECT key, value FROM settings WHERE key LIKE 'user_profile:%'").all()
     } finally {
       db.close()
     }
@@ -589,6 +591,14 @@ export async function verifyKeysBackup(backup, plain) {
   }
   if (rows.length === 0) return 'the backup has no signed list of people'
   const docs = rows.map((row) => JSON.parse(row.doc))
+  for (const doc of docs) {
+    if (doc?.type !== 'roster' || !Array.isArray(doc.members) || !Number.isSafeInteger(doc.epoch) || doc.epoch < 1) return `roster version ${doc?.version} is malformed`
+    const ids = doc.members.map((member) => member?.id)
+    if (ids.some((id) => typeof id !== 'string') || new Set(ids).size !== ids.length) return `roster version ${doc.version} lists a member twice`
+    if (doc.members.some((member) => !['active', 'invited', 'removed'].includes(member.status) || !['Admin', 'Manager', 'Viewer'].includes(member.role))) {
+      return `roster version ${doc.version} has an unknown status or role`
+    }
+  }
   let previous = null
   let founder = null
   for (let index = 0; index < docs.length; index += 1) {
@@ -598,10 +608,11 @@ export async function verifyKeysBackup(backup, plain) {
     const members = new Map(doc.members.map((member) => [member.id, member]))
     if (index === 0) {
       const [first] = doc.members
-      if (doc.members.length !== 1 || first.status !== 'active' || first.role !== 'Admin' || first.id !== doc.issuedBy) return 'roster version 1 does not name the founder alone'
+      if (doc.members.length !== 1 || first.status !== 'active' || first.role !== 'Admin' || first.id !== doc.issuedBy || first.proof !== undefined) return 'roster version 1 does not name the founder alone'
       if (!(await verifySignature(LABELS.roster, withoutSig(doc), doc.sig, first.sigPub))) return 'roster version 1 is not signed by the founder'
       founder = first
     } else {
+      if (doc.epoch < docs[index - 1].epoch) return `roster version ${doc.version} goes back to an older vault key`
       const before = new Map(docs[index - 1].members.map((member) => [member.id, member]))
       const was = before.get(doc.issuedBy)
       const now = members.get(doc.issuedBy)
@@ -613,7 +624,9 @@ export async function verifyKeysBackup(backup, plain) {
         if (prior?.status === 'active' && prior.encPub === member.encPub && prior.sigPub === member.sigPub && !member.proof) continue
         const proof = member.proof
         const fields = { type: 'binding', suite: SUITE, vaultId: backup.vaultId, memberId: member.id, rosterVersion: proof?.rosterVersion, inviteSigPub: prior?.inviteSigPub, encPub: member.encPub, sigPub: member.sigPub, at: proof?.at }
-        if (prior?.status !== 'invited' || !proof || !(await bindingHolds(fields, proof.inviteSig, proof.memberSig))) return `roster version ${doc.version} adds keys for ${member.email} without an invite`
+        if (prior?.status !== 'invited' || !proof || !Number.isSafeInteger(proof.rosterVersion) || proof.rosterVersion > doc.version - 1 || !(await bindingHolds(fields, proof.inviteSig, proof.memberSig))) {
+          return `roster version ${doc.version} adds keys for ${member.email} without an invite`
+        }
       }
     }
     previous = await sha256Hex(encoder.encode(canonicalize(doc)))
@@ -632,9 +645,22 @@ export async function verifyKeysBackup(backup, plain) {
     active.set(binding.memberId, { ...invited, encPub: binding.encPub, sigPub: binding.sigPub })
   }
   const users = new Map(people.map((person) => [person.id, person]))
+  const statusOf = new Map(
+    profiles.map((row) => {
+      let status = 'ACTIVE'
+      try {
+        const value = JSON.parse(row.value)
+        if (value?.status === 'SUSPENDED' || value?.status === 'FORMER') status = value.status
+      } catch {
+        // A damaged profile reads as active, as in the app.
+      }
+      return [row.key.slice('user_profile:'.length), status]
+    }),
+  )
   for (const member of active.values()) {
     const person = users.get(member.id)
     if (!person || person.email !== member.email || person.role !== member.role || (person.grp ?? null) !== member.group) return `${member.email} in the database does not match the signed list of people`
+    if ((statusOf.get(member.id) ?? 'ACTIVE') !== 'ACTIVE') return `${member.email} is suspended or a former member but still in the signed list of people`
   }
   const signer = active.get(backup.sig?.by)
   const header = {

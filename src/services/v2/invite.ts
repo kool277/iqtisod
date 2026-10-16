@@ -3,7 +3,7 @@ import { randomBytes } from '../../crypto/crypto.service'
 import { wrapDekTo } from '../../crypto/ecies'
 import { cloneBytes } from '../../crypto/encoding'
 import { IDENTITY_SALT_BYTES, generateIdentitySecret, importIdentity, sealIdentity, wipeSecret } from '../../crypto/identity'
-import { deriveInviteKeys, inviteAad, unwrapInviteDek, wrapDekForInvite, type InviteKeys } from '../../crypto/invite-crypto'
+import { deriveInviteKeys, inviteAad, mintInviteKeys, signsFor, unwrapInviteDek, wrapDekForInvite, type InviteKeys } from '../../crypto/invite-crypto'
 import { ARGON2_DEFAULT, isArgon2Params } from '../../crypto/kdf'
 import { signBinding } from '../../crypto/roster'
 import { SUITE, assertSuite } from '../../crypto/suite'
@@ -40,7 +40,7 @@ export async function mintKeysGrant(
   const access = generateAccessCode()
   const salt = randomBytes(IDENTITY_SALT_BYTES)
   const kdf = { ...ARGON2_DEFAULT }
-  const invite = await deriveInviteKeys(access.canonical, salt, kdf)
+  const invite = await mintInviteKeys(access.canonical, salt, kdf)
   const wrapped = await wrapDekForInvite(vault.dek, invite.kek, inviteAad(vault.keys.vaultId, id, kind, email, expiresAt))
   return { code: access.display, inviteSigPub: invite.sigPub, wrap: { id, kind, email, kdf, salt, iv: wrapped.iv, wrappedDek: wrapped.cipherText, expiresAt } }
 }
@@ -102,14 +102,16 @@ export async function redeemKeysInvite(record: KeysRecord, input: KeysRedeemInpu
   const { db, chunks } = await openKeysDatabase(record, dek)
   try {
     const row = grantRow(db, grant.id)
-    if (!row || row.endedAt || row.kind !== grant.kind || row.email !== email || row.codeVerifier !== invite.sigPub) throw invalid()
+    // The admin stored the invite key's public half; the key this code derives must be its private half.
+    if (!row || row.endedAt || row.kind !== grant.kind || row.email !== email || !(await signsFor(invite.sigPriv, row.codeVerifier))) throw invalid()
+    const inviteSigPub = row.codeVerifier
     if (grant.expiresAt !== row.expiresAt) throw invalid()
     const floor = clockFloor(db)
     if (floor !== null && now.getTime() < floor - CLOCK_TOLERANCE_MS) throw new ValidationError('CLOCK_BEHIND')
     if (row.expiresAt <= new Date(Math.max(now.getTime(), floor ?? 0)).toISOString()) throw new ValidationError('INVITE_EXPIRED')
     const memberId = row.kind === 'INVITE' ? row.id : row.userId
     if (!memberId) throw invalid()
-    const verified = await verifyKeysVault(record, db, { memberId, invite: { sigPub: invite.sigPub } })
+    const verified = await verifyKeysVault(record, db, { memberId, invite: { sigPub: inviteSigPub } })
     await assertNewPassword(input.password, { email, vaultName: getSetting(db, 'vault_name') ?? undefined })
     if (row.kind === 'INVITE') {
       if (db.queryValue('SELECT 1 FROM users WHERE email = ? OR id = ?', [email, memberId]) != null) throw new ValidationError('DUPLICATE_EMAIL')
@@ -133,7 +135,7 @@ export async function redeemKeysInvite(record: KeysRecord, input: KeysRedeemInpu
     const wrap = await wrapDekTo(dek, identity.encPub, { vaultId: keys.vaultId, epoch: keys.epoch, memberId })
     const at = now.toISOString()
     const binding = await signBinding(
-      { type: 'binding', suite: SUITE, vaultId: keys.vaultId, memberId, rosterVersion: verified.latest.version, inviteSigPub: invite.sigPub, encPub: identity.encPub, sigPub: identity.sigPub, at },
+      { type: 'binding', suite: SUITE, vaultId: keys.vaultId, memberId, rosterVersion: verified.latest.version, inviteSigPub, encPub: identity.encPub, sigPub: identity.sigPub, at },
       invite.sigPriv,
       identity.sigPriv,
     )

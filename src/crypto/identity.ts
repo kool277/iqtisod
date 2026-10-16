@@ -2,7 +2,7 @@ import { argon2idBits } from './argon2'
 import { IV_BYTES, randomBytes } from './crypto.service'
 import { base64ToBytes, bytesToBase64, copyToBuffer } from './encoding'
 import { ARGON2_DEFAULT, copyArgon2Params, type Argon2Params } from './kdf'
-import { LABELS, b64urlToBytes, hkdfAesKey } from './sign'
+import { LABELS, exportPub, hkdfAesKey, importEncPub, importSigPub } from './sign'
 import { SUITE, type Suite } from './suite'
 
 export const IDENTITY_SALT_BYTES = 16
@@ -28,8 +28,12 @@ export type IdentityKeys = {
   sigPub: string
 }
 
-/** Private key bytes, held only long enough to seal or re-seal them. */
-export type IdentitySecret = { enc: Uint8Array; sig: Uint8Array }
+/**
+ * Private key bytes, held only long enough to seal or re-seal them, with their public halves. The public keys come
+ * from key generation, or from the blob whose AAD authenticates them; a private key is never exported as JWK, whose
+ * `d` would stay in memory as a string nothing can wipe.
+ */
+export type IdentitySecret = { enc: Uint8Array; sig: Uint8Array; encPub: string; sigPub: string }
 
 export function identityAad(vaultId: string, memberId: string, encPub: string, sigPub: string): Uint8Array {
   return new TextEncoder().encode(`${LABELS.identityWrap}|${vaultId}|${memberId}|${SUITE}|${encPub}|${sigPub}`)
@@ -41,23 +45,34 @@ export async function generateIdentitySecret(): Promise<IdentitySecret> {
   return {
     enc: new Uint8Array(await crypto.subtle.exportKey('pkcs8', enc.privateKey)),
     sig: new Uint8Array(await crypto.subtle.exportKey('pkcs8', sig.privateKey)),
+    encPub: await exportPub(enc.publicKey),
+    sigPub: await exportPub(sig.publicKey),
   }
 }
 
-async function publicFromPkcs8(pkcs8: Uint8Array, name: 'X25519' | 'Ed25519'): Promise<string> {
-  const usages: KeyUsage[] = name === 'X25519' ? ['deriveBits'] : ['sign']
-  const key = await crypto.subtle.importKey('pkcs8', copyToBuffer(pkcs8), { name }, true, usages)
-  const jwk = await crypto.subtle.exportKey('jwk', key)
-  if (typeof jwk.x !== 'string') throw new Error('Key has no public part')
-  return bytesToBase64(b64urlToBytes(jwk.x))
+/** Throws unless the private keys belong to the public keys: a signature that verifies, and one X25519 agreement both ways. */
+async function checkPairing(keys: IdentityKeys): Promise<void> {
+  const probe = randomBytes(32)
+  const signature = await crypto.subtle.sign({ name: 'Ed25519' }, keys.sigPriv, copyToBuffer(probe))
+  if (!(await crypto.subtle.verify({ name: 'Ed25519' }, await importSigPub(keys.sigPub), signature, copyToBuffer(probe)))) {
+    throw new Error('Identity keys do not match')
+  }
+  const ephemeral = (await crypto.subtle.generateKey({ name: 'X25519' }, false, ['deriveBits'])) as CryptoKeyPair
+  const ours = new Uint8Array(await crypto.subtle.deriveBits({ name: 'X25519', public: ephemeral.publicKey }, keys.encPriv, 256))
+  const theirs = new Uint8Array(await crypto.subtle.deriveBits({ name: 'X25519', public: await importEncPub(keys.encPub) }, ephemeral.privateKey, 256))
+  const same = ours.length === theirs.length && ours.every((byte, index) => byte === theirs[index])
+  ours.fill(0)
+  theirs.fill(0)
+  if (!same) throw new Error('Identity keys do not match')
 }
 
-/** Imports the private keys non-extractable and reads their public halves. */
+/** Imports the private keys non-extractable and checks they belong to the public keys the secret names. */
 export async function importIdentity(secret: IdentitySecret): Promise<IdentityKeys> {
-  const [encPub, sigPub] = await Promise.all([publicFromPkcs8(secret.enc, 'X25519'), publicFromPkcs8(secret.sig, 'Ed25519')])
   const encPriv = await crypto.subtle.importKey('pkcs8', copyToBuffer(secret.enc), { name: 'X25519' }, false, ['deriveBits'])
   const sigPriv = await crypto.subtle.importKey('pkcs8', copyToBuffer(secret.sig), { name: 'Ed25519' }, false, ['sign'])
-  return { encPriv, sigPriv, encPub, sigPub }
+  const keys = { encPriv, sigPriv, encPub: secret.encPub, sigPub: secret.sigPub }
+  await checkPairing(keys)
+  return keys
 }
 
 function pack(secret: IdentitySecret): Uint8Array {
@@ -70,14 +85,14 @@ function pack(secret: IdentitySecret): Uint8Array {
   return out
 }
 
-function unpack(bytes: Uint8Array): IdentitySecret {
+function unpack(bytes: Uint8Array, pubs: { encPub: string; sigPub: string }): IdentitySecret {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
   const encLength = view.getUint16(0)
   const sigAt = 2 + encLength
   if (sigAt + 2 > bytes.length) throw new Error('Sealed identity is damaged')
   const sigLength = view.getUint16(sigAt)
   if (sigAt + 2 + sigLength !== bytes.length) throw new Error('Sealed identity is damaged')
-  return { enc: bytes.slice(2, sigAt), sig: bytes.slice(sigAt + 2) }
+  return { enc: bytes.slice(2, sigAt), sig: bytes.slice(sigAt + 2), encPub: pubs.encPub, sigPub: pubs.sigPub }
 }
 
 async function passwordKek(password: string, salt: Uint8Array, kdf: Argon2Params): Promise<CryptoKey> {
@@ -122,7 +137,10 @@ export async function sealIdentity(
   }
 }
 
-/** A failed AES-GCM open is the password check: there is no separate verifier for v2 members. Throws on any failure. */
+/**
+ * A failed AES-GCM open is the password check: there is no separate verifier for v2 members. The blob's public keys
+ * are part of the AAD, so a successful open also authenticates them. Throws on any failure.
+ */
 export async function openIdentitySecret(blob: IdentityBlob, vaultId: string, password: string): Promise<IdentitySecret> {
   const kek = await passwordKek(password, base64ToBytes(blob.salt), blob.kdf)
   const plain = new Uint8Array(
@@ -133,7 +151,7 @@ export async function openIdentitySecret(blob: IdentityBlob, vaultId: string, pa
     ),
   )
   try {
-    return unpack(plain)
+    return unpack(plain, blob)
   } finally {
     plain.fill(0)
   }
@@ -143,9 +161,7 @@ export async function openIdentitySecret(blob: IdentityBlob, vaultId: string, pa
 export async function unsealIdentity(blob: IdentityBlob, vaultId: string, password: string): Promise<IdentityKeys> {
   const secret = await openIdentitySecret(blob, vaultId, password)
   try {
-    const keys = await importIdentity(secret)
-    if (keys.encPub !== blob.encPub || keys.sigPub !== blob.sigPub) throw new Error('Identity keys do not match')
-    return keys
+    return await importIdentity(secret)
   } finally {
     wipeSecret(secret)
   }

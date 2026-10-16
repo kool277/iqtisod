@@ -209,7 +209,9 @@ export async function sealChunkedBody(
   previous: ChunkState | null,
   options: { full?: boolean; chunkSize?: number } = {},
 ): Promise<{ body: ChunkedBody; state: ChunkState }> {
-  const chunkSize = options.chunkSize ?? previous?.chunkSize ?? CHUNK_BYTES
+  // Always the writer's size: a body read from a file may use any size the readers accept, and a small one would stop
+  // fitting in MAX_CHUNKS as the vault grows. A body in another size is rewritten whole once.
+  const chunkSize = options.chunkSize ?? CHUNK_BYTES
   if (!isChunkSize(chunkSize)) throw new Error('Unsupported chunk size')
   const usable =
     previous !== null &&

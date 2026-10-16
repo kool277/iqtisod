@@ -140,7 +140,7 @@ describe('chunked body', () => {
     const db = await sampleDatabase()
     const first = await sealChunkedBody(db, dek, CONTEXT, null, { chunkSize: 4 * KIB })
     db.exec("UPDATE t SET data = randomblob(1000) WHERE id = 60")
-    const second = await sealChunkedBody(db, dek, CONTEXT, first.state)
+    const second = await sealChunkedBody(db, dek, CONTEXT, first.state, { chunkSize: 4 * KIB })
     const fresh = second.body.chunks.filter((chunk) => chunk.ciphertext !== undefined)
     expect(fresh.length).toBeGreaterThan(0)
     expect(fresh.length).toBeLessThanOrEqual(4)
@@ -171,9 +171,11 @@ describe('chunked body', () => {
     const db = await sampleDatabase(30)
     const first = await sealChunkedBody(db, dek, CONTEXT, null, { chunkSize: 4 * KIB })
     for (const [context, options] of [
-      [CONTEXT, { full: true }],
-      [{ ...CONTEXT, epoch: 2 }, {}],
-      [{ ...CONTEXT, vaultId: 'vault-2' }, {}],
+      [CONTEXT, { full: true, chunkSize: 4 * KIB }],
+      [{ ...CONTEXT, epoch: 2 }, { chunkSize: 4 * KIB }],
+      [{ ...CONTEXT, vaultId: 'vault-2' }, { chunkSize: 4 * KIB }],
+      // A body in another chunk size (one read from a file) is rewritten whole in the writer's size.
+      [CONTEXT, {}],
     ] as const) {
       const next = await sealChunkedBody(db, dek, context, first.state, options)
       expect(next.body.chunks.every((chunk) => chunk.ciphertext !== undefined)).toBe(true)
@@ -185,7 +187,7 @@ describe('chunked body', () => {
     const db = await sampleDatabase(40)
     const first = await sealChunkedBody(db, dek, CONTEXT, null, { chunkSize: 4 * KIB })
     db.exec('UPDATE t SET data = randomblob(1000) WHERE id = 20')
-    const second = await sealChunkedBody(db, dek, CONTEXT, first.state, { full: true })
+    const second = await sealChunkedBody(db, dek, CONTEXT, first.state, { full: true, chunkSize: 4 * KIB })
     const { body } = second
     const changed = body.chunks.findIndex((chunk, index) => chunk.ciphertext!.byteLength > 0 && index > 0 && first.state.chunks[index].hash !== second.state.chunks[index].hash)
     expect(changed).toBeGreaterThan(0)
@@ -306,7 +308,7 @@ describe('version 3 records and backups', () => {
     await writeVault(keysRecord(first.body, '2026-10-16T10:00:00.000Z'), { expectedStamp: null })
     const raw = await readVaultRaw()
     db.exec('UPDATE t SET data = randomblob(1000) WHERE id = 4')
-    const second = await sealChunkedBody(db, dek, CONTEXT, first.state)
+    const second = await sealChunkedBody(db, dek, CONTEXT, first.state, { chunkSize: 4 * KIB })
     await writeVault(keysRecord(second.body, '2026-10-16T10:01:00.000Z'), { expectedStamp: '2026-10-16T10:00:00.000Z', archive: { reason: 'upgrade', raw } })
     const [summary] = await listArchives()
     const archived = await readArchive(summary.key)
@@ -337,7 +339,7 @@ describe('version 3 records and backups', () => {
     expect(JSON.stringify(storedForm(loaded!.record), (_, value) => (value instanceof ArrayBuffer ? value.byteLength : value)).length).toBeLessThan(10_000)
 
     db.exec('UPDATE t SET data = randomblob(1000) WHERE id = 7')
-    const second = await sealChunkedBody(db, dek, CONTEXT, reopened.state)
+    const second = await sealChunkedBody(db, dek, CONTEXT, reopened.state, { chunkSize: 4 * KIB })
     await expect(writeVault(keysRecord(second.body, '2026-10-16T10:05:00.000Z'), { expectedStamp: 'stale' })).rejects.toBeInstanceOf(ConflictError)
     expect(await storeKeys()).toEqual(afterFirst)
     await writeVault(keysRecord(second.body, '2026-10-16T10:05:00.000Z'), { expectedStamp: '2026-10-16T10:00:00.000Z' })
@@ -368,7 +370,7 @@ describe('version 3 records and backups', () => {
     const raw = await readVaultRaw()
 
     db.exec('UPDATE t SET data = randomblob(1000) WHERE id = 3')
-    const second = await sealChunkedBody(db, dek, CONTEXT, first.state)
+    const second = await sealChunkedBody(db, dek, CONTEXT, first.state, { chunkSize: 4 * KIB })
     await writeVault(keysRecord(second.body, '2026-10-16T10:01:00.000Z'), { expectedStamp: '2026-10-16T10:00:00.000Z', archive: { reason: 'upgrade', raw } })
     const keys = await storeKeys()
     const both = new Set([...chunkKeysOf(first.body), ...chunkKeysOf(second.body)].map((key) => `chunk:${key}`))
@@ -403,7 +405,7 @@ describe('version 3 records and backups', () => {
     const first = await sealChunkedBody(db, dek, CONTEXT, null, { chunkSize: 4 * KIB })
     await writeVault(keysRecord(first.body, '2026-10-16T10:00:00.000Z'), { expectedStamp: null })
     db.exec('UPDATE t SET data = randomblob(1000) WHERE id = 2')
-    const sealed = await sealChunkedBody(db, dek, CONTEXT, first.state)
+    const sealed = await sealChunkedBody(db, dek, CONTEXT, first.state, { chunkSize: 4 * KIB })
     const replacement = await sealChunkedBody(await sampleDatabase(10), dek, CONTEXT, null, { chunkSize: 4 * KIB })
     await writeVault(keysRecord(replacement.body, '2026-10-16T10:02:00.000Z'), {
       expectedStamp: '2026-10-16T10:00:00.000Z',

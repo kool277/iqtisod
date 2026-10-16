@@ -7,7 +7,7 @@ import { generateDek } from '../../src/crypto/crypto.service'
 import { unwrapDekWith, wrapDekTo } from '../../src/crypto/ecies'
 import { bytesToHex } from '../../src/crypto/encoding'
 import { generateIdentitySecret, importIdentity, sealIdentity, unsealIdentity } from '../../src/crypto/identity'
-import { deriveInviteKeys, inviteAad, unwrapInviteDek, wrapDekForInvite } from '../../src/crypto/invite-crypto'
+import { deriveInviteKeys, inviteAad, mintInviteKeys, signsFor, unwrapInviteDek, wrapDekForInvite } from '../../src/crypto/invite-crypto'
 import { ARGON2_DEFAULT, isArgon2Params, type Argon2Params } from '../../src/crypto/kdf'
 import { LABELS, fingerprintOf, formatFingerprint, signPayload, verifyPayload } from '../../src/crypto/sign'
 import { assertSuite, resetSuiteDetectionForTests, suiteSupported } from '../../src/crypto/suite'
@@ -187,19 +187,21 @@ describe('ECIES DEK wrap', () => {
 describe('invite keys', () => {
   it('derive the same invite key from the same code and wrap the DEK under the invite KEK', async () => {
     const salt = new Uint8Array(16).fill(5)
-    const first = await deriveInviteKeys('ABCD-EFGH', salt, FAST)
+    const first = await mintInviteKeys('ABCD-EFGH', salt, FAST)
     const second = await deriveInviteKeys('ABCD-EFGH', salt, FAST)
     const wrong = await deriveInviteKeys('ABCD-EFGX', salt, FAST)
-    expect(first.sigPub).toBe(second.sigPub)
-    expect(wrong.sigPub).not.toBe(first.sigPub)
+    // The code derives the same key as the one minted; it is checked by signing, never by exporting it.
+    expect(await signsFor(second.sigPriv, first.sigPub)).toBe(true)
+    expect(await signsFor(wrong.sigPriv, first.sigPub)).toBe(false)
+    expect(second.sigPriv.extractable).toBe(false)
     const dek = await generateDek()
     const aad = inviteAad('v', 'g', 'INVITE', 'a@x.io', '2026-10-07T00:00:00.000Z')
     const wrapped = await wrapDekForInvite(dek, first.kek, aad)
     expect(await rawDek(await unwrapInviteDek(wrapped.cipherText, second.kek, wrapped.iv, aad))).toBe(await rawDek(dek))
     await expect(unwrapInviteDek(wrapped.cipherText, wrong.kek, wrapped.iv, aad)).rejects.toThrow()
     await expect(unwrapInviteDek(wrapped.cipherText, first.kek, wrapped.iv, inviteAad('v', 'g', 'INVITE', 'b@x.io', '2026-10-07T00:00:00.000Z'))).rejects.toThrow()
-    const signature = await signPayload(LABELS.binding, { a: 1 }, first.sigPriv)
-    expect(await verifyPayload(LABELS.binding, { a: 1 }, signature, second.sigPub)).toBe(true)
+    const signature = await signPayload(LABELS.binding, { a: 1 }, second.sigPriv)
+    expect(await verifyPayload(LABELS.binding, { a: 1 }, signature, first.sigPub)).toBe(true)
   })
 })
 

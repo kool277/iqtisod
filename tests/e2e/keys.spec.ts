@@ -157,3 +157,30 @@ test('a browser without X25519 or Ed25519 is refused at setup, with no weaker fa
   await expect(page.getByText('This browser cannot use the keys this vault needs')).toBeVisible({ timeout: 30_000 })
   await expect(page.getByTestId('kpi-net')).toHaveCount(0)
 })
+
+test('a founder upgrade that cannot be saved leaves the 1.x vault as it was', async ({ page }) => {
+  test.setTimeout(240_000)
+  await page.goto('/')
+  await page.getByTestId('import-file').setInputFiles(V4)
+  await page.getByTestId('confirm-import').click()
+  await signIn(page, 'admin@access.test', 'Plum orchard admin v4')
+  await expect(page.getByTestId('upgrade-offer')).toBeVisible({ timeout: 60_000 })
+  // The browser refuses to store the upgraded record, as when storage is full.
+  await page.evaluate(() => {
+    const put = IDBObjectStore.prototype.put
+    IDBObjectStore.prototype.put = function (this: IDBObjectStore, value: unknown, key?: IDBValidKey) {
+      if (key === 'primary' && (value as { version?: unknown } | null)?.version === 3) throw new DOMException('No room', 'QuotaExceededError')
+      return put.call(this, value, key)
+    }
+  })
+  await page.getByTestId('upgrade-password').fill('Plum orchard admin v4')
+  await page.getByTestId('upgrade-confirm').click()
+  // The half-upgraded session is dropped without saving, and the page starts over.
+  await expect(page.getByTestId('login-email')).toBeVisible({ timeout: 60_000 })
+  // Still the 1.x vault: a member's old password opens it, and the admin is offered the upgrade again.
+  await signIn(page, 'viewer@access.test', 'Viewer after reset code v4')
+  await expect(page.getByTestId('kpi-net')).toBeVisible({ timeout: 60_000 })
+  await lock(page)
+  await signIn(page, 'admin@access.test', 'Plum orchard admin v4')
+  await expect(page.getByTestId('upgrade-offer')).toBeVisible({ timeout: 60_000 })
+})

@@ -3,9 +3,9 @@ import { auditHead, type AuditHead } from '../db/audit-chain'
 import { readVault, readVaultRaw, stampOf, stripArchivedGrantsOnce, writeVault, type LoadedVault, type VaultRecord } from '../db/storage'
 import { KEYS_RECORD_VERSION, RECORD_VERSION, SCHEMA_VERSION } from '../db/versions'
 import type { OpenVault, SessionUser } from '../domain/types'
-import { AppError, AuthError, ConflictError, ForbiddenError, ValidationError, VaultInUseError } from '../domain/errors'
+import { AppError, AuthError, ConflictError, ForbiddenError, KeysBlockedError, ValidationError, VaultInUseError } from '../domain/errors'
 import { keysEnabled } from '../lib/flags'
-import { commitSealed, confirmKeysSession } from '../services/v2/session'
+import { commitSealed, confirmKeysSession, pinnedFounder } from '../services/v2/session'
 import { observeClock } from '../lib/device-clock'
 import { readIdleMinutes, storeIdleMinutes, watchIdle, type IdleMinutes } from '../lib/idle'
 import { advanceAuditMark, readAuditMark, resetAuditMark } from '../lib/audit-mark'
@@ -292,6 +292,16 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     chainRef.current = chainRef.current.then(() => persistNow()).catch(() => undefined)
     return chainRef.current
   }, [persistNow])
+
+  /** Runs `task` in the save queue, so no autosave runs while it seals or writes. Its result or error is returned. */
+  const inChain = useCallback(<T,>(task: () => Promise<T>): Promise<T> => {
+    const result = chainRef.current.then(task)
+    chainRef.current = result.then(
+      () => undefined,
+      () => undefined,
+    )
+    return result
+  }, [])
 
   const markDirty = useCallback(() => {
     dirtyRef.current = true
@@ -639,20 +649,27 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       if (dirtyRef.current) enqueuePersist()
       await chainRef.current
       if (conflictRef.current) throw new ConflictError()
-      writeAudit(vault.db, vault.user.id, 'VAULT_REPLACED_BY_IMPORT', 'vault', 'primary', {
-        backupAppVersion: backup.appVersion,
-        backupSchemaVersion: backup.record.schemaVersion,
-        backupExportedAt: backup.exportedAt,
-        people: backup.record.wraps.length,
-      })
-      const sealed = await sealVault(vault)
-      await writeVault(backup.record, {
-        expectedStamp: stampRef.current,
-        archive: { reason: 'import', record: sealed },
+      // A backup with per-person keys must come from the household this browser knows, if it knows one by that id.
+      if (backup.record.version === KEYS_RECORD_VERSION) {
+        const pinned = pinnedFounder(backup.record.keys.vaultId)
+        if (pinned !== null && pinned !== backup.record.keys.founder.sigPub) throw new KeysBlockedError('KEYS_FOUNDER_MISMATCH')
+      }
+      await inChain(async () => {
+        writeAudit(vault.db, vault.user.id, 'VAULT_REPLACED_BY_IMPORT', 'vault', 'primary', {
+          backupAppVersion: backup.appVersion,
+          backupSchemaVersion: backup.record.schemaVersion,
+          backupExportedAt: backup.exportedAt,
+          people: backup.record.version === KEYS_RECORD_VERSION ? Object.keys(backup.record.keys.identities).length : backup.record.wraps.length,
+        })
+        const sealed = await sealVault(vault)
+        await writeVault(backup.record, {
+          expectedStamp: stampRef.current,
+          archive: { reason: 'import', record: sealed },
+        })
       })
       closeAfterReplace()
     },
-    [enqueuePersist, closeAfterReplace],
+    [enqueuePersist, closeAfterReplace, inChain],
   )
 
   const exportBackup = useCallback(async () => {
@@ -662,37 +679,53 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     await chainRef.current
     if (conflictRef.current) throw new ConflictError()
     // The save failed (the browser refused to store the vault, or ran out of room): the stored copy is behind, so the
-    // backup is sealed from the open vault, the only place the latest changes are.
-    if (dirtyRef.current) return sealVault(vault, { full: true })
+    // backup is sealed from the open vault, the only place the latest changes are. In the queue, so no autosave
+    // changes the session while it seals.
+    if (dirtyRef.current) return inChain(() => sealVault(vault, { full: true }))
     const loaded = await readVault()
     if (!loaded) throw new Error('MISSING')
     return loaded.record
-  }, [enqueuePersist])
+  }, [enqueuePersist, inChain])
 
   const upgradeKeys = useCallback(
     async (password: string) => {
       const vault = vaultRef.current
       if (!vault) throw new Error('LOCKED')
       if (vault.keys) throw new ValidationError('ALREADY_UPGRADED')
-      if (dirtyRef.current) enqueuePersist()
-      await chainRef.current
-      if (conflictRef.current) throw new ConflictError()
-      // The 1.x record as stored is kept as the rollback path; it must be the one this session last saved.
-      const raw = await readVaultRaw()
-      if (raw === undefined || stampOf(raw) !== stampRef.current) throw new ConflictError()
-      const { upgradeToKeys } = await import('../services/v2/upgrade')
-      let upgraded: Awaited<ReturnType<typeof upgradeToKeys>>
-      try {
-        upgraded = await upgradeToKeys(vault, password)
-      } catch (error) {
-        if (!upgradeRefusedEarly(error)) void lock()
-        throw error
+      // Nothing of this session may be saved after the database in memory was upgraded unless the 1.x record is
+      // archived in the same write: a failure from then on drops the session, which the reload after the lock clears.
+      let discarded = false
+      const discard = () => {
+        discarded = true
+        conflictRef.current = true
+        dirtyRef.current = false
       }
+      let upgraded: Awaited<ReturnType<typeof import('../services/v2/upgrade').upgradeToKeys>>
       try {
-        await writeVault(upgraded.record, { expectedStamp: stampRef.current, archive: { reason: 'upgrade', raw } })
+        upgraded = await inChain(async () => {
+          if (dirtyRef.current) await persistNow()
+          if (conflictRef.current || dirtyRef.current) throw new ConflictError()
+          // The 1.x record as stored is kept as the rollback path; it must be the one this session last saved.
+          const raw = await readVaultRaw()
+          if (raw === undefined || stampOf(raw) !== stampRef.current) throw new ConflictError()
+          const { upgradeToKeys } = await import('../services/v2/upgrade')
+          let result: Awaited<ReturnType<typeof upgradeToKeys>>
+          try {
+            result = await upgradeToKeys(vault, password)
+          } catch (error) {
+            if (!upgradeRefusedEarly(error)) discard()
+            throw error
+          }
+          try {
+            await writeVault(result.record, { expectedStamp: stampRef.current, archive: { reason: 'upgrade', raw } })
+          } catch (error) {
+            discard()
+            throw error
+          }
+          return result
+        })
       } catch (error) {
-        // The database in memory is already upgraded and must not be saved without the 1.x archive: start over.
-        void lock()
+        if (discarded) void lock()
         throw error
       }
       commitSealed(vault, upgraded.record)
@@ -708,7 +741,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         return measureCapacity()
       })
     },
-    [enqueuePersist, lock, markSaved, syncState],
+    [inChain, persistNow, lock, markSaved, syncState],
   )
 
   const postponeUpgrade = useCallback(() => setUpgradeOffered(false), [])

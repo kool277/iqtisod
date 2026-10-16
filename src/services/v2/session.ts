@@ -40,11 +40,17 @@ export function rememberSealed(record: KeysRecord, chunks: ChunkState): void {
   pending.set(record, chunks)
 }
 
-/** After `record` was written: later saves compare against the chunks it stored. A no-op for anything else. */
+/**
+ * After `record` was written: later saves compare against the chunks it stored, and this browser has now seen the roster
+ * version it names, so an older copy put back later is caught (design 3.8 step 3). A no-op for anything else.
+ */
 export function commitSealed(vault: OpenVault, record: unknown): void {
   if (!vault.keys || typeof record !== 'object' || record === null) return
   const chunks = pending.get(record as KeysRecord)
-  if (chunks) vault.keys.chunks = chunks
+  if (!chunks) return
+  vault.keys.chunks = chunks
+  const { keys } = record as KeysRecord
+  noteRosterSeen(keys.vaultId, keys.roster.version)
 }
 
 // Per-device trust anchors (design 3.8 and 5.3): the founder key pinned on first sign-in, and the newest roster
