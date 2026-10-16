@@ -6,6 +6,10 @@ Data formats are versioned separately from the app. Each release lists the forma
 
 ## [Unreleased]
 
+## [1.7.2] - 2026-10-16
+
+Reads backup and record versions 1–2 and schema versions 1–4. Writes backup 2, record 2, schema 4, and export format 1, the same as 1.7.1. No stored format changed, so 1.7.1 opens everything 1.7.2 saves.
+
 ### Fixed
 
 - **Health check:** the storage row counts a full-size vault as large as this device lets receipts make it, not the 48 MB of 1.6.0, so it no longer reports room for a full vault that is not there. Reading a large stored vault may take up to 20 seconds before it counts as unreadable, so a big vault on a slow phone is no longer reported as unreadable, with advice to import a backup.
@@ -382,7 +386,8 @@ Writes backup, record, and schema version 1.
 - Audit log, encrypted `.moliya` backups, day and night themes, and a collapsible sidebar.
 - Deployment to GitHub Pages.
 
-[Unreleased]: https://github.com/kool277/iqtisod/compare/v1.7.1...HEAD
+[Unreleased]: https://github.com/kool277/iqtisod/compare/v1.7.2...HEAD
+[1.7.2]: https://github.com/kool277/iqtisod/compare/v1.7.1...v1.7.2
 [1.7.1]: https://github.com/kool277/iqtisod/compare/v1.7.0...v1.7.1
 [1.7.0]: https://github.com/kool277/iqtisod/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/kool277/iqtisod/compare/v1.5.0...v1.6.0
