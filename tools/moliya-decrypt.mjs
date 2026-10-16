@@ -1,14 +1,15 @@
 #!/usr/bin/env node
-// Standalone recovery tool for Moliya backups. Depends only on Node.js (22+) so it keeps
-// working without the app, its build, or npm. Specification: docs/data-format.md.
+// Standalone recovery tool for Moliya backups. Depends only on Node.js (22+; 24.7+ for backup format 3,
+// whose passwords need Argon2id) so it keeps working without the app, its build, or npm.
+// Specification: docs/data-format.md.
 import { chmodSync, closeSync, existsSync, fstatSync, mkdtempSync, openSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import { createInterface } from 'node:readline'
-import { webcrypto } from 'node:crypto'
+import * as nodeCrypto from 'node:crypto'
 
-const { subtle } = webcrypto
-const SUPPORTED_BACKUP_VERSIONS = [1, 2]
+const { subtle } = nodeCrypto.webcrypto
+const SUPPORTED_BACKUP_VERSIONS = [1, 2, 3]
 const LEGACY_KDF = { name: 'PBKDF2', hash: 'SHA-256', iterations: 200000 }
 const KDF_HASHES = ['SHA-256', 'SHA-384', 'SHA-512']
 // Same bounds as the app, so a crafted file cannot make the tool spend minutes on one guess.
@@ -19,9 +20,11 @@ const WRAP_AAD_V1 = 'moliya/wrap/v1'
 
 const USAGE = `Usage:
   node tools/moliya-decrypt.mjs <backup.moliya> --list
-  node tools/moliya-decrypt.mjs <backup.moliya> --email <email> [--out <file.sqlite>] [--keep-keys] [--force]
+  node tools/moliya-decrypt.mjs <backup.moliya> --email <email> [--out <file.sqlite>] [--keep-keys] [--force] [--verify]
 
 Decrypts a Moliya backup into a standard SQLite database.
+For a backup with per-person keys (format 3, Jaybi 2.0), --verify also checks the signed list
+of people and the backup's signature, and exits with status 3 if they do not hold.
 The password is read from MOLIYA_PASSWORD, or prompted for when unset.
 Password verifiers are blanked, and private-safe rows (1.2.0+, still encrypted with each
 owner's own key), sign-in check secrets and invite-code verifiers (1.3.0+) are removed from
@@ -34,7 +37,7 @@ function fail(message, code = 1) {
 }
 
 function parseArgs(argv) {
-  const options = { file: null, email: null, out: null, list: false, keepKeys: false, force: false }
+  const options = { file: null, email: null, out: null, list: false, keepKeys: false, force: false, verify: false }
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index]
     if (arg === '--help' || arg === '-h') {
@@ -43,6 +46,7 @@ function parseArgs(argv) {
     } else if (arg === '--list') options.list = true
     else if (arg === '--keep-keys') options.keepKeys = true
     else if (arg === '--force') options.force = true
+    else if (arg === '--verify') options.verify = true
     else if (arg === '--email') options.email = argv[++index]
     else if (arg === '--out') options.out = argv[++index]
     else if (arg.startsWith('--')) fail(`unknown option ${arg}\n\n${USAGE}`, 2)
@@ -81,6 +85,7 @@ export function readBackup(text) {
   if (!SUPPORTED_BACKUP_VERSIONS.includes(file.version)) {
     throw new Error(`backup format ${file.version} is newer than this tool understands (${SUPPORTED_BACKUP_VERSIONS.join(', ')})`)
   }
+  if (file.version === 3) return readKeysBackup(file)
   const v1 = file.version === 1
   const recordKdf = v1 ? checkKdf(file.kdf ?? LEGACY_KDF) : null
   const body = v1 ? file.payload : file.body
@@ -124,6 +129,7 @@ function readGrants(grants) {
 }
 
 export async function decryptBackup(backup, email, password) {
+  if (backup.version === 3) return decryptKeysBackup(backup, email, password)
   const wrap = backup.wraps.find((item) => item.email.toLowerCase() === email.trim().toLowerCase())
   if (!wrap) throw new Error(`no user ${email} in this backup`)
   const material = await subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits'])
@@ -267,8 +273,9 @@ async function main() {
           appVersion: backup.appVersion,
           schemaVersion: backup.schemaVersion,
           exportedAt: backup.exportedAt,
-          users: backup.wraps.map((wrap) => ({ email: wrap.email, kdf: wrap.kdf })),
+          users: backup.version === 3 ? backup.identities.map((blob) => ({ email: blob.email, kdf: blob.kdf })) : backup.wraps.map((wrap) => ({ email: wrap.email, kdf: wrap.kdf })),
           pendingCodes: backup.grants,
+          ...(backup.version === 3 ? { founderKey: formatFingerprint(backup.founder.fingerprint) } : {}),
         },
         null,
         2,
@@ -284,6 +291,21 @@ async function main() {
     plain = await decryptBackup(backup, options.email, password)
   } catch (error) {
     fail(error.message)
+  }
+  if (options.verify) {
+    if (backup.version !== 3) fail('--verify needs a backup with per-person keys (format 3)', 2)
+    let problem
+    try {
+      problem = await verifyKeysBackup(backup, plain)
+    } catch (error) {
+      plain.fill(0)
+      fail(error.message)
+    }
+    if (problem) {
+      plain.fill(0)
+      fail(`verification failed: ${problem}`, 3)
+    }
+    process.stderr.write(`moliya-decrypt: signed list of people and backup signature verified (founder key ${formatFingerprint(backup.founder.fingerprint)})\n`)
   }
   let summary = null
   try {
@@ -311,6 +333,327 @@ async function main() {
     `Wrote ${out}\n  backup format ${backup.version}, written by Moliya ${backup.appVersion}, schema ${summary?.schema ?? backup.schemaVersion}` +
       `${summary ? `, ${summary.transactions} records` : ''}\n  This file is NOT encrypted. Store it securely.\n`,
   )
+}
+
+// --- Backup format 3: per-person keys (Jaybi 2.0), docs/data-format.md "Record version 3" ---
+
+const SUITE = 'J2-X25519-ED25519'
+const ARGON2_BOUNDS = { m: [19456, 262144], t: [2, 10], p: [1, 4] }
+const CHUNK_SIZE = { min: 4096, max: 64 * 1024 * 1024 }
+const MAX_CHUNKS = 4096
+const LABELS = {
+  identityWrap: 'moliya/v2/identity-wrap',
+  dekWrap: 'moliya/v2/dek-wrap',
+  dekWrapAad: 'moliya/v2/dek-wrap-aad',
+  roster: 'moliya/v2/roster',
+  header: 'moliya/v2/header',
+  binding: 'moliya/v2/binding',
+  chunk: 'moliya/v2/chunk',
+  body: 'moliya/v2/body',
+}
+const encoder = new TextEncoder()
+
+/** RFC 8785 JSON canonicalization for what Jaybi signs: objects, arrays, strings, safe integers, booleans and null. */
+export function canonicalize(value) {
+  if (value === null || typeof value === 'boolean') return JSON.stringify(value)
+  if (typeof value === 'number') {
+    if (!Number.isSafeInteger(value)) throw new Error('only safe integers can be canonicalized')
+    return Object.is(value, -0) ? '0' : String(value)
+  }
+  if (typeof value === 'string') return JSON.stringify(value)
+  if (Array.isArray(value)) return `[${Array.from(value, (item) => canonicalize(item)).join(',')}]`
+  if (typeof value === 'object') {
+    const entries = Object.entries(value).filter(([, item]) => item !== undefined)
+    entries.sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
+    return `{${entries.map(([key, item]) => `${canonicalize(key)}:${canonicalize(item)}`).join(',')}}`
+  }
+  throw new Error('value cannot be canonicalized')
+}
+
+function signedBytes(label, payload) {
+  const head = encoder.encode(label)
+  const body = encoder.encode(canonicalize(payload))
+  const out = new Uint8Array(head.length + 1 + body.length)
+  out.set(head, 0)
+  out.set(body, head.length + 1)
+  return out
+}
+
+async function sha256Hex(bytes) {
+  return Buffer.from(await subtle.digest('SHA-256', bytes)).toString('hex')
+}
+
+function formatFingerprint(fingerprint) {
+  return (fingerprint.slice(0, 24).toUpperCase().match(/.{1,4}/g) ?? []).join(' ')
+}
+
+function within(value, [min, max]) {
+  return Number.isSafeInteger(value) && value >= min && value <= max
+}
+
+function checkArgon2(kdf, label) {
+  if (!kdf || kdf.name !== 'Argon2id' || !within(kdf.m, ARGON2_BOUNDS.m) || !within(kdf.t, ARGON2_BOUNDS.t) || !within(kdf.p, ARGON2_BOUNDS.p) || kdf.len !== 32 || kdf.v !== 19) {
+    throw new Error(`${label}: unsupported key derivation parameters ${JSON.stringify(kdf)}`)
+  }
+  return kdf
+}
+
+function b64(text, label, size) {
+  const value = bytes(text, label)
+  if (size !== undefined && value.length !== size) throw new Error(`${label} has the wrong length`)
+  return value
+}
+
+function readKeysBackup(file) {
+  if (file.suite !== SUITE) throw new Error(`unsupported key suite ${JSON.stringify(file.suite)}`)
+  if (file.cipher?.name !== 'AES-GCM' || file.cipher?.length !== 256) throw new Error('unsupported cipher')
+  if (typeof file.vaultId !== 'string' || !Number.isSafeInteger(file.epoch) || file.epoch < 1) throw new Error('vaultId or epoch is missing')
+  const identities = Object.values(file.identities ?? {}).map((blob, index) => {
+    if (blob?.v !== 2 || blob.suite !== SUITE || typeof blob.memberId !== 'string' || typeof blob.email !== 'string') throw new Error(`identities[${index}] is not supported`)
+    return {
+      memberId: blob.memberId,
+      email: blob.email,
+      kdf: checkArgon2(blob.kdf, `identities[${index}]`),
+      salt: b64(blob.salt, `identities[${index}].salt`, 16),
+      iv: b64(blob.iv, `identities[${index}].iv`, 12),
+      sealed: b64(blob.sealed, `identities[${index}].sealed`),
+      encPub: blob.encPub,
+      sigPub: blob.sigPub,
+    }
+  })
+  if (identities.length === 0) throw new Error('no one can unlock this backup')
+  const body = file.body ?? {}
+  const { chunkSize, length } = body
+  if (!within(chunkSize, [CHUNK_SIZE.min, CHUNK_SIZE.max]) || (chunkSize & (chunkSize - 1)) !== 0 || !Number.isSafeInteger(length) || length < 1) throw new Error('body is not supported')
+  const count = Math.ceil(length / chunkSize)
+  if (count > MAX_CHUNKS || !Array.isArray(body.chunks) || body.chunks.length !== count) throw new Error('body chunks do not match its length')
+  const ciphertext = bytes(body.ciphertext, 'body.ciphertext')
+  if (ciphertext.length !== length + 16 * count) throw new Error('body ciphertext has the wrong length')
+  const chunks = []
+  for (let index = 0, offset = 0; index < count; index += 1) {
+    const size = Math.min(chunkSize, length - index * chunkSize) + 16
+    chunks.push({ iv: b64(body.chunks[index], `body.chunks[${index}]`, 12), ciphertext: ciphertext.subarray(offset, offset + size) })
+    offset += size
+  }
+  const audit = file.audit && Number.isSafeInteger(file.audit.seq) && file.audit.seq >= 0 && /^[0-9a-f]{64}$/.test(file.audit.hash) ? { seq: file.audit.seq, hash: file.audit.hash } : null
+  return {
+    version: 3,
+    appVersion: file.appVersion,
+    schemaVersion: file.schemaVersion,
+    exportedAt: file.exportedAt ?? null,
+    createdAt: typeof file.createdAt === 'string' && file.createdAt.length > 0 ? file.createdAt : null,
+    updatedAt: file.updatedAt,
+    audit,
+    vaultId: file.vaultId,
+    epoch: file.epoch,
+    founder: file.founder,
+    roster: file.roster,
+    sig: file.sig,
+    identities,
+    dekWraps: file.dekWraps ?? {},
+    grants: readGrants(file.grants),
+    body: { chunkSize, length, manifest: body.chunks, seal: { iv: b64(body.seal?.iv, 'body.seal.iv', 12), tag: b64(body.seal?.tag, 'body.seal.tag', 16) }, sealText: body.seal, chunks },
+  }
+}
+
+async function hkdfAesKey(ikm, salt, info) {
+  const material = await subtle.importKey('raw', ikm, 'HKDF', false, ['deriveKey'])
+  return subtle.deriveKey({ name: 'HKDF', hash: 'SHA-256', salt, info: encoder.encode(info) }, material, { name: 'AES-GCM', length: 256 }, false, ['decrypt'])
+}
+
+function argon2id(password, blob) {
+  const argon2Sync = nodeCrypto.argon2Sync
+  if (typeof argon2Sync !== 'function') throw new Error('backup format 3 needs Node.js 24.7 or newer (for Argon2id); older Node.js still reads formats 1 and 2')
+  return argon2Sync('argon2id', { message: Buffer.from(password, 'utf8'), nonce: blob.salt, parallelism: blob.kdf.p, tagLength: 32, memory: blob.kdf.m, passes: blob.kdf.t })
+}
+
+function unpackIdentity(plain) {
+  const view = new DataView(plain.buffer, plain.byteOffset, plain.byteLength)
+  const encLength = view.getUint16(0)
+  const sigAt = 2 + encLength
+  if (sigAt + 2 > plain.length) throw new Error(DECRYPT_FAILED)
+  const sigLength = view.getUint16(sigAt)
+  if (sigAt + 2 + sigLength !== plain.length) throw new Error(DECRYPT_FAILED)
+  return { enc: plain.slice(2, sigAt), sig: plain.slice(sigAt + 2) }
+}
+
+async function decryptKeysBackup(backup, email, password) {
+  const blob = backup.identities.find((item) => item.email.toLowerCase() === email.trim().toLowerCase())
+  if (!blob) throw new Error(`no user ${email} in this backup`)
+  const bits = argon2id(password, blob)
+  let secret
+  try {
+    const kek = await hkdfAesKey(bits, new Uint8Array(0), `${LABELS.identityWrap}|kek`)
+    const aad = encoder.encode(`${LABELS.identityWrap}|${backup.vaultId}|${blob.memberId}|${SUITE}|${blob.encPub}|${blob.sigPub}`)
+    secret = unpackIdentity(new Uint8Array(await subtle.decrypt({ name: 'AES-GCM', iv: blob.iv, additionalData: aad }, kek, blob.sealed)))
+  } catch {
+    throw new Error(DECRYPT_FAILED)
+  } finally {
+    bits.fill(0)
+  }
+  let rawDek
+  try {
+    const wrap = backup.dekWraps[blob.memberId]
+    if (!wrap || wrap.epoch !== backup.epoch || wrap.memberId !== blob.memberId) throw new Error(DECRYPT_FAILED)
+    const encPriv = await subtle.importKey('pkcs8', secret.enc, { name: 'X25519' }, false, ['deriveBits'])
+    const epk = await subtle.importKey('raw', b64(wrap.epk, 'dekWrap.epk', 32), { name: 'X25519' }, true, [])
+    const shared = new Uint8Array(await subtle.deriveBits({ name: 'X25519', public: epk }, encPriv, 256))
+    const kek = await hkdfAesKey(shared, b64(wrap.salt, 'dekWrap.salt', 32), `${LABELS.dekWrap}|${SUITE}|${wrap.epk}|${blob.encPub}`)
+    shared.fill(0)
+    const pubHash = await sha256Hex(b64(blob.encPub, 'encPub', 32))
+    const aad = encoder.encode(`${LABELS.dekWrapAad}|${backup.vaultId}|${backup.epoch}|${blob.memberId}|${pubHash}|${SUITE}`)
+    rawDek = await subtle.decrypt({ name: 'AES-GCM', iv: b64(wrap.iv, 'dekWrap.iv', 12), additionalData: aad }, kek, b64(wrap.ct, 'dekWrap.ct', 48))
+  } catch {
+    throw new Error(DECRYPT_FAILED)
+  } finally {
+    secret.enc.fill(0)
+    secret.sig.fill(0)
+  }
+  const plain = new Uint8Array(backup.body.length)
+  try {
+    const dek = await subtle.importKey('raw', rawDek, { name: 'AES-GCM', length: 256 }, false, ['decrypt'])
+    const { chunkSize, length, manifest } = backup.body
+    // The seal covers the list of chunk IVs, so no chunk from another save can stand in for one of these.
+    const sealAad = encoder.encode(`${LABELS.body}|${backup.vaultId}|${backup.epoch}|${canonicalize({ chunkSize, length, chunks: manifest })}`)
+    await subtle.decrypt({ name: 'AES-GCM', iv: backup.body.seal.iv, additionalData: sealAad }, dek, backup.body.seal.tag)
+    for (let index = 0; index < backup.body.chunks.length; index += 1) {
+      const chunk = backup.body.chunks[index]
+      const aad = encoder.encode(`${LABELS.chunk}|${backup.vaultId}|${backup.epoch}|${index}|${chunkSize}`)
+      const part = new Uint8Array(await subtle.decrypt({ name: 'AES-GCM', iv: chunk.iv, additionalData: aad }, dek, chunk.ciphertext))
+      plain.set(part, index * chunkSize)
+      part.fill(0)
+    }
+  } catch {
+    plain.fill(0)
+    throw new Error(DECRYPT_FAILED)
+  } finally {
+    new Uint8Array(rawDek).fill(0)
+  }
+  if (Buffer.from(plain.subarray(0, 16)).toString('latin1') !== 'SQLite format 3\0') {
+    plain.fill(0)
+    throw new Error(DECRYPT_FAILED)
+  }
+  return plain
+}
+
+async function verifySignature(label, payload, signature, publicKey) {
+  try {
+    const key = await subtle.importKey('raw', b64(publicKey, 'public key', 32), { name: 'Ed25519' }, true, ['verify'])
+    return await subtle.verify({ name: 'Ed25519' }, key, b64(signature, 'signature', 64), signedBytes(label, payload))
+  } catch {
+    return false
+  }
+}
+
+function withoutSig(doc) {
+  const { sig: _sig, ...rest } = doc
+  return rest
+}
+
+function bindingBody(fields) {
+  const { type, suite, vaultId, memberId, rosterVersion, inviteSigPub, encPub, sigPub, at } = fields
+  return { type, suite, vaultId, memberId, rosterVersion, inviteSigPub, encPub, sigPub, at }
+}
+
+async function bindingHolds(fields, inviteSig, memberSig) {
+  const signed = bindingBody(fields)
+  return (await verifySignature(LABELS.binding, signed, inviteSig, signed.inviteSigPub)) && (await verifySignature(LABELS.binding, signed, memberSig, signed.sigPub))
+}
+
+/** The checks of the app's unlock (design 3.8, steps 2–3 and 5) on a decrypted format 3 backup. Returns the problem, or null. */
+export async function verifyKeysBackup(backup, plain) {
+  const DatabaseSync = await openSqlite()
+  if (!DatabaseSync) throw new Error('--verify needs node:sqlite (Node.js 22.13 or newer)')
+  const dir = mkdtempSync(join(tmpdir(), 'moliya-decrypt-'))
+  const path = join(dir, 'vault.sqlite')
+  let rows
+  let bindingRows
+  let people
+  try {
+    chmodSync(dir, 0o700)
+    writeFileSync(path, plain, { mode: 0o600 })
+    const db = new DatabaseSync(path, { readOnly: true })
+    try {
+      rows = db.prepare('SELECT version, hash, doc FROM roster_versions ORDER BY version').all()
+      bindingRows = db.prepare('SELECT member_id, doc FROM key_bindings ORDER BY member_id').all()
+      people = db.prepare('SELECT u.id, u.email, r.name AS role, u.group_id AS grp FROM users u JOIN roles r ON r.id = u.role_id').all()
+    } finally {
+      db.close()
+    }
+  } finally {
+    try {
+      zeroFile(path)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  }
+  if (rows.length === 0) return 'the backup has no signed list of people'
+  const docs = rows.map((row) => JSON.parse(row.doc))
+  let previous = null
+  let founder = null
+  for (let index = 0; index < docs.length; index += 1) {
+    const doc = docs[index]
+    if (doc.version !== index + 1 || doc.vaultId !== backup.vaultId || doc.suite !== SUITE || doc.prev !== previous) return `roster version ${index + 1} is out of order`
+    if ((await sha256Hex(encoder.encode(canonicalize(doc)))) !== rows[index].hash) return `roster version ${doc.version} does not match its stored hash`
+    const members = new Map(doc.members.map((member) => [member.id, member]))
+    if (index === 0) {
+      const [first] = doc.members
+      if (doc.members.length !== 1 || first.status !== 'active' || first.role !== 'Admin' || first.id !== doc.issuedBy) return 'roster version 1 does not name the founder alone'
+      if (!(await verifySignature(LABELS.roster, withoutSig(doc), doc.sig, first.sigPub))) return 'roster version 1 is not signed by the founder'
+      founder = first
+    } else {
+      const before = new Map(docs[index - 1].members.map((member) => [member.id, member]))
+      const was = before.get(doc.issuedBy)
+      const now = members.get(doc.issuedBy)
+      const key = was?.status === 'active' && was.role === 'Admin' ? was.sigPub : was?.status === 'invited' && was.role === 'Admin' && now?.status === 'active' && now.proof ? now.sigPub : null
+      if (!key || !(await verifySignature(LABELS.roster, withoutSig(doc), doc.sig, key))) return `roster version ${doc.version} is not signed by an admin of version ${doc.version - 1}`
+      for (const member of doc.members) {
+        if (member.status !== 'active') continue
+        const prior = before.get(member.id)
+        if (prior?.status === 'active' && prior.encPub === member.encPub && prior.sigPub === member.sigPub && !member.proof) continue
+        const proof = member.proof
+        const fields = { type: 'binding', suite: SUITE, vaultId: backup.vaultId, memberId: member.id, rosterVersion: proof?.rosterVersion, inviteSigPub: prior?.inviteSigPub, encPub: member.encPub, sigPub: member.sigPub, at: proof?.at }
+        if (prior?.status !== 'invited' || !proof || !(await bindingHolds(fields, proof.inviteSig, proof.memberSig))) return `roster version ${doc.version} adds keys for ${member.email} without an invite`
+      }
+    }
+    previous = await sha256Hex(encoder.encode(canonicalize(doc)))
+  }
+  const latest = docs[docs.length - 1]
+  if (backup.founder?.memberId !== founder.id || backup.founder?.sigPub !== founder.sigPub || backup.founder?.fingerprint !== (await sha256Hex(b64(founder.sigPub, 'founder key', 32))).slice(0, 32)) return 'the backup names another founder than its roster'
+  if (backup.roster?.version !== latest.version || backup.roster?.hash !== previous) return 'the backup does not name its latest roster version'
+  if (backup.epoch !== latest.epoch) return 'the backup and its roster disagree about the vault key'
+  const active = new Map(latest.members.filter((member) => member.status === 'active').map((member) => [member.id, member]))
+  for (const row of bindingRows) {
+    const binding = JSON.parse(row.doc)
+    const invited = latest.members.find((member) => member.id === binding.memberId)
+    if (binding.memberId !== row.member_id || invited?.status !== 'invited' || binding.inviteSigPub !== invited.inviteSigPub || binding.vaultId !== backup.vaultId || !(await bindingHolds(binding, binding.inviteSig, binding.memberSig))) {
+      return `the key binding for ${row.member_id} is not valid`
+    }
+    active.set(binding.memberId, { ...invited, encPub: binding.encPub, sigPub: binding.sigPub })
+  }
+  const users = new Map(people.map((person) => [person.id, person]))
+  for (const member of active.values()) {
+    const person = users.get(member.id)
+    if (!person || person.email !== member.email || person.role !== member.role || (person.grp ?? null) !== member.group) return `${member.email} in the database does not match the signed list of people`
+  }
+  const signer = active.get(backup.sig?.by)
+  const header = {
+    version: 3,
+    appVersion: backup.appVersion,
+    schemaVersion: backup.schemaVersion,
+    createdAt: backup.createdAt,
+    updatedAt: backup.updatedAt,
+    cipher: { name: 'AES-GCM', length: 256 },
+    ...(backup.audit ? { audit: backup.audit } : {}),
+    suite: SUITE,
+    vaultId: backup.vaultId,
+    epoch: backup.epoch,
+    founder: { memberId: backup.founder.memberId, sigPub: backup.founder.sigPub, fingerprint: backup.founder.fingerprint },
+    roster: { version: backup.roster.version, hash: backup.roster.hash },
+    body: { chunkSize: backup.body.chunkSize, length: backup.body.length, chunks: backup.body.manifest, seal: { iv: backup.body.sealText.iv, tag: backup.body.sealText.tag } },
+  }
+  if (!signer || backup.sig?.alg !== 'Ed25519' || !(await verifySignature(LABELS.header, header, backup.sig.value, signer.sigPub))) return 'the backup is not signed by a member of its roster'
+  return null
 }
 
 if (process.argv[1]?.endsWith('moliya-decrypt.mjs')) {
