@@ -1,12 +1,16 @@
+import { argon2BelowDefault } from '../crypto/kdf'
+import { formatFingerprint } from '../crypto/sign'
 import { auditHead, compareAuditHead, verifyAuditChain, type AuditHead, type AuditHeadProblem } from '../db/audit-chain'
 import { readSchemaVersion } from '../db/migrations'
 import { getSetting } from '../db/settings'
 import type { OpenVault } from '../domain/types'
 import { deviceClockFloor } from '../lib/device-clock'
 import { Permission, canUser } from '../rbac'
-import { CLOCK_KEY, clockFloor } from '../services/grant-store'
+import { keysEnabled } from '../lib/flags'
+import { CLOCK_KEY, accessCount, clockFloor } from '../services/grant-store'
 import { hasSignInCheck } from '../services/totp.service'
 import { usersOverview } from '../services/user.service'
+import { readBindings } from '../services/v2/roster-store'
 
 export type SaveStateName = 'saved' | 'saving' | 'dirty' | 'error' | 'conflict'
 
@@ -35,6 +39,10 @@ export type VaultFacts = {
   members: number | null
   /** Counts only, for people managers. */
   hygiene: { noTotp: number; mustChange: number; noAccess: number; expiredCodes: number; legacyWraps: number } | null
+  /** A per-person-keys vault; the counts are for people managers only. */
+  keys: { founderKey: string; rosterVersion: number; pending: number | null; reinvite: number | null; kdfBelow: boolean } | null
+  /** A 1.x vault an admin can upgrade in this build. */
+  upgradeOffer: boolean
 }
 
 export type VaultContextFacts = {
@@ -71,8 +79,23 @@ export function collectVaultFacts(vault: OpenVault, context: VaultContextFacts):
     totp: hasSignInCheck(db, user.id),
     mustChange: user.mustChangePassword,
     weak: context.weak,
-    members: canManageUsers ? vault.wraps.length : null,
+    members: canManageUsers ? accessCount(vault) : null,
     hygiene: canManageUsers ? hygieneOf(vault) : null,
+    keys: keysOf(vault, canManageUsers),
+    upgradeOffer: !vault.keys && keysEnabled() && canManageUsers && user.roleName === 'Admin',
+  }
+}
+
+function keysOf(vault: OpenVault, canManageUsers: boolean): VaultFacts['keys'] {
+  const keys = vault.keys
+  if (!keys) return null
+  const blob = keys.identities[keys.memberId]
+  return {
+    founderKey: formatFingerprint(keys.founder.fingerprint),
+    rosterVersion: keys.roster.version,
+    pending: canManageUsers ? (readBindings(vault.db)?.length ?? 0) : null,
+    reinvite: canManageUsers ? usersOverview(vault).noAccess : null,
+    kdfBelow: blob ? argon2BelowDefault(blob.kdf) : false,
   }
 }
 

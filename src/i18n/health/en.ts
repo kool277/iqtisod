@@ -82,6 +82,10 @@ export const healthEn = {
     vaultLimit: 'Largest vault',
     backupLimit: 'Largest backup file',
     deviceMemory: 'Device memory',
+    founderKey: 'Founder key',
+    rosterVersion: 'List version',
+    pending: 'Waiting to be signed',
+    reinvite: 'Need a new invite',
   },
   checks: {
     crypto: {
@@ -291,6 +295,35 @@ export const healthEn = {
       ok: 'Everyone active can sign in and no codes have expired.',
       attention: 'Someone cannot sign in, a code has expired, or a password copy predates the current protection.',
       fix: 'Open People: issue reset codes, revoke expired codes, and ask people with older copies to change their password.',
+    },
+    keysSuite: {
+      title: 'Per-person keys',
+      ok: 'This browser has the keys that vaults with per-person keys use (X25519 and Ed25519).',
+      missing: 'This browser lacks X25519 or Ed25519, so it cannot open a vault with per-person keys.',
+      fix: 'Update the browser, or use a current Chrome, Edge, Firefox or Safari.',
+    },
+    keysFounder: {
+      title: 'Founder key',
+      pinned: 'This browser checks the vault against the founder key it pinned at the first sign-in.',
+      fix: 'If you are unsure, compare the founder key with the person who founded the vault.',
+    },
+    keysRoster: {
+      title: 'Signed list of people',
+      ok: 'The list of people is signed and matches the people in the vault.',
+      pending: 'Someone used an invite code; your next save signs them into the list.',
+      reinvite: 'Some people need a new invite code before they can sign in.',
+      fix: 'Give each of them a new invite code on the People page.',
+    },
+    keysKdf: {
+      title: 'Password protection',
+      ok: 'Your keys are sealed with the current password protection.',
+      below: 'Your keys are sealed with weaker password protection than Jaybi now uses.',
+      fix: 'Change your password on the Account page; the new seal uses the current protection.',
+    },
+    keysUpgrade: {
+      title: 'Per-person keys',
+      offer: 'This vault still uses 1.x keys: everyone shares one key. An admin can give each person their own.',
+      fix: 'Lock the vault, sign in again as an admin, and choose Upgrade now.',
     },
     ratesFresh: {
       title: 'Exchange rates',

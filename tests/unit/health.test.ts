@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { afterAll, describe, expect, it, vi } from 'vitest'
 import { auditHead } from '../../src/db/audit-chain'
-import { RECORD_VERSION, SCHEMA_VERSION } from '../../src/db/versions'
+import { KEYS_RECORD_VERSION, KEYS_SCHEMA_VERSION, RECORD_VERSION, SCHEMA_VERSION } from '../../src/db/versions'
 import { sealSnapshot, type FxSnapshot } from '../../src/domain/fx'
 import {
   collectAppFacts,
@@ -401,6 +401,8 @@ describe('vault checks', () => {
       weak: true,
       members: 240,
       hygiene: { noTotp: 2, mustChange: 1, noAccess: 1, expiredCodes: 0, legacyWraps: 0 },
+      keys: null,
+      upgradeOffer: false,
     }
     const results = vaultChecks(facts, { ...stored, version: 1 }, NOW)
     expect(byId(results, 'format')).toMatchObject({ status: 'info', detail: 'older' })
@@ -419,6 +421,23 @@ describe('vault checks', () => {
     expect(byId(vaultChecks({ ...facts, bytes: 49 * MIB }, stored, NOW), 'size').status).toBe('fail')
     expect(byId(vaultChecks({ ...facts, lastBackupAt: null }, stored, NOW), 'backup')).toMatchObject({ status: 'warn', detail: 'never' })
     expect(byId(vaultChecks({ ...facts, schemaVersion: SCHEMA_VERSION + 1 }, stored, NOW), 'format').status).toBe('fail')
+
+    // A per-person-keys vault (record 3, schema 5) is current on its own track, and gets its own rows.
+    const keysStored = { ...stored, version: KEYS_RECORD_VERSION, schemaVersion: KEYS_SCHEMA_VERSION }
+    const keys = { founderKey: 'ABCD EF01 2345 6789 ABCD EF01', rosterVersion: 4, pending: 0, reinvite: 0, kdfBelow: false }
+    const keysFacts: VaultFacts = { ...facts, schemaVersion: KEYS_SCHEMA_VERSION, keys }
+    const keysResults = vaultChecks(keysFacts, keysStored, NOW)
+    expect(byId(keysResults, 'format')).toMatchObject({ status: 'pass', detail: 'current' })
+    expect(byId(keysResults, 'keysFounder')).toMatchObject({ status: 'pass', detail: 'pinned', facts: { founderKey: keys.founderKey } })
+    expect(byId(keysResults, 'keysRoster')).toMatchObject({ status: 'pass', detail: 'ok', facts: { rosterVersion: 4 } })
+    expect(byId(keysResults, 'keysKdf')).toMatchObject({ status: 'pass', detail: 'ok' })
+    expect(byId(vaultChecks({ ...keysFacts, keys: { ...keys, reinvite: 2 } }, keysStored, NOW), 'keysRoster')).toMatchObject({ status: 'warn', detail: 'reinvite', action: 'users' })
+    expect(byId(vaultChecks({ ...keysFacts, keys: { ...keys, pending: 1 } }, keysStored, NOW), 'keysRoster')).toMatchObject({ status: 'info', detail: 'pending' })
+    expect(byId(vaultChecks({ ...keysFacts, keys: { ...keys, kdfBelow: true } }, keysStored, NOW), 'keysKdf')).toMatchObject({ status: 'warn', action: 'account' })
+    expect(byId(vaultChecks({ ...keysFacts, schemaVersion: KEYS_SCHEMA_VERSION + 1 }, keysStored, NOW), 'format').status).toBe('fail')
+    // A 1.x vault in a build with per-person keys: the upgrade is offered to admins.
+    expect(byId(vaultChecks({ ...facts, upgradeOffer: true }, stored, NOW), 'keysUpgrade')).toMatchObject({ status: 'info', detail: 'offer', adminOnly: true })
+    expect(vaultChecks(facts, stored, NOW).some((item) => item.id.startsWith('keys'))).toBe(false)
   })
 
   it('read the clock marks only for people who manage users', async () => {

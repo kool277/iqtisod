@@ -84,6 +84,10 @@ export const healthUzLatn: HealthMessages = {
     vaultLimit: 'Eng katta seyf',
     backupLimit: 'Eng katta zaxira fayli',
     deviceMemory: 'Qurilma xotirasi',
+    founderKey: 'Asoschi kaliti',
+    rosterVersion: 'Roʻyxat versiyasi',
+    pending: 'Imzo kutmoqda',
+    reinvite: 'Yangi taklif kerak',
   },
   checks: {
     crypto: {
@@ -293,6 +297,35 @@ export const healthUzLatn: HealthMessages = {
       ok: 'Barcha faol odamlar kira oladi, muddati tugagan kodlar yoʻq.',
       attention: 'Kimdir kira olmaydi, kod muddati tugagan yoki parol nusxasi joriy himoyadan oldin yaratilgan.',
       fix: '“Odamlar” sahifasini oching: parol yangilash kodlarini bering, muddati tugagan kodlarni bekor qiling va eski nusxali odamlardan parolini oʻzgartirishni soʻrang.',
+    },
+    keysSuite: {
+      title: 'Shaxsiy kalitlar',
+      ok: 'Bu brauzerda shaxsiy kalitli seyflar foydalanadigan kalitlar (X25519 va Ed25519) bor.',
+      missing: 'Bu brauzerda X25519 yoki Ed25519 yoʻq, shuning uchun u shaxsiy kalitli seyfni ocha olmaydi.',
+      fix: 'Brauzerni yangilang yoki Chrome, Edge, Firefox yoki Safarining joriy versiyasidan foydalaning.',
+    },
+    keysFounder: {
+      title: 'Asoschi kaliti',
+      pinned: 'Bu brauzer seyfni birinchi kirishda eslab qolgan asoschi kaliti bilan solishtiradi.',
+      fix: 'Ishonchingiz komil boʻlmasa, asoschi kalitini seyfni yaratgan kishi bilan solishtiring.',
+    },
+    keysRoster: {
+      title: 'Odamlarning imzolangan roʻyxati',
+      ok: 'Odamlar roʻyxati imzolangan va seyfdagi odamlarga mos keladi.',
+      pending: 'Kimdir taklif kodidan foydalandi; keyingi saqlashingiz uni roʻyxatga imzolab qoʻshadi.',
+      reinvite: 'Baʼzi odamlarga kirish uchun yangi taklif kodi kerak.',
+      fix: 'Ularning har biriga “Foydalanuvchilar” sahifasida yangi taklif kodi bering.',
+    },
+    keysKdf: {
+      title: 'Parol himoyasi',
+      ok: 'Kalitlaringiz joriy parol himoyasi bilan muhrlangan.',
+      below: 'Kalitlaringiz Jaybi hozir foydalanadiganidan kuchsizroq parol himoyasi bilan muhrlangan.',
+      fix: '“Hisob” sahifasida parolingizni oʻzgartiring; yangi muhr joriy himoyadan foydalanadi.',
+    },
+    keysUpgrade: {
+      title: 'Shaxsiy kalitlar',
+      offer: 'Bu seyf hali 1.x kalitlaridan foydalanadi: hammada bitta umumiy kalit. Administrator har kimga oʻz kalitini bera oladi.',
+      fix: 'Seyfni qulflang, administrator sifatida qayta kiring va “Hozir oʻtish”ni tanlang.',
     },
     ratesFresh: {
       title: 'Valyuta kurslari',

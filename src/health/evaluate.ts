@@ -1,4 +1,4 @@
-import { RECORD_VERSION, SCHEMA_VERSION } from '../db/versions'
+import { KEYS_RECORD_VERSION, KEYS_SCHEMA_VERSION, RECORD_VERSION, SCHEMA_VERSION } from '../db/versions'
 import { isStale } from '../domain/fx'
 import { growthBudget, type Capacity } from '../lib/capacity'
 import { LIMITS, formatBytes, restoreLimitBytes } from '../lib/limits'
@@ -144,8 +144,12 @@ export function vaultChecks(facts: VaultFacts, stored: StorageFacts['stored'], n
   const results: HealthResult[] = []
   const record = typeof stored === 'object' ? stored : null
   const formatFacts = { record: record?.version ?? '?', schema: facts.schemaVersion, writtenBy: record?.appVersion ?? undefined }
-  if ((record?.version ?? 0) > RECORD_VERSION || facts.schemaVersion > SCHEMA_VERSION) results.push(result('format', 'fail', 'newer', { facts: formatFacts }))
-  else if (record?.version !== RECORD_VERSION || facts.schemaVersion !== SCHEMA_VERSION || (record?.schemaVersion ?? SCHEMA_VERSION) !== SCHEMA_VERSION)
+  // Two tracks: 1.x vaults (record 2, schema 4) and per-person-keys vaults (record 3, schema 5). Each is current on its own.
+  const keysTrack = record?.version === KEYS_RECORD_VERSION
+  const currentRecord = keysTrack ? KEYS_RECORD_VERSION : RECORD_VERSION
+  const currentSchema = keysTrack ? KEYS_SCHEMA_VERSION : SCHEMA_VERSION
+  if ((record?.version ?? 0) > KEYS_RECORD_VERSION || facts.schemaVersion > currentSchema) results.push(result('format', 'fail', 'newer', { facts: formatFacts }))
+  else if (record?.version !== currentRecord || facts.schemaVersion !== currentSchema || (record?.schemaVersion ?? currentSchema) !== currentSchema)
     results.push(result('format', 'info', 'older', { facts: formatFacts }))
   else results.push(result('format', 'pass', 'current', { facts: formatFacts }))
 
@@ -237,6 +241,27 @@ export function vaultChecks(facts: VaultFacts, stored: StorageFacts['stored'], n
         : result('userHygiene', 'pass', 'ok', { adminOnly: true, facts: facts.hygiene }),
     )
   }
+  results.push(...keysChecks(facts))
+  return results
+}
+
+/** Design 6.2: a per-person-keys vault's founder key, roster and password strength; the upgrade offer on a 1.x vault. */
+export function keysChecks(facts: VaultFacts): HealthResult[] {
+  const results: HealthResult[] = []
+  const keys = facts.keys
+  if (keys) {
+    results.push(result('keysFounder', 'pass', 'pinned', { facts: { founderKey: keys.founderKey } }))
+    const shown = { rosterVersion: keys.rosterVersion, pending: keys.pending ?? undefined, reinvite: keys.reinvite ?? undefined }
+    results.push(
+      keys.reinvite
+        ? result('keysRoster', 'warn', 'reinvite', { adminOnly: true, facts: shown, action: 'users' })
+        : keys.pending
+          ? result('keysRoster', 'info', 'pending', { adminOnly: true, facts: shown })
+          : result('keysRoster', 'pass', 'ok', { facts: shown }),
+    )
+    results.push(keys.kdfBelow ? result('keysKdf', 'warn', 'below', { action: 'account' }) : result('keysKdf', 'pass', 'ok'))
+  }
+  if (facts.upgradeOffer) results.push(result('keysUpgrade', 'info', 'offer', { adminOnly: true }))
   return results
 }
 
@@ -277,6 +302,8 @@ export type HealthInput = {
   now: number
   dev: boolean
   browser: BrowserFacts
+  /** Whether Web Crypto has X25519 and Ed25519; null where per-person keys do not concern this browser. */
+  keysSuite?: boolean | null
   storage: StorageFacts
   app: AppFacts
   rates: RatesFacts
@@ -286,8 +313,10 @@ export type HealthInput = {
 }
 
 export function evaluateHealth(input: HealthInput): HealthResult[] {
+  const suite = input.keysSuite ?? null
   return [
     ...browserChecks(input.browser),
+    ...(suite === null ? [] : [suite ? result('keysSuite', 'pass', 'ok') : result('keysSuite', 'warn', 'missing')]),
     ...storageChecks(input.storage, input.capacity),
     ...appChecks(input.app),
     ...(input.vault ? vaultChecks(input.vault, input.storage.stored, input.now, growthBudget(input.capacity ?? null)) : []),

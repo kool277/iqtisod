@@ -19,6 +19,7 @@ export const HEALTH_CHECKS = {
   secureContext: { group: 'browser', details: ['ok', 'insecure'] },
   trustedTypes: { group: 'browser', details: ['ok', 'dev', 'unsupported'] },
   cookies: { group: 'browser', details: ['ok', 'blocked'] },
+  keysSuite: { group: 'browser', details: ['ok', 'missing'] },
   privateMode: { group: 'browser', details: ['ok', 'likely', 'unknown'] },
   storageWrite: { group: 'storage', details: ['ok', 'failed', 'missing'] },
   quota: { group: 'storage', details: ['ok', 'low', 'full', 'unknown'] },
@@ -41,6 +42,10 @@ export const HEALTH_CHECKS = {
   password: { group: 'vault', details: ['ok', 'weak', 'mustChange'] },
   members: { group: 'vault', details: ['ok', 'near'] },
   userHygiene: { group: 'vault', details: ['ok', 'attention'] },
+  keysFounder: { group: 'vault', details: ['pinned'] },
+  keysRoster: { group: 'vault', details: ['ok', 'pending', 'reinvite'] },
+  keysKdf: { group: 'vault', details: ['ok', 'below'] },
+  keysUpgrade: { group: 'vault', details: ['offer'] },
   ratesFresh: { group: 'rates', details: ['fresh', 'stale', 'cached', 'missing'] },
   ratesDigest: { group: 'rates', details: ['ok', 'mismatch', 'unknown'] },
   csp: { group: 'security', details: ['ok', 'missing', 'dev'] },
@@ -103,6 +108,10 @@ export const HEALTH_FACTS = [
   'vaultLimit',
   'backupLimit',
   'deviceMemory',
+  'founderKey',
+  'rosterVersion',
+  'pending',
+  'reinvite',
 ] as const
 export type HealthFactKey = (typeof HEALTH_FACTS)[number]
 

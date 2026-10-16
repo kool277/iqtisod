@@ -95,6 +95,12 @@ jobs:
         env:
           E2E_TARGET: preview
 
+      - name: Run Playwright tests for per-person keys (build with VITE_V2_KEYS=1)
+        run: npx playwright test tests/e2e/keys.spec.ts
+        env:
+          E2E_TARGET: preview
+          VITE_V2_KEYS: '1'
+
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

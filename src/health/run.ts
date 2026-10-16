@@ -1,4 +1,7 @@
+import { suiteSupported } from '../crypto/suite'
 import { listArchives } from '../db/storage'
+import { KEYS_RECORD_VERSION } from '../db/versions'
+import { keysEnabled } from '../lib/flags'
 import { measureCapacity } from '../lib/capacity'
 import type { OpenVault } from '../domain/types'
 import { readAuditMark } from '../lib/audit-mark'
@@ -28,6 +31,9 @@ export async function runHealthChecks(vault: VaultAccess | null, now = Date.now(
     collectRatesFacts(g, fetcher, base, now),
     measureCapacity().catch(() => undefined),
   ])
+  // Only where per-person keys matter: a build that creates them, or a stored vault that uses them.
+  const keysMatter = keysEnabled() || (typeof storage.stored === 'object' && storage.stored.version === KEYS_RECORD_VERSION)
+  const keysSuite = keysMatter ? await suiteSupported() : null
   let vaultFacts = null
   if (vault) {
     const canBackup = vault.query((open) => canUser(open.user, Permission.EXPORT_VAULT))
@@ -50,5 +56,6 @@ export async function runHealthChecks(vault: VaultAccess | null, now = Date.now(
     security: collectSecurityFacts(g, currentHostname()),
     vault: vaultFacts,
     capacity,
+    keysSuite,
   })
 }

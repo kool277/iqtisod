@@ -162,6 +162,8 @@ describe('health: largest vault on this device', () => {
       weak: false,
       members: null,
       hygiene: null,
+      keys: null,
+      upgradeOffer: false,
     }
     const stored = { version: 2, schemaVersion: 1, appVersion: '1.7.0', updatedAt: null, audit: null }
     const size = (budget = growthBudget(null)) => vaultChecks(facts, stored, 0, budget).find((item) => item.id === 'size')
