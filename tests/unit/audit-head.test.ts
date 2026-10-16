@@ -79,6 +79,20 @@ describe('audit head', () => {
     expect(parseBackupJson(backup).record.audit).toEqual(record.audit)
   })
 
+  it('is the head of the image a save encrypts, even when the app writes while the save runs', async () => {
+    const { record: household } = await buildAccessHousehold()
+    const vault = await openAs(household, OWNER)
+    open.push(vault.db)
+    const saving = sealVault(vault)
+    // The image is copied before the save awaits anything; this entry lands after it.
+    writeAudit(vault.db, vault.user.id, 'SETTINGS_UPDATED', 'vault', 'primary', {})
+    const record = await saving
+    const reopened = await unlockVault(record, OWNER.email, OWNER.password)
+    open.push(reopened.db)
+    expect(record.audit).toEqual(auditHead(reopened.db))
+    expect(checkAuditLog(reopened.db, { device: null, record: record.audit }, true)).toBeNull()
+  })
+
   it('drops a malformed head instead of refusing the file', async () => {
     const { record } = await buildAccessHousehold()
     for (const audit of [{ seq: -1, hash: GENESIS_HASH }, { seq: 1, hash: 'nope' }, 'head', null]) {
