@@ -127,16 +127,21 @@ async function seal(db: SqlDatabase, dek: CryptoKey, wraps: UserWrap[], grants: 
   compactIfSparse(db)
   // Encrypted where SQLite keeps it: WebCrypto copies the bytes before encryptDatabase returns, so saving makes no
   // plaintext copy of the vault outside SQLite's own memory.
-  const sealed = await db.withImage((image) => encryptDatabase(image, dek))
+  const encrypting = db.withImage((image) => encryptDatabase(image, dek))
+  // Read with the image, before anything awaits: the app can write to the database while the encryption runs, and the
+  // record's audit head must be the one the image holds.
+  const schemaVersion = readSchemaVersion(db)
+  const audit = auditHead(db)
+  const sealed = await encrypting
   return recordFromSession({
     wraps,
     grants,
     iv: sealed.iv,
     ciphertext: sealed.cipherText,
-    schemaVersion: readSchemaVersion(db),
+    schemaVersion,
     createdAt,
     updatedAt: new Date().toISOString(),
-    audit: auditHead(db),
+    audit,
   })
 }
 
