@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { it } from 'vitest'
@@ -60,12 +60,21 @@ function add(vault: OpenVault, spec: Spec): string {
   })
 }
 
+/** Creates `file`, or fails if it exists: fixtures are immutable, and checking and writing are one step (`wx`). */
+function writeOnce(file: string, data: string) {
+  try {
+    writeFileSync(file, data, { flag: 'wx' })
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST') throw new Error(`${file} exists; fixtures are immutable`)
+    throw error
+  }
+}
+
 function write(name: string, backup: unknown, expected: unknown) {
   mkdirSync(outDir, { recursive: true })
   const file = resolve(outDir, `${name}.moliya`)
-  if (existsSync(file)) throw new Error(`${file} exists; fixtures are immutable`)
-  writeFileSync(file, JSON.stringify(backup))
-  writeFileSync(resolve(outDir, `${name}.expected.json`), `${JSON.stringify(expected, null, 2)}\n`)
+  writeOnce(file, JSON.stringify(backup))
+  writeOnce(resolve(outDir, `${name}.expected.json`), `${JSON.stringify(expected, null, 2)}\n`)
 }
 
 async function exportBackup(vault: OpenVault) {

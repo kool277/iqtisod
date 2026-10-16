@@ -8,6 +8,7 @@ import Database from 'better-sqlite3-multiple-ciphers'
 import readXlsxFile from 'read-excel-file/node'
 import { extractText, getDocumentProxy } from 'unpdf'
 import { watchViolations } from '../support/csp'
+import { escapeRegExp } from '../support/regexp'
 
 configure({ useWebWorkers: false })
 
@@ -15,7 +16,7 @@ const here = dirname(fileURLToPath(import.meta.url))
 const LEDGER = resolve(here, '../fixtures/backups/v2/ledger-v2.moliya')
 const FORMATS = ['csv', 'json', 'jsonl', 'xlsx', 'pdf', 'sqlite'] as const
 const LAZY = /jspdf|write-excel-file|@zip(\.|_+)js|export-(pdf|xlsx|zip)-|fflate|NotoSans|services\/export\/(?!options|password)/i
-const NAME = (suffix: string) => new RegExp(`^jaybi-Ledger-Two-\\d{4}-\\d{2}-\\d{2}${suffix.replace(/\./g, '\\.')}$`)
+const NAME = (suffix: string) => new RegExp(`^jaybi-Ledger-Two-\\d{4}-\\d{2}-\\d{2}${escapeRegExp(suffix)}$`)
 
 async function importLedger(page: Page, email: string, password: string) {
   await page.goto('/')

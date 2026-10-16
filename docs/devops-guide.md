@@ -455,7 +455,7 @@ There is no server-side logging, analytics, or error reporting, by design. Addin
 - CI installs with `--ignore-scripts`. If a new dependency really needs an install script, say so in the pull request and change CI deliberately.
 - `npm audit signatures` fails the build if a package's registry signature or provenance attestation does not verify.
 - `@sqlite.org/sqlite-wasm` is pinned to an exact version (`3.53.4-build1`). Upgrade deliberately; the fixture tests verify that every stored database still opens and migrates.
-- `public/coi-serviceworker.js` is a vendored copy of coi-serviceworker v0.1.7 (MIT). Update it by downloading the new file from the upstream repository.
+- `public/coi-serviceworker.js` is a vendored copy of coi-serviceworker v0.1.7 (MIT) with one local change: its message handler ignores messages from another origin. Update it by downloading the new file from the upstream repository, then make that change again; `tests/unit/coi-serviceworker.test.ts` fails until you do.
 - Playwright browsers must match the Playwright version. CI installs them on every run.
 
 ## Security checklist

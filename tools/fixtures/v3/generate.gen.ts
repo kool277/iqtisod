@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { it } from 'vitest'
@@ -24,6 +24,16 @@ import {
 } from '../../../src/services/safe.service'
 import { createUser, resetUserPassword } from '../../../src/services/user.service'
 
+/** Creates `file`, or fails if it exists: fixtures are immutable, and checking and writing are one step (`wx`). */
+function writeOnce(file: string, data: string) {
+  try {
+    writeFileSync(file, data, { flag: 'wx' })
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST') throw new Error(`${file} exists; fixtures are immutable`)
+    throw error
+  }
+}
+
 const here = dirname(fileURLToPath(import.meta.url))
 const outDir = resolve(here, '../../../tests/fixtures/backups/v3')
 
@@ -41,7 +51,6 @@ it('generates safes-household', async () => {
   if (APP_VERSION !== '1.2.0') throw new Error(`v3 fixtures must be produced by 1.2.0, not ${APP_VERSION}`)
   const name = 'safes-household'
   const file = resolve(outDir, `${name}.moliya`)
-  if (existsSync(file)) throw new Error(`${file} exists; fixtures are immutable`)
 
   const admin = { email: 'admin@safes.test', password: 'safes-admin-v3' }
   const manager = { email: 'manager@safes.test', initial: 'set-by-admin-m3', password: 'safes-manager-v3' }
@@ -194,8 +203,8 @@ it('generates safes-household', async () => {
   }
 
   mkdirSync(outDir, { recursive: true })
-  writeFileSync(file, text)
-  writeFileSync(resolve(outDir, `${name}.expected.json`), `${JSON.stringify(expected, null, 2)}\n`)
+  writeOnce(file, text)
+  writeOnce(resolve(outDir, `${name}.expected.json`), `${JSON.stringify(expected, null, 2)}\n`)
   const sums = [`${name}.expected.json`, `${name}.moliya`]
     .map((entry) => `${createHash('sha256').update(readFileSync(resolve(outDir, entry))).digest('hex')}  ${entry}`)
     .join('\n')

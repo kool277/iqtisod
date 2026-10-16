@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterAll, it, vi } from 'vitest'
@@ -12,6 +12,16 @@ import { createInvite, issueReset, redeemGrant, revokeGrant } from '../../../src
 import { listGroups } from '../../../src/services/group.service'
 import { beginTotpSetup, enableTotp } from '../../../src/services/totp.service'
 import { createUser } from '../../../src/services/user.service'
+
+/** Creates `file`, or fails if it exists: fixtures are immutable, and checking and writing are one step (`wx`). */
+function writeOnce(file: string, data: string) {
+  try {
+    writeFileSync(file, data, { flag: 'wx' })
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST') throw new Error(`${file} exists; fixtures are immutable`)
+    throw error
+  }
+}
 
 const here = dirname(fileURLToPath(import.meta.url))
 const outDir = resolve(here, '../../../tests/fixtures/backups/v4')
@@ -30,7 +40,6 @@ it('generates access-household', async () => {
   if (APP_VERSION !== '1.3.0') throw new Error(`v4 fixtures must be produced by 1.3.0, not ${APP_VERSION}`)
   const name = 'access-household'
   const file = resolve(outDir, `${name}.moliya`)
-  if (existsSync(file)) throw new Error(`${file} exists; fixtures are immutable`)
   // A fixed past clock makes the one invite left open in this fixture expired whenever the tests run.
   vi.useFakeTimers({ toFake: ['Date'], now: START })
 
@@ -130,8 +139,8 @@ it('generates access-household', async () => {
   }
 
   mkdirSync(outDir, { recursive: true })
-  writeFileSync(file, text)
-  writeFileSync(resolve(outDir, `${name}.expected.json`), `${JSON.stringify(expected, null, 2)}\n`)
+  writeOnce(file, text)
+  writeOnce(resolve(outDir, `${name}.expected.json`), `${JSON.stringify(expected, null, 2)}\n`)
   const sums = [`${name}.expected.json`, `${name}.moliya`]
     .map((entry) => `${createHash('sha256').update(readFileSync(resolve(outDir, entry))).digest('hex')}  ${entry}`)
     .join('\n')

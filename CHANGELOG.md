@@ -6,6 +6,15 @@ Data formats are versioned separately from the app. Each release lists the forma
 
 ## [Unreleased]
 
+## [1.7.3] - 2026-10-16
+
+Reads backup and record versions 1–2 and schema versions 1–4. Writes backup 2, record 2, schema 4, and export format 1, the same as 1.7.2. No stored format changed, so 1.7.2 opens everything 1.7.3 saves.
+
+### Security
+
+- The service worker that makes the page cross-origin isolated where the host cannot send the headers (`coi-serviceworker.js`) ignores messages from another origin. Browsers deliver messages to a service worker only from pages of its own origin, so this hardens the app rather than closing a reachable hole.
+- Development only, found by GitHub code scanning: the golden-backup generators create each file in one step, so they can no longer overwrite a file that appears between the check and the write, and the browser tests escape file names and addresses fully before matching them.
+
 ## [1.7.2] - 2026-10-16
 
 Reads backup and record versions 1–2 and schema versions 1–4. Writes backup 2, record 2, schema 4, and export format 1, the same as 1.7.1. No stored format changed, so 1.7.1 opens everything 1.7.2 saves.
@@ -386,7 +395,8 @@ Writes backup, record, and schema version 1.
 - Audit log, encrypted `.moliya` backups, day and night themes, and a collapsible sidebar.
 - Deployment to GitHub Pages.
 
-[Unreleased]: https://github.com/kool277/iqtisod/compare/v1.7.2...HEAD
+[Unreleased]: https://github.com/kool277/iqtisod/compare/v1.7.3...HEAD
+[1.7.3]: https://github.com/kool277/iqtisod/compare/v1.7.2...v1.7.3
 [1.7.2]: https://github.com/kool277/iqtisod/compare/v1.7.1...v1.7.2
 [1.7.1]: https://github.com/kool277/iqtisod/compare/v1.7.0...v1.7.1
 [1.7.0]: https://github.com/kool277/iqtisod/compare/v1.6.0...v1.7.0

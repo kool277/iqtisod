@@ -128,8 +128,9 @@ test('restores, saves and backs up a vault whose backup is larger than the old 7
   const download = page.waitForEvent('download')
   await page.getByTestId('export-backup').click()
   const exported = await (await download).path()
-  expect(statSync(exported!).size).toBeGreaterThan(LEGACY_FILE_LIMIT)
-  const written = JSON.parse(readFileSync(exported!, 'utf8'))
+  const file = readFileSync(exported!)
+  expect(file.byteLength).toBeGreaterThan(LEGACY_FILE_LIMIT)
+  const written = JSON.parse(file.toString('utf8'))
   expect(written).toMatchObject({ format: 'moliya-vault', version: 2 })
   expect(bytes(written.body.ciphertext).byteLength).toBeGreaterThan(COPIES * RECEIPT_BYTES)
 

@@ -25,7 +25,7 @@ describe('hosting', () => {
 
   it('ships a 404 page that only loads its own same-origin script, built with root-absolute URLs', async () => {
     const page = readFileSync(join(ROOT, '404.html'), 'utf8')
-    const scripts = [...page.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)]
+    const scripts = [...page.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\b[^>]*>/gi)]
     expect(scripts.map(([, attrs]) => attrs.trim())).toEqual(['type="module" src="/src/spa-fallback.ts"'])
     expect(scripts.every(([, , body]) => body.trim() === '')).toBe(true)
     expect(page).not.toMatch(/\son\w+=/i)
