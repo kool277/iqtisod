@@ -44,6 +44,10 @@ describe('JCS canonicalization (RFC 8785)', () => {
     expect(() => canonicalize('\ud800')).toThrow()
     expect(() => canonicalize(new Uint8Array(2))).toThrow()
     expect(() => canonicalize(() => 1)).toThrow()
+    // A hole in an array is no JSON value; `map` would have skipped it and produced `[1,,2]`.
+    // eslint-disable-next-line no-sparse-arrays
+    expect(() => canonicalize([1, , 2])).toThrow()
+    expect(() => canonicalize(new Array(2))).toThrow()
   })
 
   it('prefixes signed bytes with the label and a zero byte', () => {
@@ -163,12 +167,18 @@ describe('ECIES DEK wrap', () => {
     const dek = await generateDek()
     const wrap = await wrapDekTo(dek, keys.encPub, { vaultId: 'v', epoch: 1, memberId: 'm' })
     expect(wrap).toMatchObject({ v: 2, suite: 'J2-X25519-ED25519', epoch: 1, memberId: 'm' })
-    expect(await rawDek(await unwrapDekWith(wrap, keys, 'v'))).toBe(await rawDek(dek))
-    await expect(unwrapDekWith(wrap, keys, 'other-vault')).rejects.toThrow()
-    await expect(unwrapDekWith({ ...wrap, epoch: 2 }, keys, 'v')).rejects.toThrow()
-    await expect(unwrapDekWith({ ...wrap, memberId: 'x' }, keys, 'v')).rejects.toThrow()
-    await expect(unwrapDekWith(wrap, other, 'v')).rejects.toThrow()
-    await expect(unwrapDekWith(wrap, { encPriv: keys.encPriv, encPub: other.encPub }, 'v')).rejects.toThrow()
+    const expected = { vaultId: 'v', epoch: 1, memberId: 'm' }
+    expect(await rawDek(await unwrapDekWith(wrap, keys, expected))).toBe(await rawDek(dek))
+    await expect(unwrapDekWith(wrap, keys, { ...expected, vaultId: 'other-vault' })).rejects.toThrow()
+    await expect(unwrapDekWith({ ...wrap, epoch: 2 }, keys, expected)).rejects.toThrow()
+    await expect(unwrapDekWith({ ...wrap, memberId: 'x' }, keys, expected)).rejects.toThrow()
+    await expect(unwrapDekWith(wrap, other, expected)).rejects.toThrow()
+    await expect(unwrapDekWith(wrap, { encPriv: keys.encPriv, encPub: other.encPub }, expected)).rejects.toThrow()
+    // A genuine wrap for another epoch or member is refused, even with its fields edited to look like the expected one.
+    await expect(unwrapDekWith(wrap, keys, { ...expected, epoch: 2 })).rejects.toThrow('another epoch or member')
+    await expect(unwrapDekWith(wrap, keys, { ...expected, memberId: 'x' })).rejects.toThrow('another epoch or member')
+    const older = await wrapDekTo(dek, keys.encPub, { ...expected, epoch: 3 })
+    await expect(unwrapDekWith({ ...older, epoch: 1 }, keys, expected)).rejects.toThrow()
     const again = await wrapDekTo(dek, keys.encPub, { vaultId: 'v', epoch: 1, memberId: 'm' })
     expect(again.epk).not.toBe(wrap.epk)
   })

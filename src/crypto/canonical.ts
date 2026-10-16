@@ -26,7 +26,8 @@ export function canonicalize(value: unknown): string {
     if (hasLoneSurrogate(value)) throw new TypeError('Lone surrogate in string')
     return JSON.stringify(value)
   }
-  if (Array.isArray(value)) return `[${value.map(canonicalize).join(',')}]`
+  // Array.from visits holes as undefined, which is refused; map would skip them and join to `[1,,2]`, not JSON.
+  if (Array.isArray(value)) return `[${Array.from(value, (item) => canonicalize(item)).join(',')}]`
   if (typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype) {
     const entries = Object.entries(value as Record<string, unknown>).filter(([, item]) => item !== undefined)
     entries.sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))

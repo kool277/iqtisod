@@ -30,7 +30,8 @@ async function wrapKek(shared: Uint8Array, salt: Uint8Array, epk: string, recipi
 
 export async function wrapDekTo(dek: CryptoKey, recipientPub: string, context: DekWrapContext): Promise<DekWrap> {
   const recipient = await importEncPub(recipientPub)
-  const ephemeral = (await crypto.subtle.generateKey({ name: 'X25519' }, true, ['deriveBits'])) as CryptoKeyPair
+  // Not extractable: only its public half is exported, which Web Crypto allows for any key pair.
+  const ephemeral = (await crypto.subtle.generateKey({ name: 'X25519' }, false, ['deriveBits'])) as CryptoKeyPair
   const epk = await exportPub(ephemeral.publicKey)
   const shared = new Uint8Array(await crypto.subtle.deriveBits({ name: 'X25519', public: recipient }, ephemeral.privateKey, 256))
   const salt = randomBytes(DEK_WRAP_SALT_BYTES)
@@ -53,13 +54,17 @@ export async function wrapDekTo(dek: CryptoKey, recipientPub: string, context: D
   }
 }
 
-/** Throws unless the wrap was made for exactly this vault, epoch, member and key. */
-export async function unwrapDekWith(wrap: DekWrap, keys: { encPriv: CryptoKey; encPub: string }, vaultId: string): Promise<CryptoKey> {
+/**
+ * Throws unless the wrap was made for exactly this vault, epoch, member and key. The AAD is built from `expected`, not
+ * from the wrap's own fields, so a wrap for another epoch or member fails even if those fields were edited to match.
+ */
+export async function unwrapDekWith(wrap: DekWrap, keys: { encPriv: CryptoKey; encPub: string }, expected: DekWrapContext): Promise<CryptoKey> {
+  if (wrap.epoch !== expected.epoch || wrap.memberId !== expected.memberId) throw new Error('DEK wrap is for another epoch or member')
   const epk = await importEncPub(wrap.epk)
   const shared = new Uint8Array(await crypto.subtle.deriveBits({ name: 'X25519', public: epk }, keys.encPriv, 256))
   try {
     const kek = await wrapKek(shared, base64ToBytes(wrap.salt), wrap.epk, keys.encPub)
-    const aad = await wrapAad({ vaultId, epoch: wrap.epoch, memberId: wrap.memberId }, keys.encPub)
+    const aad = await wrapAad(expected, keys.encPub)
     return await crypto.subtle.unwrapKey(
       'raw',
       copyToBuffer(base64ToBytes(wrap.ct)),
