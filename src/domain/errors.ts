@@ -64,6 +64,29 @@ export class MigrationError extends AppError {
   }
 }
 
+/**
+ * A per-person-keys vault that fails a check that blocks it (docs/design/v2.0-key-redesign.md, 3.8): nothing from it
+ * is used and no session opens.
+ */
+export type KeysBlock =
+  | 'KEYS_FOUNDER_MISMATCH'
+  | 'KEYS_HEADER_INVALID'
+  | 'KEYS_ROSTER_BROKEN'
+  | 'KEYS_ROSTER_ROLLBACK'
+  | 'KEYS_REMOVED'
+  | 'KEYS_EPOCH_MISMATCH'
+
+export class KeysBlockedError extends AppError {
+  constructor(
+    code: KeysBlock,
+    /** For a rollback: the version this device saw and the version the vault has. */
+    readonly versions?: { seen: number; current: number },
+  ) {
+    super(code)
+    this.name = 'KeysBlockedError'
+  }
+}
+
 export type SafeErrorCode =
   | 'SAFES_LOCKED'
   | 'SAFES_NOT_SET_UP'

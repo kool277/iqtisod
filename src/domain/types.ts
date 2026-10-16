@@ -1,6 +1,7 @@
 import type { KdfParams, WRAP_AAD_V1 } from '../crypto/crypto.service'
 import type { GrantKdf } from '../db/envelope'
 import type { SqlDatabase } from '../db/sqlite'
+import type { KeysSession } from '../services/v2/session'
 
 export type RoleName = 'Admin' | 'Manager' | 'Viewer'
 export type EntryType = 'INCOME' | 'EXPENSE'
@@ -60,6 +61,8 @@ export type OpenVault = {
   createdAt: string | null
   lastBackupAt: string | null
   needsSave: boolean
+  /** A per-person-keys vault (record 3); `wraps` is then empty. Absent for a 1.x vault. */
+  keys?: KeysSession
 }
 
 export type Category = {

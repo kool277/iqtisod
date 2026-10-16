@@ -5,6 +5,7 @@ import { newUserWrap } from '../crypto/user-wrap'
 import { getSetting, setSetting } from '../db/settings'
 import type { SqlDatabase } from '../db/sqlite'
 import { wrapsFromRecord, type VaultRecord } from '../db/storage'
+import { KEYS_RECORD_VERSION } from '../db/versions'
 import { ForbiddenError, ValidationError, isUniqueViolation } from '../domain/errors'
 import { isRoleName, type GrantWrap, type OpenVault, type RoleName } from '../domain/types'
 import { generateAccessCode, normalizeAccessCode } from '../lib/access-code'
@@ -24,6 +25,7 @@ import {
   endGrant,
   grantAuditAction,
   grantRow,
+  hasAccess,
   openGrantRows,
   type GrantRow,
 } from './grant-store'
@@ -82,7 +84,16 @@ function sameHex(a: string, b: string): boolean {
   return diff === 0
 }
 
-async function mintGrant(dek: CryptoKey, kind: GrantRow['kind'], email: string, expiresAt: string): Promise<{ code: string; wrap: GrantWrap; verifier: string }> {
+/**
+ * A one-time code and its envelope wrap. In a per-person-keys vault the code derives an invite key through Argon2id,
+ * and the row's check value is that key's public half, which the next admin save puts into the roster.
+ */
+async function mintGrant(vault: OpenVault, kind: GrantRow['kind'], email: string, expiresAt: string): Promise<{ code: string; wrap: GrantWrap; verifier: string }> {
+  if (vault.keys) {
+    const minted = await (await import('./v2/invite')).mintKeysGrant(vault as OpenVault & { keys: NonNullable<OpenVault['keys']> }, kind, email, expiresAt)
+    return { code: minted.code, wrap: minted.wrap, verifier: minted.inviteSigPub }
+  }
+  const dek = vault.dek
   const id = crypto.randomUUID()
   const access = generateAccessCode()
   const salt = randomBytes(SALT_BYTES)
@@ -118,7 +129,7 @@ export async function createInvite(
   assertClock(vault.db, now)
   const createdAt = now.toISOString()
   const expiresAt = expiryFor(now, input.validity)
-  const { code, wrap, verifier } = await mintGrant(vault.dek, 'INVITE', email, expiresAt)
+  const { code, wrap, verifier } = await mintGrant(vault, 'INVITE', email, expiresAt)
   try {
     vault.db.withTransaction(() => {
       vault.db.exec(
@@ -168,13 +179,15 @@ export async function prepareReset(
   const open = openGrantRows(vault.db).filter((grant) => grant.email === target)
   if (vault.grants.length - open.length >= LIMITS.grants) throw new ValidationError('INVITE_LIMIT')
   // Someone with no password copy and no open reset takes a new slot once the code is used.
-  const holdsSlot = vault.wraps.some((item) => item.userId === userId) || open.some((grant) => grant.kind === 'RESET' && grant.userId === userId)
+  const holdsSlot = hasAccess(vault, userId) || open.some((grant) => grant.kind === 'RESET' && grant.userId === userId)
   if (!holdsSlot && committedWraps(vault) >= LIMITS.wraps) throw new ValidationError('MEMBER_LIMIT')
   assertClock(vault.db, now)
   const createdAt = now.toISOString()
   const expiresAt = expiryFor(now, input.validity)
-  const { code, wrap, verifier } = await mintGrant(vault.dek, 'RESET', target, expiresAt)
-  return { userId, email: target, open, createdAt, expiresAt, stop: input.stopOldPassword, code, wrap, verifier }
+  const { code, wrap, verifier } = await mintGrant(vault, 'RESET', target, expiresAt)
+  // A re-invite in a per-person-keys vault always ends the old access: the person gets new keys when they redeem it.
+  const stop = vault.keys ? true : input.stopOldPassword
+  return { userId, email: target, open, createdAt, expiresAt, stop, code, wrap, verifier }
 }
 
 /** Runs inside the caller's transaction. */
@@ -200,7 +213,13 @@ export function commitReset(vault: OpenVault, reset: PreparedReset): void {
 export function finishReset(vault: OpenVault, reset: PreparedReset): IssuedGrant {
   for (const grant of reset.open) dropEnvelopeGrant(vault, grant.id)
   vault.grants.push(reset.wrap)
-  if (reset.stop) vault.wraps = vault.wraps.filter((item) => item.userId !== reset.userId)
+  if (reset.stop) {
+    vault.wraps = vault.wraps.filter((item) => item.userId !== reset.userId)
+    if (vault.keys) {
+      delete vault.keys.identities[reset.userId]
+      delete vault.keys.dekWraps[reset.userId]
+    }
+  }
   return { id: reset.wrap.id, kind: 'RESET', email: reset.email, code: reset.code, expiresAt: reset.expiresAt }
 }
 
@@ -278,6 +297,7 @@ function invalid(): ValidationError {
 
 /** Opens the vault with a one-time code, sets the member's password and ends the grant. The caller must save right away. */
 export async function redeemGrant(record: VaultRecord, input: RedeemInput, now = new Date()): Promise<OpenVault> {
+  if (record.version === KEYS_RECORD_VERSION) return (await import('./v2/invite')).redeemKeysInvite(record, input, now)
   const email = normalizeEmail(input.email)
   assertEmail(email)
   const canonical = normalizeAccessCode(input.code)

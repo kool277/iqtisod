@@ -70,8 +70,19 @@ export function endGrant(db: SqlDatabase, id: string, reason: GrantEndReason, by
 export function committedWraps(vault: OpenVault): number {
   const open = openGrantRows(vault.db)
   const invites = open.filter((grant) => grant.kind === 'INVITE').length
-  const resets = open.filter((grant) => grant.kind === 'RESET' && grant.userId !== null && !vault.wraps.some((wrap) => wrap.userId === grant.userId)).length
-  return vault.wraps.length + invites + resets
+  const resets = open.filter((grant) => grant.kind === 'RESET' && grant.userId !== null && !hasAccess(vault, grant.userId)).length
+  return accessCount(vault) + invites + resets
+}
+
+/** Holds a password copy (1.x) or a sealed identity (per-person keys): can sign in with a password now. */
+export function hasAccess(vault: OpenVault, userId: string): boolean {
+  if (vault.keys) return vault.keys.identities[userId] !== undefined
+  return vault.wraps.some((wrap) => wrap.userId === userId)
+}
+
+/** People who can sign in with a password now; each takes one of the envelope's `LIMITS.wraps` slots. */
+export function accessCount(vault: OpenVault): number {
+  return vault.keys ? Object.keys(vault.keys.identities).length : vault.wraps.length
 }
 
 export function dropEnvelopeGrant(vault: OpenVault, id: string): void {

@@ -12,7 +12,7 @@ import { mapAuditRow } from './audit-log'
 import { writeAudit } from './audit.service'
 import { scope } from './finance.service'
 import { commitReset, finishReset, prepareReset, type GrantValidity, type IssuedGrant } from './grant.service'
-import { committedWraps, dropEnvelopeGrant, endGrant, grantAuditAction, openGrantRows, type GrantRow } from './grant-store'
+import { accessCount, committedWraps, dropEnvelopeGrant, endGrant, grantAuditAction, hasAccess, openGrantRows, type GrantRow } from './grant-store'
 import { dropTotp } from './totp.service'
 import { dropProfile, readProfile, readProfiles, writeProfile, type UserProfile, type UserStatus } from './user-profile'
 import { checkUserGroup, roleIdByName } from './user-rules'
@@ -111,11 +111,12 @@ function refreshSession(vault: OpenVault, roleName: RoleName, groupId: number | 
 }
 
 function access(vault: OpenVault, userId: string, open: readonly GrantRow[]): VaultUser['access'] {
-  if (vault.wraps.some((wrap) => wrap.userId === userId)) return 'PASSWORD'
+  if (hasAccess(vault, userId)) return 'PASSWORD'
   return open.some((grant) => grant.kind === 'RESET' && grant.userId === userId) ? 'CODE' : 'NONE'
 }
 
 function legacyWrap(vault: OpenVault, userId: string): boolean {
+  if (vault.keys) return false
   const wrap = vault.wraps.find((item) => item.userId === userId)
   return wrap !== undefined && (wrap.aad !== WRAP_AAD_V1 || kdfNeedsUpgrade(wrap.kdf))
 }
@@ -285,8 +286,8 @@ export function usersOverview(vault: OpenVault, now = new Date()): UsersOverview
     former: people.length - current.length,
     suspended: current.length - active.length,
     limit: LIMITS.wraps,
-    slotsUsed: vault.wraps.length,
-    slotsReserved: committedWraps(vault) - vault.wraps.length,
+    slotsUsed: accessCount(vault),
+    slotsReserved: committedWraps(vault) - accessCount(vault),
     byRole: ROLES.map((role) => ({ role, count: current.filter((person) => person.roleName === role).length })),
     byGroup: [...groups.values()].sort((a, b) => b.count - a.count || (a.name ?? '').localeCompare(b.name ?? '')),
     totpOn: active.filter((person) => person.signInCheck).length,
@@ -306,8 +307,14 @@ export function usersOverview(vault: OpenVault, now = new Date()): UsersOverview
   }
 }
 
+/** A per-person-keys vault has no temporary passwords: the admin would know the new member's keys (design 4.2). */
+function assertPasswordsOffered(vault: OpenVault): void {
+  if (vault.keys) throw new ValidationError('KEYS_INVITE_ONLY')
+}
+
 export async function createUser(vault: OpenVault, input: NewUserInput): Promise<string> {
   assertManager(vault)
+  assertPasswordsOffered(vault)
   if (!isRoleName(input.roleName)) throw new ValidationError('ROLE')
   const email = normalizeEmail(input.email)
   assertEmail(email)
@@ -352,6 +359,7 @@ export async function createUser(vault: OpenVault, input: NewUserInput): Promise
 
 export async function resetUserPassword(vault: OpenVault, userId: string, password: string): Promise<void> {
   assertManager(vault)
+  assertPasswordsOffered(vault)
   if (userId === vault.user.id) throw new ValidationError('USE_ACCOUNT')
   const existing = vault.db.queryOne('SELECT id, email FROM users WHERE id = ?', [userId])
   if (!existing) throw new ValidationError('REQUIRED')
@@ -427,6 +435,9 @@ export function updateUser(vault: OpenVault, userId: string, input: UserEdit): v
   if (email !== existing.email) {
     const index = vault.wraps.findIndex((wrap) => wrap.userId === userId)
     if (index >= 0) vault.wraps[index] = { ...vault.wraps[index], email }
+    // A sealed identity binds the member id, not the email, so relabelling it keeps it working.
+    const blob = vault.keys?.identities[userId]
+    if (blob && vault.keys) vault.keys.identities[userId] = { ...blob, email }
     if (vault.user.id === userId) vault.user.email = email
   }
   if (vault.user.id === userId) refreshSession(vault, input.roleName, groupId)
@@ -501,7 +512,7 @@ export function suspendUser(vault: OpenVault, userId: string, now = new Date()):
   const status = assertEditable(vault, userId).status
   if (status === 'SUSPENDED') throw new ValidationError('USER_SUSPENDED')
   if (row.roleName === 'Admin') assertNotLastAdmin(vault, [userId])
-  const hadPassword = vault.wraps.some((wrap) => wrap.userId === userId)
+  const hadPassword = hasAccess(vault, userId)
   const at = now.toISOString()
   let revoked: GrantRow[] = []
   vault.db.withTransaction(() => {
@@ -510,7 +521,16 @@ export function suspendUser(vault: OpenVault, userId: string, now = new Date()):
     writeAudit(vault.db, vault.user.id, 'USER_SUSPENDED', 'user', userId, { email: row.email, hadPassword, codesRevoked: revoked.length })
   })
   for (const grant of revoked) dropEnvelopeGrant(vault, grant.id)
+  dropAccess(vault, userId)
+}
+
+/** Takes the person's password copy or sealed identity out of the envelope; the next admin save marks them removed. */
+function dropAccess(vault: OpenVault, userId: string): void {
   vault.wraps = vault.wraps.filter((wrap) => wrap.userId !== userId)
+  if (vault.keys) {
+    delete vault.keys.identities[userId]
+    delete vault.keys.dekWraps[userId]
+  }
 }
 
 /** Lifts a suspension by issuing a reset code; the person sets a new password with it. */
@@ -574,7 +594,7 @@ export function deleteUser(vault: OpenVault, userId: string, options: DeleteOpti
     vault.db.exec('DELETE FROM users WHERE id = ?', [userId])
   })
   for (const grant of grants) dropEnvelopeGrant(vault, grant.id)
-  vault.wraps = vault.wraps.filter((wrap) => wrap.userId !== userId)
+  dropAccess(vault, userId)
 }
 
 function deletePrivateData(vault: OpenVault, userId: string): void {

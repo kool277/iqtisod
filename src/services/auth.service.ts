@@ -17,7 +17,7 @@ import { getSetting, setSetting } from '../db/settings'
 import { SqlDatabase, type SqlValue } from '../db/sqlite'
 import { newUserWrap, unwrapUserDek } from '../crypto/user-wrap'
 import { grantsFromRecord, recordFromSession, wrapsFromRecord, type VaultRecord } from '../db/storage'
-import { RECORD_VERSION, SCHEMA_VERSION } from '../db/versions'
+import { KEYS_RECORD_VERSION, RECORD_VERSION, SCHEMA_VERSION } from '../db/versions'
 import { AuthError, CorruptRecordError, ValidationError } from '../domain/errors'
 import { isCurrency, type GrantWrap, type OpenVault, type SessionUser, type UserWrap } from '../domain/types'
 import { assertEmail, normalizeEmail } from '../lib/email'
@@ -66,7 +66,7 @@ function loadUser(db: SqlDatabase, email: string): SessionUser | null {
   )
 }
 
-function loadUserById(db: SqlDatabase, id: string): SessionUser | null {
+export function loadUserById(db: SqlDatabase, id: string): SessionUser | null {
   return userFromRow(
     db.queryOne(
       `SELECT u.id, u.email, u.role_id, u.group_id, u.must_change_password, r.name AS role_name, r.permissions
@@ -285,6 +285,8 @@ export function buildOpenVault(
 }
 
 export async function unlockVault(record: VaultRecord, email: string, password: string, now = new Date()): Promise<OpenVault> {
+  // A per-person-keys record has its own path, loaded only when one is opened.
+  if (record.version === KEYS_RECORD_VERSION) return (await import('./v2/vault')).unlockKeysVault(record, email, password, {}, now)
   const normalized = normalizeEmail(email)
   const wraps = wrapsFromRecord(record)
   const wrap = wraps.find((item) => item.email.toLowerCase() === normalized)
@@ -326,6 +328,7 @@ export async function unlockVault(record: VaultRecord, email: string, password: 
 }
 
 export async function verifyOwnPassword(vault: OpenVault, password: string): Promise<void> {
+  if (vault.keys) return (await import('./v2/vault')).verifyKeysPassword(vault as OpenVault & { keys: NonNullable<OpenVault['keys']> }, password)
   const wrap = vault.wraps.find((item) => item.userId === vault.user.id)
   if (!wrap) throw new AuthError()
   try {
@@ -335,7 +338,9 @@ export async function verifyOwnPassword(vault: OpenVault, password: string): Pro
   }
 }
 
-export async function sealVault(vault: OpenVault): Promise<VaultRecord> {
+/** `full` re-encrypts every chunk of a per-person-keys vault, for a record that must stand on its own (a backup). */
+export async function sealVault(vault: OpenVault, options: { full?: boolean } = {}): Promise<VaultRecord> {
+  if (vault.keys) return (await import('./v2/vault')).sealKeysVault(vault as OpenVault & { keys: NonNullable<OpenVault['keys']> }, options)
   return seal(vault.db, vault.dek, vault.wraps, vault.grants, vault.createdAt)
 }
 
