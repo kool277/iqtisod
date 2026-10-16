@@ -81,18 +81,24 @@ describe('bytesToBase64', () => {
   it("gives Node's text with the browser's own encoder and without it", () => {
     const lengths = [0, 1, 2, 3, 4, 5, 0x7fff, 0x8000, 0x8001, 3 * 0x8000 + 2, 1_000_003]
     const cases = lengths.map((length) => randomBytes(length))
-    const native = Object.getOwnPropertyDescriptor(Uint8Array.prototype, 'toBase64')
-    expect(native, 'this Node has Uint8Array.prototype.toBase64').toBeDefined()
-    for (const bytes of cases) expect(bytesToBase64(new Uint8Array(bytes))).toBe(bytes.toString('base64'))
-    Object.defineProperty(Uint8Array.prototype, 'toBase64', { value: undefined, configurable: true, writable: true })
+    const original = Object.getOwnPropertyDescriptor(Uint8Array.prototype, 'toBase64')
+    // Node 22, which CI runs, has no Uint8Array.prototype.toBase64; a stand-in still shows the native path is taken.
+    const standIn = vi.fn(function (this: Uint8Array) {
+      return Buffer.from(this.buffer, this.byteOffset, this.byteLength).toString('base64')
+    })
+    const setNative = (value: unknown) => Object.defineProperty(Uint8Array.prototype, 'toBase64', { value, configurable: true, writable: true })
     try {
+      setNative(original?.value ?? standIn)
+      for (const bytes of cases) expect(bytesToBase64(new Uint8Array(bytes))).toBe(bytes.toString('base64'))
+      if (!original) expect(standIn).toHaveBeenCalledTimes(cases.length)
+      setNative(undefined)
       for (const bytes of cases) expect(bytesToBase64(new Uint8Array(bytes))).toBe(bytes.toString('base64'))
       // A view onto part of a larger buffer encodes only its own bytes.
       expect(bytesToBase64(new Uint8Array(cases[8].buffer, cases[8].byteOffset + 3, 10))).toBe(cases[8].subarray(3, 13).toString('base64'))
     } finally {
-      Object.defineProperty(Uint8Array.prototype, 'toBase64', native!)
+      if (original) Object.defineProperty(Uint8Array.prototype, 'toBase64', original)
+      else delete (Uint8Array.prototype as { toBase64?: unknown }).toBase64
     }
-    expect(bytesToBase64(new Uint8Array(cases[8].buffer, cases[8].byteOffset + 3, 10))).toBe(cases[8].subarray(3, 13).toString('base64'))
   })
 })
 
