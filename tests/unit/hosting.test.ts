@@ -39,6 +39,15 @@ describe('hosting', () => {
     expect(url('assets/font.woff2', { hostType: 'css', hostId: 'assets/index.css' })).toBeUndefined()
   })
 
+  it('keeps the policy Argon2id needs, and nothing looser: WebAssembly and same-origin workers, no eval', async () => {
+    const { CONTENT_SECURITY_POLICY } = await import('../../vite.config')
+    const directives = new Map(CONTENT_SECURITY_POLICY.split(';').map((part) => part.trim().split(/\s+/)).map(([name, ...values]) => [name, values]))
+    expect(directives.get('script-src')).toEqual(["'self'", "'wasm-unsafe-eval'"])
+    expect(directives.get('worker-src')).toEqual(["'self'"])
+    expect(CONTENT_SECURITY_POLICY).not.toMatch(/'unsafe-eval'|'unsafe-inline'|blob:/)
+    expect(directives.get('require-trusted-types-for')).toEqual(["'script'"])
+  })
+
   it('does not link to or load from the old address in anything the site serves', () => {
     const served = [...filesUnder(join(ROOT, 'src')), ...filesUnder(join(ROOT, 'public')), join(ROOT, 'index.html'), join(ROOT, '404.html')]
     const offenders = served

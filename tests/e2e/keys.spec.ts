@@ -135,3 +135,25 @@ test('an admin upgrades a 1.x vault: they become the founder and everyone else n
   await expect(page.getByTestId('upgrade-offer')).toHaveCount(0)
   expect(await violations()).toEqual([])
 })
+
+test('a browser without X25519 or Ed25519 is refused at setup, with no weaker fallback', async ({ page }) => {
+  await page.addInitScript(() => {
+    const subtle = window.crypto.subtle
+    const generateKey = subtle.generateKey.bind(subtle)
+    Object.defineProperty(subtle, 'generateKey', {
+      value: (algorithm: AlgorithmIdentifier, extractable: boolean, usages: KeyUsage[]) => {
+        const name = typeof algorithm === 'string' ? algorithm : algorithm.name
+        if (name === 'X25519' || name === 'Ed25519') return Promise.reject(new DOMException('Unsupported', 'NotSupportedError'))
+        return generateKey(algorithm as AesKeyGenParams, extractable, usages)
+      },
+    })
+  })
+  await page.goto('/')
+  await page.getByTestId('setup-name').fill('Old Browser')
+  await page.getByTestId('setup-email').fill(FOUNDER.email)
+  await page.getByTestId('setup-password').fill(FOUNDER.password)
+  await page.getByTestId('setup-confirm').fill(FOUNDER.password)
+  await page.getByTestId('setup-submit').click()
+  await expect(page.getByText('This browser cannot use the keys this vault needs')).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByTestId('kpi-net')).toHaveCount(0)
+})
