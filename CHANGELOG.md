@@ -6,6 +6,14 @@ Data formats are versioned separately from the app. Each release lists the forma
 
 ## [Unreleased]
 
+## [1.7.4] - 2026-10-17
+
+Reads backup and record versions 1–2 and schema versions 1–4. Writes backup 2, record 2, schema 4, and export format 1, the same as 1.7.3. No stored format changed, so 1.7.3 opens everything 1.7.4 saves.
+
+### Fixed
+
+- **A false “the audit log is shorter” warning.** A save read the audit log’s last entry after encrypting the vault, so a change made while a save was running could be named in the saved record without being in the saved data. The next sign-in then warned that the log had been shortened. A save now records the last entry of exactly the data it encrypts.
+
 ## [1.7.3] - 2026-10-16
 
 Reads backup and record versions 1–2 and schema versions 1–4. Writes backup 2, record 2, schema 4, and export format 1, the same as 1.7.2. No stored format changed, so 1.7.2 opens everything 1.7.3 saves.
@@ -395,7 +403,8 @@ Writes backup, record, and schema version 1.
 - Audit log, encrypted `.moliya` backups, day and night themes, and a collapsible sidebar.
 - Deployment to GitHub Pages.
 
-[Unreleased]: https://github.com/kool277/iqtisod/compare/v1.7.3...HEAD
+[Unreleased]: https://github.com/kool277/iqtisod/compare/v1.7.4...HEAD
+[1.7.4]: https://github.com/kool277/iqtisod/compare/v1.7.3...v1.7.4
 [1.7.3]: https://github.com/kool277/iqtisod/compare/v1.7.2...v1.7.3
 [1.7.2]: https://github.com/kool277/iqtisod/compare/v1.7.1...v1.7.2
 [1.7.1]: https://github.com/kool277/iqtisod/compare/v1.7.0...v1.7.1
