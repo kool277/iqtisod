@@ -1,0 +1,82 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+Jaybi (called Moliya before 1.3.0; GitHub repo `kool277/iqtisod`) is a browser-only encrypted income/expense ledger with no backend: React 19 + TypeScript + Vite + Tailwind 4, with the ledger held as an in-memory SQLite database (sqlite-wasm), encrypted with Web Crypto, and stored in IndexedDB. It is deployed as static files to GitHub Pages at jaybi.uz. Long-form references: `docs/developer-guide.md` (architecture, conventions, how-tos), `docs/data-format.md` (every stored/exported format and the compatibility rules), `docs/devops-guide.md` (CSP, hosting, releases), `docs/design/v2.0-key-redesign.md` (current work).
+
+## Commands
+
+Node 22.12+; CI uses Node 22 from `.nvmrc`. Install with `npm ci --ignore-scripts` (use `npm install` only to change dependencies).
+
+- `npm run dev` — Vite dev server on 5173 (sends the COOP/COEP isolation headers)
+- `npm run typecheck` — `tsc --noEmit`
+- `npm test` — all unit tests (Vitest, Node environment, `tests/unit/**/*.test.ts`), including every golden backup. It takes about 10 s, so run the whole suite.
+- One file: `npx vitest run tests/unit/money.test.ts`; one test by name: add `-t "<name pattern>"`
+- `npm run build` — typecheck + `vite build` into `dist/`
+- E2E (Chromium): run `npx playwright install chromium` once. `npm run test:e2e` runs against the dev server; `npm run test:e2e:preview` builds and tests the production bundle on 4173 with the CSP active, which is what CI runs. One spec: `npx playwright test tests/e2e/vault.spec.ts` (prefix `E2E_TARGET=preview` for the production bundle).
+- `npm run fixtures:generate -- tools/fixtures/<version>` — generate a golden backup fixture with a released build's code (generators refuse to overwrite)
+- `npm run decrypt -- <file.moliya> --list` — standalone Node recovery tool (`tools/moliya-decrypt.mjs`)
+- `npm run rates:fetch -- --out .fx-data` — fetch an exchange-rate snapshot; copy `.fx-data/rates` to `public/rates` to see live rates in dev
+- Guide screenshots: `E2E_TARGET=preview DOCS_SCREENS=1 npx playwright test tests/e2e/docs-screenshots.spec.ts` (`DOCS_LOCALES=en,ru` limits languages)
+
+Before pushing, run `npm run typecheck`, `npm test`, `npm run build`, and `npm run test:e2e:preview`. Export interop checks for `sqlcipher` and `7z` run only when those binaries are installed. CI runs Node 22, so don't depend on newer Node APIs without a guard. For example, `node:crypto` Argon2 needs Node 24.7+ (`tests/unit/v2-crypto.test.ts` compares against a pinned reference and skips the Node cross-check when Argon2 is missing), and `Uint8Array.prototype.toBase64` needs Node 25+. If your local Node is newer, also run the unit suite under Node 22: `npx -y -p node@22 -- node node_modules/vitest/vitest.mjs run`.
+
+## Architecture
+
+There is no backend. Data flows like this: components → `VaultContext` (`query(fn)` for reads, `run(fn, { dirty: true })` for writes) → services in `src/services/` (they check `canUser` and group scope, write through `SqlDatabase`, and audit in the same transaction) → debounced `sealVault` (`auth.service.ts`) → encryption → IndexedDB.
+
+- **Layers**: `src/crypto`, `src/db`, `src/domain`, `src/rbac`, `src/services` and `src/health` stay React-free so they run in Node tests. `src/lib` is mostly plain helpers, plus a few hooks (`use-countdown.ts`, `updates.ts`). UI lives in `src/components` and `src/context`.
+- **Session** (`src/context/VaultContext.tsx`): the unlocked `OpenVault` (db, DEK, wraps, grants, user…) lives in a ref, never in React state. Writes bump `revision`, and components read with `useMemo(() => query(...), [query, revision, ...])`. Saves are serialized and compare-and-swap on `updatedAt`; a mismatch sets `conflict` and stops autosave. The Web Lock `moliya-vault-session` allows one tab per vault. Status flow: `checking` → `setup` | `locked` → (`challenge`) → `ready`.
+- **Encryption (1.6 track)**: a random 256-bit DEK encrypts the whole SQLite image. Each user's password goes through PBKDF2-SHA256 (600k iterations) to a KEK that wraps a copy of the DEK. Private safes are encrypted again inside the DB under a per-person key derived only from the owner's password or recovery code, so Admins can't open them. Envelope and record handling: `src/db/envelope.ts`, `src/db/storage.ts`.
+- **Device budget and storage** (`src/lib/capacity.ts`): the largest vault a device restores and grows is the smallest of free storage, memory (device memory counted as at most 8 GiB), the engine limit (640 MiB) and, in Chromium only, `BROWSER_MAX_BYTES` (126 MiB), because Chromium refuses a single IndexedDB value over 127 MiB and the vault is stored as one value. New receipts stop at `GROWTH_SHARE` (0.9) of it, checked against `db.usedBytes()` (free pages excluded), never below 48 MiB; restores accept at least 72 MiB (`restoreLimitBytes`). `seal()` compacts the database once free pages reach 4 MiB or a quarter of it (`compactIfSparse`), and encrypts it in place through `SqlDatabase.withImage`, so saving makes no plaintext copy. Restores read files with `readBackup` (`src/db/backup-reader.ts`): a streaming reader, falling back to 1.6.0's whole-text parser for files up to 72 MiB. Waits for `navigator.storage.persist()` are capped at 3 s (`requestPersistenceBriefly`), because Firefox leaves the promise pending until the person answers.
+- **SQLite** (`src/db/sqlite.ts`): hardened (defensive mode, ATTACH limit 0, 8 MiB values, `secure_delete`) and always in memory; OPFS is deliberately unused because it would store plaintext on disk. Call `db.vacuum()`, never `exec('VACUUM')`. Blobs come back as `null`, so store binary data as text. `openRecordDatabase` (`auth.service.ts`) runs `assertKnownSchema` (the exact set of schema objects the migrations produce, else `SCHEMA_UNKNOWN`), then `migrate`, then `syncRolePermissions`.
+- **RBAC** (`src/rbac/index.ts`): Admin, Manager, Viewer. Every service function checks `canUser` and restricts non-admins to `user.groupId`; hiding things in the UI is a convenience, not the guard. Role permission JSON is rewritten from `permissionsForRole` on every unlock. Private safes and the Account page are outside RBAC by design (ownership plus crypto only); never add a permission that grants access to someone else's safes.
+- **Money**: amounts are integer minor units (`amount_minor`), and `src/lib/money.ts` is the only converter (`parseAmount`, `formatMoney`, `toMajor`, `percentOf`). Never add amounts in different currencies.
+- **Errors**: `AppError` subclasses with string codes (`src/domain/errors.ts`), translated in `src/lib/errors.ts`; add a case for every new code. Safe-crypto errors are bare `SafeError` codes.
+- **UI**: `HashRouter` in `src/App.tsx`; everything under `/app` is `React.lazy`, and Chart.js and sqlite-wasm load on first use. Every list uses the in-house `src/components/table/DataTable.tsx`, whose pure logic in `model.ts` is unit-tested. There is no table library, because the CSP forbids eval and inline styles. Tailwind design tokens live in `src/index.css`.
+- **i18n**: `src/i18n/en.ts` is the source of truth. `Messages = typeof en` forces `ru`, `uz-Latn` and `uz-Cyrl` to have the same keys. Section catalogs in subfolders (`table/`, `export/`, `health/`, `help/`, `people/`) stay out of the main bundle, and so do non-English locales. Put section strings in the subfolder, not in `en.ts`. Any module that renders `table.*` strings must call `registerTableCatalog()` at module level. Uzbek Latin uses `ʻ` (U+02BB) and `ʼ` (U+02BC), which tests check.
+- **Help**: the user guides in `docs/` (four languages) are compiled into the in-app Help by the `helpGuides()` Vite plugin with `tools/help-markdown.ts`. Anchors and picture names must match across the four guides (`help-guides.test.ts`). If you change UI text that a guide quotes, update all four guides.
+- **Health check** (`src/health/`): `collect` → `evaluate` → `report`. Every check id is declared in `model.ts` with texts `health.checks.<id>.*` in all four locales, and tests fail if one is missing. The copied report must never contain names, emails, or the vault name.
+- **Build and hosting** (`vite.config.ts`): the CSP, Trusted Types, referrer and version `<meta>` tags are injected only by the production build (`releaseMetadata`), so the dev server runs without a CSP; use `test:e2e:preview` to catch violations. GitHub Pages can't send headers, so `public/coi-serviceworker.js` provides cross-origin isolation, and `public/coi-config.js` (runs first) does frame detection and installs the Trusted Types default policy. That policy allows only `coi-serviceworker.js` and `assets/argon2.worker-<hash>.js` as script URLs, so any new Worker must be added there. `dropSqliteWorkers` fails the build if sqlite-wasm changes how it references its unused workers. Export libraries (jsPDF, write-excel-file, zip.js) sit in their own lazy chunks, and e2e asserts they aren't fetched before the first export. `base: './'` lets the build run under a sub-path, and `404.html` is the Pages SPA fallback, mirrored in dev and preview by `pagesFallback`.
+- **Exchange rates**: a scheduled GitHub Actions job (`fx-rates.yml` → `tools/fetch-rates.ts`, `tools/fx-sources.ts`) fetches and cross-checks central-bank rates and publishes static `rates/latest.json`, so the browser never contacts third parties. The FX code must not use floats (`parseFloat`, `Number(`, `toFixed`, `Math.round`…); use `src/lib/decimal.ts`. `src/domain/fx.ts`, `src/lib/decimal.ts`, `src/lib/sha256.ts` and the FX tools run directly under Node, so their relative imports need `.ts` specifiers. `fx-exactness.test.ts` enforces both rules.
+
+## Data longevity rules (critical)
+
+Every release must open every vault and backup ever produced. Readers are never removed, newer data is refused untouched (`FORMAT_TOO_NEW`), and migrations are forward-only.
+
+- **Golden fixtures** live in `tests/fixtures/backups/` (`v1`–`v4`, `MANIFEST.json`, a `SHA256SUMS` per folder). Never edit or delete them. Every record, backup, or schema version change adds a fixture generated by the released code (`tools/fixtures/<version>/generate.gen.ts`), which `fixtures.test.ts` then requires.
+- **Two version tracks** (`src/db/versions.ts`, `src/db/migrations/index.ts`): the 1.6 track (`SCHEMA_VERSION` 4, `RECORD_VERSION` 2, `BACKUP_VERSION` 2, `MIGRATIONS` 1–4) and the per-person-keys track (`KEYS_SCHEMA_VERSION` 5, `KEYS_RECORD_VERSION` 3, `KEYS_BACKUP_VERSION` 3; `KEYS_MIGRATIONS` = `MIGRATIONS` + `0005-signed-roster`, applied only when a founder upgrades a vault). `assertKnownSchema(db, version, max)` takes the newest schema the record version may hold. `assertMigrationsMatchSchemaVersion` and the migrations test fail if the lists and constants disagree.
+- **Schema change**: add `src/db/migrations/000N-name.ts` (or `.sql` imported with `?raw`), append it to the right list, and bump the matching version. Never edit a released migration. Create every table, index, trigger and view only in migrations. Prefer `CHECK` constraints over `STRICT` tables.
+- **Secret material in new tables**: the plain SQLite export uses an allowlist (`EXPORT_COLUMNS` / `exportTables` in `src/services/export/sqlite.ts`), so new tables stay out unless added. The recovery CLI scrubs with a denylist (`scrubFile` in `tools/moliya-decrypt.mjs`), so a new table holding keys, wraps, or verifiers must be added there.
+- **Record or backup format change**: bump the constant, add a reader branch in `envelope.ts` that keeps every old branch, and update `docs/data-format.md` (version matrix) and the CHANGELOG.
+- **Never rename "moliya" identifiers** in stored or exported data: IndexedDB and Web Lock names, `moliya.*` storage keys, the `.moliya` extension, `moliya-backup-…` file names, HKDF info and AAD labels, the throttle salt, the recovery tool, and the package name. Only the UI brand is Jaybi.
+
+## Conventions
+
+- Every write goes through a service that checks permission and group scope and calls `writeAudit` inside the same transaction. The UI writes only through `run(..., { dirty: true })` and never touches `vault.db` from a component.
+- All user-visible text goes through `t()`. Add the English key first, then the other three locales; a new audit action also needs `audit.actions.<CODE>` in all four.
+- Secrets (safe contents, card numbers, CVVs, invite and reset codes, TOTP secrets, recovery codes, passwords) never go into URLs, `document.title`, `title`/`aria-label`/`data-*` attributes, `console`, error messages, localStorage, or the audit log. `safes.lifecycle.test.ts` fails on any `console` call in safe code. Safe form inputs use `autoComplete="off" spellCheck={false} autoCorrect="off" autoCapitalize="off"`.
+- Take size caps from `src/lib/limits.ts` (with a matching `maxLength`). Parse any external JSON with `parseJsonSafely`.
+- New passwords go through `assertNewPassword`, with the email and vault name as context. Never reject an existing password at sign-in for failing the current policy.
+- Write comments only for constraints the code can't show. Add a `data-testid` to interactive elements that tests need.
+
+## CI, deploy, releases
+
+- `ci.yml` runs on PRs and on pushes to every branch except `main`: typecheck, unit tests, npm audit, build, and e2e against the production preview.
+- **A push to `main` deploys production** (`deploy.yml` runs CI, then publishes to GitHub Pages → jaybi.uz). A `vX.Y.Z` tag runs `release.yml` (CI, then the GitHub release with the zip, `SHA256SUMS` and the notes from the `## [X.Y.Z]` section of CHANGELOG.md); the tag must match `package.json`.
+- Release flow used for 1.7.1 and 1.7.2: push `release/vX.Y.Z`, wait for its CI, fast-forward `main` to it, then tag that commit. Afterwards check `https://jaybi.uz/version.json` and the release assets.
+- Release steps are in `docs/devops-guide.md#release-checklist`. CHANGELOG.md follows Keep a Changelog: new entries go under `## [Unreleased]`, and each release states the formats it reads and writes.
+- Recent commits use Conventional Commits (`feat(crypto): …`, `fix(v2): …`, `docs(design): …`).
+
+## v2.0 key redesign (in progress)
+
+`docs/design/v2.0-key-redesign.md` is the approved source of truth, delivered in phases:
+- **Alpha**: per-person X25519/Ed25519 identity keys (suite `J2-X25519-ED25519`), Argon2id, JCS-signed payloads, ECIES DEK wraps, a signed, hash-chained roster rooted in the founding admin's key, and a founder upgrade that requires re-inviting everyone.
+- **Beta**: DEK rotation when someone is removed.
+- **RC**: signed audit entries.
+
+Facts that matter while working on it:
+- `main` once merged the alpha (PR #3) and then reverted it (7393aeb). `feature/v2-alpha` is based on 1.7.2 through a revert of that revert, so merging it into `main` applies v2. Never merge a v2 commit from before 02be032 directly, or the revert drops it silently.
+- New crypto lives in `src/crypto/` (`suite.ts`, `canonical.ts`, `identity.ts`, `ecies.ts`, `kdf.ts`, `argon2*.ts`). Argon2id runs in a Worker using `hash-wasm`, and the worker validates every message.
+- New labels go under `moliya/v2/...`. Nothing is renamed, and fixtures v1–v4 stay untouched; a `v5/` fixture lands in Beta.
+- The build flag `VITE_V2_KEYS=1` from the design doc is **not wired yet**. When it is, it gates only creating v2 vaults and offering the upgrade; reading record 3 must never depend on it.
