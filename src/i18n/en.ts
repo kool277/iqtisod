@@ -2,6 +2,7 @@ import type { ExportMessages } from './export/en'
 import type { HealthMessages } from './health/en'
 import type { HelpMessages } from './help/en'
 import type { PeopleMessages } from './people/en'
+import type { KeysMessages } from './keys/en'
 import type { TableMessages } from './table/en'
 
 export const en = {
@@ -796,6 +797,17 @@ export const en = {
     IMPORT_TOO_LARGE: 'That file is too large to be a Jaybi backup.',
     VAULT_EXISTS: 'A vault already exists in this browser. Sign in and replace it from the Backup page.',
     NO_VAULT: 'There is no vault in this browser yet.',
+    KEYS_FOUNDER_MISMATCH: 'This vault’s founder key is not the one this browser saw before, so it may be a different vault. Do not sign in: compare the key with your admin.',
+    KEYS_HEADER_INVALID: 'This vault’s signed details do not check out. It may have been changed outside Jaybi. Ask your admin; a backup made before the change still opens.',
+    KEYS_ROSTER_BROKEN: 'The signed list of people in this vault does not check out, or does not match the people in it. Someone may have changed roles or members outside Jaybi. Ask your admin; a backup made before the change still opens.',
+    KEYS_ROSTER_ROLLBACK: 'This is an older copy of the vault than this browser has seen: people removed since then may be back in it. Only an admin can open it anyway.',
+    KEYS_REMOVED: 'You are no longer a member of this vault. Ask an admin for a new invite code.',
+    KEYS_EPOCH_MISMATCH: 'The vault key recorded for you does not match this vault. Ask your admin; a recent backup may open.',
+    KEYS_INVITE_ONLY: 'In this vault people join with an invite code: a temporary password would let the admin know their keys.',
+    V2_UNSUPPORTED_BROWSER: 'This browser cannot use the keys this vault needs (X25519 and Ed25519). Update it, or use a current Chrome, Edge, Firefox or Safari.',
+    KDF_MEMORY: 'There was not enough memory to check the password. Close other tabs and try again.',
+    SAVE_BUSY: 'The list of people kept changing while saving. Try again in a moment.',
+    ALREADY_UPGRADED: 'This vault already uses per-person keys.',
   },
   securityAudit: {
     INVITE_CREATED: 'Invite code created',
@@ -817,9 +829,11 @@ export const en = {
     USER_REACTIVATED: 'User reactivated',
     USER_MUST_CHANGE_PASSWORD: 'New password required',
     TRANSACTIONS_REASSIGNED: 'Records moved to another person',
+    VAULT_UPGRADED: 'Vault upgraded to per-person keys',
+    ROSTER_ROLLBACK_ACCEPTED: 'Older copy of the vault opened anyway',
   },
 }
 
 /** Everything except the export, health and help strings, which load with their pages, and the table strings, which load with the table chunk. */
 export type CoreMessages = typeof en
-export type Messages = CoreMessages & { export: ExportMessages; table: TableMessages; health: HealthMessages; help: HelpMessages; people: PeopleMessages }
+export type Messages = CoreMessages & { export: ExportMessages; table: TableMessages; health: HealthMessages; help: HelpMessages; people: PeopleMessages; keys: KeysMessages }

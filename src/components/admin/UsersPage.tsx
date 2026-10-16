@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState, type FormEvent } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { AddUserDialog } from './AddUserDialog'
 import { IssuedCode } from './IssuedCode'
-import { Forbidden, PeopleStrings, peopleErrorText, ROLES, StatusBadge, ValiditySelect, roleLabel } from './shared'
+import { Forbidden, PeopleStrings, accessLabel, peopleErrorText, ROLES, StatusBadge, ValiditySelect, roleLabel } from './shared'
 import { UsersOverview } from './UsersOverview'
 import { Button, Field, Notice, controlClass } from '../ui'
 import { useI18n } from '../../context/I18nContext'
@@ -44,7 +44,8 @@ export function UsersPage() {
 
 function UsersView() {
   const { t, locale } = useI18n()
-  const { user, query, run, revision } = useVault()
+  const { user, query, run, revision, keysInfo } = useVault()
+  const keys = keysInfo !== null
   const [error, setError] = useState<string | null>(null)
   const location = useLocation()
   const [notice, setNotice] = useState<string | null>(() => ((location.state as { notice?: string } | null)?.notice === 'deleted' ? t('people.actions.done') : null))
@@ -93,7 +94,7 @@ function UsersView() {
     const group = (person: VaultUser) => person.groupName ?? '—'
     const check = (person: VaultUser) => (person.signInCheck ? t('invites.checkOn') : '—')
     const status = (person: VaultUser) => t(`people.status.${person.status}`)
-    const access = (person: VaultUser) => t(`people.access.${person.access}`)
+    const access = (person: VaultUser) => accessLabel(person.access, keys, t)
     const columns: Column<VaultUser>[] = [
       {
         id: 'email',
@@ -189,7 +190,7 @@ function UsersView() {
         hidden: true,
         cell: access,
         sort: { type: 'text', value: access },
-        filter: { kind: 'select', value: (person) => person.access, options: (['PASSWORD', 'CODE', 'NONE'] as const).map((value) => ({ value, label: t(`people.access.${value}`) })) },
+        filter: { kind: 'select', value: (person) => person.access, options: (['PASSWORD', 'CODE', 'NONE'] as const).map((value) => ({ value, label: accessLabel(value, keys, t) })) },
         exportAs: { kind: 'text', value: access },
       },
       {
@@ -210,7 +211,7 @@ function UsersView() {
         exportAs: { kind: 'when', value: (person) => person.updatedAt },
       },
     ]
-  }, [admin, locale, roleOptions, t, yesNo])
+  }, [admin, keys, locale, roleOptions, t, yesNo])
 
   const grantColumns = useMemo<Column<GrantSummary>[]>(() => {
     const kind = (grant: GrantSummary) => (grant.kind === 'RESET' ? t('invites.kindReset') : t('invites.kindInvite'))
@@ -624,7 +625,8 @@ function PersonPanel({
   setNotice: (text: string | null) => void
 }) {
   const { t } = useI18n()
-  const { run } = useVault()
+  const { run, keysInfo } = useVault()
+  const keys = keysInfo !== null
   const [validity, setValidity] = useState<GrantValidity>(DEFAULT_GRANT_VALIDITY)
   const [stopOld, setStopOld] = useState(true)
   const [nextPassword, setNextPassword] = useState('')
@@ -659,27 +661,31 @@ function PersonPanel({
       {mode === 'reset' ? (
         <form className="mt-3 grid gap-3" onSubmit={onIssue}>
           <p role="note" data-testid="reset-safes-warn" className="rounded-2xl border border-brass/50 bg-brass-soft px-3 py-2 text-sm">
-            {t('invites.resetSafesWarn')}
+            {keys ? t('people.keys.resetHelp') : t('invites.resetSafesWarn')}
           </p>
           <div className="flex flex-wrap items-end gap-3">
             <div className="w-full sm:w-56">
               <ValiditySelect testId="reset-validity" value={validity} onChange={setValidity} />
             </div>
-            <label className="flex max-w-md items-start gap-2 text-sm">
-              <input type="checkbox" data-testid="reset-stop-old" className="mt-1" checked={stopOld} onChange={(event) => setStopOld(event.target.checked)} />
-              <span>
-                <span className="font-medium">{t('invites.stopOld')}</span>
-                <span className="block text-muted">{t('invites.stopOldHelp')}</span>
-              </span>
-            </label>
+            {keys ? null : (
+              <label className="flex max-w-md items-start gap-2 text-sm">
+                <input type="checkbox" data-testid="reset-stop-old" className="mt-1" checked={stopOld} onChange={(event) => setStopOld(event.target.checked)} />
+                <span>
+                  <span className="font-medium">{t('invites.stopOld')}</span>
+                  <span className="block text-muted">{t('invites.stopOldHelp')}</span>
+                </span>
+              </label>
+            )}
           </div>
           <div className="flex flex-wrap gap-2">
             <Button type="submit" data-testid="reset-issue-save">
-              {t('invites.issueReset')}
+              {keys ? t('people.keys.reset') : t('invites.issueReset')}
             </Button>
-            <Button variant="quiet" data-testid="user-reset" onClick={() => setMode('temp')}>
-              {t('invites.tempPassword')}
-            </Button>
+            {keys ? null : (
+              <Button variant="quiet" data-testid="user-reset" onClick={() => setMode('temp')}>
+                {t('invites.tempPassword')}
+              </Button>
+            )}
             <Button variant="quiet" onClick={() => setMode('idle')}>
               {t('common.cancel')}
             </Button>

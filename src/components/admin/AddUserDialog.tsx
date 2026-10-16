@@ -26,7 +26,9 @@ export function AddUserDialog({
   onCreated: () => void
 }) {
   const { t } = useI18n()
-  const { run } = useVault()
+  const { run, keysInfo } = useVault()
+  // A per-person-keys vault has no temporary passwords: the admin would know the new member's keys.
+  const keys = keysInfo !== null
   const [mode, setMode] = useState<Mode>('invite')
   const [error, setError] = useState<string | null>(null)
   const [working, setWorking] = useState(false)
@@ -70,9 +72,10 @@ export function AddUserDialog({
       <form data-testid={mode === 'invite' ? 'invite-form' : 'temp-form'} className="grid gap-4 md:grid-cols-2" onSubmit={submit}>
         <div className="flex flex-wrap gap-2 md:col-span-2" role="group" aria-label={t('people.add.title')}>
           {tab('invite', t('people.add.invite'), 'add-mode-invite')}
-          {tab('temp', t('people.add.temp'), 'advanced-temp-toggle')}
+          {keys ? null : tab('temp', t('people.add.temp'), 'advanced-temp-toggle')}
         </div>
         <p className="text-sm text-muted md:col-span-2">{mode === 'invite' ? t('invites.intro') : t('invites.advancedHelp')}</p>
+        {keys ? <p className="text-sm text-muted md:col-span-2">{t('people.keys.inviteOnly')}</p> : null}
         {error ? (
           <div className="md:col-span-2">
             <Notice>{error}</Notice>

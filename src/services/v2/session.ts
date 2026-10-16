@@ -25,6 +25,8 @@ export type KeysSession = {
   chunks: ChunkState | null
   /** The founder key was not pinned in this browser before this sign-in: the person is shown its fingerprint first. */
   firstSeen: boolean
+  /** An admin chose to open a copy whose roster is older than this browser had seen; the browser then expects it. */
+  acceptedRollback?: boolean
 }
 
 export function isKeysVault(vault: OpenVault): vault is OpenVault & { keys: KeysSession } {
@@ -80,5 +82,7 @@ export function confirmKeysSession(vault: OpenVault): void {
   if (!keys) return
   if (keys.firstSeen) pinFounder(keys.vaultId, keys.founder.sigPub)
   keys.firstSeen = false
-  noteRosterSeen(keys.vaultId, keys.roster.version)
+  if (keys.acceptedRollback) resetRosterSeen(keys.vaultId, keys.roster.version)
+  else noteRosterSeen(keys.vaultId, keys.roster.version)
+  keys.acceptedRollback = false
 }

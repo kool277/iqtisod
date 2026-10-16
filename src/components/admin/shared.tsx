@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { Field, controlClass } from '../ui'
 import { useI18n } from '../../context/I18nContext'
 import { useLazyCatalog } from '../../context/useLazyCatalog'
-import type { RoleName, UserStatus } from '../../domain/types'
+import type { RoleName, UserStatus, VaultUser } from '../../domain/types'
 import { hasPeopleMessages, loadPeopleMessages, type MessageKey } from '../../i18n'
 import type { PeopleMessages } from '../../i18n/people/en'
 import { AppError } from '../../domain/errors'
@@ -18,6 +18,11 @@ const VALIDITY_LABELS: Record<GrantValidity, MessageKey> = {
 }
 
 export const ROLES: RoleName[] = ['Admin', 'Manager', 'Viewer']
+
+/** How someone can sign in. In a per-person-keys vault people hold keys, and come back only with a new invite. */
+export function accessLabel(access: VaultUser['access'], keys: boolean, t: (key: MessageKey) => string): string {
+  return keys ? t(`people.keys.access.${access}`) : t(`people.access.${access}`)
+}
 
 export function roleLabel(role: string | null, t: (key: MessageKey) => string): string {
   if (role === 'Admin' || role === 'Manager' || role === 'Viewer') return t(`roles.${role}`)

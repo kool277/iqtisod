@@ -9,6 +9,7 @@ import { CLIPBOARD_SECONDS, REVEAL_SECONDS, type SafePrefs } from '../domain/saf
 import { changeOwnPassword } from '../services/account.service'
 import { createRecoveryCode, resetSafes, updateSafePrefs } from '../services/safe.service'
 import { IdleLockSection } from './account/IdleLockSection'
+import { KeysSection } from './account/KeysSection'
 import { SignInCheckSection } from './account/SignInCheckSection'
 import { PasswordHint } from './auth/AuthBits'
 import { RecoveryChoice, RecoveryCodeDisplay, useSafeStatus } from './safes/SafesGate'
@@ -30,6 +31,7 @@ export function AccountPage() {
         <>
           <SignInCheckSection />
           <IdleLockSection />
+          <KeysSection />
         </>
       )}
       {code ? (

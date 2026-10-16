@@ -1,10 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { auditHead, type AuditHead } from '../db/audit-chain'
-import { storedForm } from '../db/envelope'
 import { readVault, readVaultRaw, stampOf, stripArchivedGrantsOnce, writeVault, type LoadedVault, type VaultRecord } from '../db/storage'
-import { RECORD_VERSION, SCHEMA_VERSION } from '../db/versions'
+import { KEYS_RECORD_VERSION, RECORD_VERSION, SCHEMA_VERSION } from '../db/versions'
 import type { OpenVault, SessionUser } from '../domain/types'
 import { AppError, AuthError, ConflictError, ForbiddenError, ValidationError, VaultInUseError } from '../domain/errors'
+import { keysEnabled } from '../lib/flags'
+import { commitSealed, confirmKeysSession } from '../services/v2/session'
 import { observeClock } from '../lib/device-clock'
 import { readIdleMinutes, storeIdleMinutes, watchIdle, type IdleMinutes } from '../lib/idle'
 import { advanceAuditMark, readAuditMark, resetAuditMark } from '../lib/audit-mark'
@@ -23,11 +24,27 @@ import { pruneExpiredGrants } from '../services/grant-store'
 import { noteSignIn } from '../services/user-profile'
 import { completeTotpChallenge, openTotpChallenge, type TotpChallenge } from '../services/totp.service'
 
-type Status = 'checking' | 'setup' | 'locked' | 'challenge' | 'ready' | 'error'
+/** `trust`: a first sign-in to a per-person-keys vault in this browser, waiting for the person to compare the founder key. */
+type Status = 'checking' | 'setup' | 'locked' | 'trust' | 'challenge' | 'ready' | 'error'
 type SaveState = 'saved' | 'saving' | 'dirty' | 'error' | 'conflict'
 export type VaultLockReason = 'manual' | 'idle'
 
 export type ReplaceInput = { password: string; confirmName: string }
+
+/** What the screens show about an open per-person-keys vault. */
+export type KeysInfo = {
+  vaultId: string
+  memberId: string
+  /** The founder key's fingerprint (32 hex characters), compared out loud between members. */
+  fingerprint: string
+  founder: boolean
+  rosterVersion: number
+}
+
+export type LoginOptions = {
+  /** An admin opens a copy whose signed member list is older than this browser has seen (design 4.10). */
+  acceptRollback?: boolean
+}
 
 type VaultApi = {
   status: Status
@@ -51,8 +68,21 @@ type VaultApi = {
   lockReason: VaultLockReason | null
   /** For people who can read the audit log: a broken chain, or a log shorter than or different from what this browser saw. */
   auditWarning: AuditWarning | null
+  /** Set for a per-person-keys vault (record 3). */
+  keysInfo: KeysInfo | null
+  /** The founder fingerprint to compare while `status` is `trust`. */
+  trustFingerprint: string | null
+  confirmTrust: () => Promise<void>
+  cancelTrust: () => void
+  /** Shown once after a vault is created, upgraded, or joined in this browser: the founder fingerprint to write down. */
+  fingerprintNotice: string | null
+  dismissFingerprintNotice: () => void
+  /** An admin of a 1.x vault in a build with per-person keys: the upgrade is offered until they upgrade or postpone it. */
+  upgradeOffered: boolean
+  upgradeKeys: (password: string) => Promise<void>
+  postponeUpgrade: () => void
   setup: (input: SetupInput) => Promise<void>
-  login: (email: string, password: string) => Promise<void>
+  login: (email: string, password: string, options?: LoginOptions) => Promise<void>
   verifySignInCheck: (code: string) => Promise<{ usedRecovery: boolean; recoveryLeft: number }>
   cancelSignInCheck: () => void
   redeem: (input: RedeemInput) => Promise<void>
@@ -83,6 +113,8 @@ type Unlocked = {
 
 type PendingCheck = Unlocked & { challenge: TotpChallenge; timer: number }
 
+type PendingTrust = Unlocked & { challenge: TotpChallenge | null; timer: number }
+
 const VaultContext = createContext<VaultApi | null>(null)
 const SIGN_IN_CHECK_MS = 5 * 60_000
 
@@ -93,6 +125,21 @@ function snapshotUser(user: SessionUser): SessionUser {
 function bootErrorCode(error: unknown): string {
   if (error instanceof AppError) return error.code
   return error instanceof Error ? error.message : 'sqlite'
+}
+
+function keysInfoOf(vault: OpenVault): KeysInfo | null {
+  const keys = vault.keys
+  if (!keys) return null
+  return { vaultId: keys.vaultId, memberId: keys.memberId, fingerprint: keys.founder.fingerprint, founder: keys.founder.memberId === keys.memberId, rosterVersion: keys.roster.version }
+}
+
+function offersUpgrade(vault: OpenVault): boolean {
+  return keysEnabled() && !vault.keys && vault.user.roleName === 'Admin' && canUser(vault.user, Permission.MANAGE_USERS)
+}
+
+/** Refusals that happen before the founder upgrade changes anything, so the open session is still the 1.x one. */
+function upgradeRefusedEarly(error: unknown): boolean {
+  return error instanceof AuthError || error instanceof ForbiddenError || (error instanceof ValidationError && ['V2_UNSUPPORTED_BROWSER', 'ALREADY_UPGRADED', 'SCHEMA_UNKNOWN', 'KDF_MEMORY'].includes(error.code))
 }
 
 function isCodeFailure(error: unknown): boolean {
@@ -124,6 +171,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const chainRef = useRef(Promise.resolve())
   const debounceRef = useRef<number | null>(null)
   const pendingRef = useRef<PendingCheck | null>(null)
+  const trustRef = useRef<PendingTrust | null>(null)
   // While a log warning is open, this browser's mark stays where it was; an accepted warning moves it back to the log.
   const auditHeldRef = useRef(false)
   const auditResetRef = useRef(false)
@@ -147,6 +195,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const [idleMinutes, setIdleMinutesState] = useState<IdleMinutes>(() => readIdleMinutes())
   const [lockReason, setLockReason] = useState<VaultLockReason | null>(() => peekLockNotice())
   const [auditWarning, setAuditWarning] = useState<AuditWarning | null>(null)
+  const [keysInfo, setKeysInfo] = useState<KeysInfo | null>(null)
+  const [trustFingerprint, setTrustFingerprint] = useState<string | null>(null)
+  const [fingerprintNotice, setFingerprintNotice] = useState<string | null>(null)
+  const [upgradeOffered, setUpgradeOffered] = useState(false)
 
   const observeAuditLog = useCallback((vault: OpenVault, recorded: AuditHead | undefined) => {
     const reader = canUser(vault.user, Permission.READ_AUDIT)
@@ -173,6 +225,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     setCurrency(vault.currency)
     setVaultName(vault.vaultName)
     setLastBackupAt(vault.lastBackupAt)
+    setKeysInfo(keysInfoOf(vault))
   }, [])
 
   const releaseSession = useCallback(() => {
@@ -191,9 +244,12 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       setSaveState('saved')
       setLockReason(null)
       setStatus('ready')
+      setUpgradeOffered(offersUpgrade(vault))
       void requestPersistenceBriefly()
         .then(() => import('../lib/capacity'))
-        .then(async ({ growthBudget, measureCapacity, onCapacity }) => {
+        .then(async ({ growthBudget, measureCapacity, onCapacity, setChunkedVault }) => {
+          // A per-person-keys vault is stored in chunks, so Chromium's single-value limit does not cap it.
+          setChunkedVault(vault.keys !== undefined)
           // Every measurement moves the receipt limit (finance.service reads the latest), so the warning follows it.
           capacityRef.current ??= onCapacity((capacity) => setWarnBytes(growthBudget(capacity).warnBytes))
           await measureCapacity()
@@ -215,6 +271,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         expectedStamp: stampRef.current,
         archive: archive === null ? undefined : { reason: 'upgrade', raw: archive },
       })
+      commitSealed(vault, record)
       archiveRef.current = null
       stampRef.current = record.updatedAt
       markSaved(record.audit)
@@ -271,13 +328,16 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       const release = await acquireSessionLock()
       if (!release) throw new VaultInUseError()
       try {
-        const created = await createVault(input)
+        const created = keysEnabled() ? await (await import('../services/v2/vault')).createKeysVault(input) : await createVault(input)
         try {
           await writeVault(created.record, { expectedStamp: null })
         } catch (error) {
           created.vault.db.close()
           throw error
         }
+        commitSealed(created.vault, created.record)
+        confirmKeysSession(created.vault)
+        if (created.vault.keys) setFingerprintNotice(created.vault.keys.founder.fingerprint)
         resetAuditMark(created.record.audit ?? null)
         releaseRef.current = release
         publish(created.vault, created.record.updatedAt)
@@ -305,6 +365,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         vault.needsSave = true
       }
       if (noteSignIn(vault.db, vault.user.id)) vault.needsSave = true
+      // Only now, with everything passed: pin the founder on a first sign-in and raise this browser's roster mark.
+      confirmKeysSession(vault)
       observeAuditLog(vault, loaded.record.audit)
       releaseRef.current = release
       publish(vault, stampOf(loaded.raw))
@@ -334,8 +396,35 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     setStatus('locked')
   }, [])
 
+  const cancelTrust = useCallback(() => {
+    const pending = trustRef.current
+    if (!pending) return
+    trustRef.current = null
+    window.clearTimeout(pending.timer)
+    pending.vault.db.close()
+    pending.release()
+    setTrustFingerprint(null)
+    setStatus('locked')
+  }, [])
+
+  /** The sign-in after the password (and, on a first sign-in to a per-person-keys vault, the founder comparison). */
+  const continueSignIn = useCallback(
+    async (unlocked: Unlocked, challenge: TotpChallenge | null) => {
+      if (challenge) {
+        // Counted now and cleared only by a full sign-in, so cancelling, timing out or closing the tab all leave a trace.
+        throttleRef.current.note('check', unlocked.vault.user.email)
+        const timer = window.setTimeout(() => cancelSignInCheck(), SIGN_IN_CHECK_MS)
+        pendingRef.current = { ...unlocked, challenge, timer }
+        setStatus('challenge')
+        return
+      }
+      await finishLogin(unlocked)
+    },
+    [finishLogin, cancelSignInCheck],
+  )
+
   const login = useCallback(
-    async (email: string, password: string) => {
+    async (email: string, password: string, options: LoginOptions = {}) => {
       const throttle = throttleRef.current
       await throttle.ready
       const wait = throttle.wait('login', email)
@@ -348,8 +437,12 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       const release = await acquireSessionLock()
       if (!release) throw new VaultInUseError()
       let vault: OpenVault
+      const acceptRollback = options.acceptRollback === true && loaded.record.version === KEYS_RECORD_VERSION
       try {
-        vault = await unlockVault(loaded.record, email, password)
+        vault =
+          acceptRollback && loaded.record.version === KEYS_RECORD_VERSION
+            ? await (await import('../services/v2/vault')).unlockKeysVault(loaded.record, email, password, { acceptRollback: true })
+            : await unlockVault(loaded.record, email, password)
       } catch (error) {
         release()
         if (error instanceof AuthError) {
@@ -362,25 +455,43 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         const weak = (await passwordProblem(password, { email: vault.user.email, vaultName: vault.vaultName })) !== null
         const challenge = await openTotpChallenge(vault, password)
         const unlocked: Unlocked = { vault, loaded, release, checked: challenge !== null, weak }
-        if (challenge) {
-          // Counted now and cleared only by a full sign-in, so cancelling, timing out or closing the tab all leave a trace.
-          throttle.note('check', vault.user.email)
-          const timer = window.setTimeout(() => cancelSignInCheck(), SIGN_IN_CHECK_MS)
-          pendingRef.current = { ...unlocked, challenge, timer }
-          setStatus('challenge')
+        if (vault.keys?.firstSeen) {
+          // First sign-in to this household in this browser: compare the founder key before anything else (TOFU).
+          const timer = window.setTimeout(() => cancelTrust(), SIGN_IN_CHECK_MS)
+          trustRef.current = { ...unlocked, challenge, timer }
+          setTrustFingerprint(vault.keys.founder.fingerprint)
+          setStatus('trust')
           return
         }
-        await finishLogin(unlocked)
+        await continueSignIn(unlocked, challenge)
       } catch (error) {
-        if (releaseRef.current !== release) {
+        if (releaseRef.current !== release && pendingRef.current?.vault !== vault && trustRef.current?.vault !== vault) {
           vault.db.close()
           release()
         }
         throw error
       }
     },
-    [finishLogin, cancelSignInCheck],
+    [continueSignIn, cancelTrust],
   )
+
+  const confirmTrust = useCallback(async () => {
+    const pending = trustRef.current
+    if (!pending) throw new AuthError()
+    trustRef.current = null
+    window.clearTimeout(pending.timer)
+    setTrustFingerprint(null)
+    try {
+      await continueSignIn(pending, pending.challenge)
+    } catch (error) {
+      if (releaseRef.current !== pending.release && pendingRef.current?.vault !== pending.vault) {
+        pending.vault.db.close()
+        pending.release()
+        setStatus('locked')
+      }
+      throw error
+    }
+  }, [continueSignIn])
 
   const verifySignInCheck = useCallback(
     async (code: string) => {
@@ -439,6 +550,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         noteSignIn(vault.db, vault.user.id)
         const record = await sealVault(vault)
         await writeVault(record, { expectedStamp: stampOf(loaded.raw) })
+        commitSealed(vault, record)
+        // The code has been used up and saved, so there is nothing to cancel: the founder key is shown to compare.
+        if (vault.keys?.firstSeen) setFingerprintNotice(vault.keys.founder.fingerprint)
+        confirmKeysSession(vault)
         markSaved(record.audit)
         vault.needsSave = false
         throttle.succeed('code', input.email)
@@ -456,6 +571,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
   const lock = useCallback(async (reason: VaultLockReason = 'manual') => {
     cancelSignInCheck()
+    cancelTrust()
     if (dirtyRef.current) enqueuePersist()
     await chainRef.current
     const vault = vaultRef.current
@@ -479,7 +595,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     }
     setLockReason(null)
     setStatus('locked')
-  }, [enqueuePersist, releaseSession, cancelSignInCheck])
+  }, [enqueuePersist, releaseSession, cancelSignInCheck, cancelTrust])
 
   const closeAfterReplace = useCallback(() => {
     const current = vaultRef.current
@@ -532,7 +648,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       const sealed = await sealVault(vault)
       await writeVault(backup.record, {
         expectedStamp: stampRef.current,
-        archive: { reason: 'import', raw: storedForm(sealed) },
+        archive: { reason: 'import', record: sealed },
       })
       closeAfterReplace()
     },
@@ -547,11 +663,56 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     if (conflictRef.current) throw new ConflictError()
     // The save failed (the browser refused to store the vault, or ran out of room): the stored copy is behind, so the
     // backup is sealed from the open vault, the only place the latest changes are.
-    if (dirtyRef.current) return sealVault(vault)
+    if (dirtyRef.current) return sealVault(vault, { full: true })
     const loaded = await readVault()
     if (!loaded) throw new Error('MISSING')
     return loaded.record
   }, [enqueuePersist])
+
+  const upgradeKeys = useCallback(
+    async (password: string) => {
+      const vault = vaultRef.current
+      if (!vault) throw new Error('LOCKED')
+      if (vault.keys) throw new ValidationError('ALREADY_UPGRADED')
+      if (dirtyRef.current) enqueuePersist()
+      await chainRef.current
+      if (conflictRef.current) throw new ConflictError()
+      // The 1.x record as stored is kept as the rollback path; it must be the one this session last saved.
+      const raw = await readVaultRaw()
+      if (raw === undefined || stampOf(raw) !== stampRef.current) throw new ConflictError()
+      const { upgradeToKeys } = await import('../services/v2/upgrade')
+      let upgraded: Awaited<ReturnType<typeof upgradeToKeys>>
+      try {
+        upgraded = await upgradeToKeys(vault, password)
+      } catch (error) {
+        if (!upgradeRefusedEarly(error)) void lock()
+        throw error
+      }
+      try {
+        await writeVault(upgraded.record, { expectedStamp: stampRef.current, archive: { reason: 'upgrade', raw } })
+      } catch (error) {
+        // The database in memory is already upgraded and must not be saved without the 1.x archive: start over.
+        void lock()
+        throw error
+      }
+      commitSealed(vault, upgraded.record)
+      confirmKeysSession(vault)
+      stampRef.current = upgraded.record.updatedAt
+      markSaved(upgraded.record.audit)
+      syncState(vault)
+      setUpgradeOffered(false)
+      setFingerprintNotice(upgraded.vault.keys.founder.fingerprint)
+      setRevision((value) => value + 1)
+      void import('../lib/capacity').then(({ setChunkedVault, measureCapacity }) => {
+        setChunkedVault(true)
+        return measureCapacity()
+      })
+    },
+    [enqueuePersist, lock, markSaved, syncState],
+  )
+
+  const postponeUpgrade = useCallback(() => setUpgradeOffered(false), [])
+  const dismissFingerprintNotice = useCallback(() => setFingerprintNotice(null), [])
 
   const clearWeakPassword = useCallback(() => setWeakPassword(false), [])
   const clearRecoveryNotice = useCallback(() => setRecoveryLeft(null), [])
@@ -653,6 +814,15 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       idleMinutes,
       lockReason,
       auditWarning,
+      keysInfo,
+      trustFingerprint,
+      confirmTrust,
+      cancelTrust,
+      fingerprintNotice,
+      dismissFingerprintNotice,
+      upgradeOffered,
+      upgradeKeys,
+      postponeUpgrade,
       setup,
       login,
       verifySignInCheck,
@@ -689,6 +859,15 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       idleMinutes,
       lockReason,
       auditWarning,
+      keysInfo,
+      trustFingerprint,
+      confirmTrust,
+      cancelTrust,
+      fingerprintNotice,
+      dismissFingerprintNotice,
+      upgradeOffered,
+      upgradeKeys,
+      postponeUpgrade,
       setup,
       login,
       verifySignInCheck,

@@ -349,6 +349,7 @@ export async function unlockKeysVault(record: KeysRecord, email: string, passwor
       roster: { ...keys.roster },
       chunks,
       firstSeen: verified.firstSeen,
+      ...(verified.rolledBack ? { acceptedRollback: true } : {}),
     }
     const vault = buildOpenVault(record, { db, dek, wraps: [], user, needsSave: false }, now)
     vault.keys = session

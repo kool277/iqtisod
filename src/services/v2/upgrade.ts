@@ -14,18 +14,12 @@ import { Permission, canUser } from '../../rbac'
 import { writeAudit } from '../audit.service'
 import { verifyOwnPassword } from '../auth.service'
 import { endGrant, openGrantRows } from '../grant-store'
-import { readProfiles } from '../user-profile'
+import { upgradeReinvites } from './reinvites'
 import { appendRosterDoc } from './roster-store'
 import type { KeysSession } from './session'
 import { sealKeysVault } from './vault'
 
-/** Who would need a new invite after an upgrade: everyone else who is not suspended or a former member. */
-export function upgradeReinvites(vault: OpenVault): number {
-  const profiles = readProfiles(vault.db)
-  return vault.db
-    .query('SELECT id FROM users WHERE id <> ?', [vault.user.id])
-    .filter((row) => (profiles.get(String(row.id))?.status ?? 'ACTIVE') === 'ACTIVE').length
-}
+export { upgradeReinvites }
 
 /**
  * The founder upgrade (design 5.2): an admin of a 1.x vault converts it to per-person keys and becomes its founder.

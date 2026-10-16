@@ -40,12 +40,12 @@ type Where = { pathname: string; search: string }
  */
 function pathFor(status: string, from?: Where, lockReason?: VaultLockReason | null): string {
   if (status === 'setup') return '/setup'
-  if (status === 'locked' || status === 'challenge') return from?.pathname.startsWith('/app') && lockReason !== 'manual' ? loginPathFor(from.pathname, from.search) : '/login'
+  if (status === 'locked' || status === 'challenge' || status === 'trust') return from?.pathname.startsWith('/app') && lockReason !== 'manual' ? loginPathFor(from.pathname, from.search) : '/login'
   if (status === 'ready') return (from?.pathname === '/login' && returnPath(new URLSearchParams(from.search).get(RETURN_PARAM))) || '/app'
   return '/'
 }
 
-type RouteStatus = 'setup' | 'locked' | 'challenge' | 'ready'
+type RouteStatus = 'setup' | 'locked' | 'trust' | 'challenge' | 'ready'
 
 function RequireStatus({ expect, children }: { expect: RouteStatus | RouteStatus[]; children: ReactNode }) {
   const { status, lockReason } = useVault()
@@ -80,7 +80,7 @@ function AppRoutes() {
       <MoveNotice />
       <Routes>
         <Route path="/setup" element={<RequireStatus expect="setup"><SetupPage /></RequireStatus>} />
-        <Route path="/login" element={<RequireStatus expect={['locked', 'challenge']}><LoginPage /></RequireStatus>} />
+        <Route path="/login" element={<RequireStatus expect={['locked', 'trust', 'challenge']}><LoginPage /></RequireStatus>} />
         <Route path="/register" element={<RequireStatus expect={['locked', 'setup']}><Suspense fallback={<Splash />}><RegisterPage /></Suspense></RequireStatus>} />
         <Route path="/health" element={<BeforeSignIn inApp="/app/health"><SupportFrame><HealthPage mode="standalone" /></SupportFrame></BeforeSignIn>} />
         <Route path="/help" element={<BeforeSignIn inApp="/app/help"><SupportFrame><HelpPage standalone /></SupportFrame></BeforeSignIn>} />

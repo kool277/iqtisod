@@ -8,6 +8,7 @@ import {
   hasPeopleMessages,
   hasTableMessages,
   loadExportMessages,
+  loadKeysMessages,
   loadHealthMessages,
   loadHelpMessages,
   loadPeopleMessages,
@@ -22,7 +23,13 @@ const peopleBefore = LOCALES.some(hasPeopleMessages)
 const peopleUntranslated = translate('en', 'people.overview.title')
 const { registerTableCatalog } = await import('../../src/i18n/table')
 registerTableCatalog()
-await Promise.all([...LOCALES.map(loadExportMessages), ...LOCALES.map(loadHealthMessages), ...LOCALES.map(loadHelpMessages), ...LOCALES.map(loadPeopleMessages)])
+await Promise.all([
+  ...LOCALES.map(loadExportMessages),
+  ...LOCALES.map(loadHealthMessages),
+  ...LOCALES.map(loadHelpMessages),
+  ...LOCALES.map(loadPeopleMessages),
+  ...LOCALES.map(loadKeysMessages),
+])
 
 describe('translations', () => {
   it('keeps the same keys in uz-Latn, uz-Cyrl, ru, and en', () => {
@@ -34,6 +41,7 @@ describe('translations', () => {
     expect(englishKeys).toContain('health.checks.storedVault.fix')
     expect(englishKeys).toContain('help.search')
     expect(englishKeys).toContain('people.errors.USER_SUSPENDED')
+    expect(englishKeys).toContain('keys.trust.confirm')
     for (const locale of LOCALES) {
       const messages = flattenMessages(catalogFor(locale))
       expect(Object.keys(messages).sort()).toEqual(englishKeys)

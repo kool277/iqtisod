@@ -2,11 +2,14 @@ import { Suspense, lazy, useRef, useState, type FormEvent, type ReactNode } from
 import { Link } from 'react-router-dom'
 import { PasswordHint, ThrottleNotice } from './auth/AuthBits'
 import { SignInCheckStep } from './auth/SignInCheckStep'
+import { TrustStep } from './auth/TrustStep'
+import { KeysCatalog } from './keys/KeysCatalog'
 import { BrandLockup } from './Brand'
 import { Preferences } from './Preferences'
 import { Button, Field, Notice, controlClass } from './ui'
 import { useI18n } from '../context/I18nContext'
 import { useVault } from '../context/VaultContext'
+import { AppError } from '../domain/errors'
 import { CURRENCIES } from '../domain/types'
 import { errorText, textForError } from '../lib/errors'
 import { LIMITS } from '../lib/limits'
@@ -242,12 +245,14 @@ export function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
+  // An older copy of a per-person-keys vault than this browser has seen: an admin may open it anyway.
+  const [rollback, setRollback] = useState(false)
   const [pending, setPending] = useState(false)
   const countdown = useCountdown()
 
-  async function onSubmit(event: FormEvent) {
-    event.preventDefault()
+  async function signIn(acceptRollback: boolean) {
     setError(null)
+    setRollback(false)
     const wait = guardWait('login', email)
     if (wait > 0) {
       countdown.start(wait)
@@ -255,14 +260,22 @@ export function LoginPage() {
     }
     setPending(true)
     try {
-      await login(email, password)
+      await login(email, password, { acceptRollback })
       setPassword('')
     } catch (caught) {
       if (caught instanceof ThrottledError) countdown.start(caught.waitMs)
-      else setError(textForError(caught, t))
+      else {
+        setError(textForError(caught, t))
+        setRollback(caught instanceof AppError && caught.code === 'KEYS_ROSTER_ROLLBACK' && !acceptRollback)
+      }
     } finally {
       setPending(false)
     }
+  }
+
+  async function onSubmit(event: FormEvent) {
+    event.preventDefault()
+    await signIn(false)
   }
 
   if (status === 'challenge') {
@@ -270,6 +283,15 @@ export function LoginPage() {
       <AuthFrame>
         <BrandLockup className="lg:hidden" />
         <SignInCheckStep />
+      </AuthFrame>
+    )
+  }
+
+  if (status === 'trust') {
+    return (
+      <AuthFrame>
+        <BrandLockup className="lg:hidden" />
+        <TrustStep />
       </AuthFrame>
     )
   }
@@ -286,6 +308,7 @@ export function LoginPage() {
           </p>
         ) : null}
         {error ? <Notice>{error}</Notice> : null}
+        {rollback ? <RollbackOverride disabled={pending} onConfirm={() => void signIn(true)} /> : null}
         <ThrottleNotice remaining={countdown.remaining} />
         <Field label={t('login.email')}>
           <input data-testid="login-email" type="email" autoComplete="username" className={controlClass} maxLength={LIMITS.emailChars} value={email} onChange={(event) => setEmail(event.target.value)} required />
@@ -307,5 +330,39 @@ export function LoginPage() {
         <SupportLinks />
       </div>
     </AuthFrame>
+  )
+}
+
+/** Asks again before an admin opens an older copy of a per-person-keys vault (design 4.10). */
+function RollbackOverride({ disabled, onConfirm }: { disabled: boolean; onConfirm: () => void }) {
+  return (
+    <KeysCatalog>
+      <RollbackOverrideBody disabled={disabled} onConfirm={onConfirm} />
+    </KeysCatalog>
+  )
+}
+
+function RollbackOverrideBody({ disabled, onConfirm }: { disabled: boolean; onConfirm: () => void }) {
+  const { t } = useI18n()
+  const [asking, setAsking] = useState(false)
+  if (!asking) {
+    return (
+      <Button type="button" variant="quiet" data-testid="rollback-open" disabled={disabled} onClick={() => setAsking(true)}>
+        {t('keys.rollback.open')}
+      </Button>
+    )
+  }
+  return (
+    <div className="grid gap-2 rounded-xl border border-line p-3 text-sm" data-testid="rollback-confirm">
+      <p>{t('keys.rollback.confirm')}</p>
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" data-testid="rollback-confirm-open" disabled={disabled} onClick={onConfirm}>
+          {t('keys.rollback.open')}
+        </Button>
+        <Button type="button" variant="quiet" onClick={() => setAsking(false)}>
+          {t('keys.trust.cancel')}
+        </Button>
+      </div>
+    </div>
   )
 }

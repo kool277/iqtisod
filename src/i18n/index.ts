@@ -3,6 +3,7 @@ import { en, type CoreMessages, type Messages } from './en'
 import type { ExportMessages } from './export/en'
 import type { HealthMessages } from './health/en'
 import type { HelpMessages } from './help/en'
+import type { KeysMessages } from './keys/en'
 import type { PeopleMessages } from './people/en'
 import type { TableMessages } from './table/en'
 
@@ -78,8 +79,8 @@ export function hasExportMessages(locale: Locale): boolean {
   return exportCatalogs[locale] !== undefined
 }
 
-type LazyHead = 'health' | 'help' | 'people'
-type LazyMessages = { health: HealthMessages; help: HelpMessages; people: PeopleMessages }
+type LazyHead = 'health' | 'help' | 'people' | 'keys'
+type LazyMessages = { health: HealthMessages; help: HelpMessages; people: PeopleMessages; keys: KeysMessages }
 
 const lazyLoaders: { [Head in LazyHead]: Record<Locale, () => Promise<LazyMessages[Head]>> } = {
   health: {
@@ -100,10 +101,16 @@ const lazyLoaders: { [Head in LazyHead]: Record<Locale, () => Promise<LazyMessag
     'uz-Latn': () => import('./people/uz-Latn').then((module) => module.peopleUzLatn),
     'uz-Cyrl': () => import('./people/uz-Cyrl').then((module) => module.peopleUzCyrl),
   },
+  keys: {
+    en: () => import('./keys/en').then((module) => module.keysEn),
+    ru: () => import('./keys/ru').then((module) => module.keysRu),
+    'uz-Latn': () => import('./keys/uz-Latn').then((module) => module.keysUzLatn),
+    'uz-Cyrl': () => import('./keys/uz-Cyrl').then((module) => module.keysUzCyrl),
+  },
 }
 
-const lazyCatalogs: { [Head in LazyHead]: Partial<Record<Locale, LazyMessages[Head]>> } = { health: {}, help: {}, people: {} }
-const lazyLoads: Record<LazyHead, Partial<Record<Locale, Promise<void>>>> = { health: {}, help: {}, people: {} }
+const lazyCatalogs: { [Head in LazyHead]: Partial<Record<Locale, LazyMessages[Head]>> } = { health: {}, help: {}, people: {}, keys: {} }
+const lazyLoads: Record<LazyHead, Partial<Record<Locale, Promise<void>>>> = { health: {}, help: {}, people: {}, keys: {} }
 
 function loadLazy<Head extends LazyHead>(head: Head, locale: Locale): Promise<void> {
   lazyLoads[head][locale] ??= lazyLoaders[head][locale]().then(
@@ -145,6 +152,15 @@ export function hasPeopleMessages(locale: Locale): boolean {
   return lazyCatalogs.people[locale] !== undefined && hasLocale(locale)
 }
 
+/** The `keys.*` strings load with the per-person-keys screens; until this resolves they translate to their keys. */
+export function loadKeysMessages(locale: Locale): Promise<void> {
+  return loadLazy('keys', locale)
+}
+
+export function hasKeysMessages(locale: Locale): boolean {
+  return lazyCatalogs.keys[locale] !== undefined && hasLocale(locale)
+}
+
 let tableCatalogs: Record<Locale, TableMessages> | null = null
 
 /** The `table.*` strings ship with the table chunk, which registers them before any table renders. */
@@ -173,14 +189,14 @@ export function detectLocale(): Locale {
 
 export function translate(locale: Locale, key: MessageKey): string {
   const [head, ...rest] = key.split('.')
-  const lazy = head === 'export' || head === 'table' || head === 'health' || head === 'help' || head === 'people'
+  const lazy = head === 'export' || head === 'table' || head === 'health' || head === 'help' || head === 'people' || head === 'keys'
   const parts = lazy ? rest : [head, ...rest]
   let current: unknown =
     head === 'export'
       ? exportCatalogs[locale]
       : head === 'table'
         ? tableCatalogs?.[locale]
-        : head === 'health' || head === 'help' || head === 'people'
+        : head === 'health' || head === 'help' || head === 'people' || head === 'keys'
           ? lazyCatalogs[head][locale]
           : (catalogs[locale] ?? en)
   for (const part of parts) {
@@ -201,13 +217,14 @@ export function flattenMessages(tree: unknown, prefix = ''): Record<string, stri
   return result
 }
 
-/** `export`, `health`, `help` and `people` are missing until their loaders have resolved, and `table` until the table chunk has loaded. */
+/** `export`, `health`, `help`, `people` and `keys` are missing until their loaders have resolved, and `table` until the table chunk has loaded. */
 export function catalogFor(locale: Locale): Messages {
   const exportMessages = exportCatalogs[locale]
   const tableMessages = tableCatalogs?.[locale]
   const healthMessages = lazyCatalogs.health[locale]
   const helpMessages = lazyCatalogs.help[locale]
   const peopleMessages = lazyCatalogs.people[locale]
+  const keysMessages = lazyCatalogs.keys[locale]
   return {
     ...(catalogs[locale] ?? en),
     ...(exportMessages ? { export: exportMessages } : {}),
@@ -215,6 +232,7 @@ export function catalogFor(locale: Locale): Messages {
     ...(healthMessages ? { health: healthMessages } : {}),
     ...(helpMessages ? { help: helpMessages } : {}),
     ...(peopleMessages ? { people: peopleMessages } : {}),
+    ...(keysMessages ? { keys: keysMessages } : {}),
   } as Messages
 }
 

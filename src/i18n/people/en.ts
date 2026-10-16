@@ -133,6 +133,19 @@ export const peopleEn = {
     done: 'Person deleted.',
     noRecords: 'They have no records.',
   },
+  /** Per-person-keys vaults (2.0): people hold keys instead of password copies, and join or come back with an invite code. */
+  keys: {
+    access: {
+      PASSWORD: 'Has keys',
+      CODE: 'Invited',
+      NONE: 'Needs a new invite',
+      UNKNOWN: '—',
+    },
+    noAccessNote: 'They have no keys and no open invite, so they cannot sign in. Give them a new invite code.',
+    reset: 'Give a new invite code',
+    resetHelp: 'Their keys stop working at once. With the code they choose a password and get new keys; private safes open again with the same password as before or with their recovery code.',
+    inviteOnly: 'In this vault people join with an invite code, so the admin never knows anyone’s keys.',
+  },
   errors: {
     USER_SUSPENDED: 'This person is suspended. Reactivate them first.',
     USER_FORMER: 'This is a former member. Former members cannot be changed.',

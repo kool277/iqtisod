@@ -25,7 +25,9 @@ import { readPreference, writePreference } from '../lib/preference'
 import { BUILD } from '../lib/version'
 import { Permission, canUser, seesMembers } from '../rbac'
 import { backupReminder } from '../services/backup.service'
+import { upgradeReinvites } from '../services/v2/reinvites'
 import { BrandMark } from './Brand'
+import { FingerprintNotice, UpgradeOffer } from './keys/KeysDialogs'
 import { HelpLink, type HelpSectionId } from './help/HelpLink'
 import { Preferences } from './Preferences'
 
@@ -74,7 +76,26 @@ const ACCOUNT_PATH = '/app/account'
 
 export function AppShell() {
   const { t } = useI18n()
-  const { user, vaultName, lock, saveState, query, revision, lastBackupAt, weakPassword, storageNearLimit, recoveryLeft, clearRecoveryNotice, failuresSeen, checkFailuresSeen, clearFailuresSeen, auditWarning, dismissAuditWarning, acceptAuditLog } = useVault()
+  const {
+    user,
+    vaultName,
+    lock,
+    saveState,
+    query,
+    revision,
+    lastBackupAt,
+    weakPassword,
+    storageNearLimit,
+    recoveryLeft,
+    clearRecoveryNotice,
+    failuresSeen,
+    checkFailuresSeen,
+    clearFailuresSeen,
+    auditWarning,
+    dismissAuditWarning,
+    acceptAuditLog,
+    upgradeOffered,
+  } = useVault()
   const [collapsed, setCollapsed] = useState(() => readPreference(SIDEBAR_KEY) === 'collapsed')
   const [reminderDismissed, setReminderDismissed] = useState(false)
   const reminder = useMemo(() => (user ? query((vault) => backupReminder(vault)) : null), [user, query, revision, lastBackupAt])
@@ -282,6 +303,8 @@ export function AppShell() {
           ) : null}
           <SafeProvider>{forced && location.pathname !== ACCOUNT_PATH ? <Navigate to={ACCOUNT_PATH} replace /> : <Outlet />}</SafeProvider>
         </main>
+        <FingerprintNotice />
+        {forced ? null : <UpgradeOffer reinvites={upgradeOffered ? query((vault) => upgradeReinvites(vault)) : 0} />}
       </div>
     </PeriodProvider>
   )

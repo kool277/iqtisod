@@ -135,6 +135,18 @@ export const peopleUzLatn: PeopleMessages = {
     done: 'Odam oʻchirildi.',
     noRecords: 'Uning yozuvlari yoʻq.',
   },
+  keys: {
+    access: {
+      PASSWORD: 'Kalitlari bor',
+      CODE: 'Taklif qilingan',
+      NONE: 'Yangi taklif kerak',
+      UNKNOWN: '—',
+    },
+    noAccessNote: 'Bu kishining kalitlari ham, ochiq taklifi ham yoʻq, shuning uchun u kira olmaydi. Unga yangi taklif kodi bering.',
+    reset: 'Yangi taklif kodi berish',
+    resetHelp: 'Uning kalitlari darhol ishlamay qoladi. Kod bilan u parol tanlaydi va yangi kalitlar oladi; shaxsiy seyflar avvalgi parol yoki tiklash kodi bilan yana ochiladi.',
+    inviteOnly: 'Bu seyfga odamlar taklif kodi bilan qoʻshiladi, shuning uchun administrator hech kimning kalitlarini bilmaydi.',
+  },
   errors: {
     USER_SUSPENDED: 'Bu odam toʻxtatilgan. Avval uni qayta faollashtiring.',
     USER_FORMER: 'Bu sobiq aʼzo. Sobiq aʼzolarni oʻzgartirib boʻlmaydi.',

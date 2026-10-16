@@ -3,7 +3,7 @@ import { useCallback, useMemo, useState, type FormEvent, type ReactNode } from '
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { IssuedCode } from './IssuedCode'
 import { RoleGroupFields, selectedGroupFor } from './RoleGroupFields'
-import { Forbidden, PeopleStrings, peopleErrorText, StatusBadge, ValiditySelect, roleLabel } from './shared'
+import { Forbidden, PeopleStrings, accessLabel, peopleErrorText, StatusBadge, ValiditySelect, roleLabel } from './shared'
 import { auditLabel } from '../audit-label'
 import { Dialog } from '../Dialog'
 import { Button, Field, Notice, controlClass } from '../ui'
@@ -178,6 +178,7 @@ function UserDetailView() {
 
 function ActionBar({ person, self, onAction }: { person: VaultUser; self: boolean; onAction: (action: Action) => void }) {
   const { t } = useI18n()
+  const keys = useVault().keysInfo !== null
   const button = (action: Action, label: string, variant: 'quiet' | 'danger' = 'quiet') => (
     <Button key={action} variant={variant} data-testid={`user-action-${action}`} onClick={() => onAction(action)}>
       {label}
@@ -186,7 +187,7 @@ function ActionBar({ person, self, onAction }: { person: VaultUser; self: boolea
   const actions: ReactNode[] = []
   if (person.status !== 'FORMER') actions.push(button('edit', t('people.actions.edit')))
   if (!self && person.status === 'ACTIVE') {
-    actions.push(button('reset', t('people.actions.reset')))
+    actions.push(button('reset', keys ? t('people.keys.reset') : t('people.actions.reset')))
     if (person.signInCheck) actions.push(button('clear', t('people.actions.clearTotp')))
     if (!person.mustChange) actions.push(button('force', t('people.actions.force')))
     actions.push(button('suspend', t('people.actions.suspend'), 'danger'))
@@ -202,6 +203,7 @@ function ActionBar({ person, self, onAction }: { person: VaultUser; self: boolea
 
 function Notes({ person, self, admin }: { person: VaultUser; self: boolean; admin: boolean }) {
   const { t } = useI18n()
+  const keys = useVault().keysInfo !== null
   const note = (text: string, testId: string) => (
     <p role="note" data-testid={testId} className="rounded-2xl border border-line bg-card px-4 py-3 text-sm text-muted">
       {text}
@@ -220,7 +222,7 @@ function Notes({ person, self, admin }: { person: VaultUser; self: boolean; admi
       ) : null}
       {person.status === 'SUSPENDED' ? note(t('people.detail.suspendedNote'), 'user-suspended-note') : null}
       {person.status === 'FORMER' ? note(t('people.detail.formerNote'), 'user-former-note') : null}
-      {admin && person.status === 'ACTIVE' && person.access === 'NONE' ? note(t('people.detail.noAccessNote'), 'user-no-access-note') : null}
+      {admin && person.status === 'ACTIVE' && person.access === 'NONE' ? note(keys ? t('people.keys.noAccessNote') : t('people.detail.noAccessNote'), 'user-no-access-note') : null}
     </>
   )
 }
@@ -238,6 +240,7 @@ function Row({ label, children, testId }: { label: string; children: ReactNode; 
 
 function ProfileCard({ detail, admin }: { detail: UserDetail; admin: boolean }) {
   const { t, locale } = useI18n()
+  const { keysInfo } = useVault()
   const person = detail.user
   return (
     <section className="rounded-3xl border border-line bg-card p-5" aria-labelledby="user-profile-title">
@@ -271,7 +274,7 @@ function ProfileCard({ detail, admin }: { detail: UserDetail; admin: boolean }) 
               {person.mustChange ? t('people.detail.yes') : t('people.detail.no')}
             </Row>
             <Row label={t('people.table.access')} testId="user-detail-access">
-              {t(`people.access.${person.access}`)}
+              {accessLabel(person.access, keysInfo !== null, t)}
             </Row>
             {detail.openCode ? (
               <Row label={t('people.detail.openCode')} testId="user-detail-code">
@@ -493,7 +496,8 @@ function EditDialog({ person, onClose, onDone }: { person: VaultUser; onClose: (
 
 function ResetDialog({ person, onClose, onIssued }: { person: VaultUser; onClose: () => void; onIssued: (grant: IssuedGrant) => void }) {
   const { t } = useI18n()
-  const { run } = useVault()
+  const { run, keysInfo } = useVault()
+  const keys = keysInfo !== null
   const { error, working, guard } = useGuard()
   const [validity, setValidity] = useState<GrantValidity>(DEFAULT_GRANT_VALIDITY)
   const [stopOld, setStopOld] = useState(true)
@@ -502,23 +506,25 @@ function ResetDialog({ person, onClose, onIssued }: { person: VaultUser; onClose
     guard(() => run((vault) => issueReset(vault, person.id, { validity, stopOldPassword: stopOld }), { dirty: true }).then(onIssued))
   }
   return (
-    <Dialog title={t('people.actions.reset')} onClose={onClose} testId="user-reset-dialog">
+    <Dialog title={keys ? t('people.keys.reset') : t('people.actions.reset')} onClose={onClose} testId="user-reset-dialog">
       <form className="grid gap-3" onSubmit={submit}>
         <p role="note" className="rounded-2xl border border-brass/50 bg-brass-soft px-3 py-2 text-sm">
-          {t('invites.resetSafesWarn')}
+          {keys ? t('people.keys.resetHelp') : t('invites.resetSafesWarn')}
         </p>
         {error ? <Notice>{error}</Notice> : null}
         <ValiditySelect testId="detail-reset-validity" value={validity} onChange={setValidity} />
-        <label className="flex items-start gap-2 text-sm">
-          <input type="checkbox" className="mt-1" checked={stopOld} onChange={(event) => setStopOld(event.target.checked)} />
-          <span>
-            <span className="font-medium">{t('invites.stopOld')}</span>
-            <span className="block text-muted">{t('invites.stopOldHelp')}</span>
-          </span>
-        </label>
+        {keys ? null : (
+          <label className="flex items-start gap-2 text-sm">
+            <input type="checkbox" className="mt-1" checked={stopOld} onChange={(event) => setStopOld(event.target.checked)} />
+            <span>
+              <span className="font-medium">{t('invites.stopOld')}</span>
+              <span className="block text-muted">{t('invites.stopOldHelp')}</span>
+            </span>
+          </label>
+        )}
         <div className="flex flex-wrap gap-2">
           <Button type="submit" data-testid="detail-reset-issue" disabled={working}>
-            {t('invites.issueReset')}
+            {keys ? t('people.keys.reset') : t('invites.issueReset')}
           </Button>
           <Button variant="quiet" onClick={onClose}>
             {t('common.cancel')}
