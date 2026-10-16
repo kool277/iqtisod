@@ -6,6 +6,27 @@ Data formats are versioned separately from the app. Each release lists the forma
 
 ## [Unreleased]
 
+### 2.0 alpha: per-person keys (in development, not released)
+
+Built only with `VITE_V2_KEYS=1` and never deployed; it becomes 2.0.0 after the Beta (key rotation) and RC (signed audit entries) phases of the [2.0 design](docs/design/v2.0-key-redesign.md). Such a build reads backup and record versions 1–3 and schema versions 1–5. It writes record 3, backup 3 and schema 5 only for vaults with per-person keys, and record 2, backup 2 and schema 4 for every other vault, so 1.x keeps opening a vault that 2.0 has not upgraded. 1.x refuses record and backup 3 with `FORMAT_TOO_NEW` and leaves them untouched. The record 3 format is a draft until 2.0.0 ([data format](docs/data-format.md#record-version-3-per-person-keys-20-draft)).
+
+#### Added
+
+- **Per-person keys.** Everyone has their own X25519 and Ed25519 keys, sealed under their password with Argon2id (64 MiB, in a background worker; WebAssembly needs no change to the content security policy). The vault key is wrapped to each person's public key, and no password check value is stored for anyone.
+- **A signed list of people.** Who may sign in, with which role and group and which keys, is a hash-chained document signed by an admin and rooted in the founder's key. A role or group changed outside Jaybi, a member added without an invite, or an edited signature blocks the vault instead of opening it. Every saved record is signed by the person who saved it.
+- **The founder key.** The first sign-in to a vault in a browser shows its founder key to compare with the admin before the vault opens; the browser then refuses a vault with another founder, and an older copy than it has seen unless an admin chooses to open it (written to the audit log).
+- **The founder upgrade.** An admin of a 1.x vault is offered to upgrade it and becomes its founder. The vault gets a new vault key, every open 1.x code ends, and everyone else needs a new invite code; their records, history and safes stay. The 1.x vault is kept in the browser as the way back.
+- **Invites only.** People join, and come back after losing their password, with an invite code that carries a signing key the admin's next save names; there are no temporary passwords, so the admin never knows anyone's keys.
+- **The vault in sealed chunks.** Record 3 stores the database as 1 MiB encrypted chunks, each its own IndexedDB value, with the list of chunks sealed under the vault key. Saves write only the chunks that changed, archives cost no copy, and Chromium's 126 MiB limit on a single value no longer applies.
+- Health check rows for the keys, the signed list of people and the upgrade, and the recovery tool reads format 3 (Node.js 24.7+) with `--verify`.
+
+#### Known limitations of the alpha
+
+- Removing or suspending someone takes their copy of the vault key out of the vault, but the key itself does not change until key rotation (Beta), so they can still open copies they already had and any later copy that reaches them.
+- Private safes and the sign-in check still use each person's password-based keys, as in 1.x.
+- Audit entries are not signed yet (RC); the audit log is hash-chained and checked as in 1.x.
+- A vault that fails a check shows the reason on the sign-in screen, without the planned button to download it as a file.
+
 ## [1.7.4] - 2026-10-17
 
 Reads backup and record versions 1–2 and schema versions 1–4. Writes backup 2, record 2, schema 4, and export format 1, the same as 1.7.3. No stored format changed, so 1.7.3 opens everything 1.7.4 saves.
