@@ -1,8 +1,11 @@
+import { GCM_TAG_BYTES } from '../crypto/crypto.service'
 import { Base64Decoder, Base64Error, base64DecodedLength } from '../crypto/base64-stream'
 import { ValidationError } from '../domain/errors'
 import { LIMITS } from '../lib/limits'
 import { parseJsonSafely } from '../lib/safe-json'
+import { MAX_CHUNKS, chunkCiphertextSizes, chunkCount, isChunkSize } from './chunks'
 import { parseBackupJson, parseBackupText, type DecodedBackup } from './envelope'
+import { KEYS_BACKUP_VERSION } from './versions'
 
 /**
  * Reads a backup file in pieces, so the file is never held whole: not as text, not as parsed JSON, and its base64
@@ -151,13 +154,12 @@ async function scan(file: Blob, longStringBytes: number): Promise<{ skeleton: st
   return { skeleton: skeleton.text(), long }
 }
 
-/** Pass 2: the long string decoded into a buffer of exactly its size. */
-async function decodeLongString(file: Blob, long: LongString): Promise<Uint8Array> {
-  const chars = long.end - long.start
-  const size = base64DecodedLength(chars, long.padding)
-  if (size > LIMITS.ciphertextBytes) throw badBackup()
-  const bytes = new Uint8Array(size)
-  const decoder = new Base64Decoder(bytes)
+/** Pass 2: the long string decoded into buffers of exactly the given sizes, filled in order. */
+async function decodeLongString(file: Blob, long: LongString, sizes: readonly number[]): Promise<Uint8Array[]> {
+  const size = base64DecodedLength(long.end - long.start, long.padding)
+  if (size !== sizes.reduce((sum, item) => sum + item, 0)) throw badBackup()
+  const targets = sizes.map((item) => new Uint8Array(item))
+  const decoder = new Base64Decoder(targets)
   try {
     await readPieces(file, long.start, long.end, (piece) => decoder.push(piece))
     if (decoder.finish() !== size) throw badBackup()
@@ -165,7 +167,21 @@ async function decodeLongString(file: Blob, long: LongString): Promise<Uint8Arra
     if (error instanceof Base64Error) throw badBackup()
     throw error
   }
-  return bytes
+  return targets
+}
+
+/**
+ * The ciphertext sizes a version 3 skeleton declares (its chunks', from `length` and `chunkSize`), or null for any
+ * other file. Checked only as far as allocating needs; the envelope checks the rest once the body is read.
+ */
+function declaredChunkSizes(parsed: unknown): number[] | null {
+  if (typeof parsed !== 'object' || parsed === null || (parsed as Record<string, unknown>).version !== KEYS_BACKUP_VERSION) return null
+  const body = (parsed as Record<string, unknown>).body
+  if (typeof body !== 'object' || body === null) throw badBackup()
+  const { chunkSize, length } = body as Record<string, unknown>
+  if (!isChunkSize(chunkSize) || !Number.isSafeInteger(length) || (length as number) < 1) throw badBackup()
+  if ((length as number) + GCM_TAG_BYTES > LIMITS.ciphertextBytes || chunkCount(length as number, chunkSize) > MAX_CHUNKS) throw badBackup()
+  return chunkCiphertextSizes(length as number, chunkSize)
 }
 
 /**
@@ -191,5 +207,14 @@ export async function readBackupFile(file: Blob, options: { longStringBytes?: nu
     throw badBackup()
   }
   if (!long) return parseBackupJson(parsed)
-  return parseBackupJson(parsed, { placeholder: PLACEHOLDER, bytes: await decodeLongString(file, long) })
+  const chunkSizes = declaredChunkSizes(parsed)
+  if (chunkSizes) {
+    // A version 3 body goes straight into one buffer per chunk, which is how the vault stores it.
+    const chunks = await decodeLongString(file, long, chunkSizes)
+    return parseBackupJson(parsed, { placeholder: PLACEHOLDER, chunks: chunks.map((chunk) => chunk.buffer as ArrayBuffer) })
+  }
+  const size = base64DecodedLength(long.end - long.start, long.padding)
+  if (size > LIMITS.ciphertextBytes) throw badBackup()
+  const [bytes] = await decodeLongString(file, long, [size])
+  return parseBackupJson(parsed, { placeholder: PLACEHOLDER, bytes })
 }

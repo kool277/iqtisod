@@ -21,18 +21,39 @@ export function base64DecodedLength(chars: number, padding: number): number {
 /**
  * Decodes padded base64 straight into a buffer of the exact size, fed in pieces, without the binary string `atob`
  * builds. Accepts only `A–Z a–z 0–9 + /`, with one or two `=` at the very end and a length divisible by four.
+ *
+ * Given several buffers, it fills them in order as if they were one: a backup's single ciphertext string becomes one
+ * buffer per chunk without ever being whole.
  */
 export class Base64Decoder {
   private quad = 0
   private sextets = 0
   private padding = 0
   private written = 0
+  private readonly targets: readonly Uint8Array[]
+  private current = 0
+  private target: Uint8Array
+  private position = 0
 
-  constructor(private readonly target: Uint8Array) {}
+  constructor(target: Uint8Array | readonly Uint8Array[]) {
+    this.targets = target instanceof Uint8Array ? [target] : target
+    this.target = this.targets[0] ?? new Uint8Array(0)
+  }
+
+  /** Writes one byte where the previous target ended, moving to the next target when one is full. */
+  private put(byte: number): void {
+    while (this.position === this.target.length) {
+      this.current += 1
+      if (this.current >= this.targets.length) throw new Base64Error()
+      this.target = this.targets[this.current]
+      this.position = 0
+    }
+    this.target[this.position++] = byte
+    this.written += 1
+  }
 
   push(chunk: Uint8Array): void {
-    const { target } = this
-    let { quad, sextets, padding, written } = this
+    let { quad, sextets, padding, target, position, written } = this
     for (let index = 0; index < chunk.length; index += 1) {
       const code = chunk[index]
       if (code === BASE64_PAD) {
@@ -45,17 +66,28 @@ export class Base64Decoder {
       quad = (quad << 6) | value
       sextets += 1
       if ((sextets & 3) === 0) {
-        if (written + 3 > target.length) throw new Base64Error()
-        target[written] = (quad >> 16) & 0xff
-        target[written + 1] = (quad >> 8) & 0xff
-        target[written + 2] = quad & 0xff
-        written += 3
+        if (position + 3 <= target.length) {
+          target[position] = (quad >> 16) & 0xff
+          target[position + 1] = (quad >> 8) & 0xff
+          target[position + 2] = quad & 0xff
+          position += 3
+          written += 3
+        } else {
+          // The three bytes straddle the end of a target: write them one at a time.
+          this.position = position
+          this.written = written
+          this.put((quad >> 16) & 0xff)
+          this.put((quad >> 8) & 0xff)
+          this.put(quad & 0xff)
+          ;({ target, position, written } = this)
+        }
         quad = 0
       }
     }
     this.quad = quad
     this.sextets = sextets
     this.padding = padding
+    this.position = position
     this.written = written
   }
 
@@ -72,15 +104,14 @@ export class Base64Decoder {
     }
   }
 
-  /** Checks the padding, writes the last bytes, and returns how many were written. */
+  /** Checks the padding, writes the last bytes, and returns how many were written in all. */
   finish(): number {
-    const { quad, sextets, padding, target } = this
+    const { quad, sextets, padding } = this
     if ((sextets + padding) % 4 !== 0) throw new Base64Error()
     const rest = sextets % 4
     if ((rest === 0 && padding !== 0) || (rest === 3 && padding !== 1) || (rest === 2 && padding !== 2) || rest === 1) throw new Base64Error()
     const tail = rest === 3 ? [(quad >> 10) & 0xff, (quad >> 2) & 0xff] : rest === 2 ? [(quad >> 4) & 0xff] : []
-    if (this.written + tail.length > target.length) throw new Base64Error()
-    for (const byte of tail) target[this.written++] = byte
+    for (const byte of tail) this.put(byte)
     return this.written
   }
 }

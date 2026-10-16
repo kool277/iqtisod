@@ -8,7 +8,7 @@ import { recordFromSession, wrapsFromRecord } from '../../src/db/storage'
 import { AppError } from '../../src/domain/errors'
 import { LIMITS } from '../../src/lib/limits'
 import { archiveFileBlob, archiveFileText, backupFileBlob, backupFileText } from '../../src/services/backup.service'
-import { fixtureByPath, readFixture, readManifest, v1StoredRecordFromBackup } from '../support/fixtures'
+import { asLegacy, fixtureByPath, readFixture, readManifest, v1StoredRecordFromBackup } from '../support/fixtures'
 
 const MIB = 1024 * 1024
 const NOW = new Date('2026-10-06T12:00:00.000Z')
@@ -168,8 +168,9 @@ describe('readBackupFile', () => {
   it('decodes a large body across read boundaries into an exactly sized buffer', async () => {
     const { text, body } = backupWithBody(9 * MIB + 2)
     const read = await readBackupFile(blob(text))
-    expect(read.record.body.ciphertext.byteLength).toBe(body.length)
-    expect(Buffer.from(read.record.body.ciphertext).equals(body)).toBe(true)
+    const record = asLegacy(read.record)
+    expect(record.body.ciphertext.byteLength).toBe(body.length)
+    expect(Buffer.from(record.body.ciphertext).equals(body)).toBe(true)
     expect(read).toEqual(parseBackupText(text))
   })
 
@@ -227,11 +228,11 @@ describe('readBackupFile', () => {
 
 describe('the ciphertext is not copied', () => {
   it('when a stored record is decoded and encoded again', () => {
-    const { record } = parseBackupText(v4Text)
-    const stored = encodeStoredRecord(record)
+    const record = asLegacy(parseBackupText(v4Text).record)
+    const stored = asLegacy(encodeStoredRecord(record))
     expect(stored.body.ciphertext).toBe(record.body.ciphertext)
     expect(stored.body.iv).not.toBe(record.body.iv)
-    const decoded = decodeStoredRecord(stored).record
+    const decoded = asLegacy(decodeStoredRecord(stored).record)
     expect(decoded.body.ciphertext).toBe(stored.body.ciphertext)
     expect(decoded.wraps[0].salt).not.toBe(stored.wraps[0].salt)
   })
@@ -244,10 +245,10 @@ describe('the ciphertext is not copied', () => {
   })
 
   it('but a view onto a larger buffer is copied out whole', () => {
-    const stored = encodeStoredRecord(parseBackupText(v4Text).record)
+    const stored = asLegacy(encodeStoredRecord(parseBackupText(v4Text).record))
     const wide = new Uint8Array(stored.body.ciphertext.byteLength + 8)
     wide.set(new Uint8Array(stored.body.ciphertext), 4)
-    const decoded = decodeStoredRecord({ ...stored, body: { iv: stored.body.iv, ciphertext: wide.subarray(4, 4 + stored.body.ciphertext.byteLength) } }).record
+    const decoded = asLegacy(decodeStoredRecord({ ...stored, body: { iv: stored.body.iv, ciphertext: wide.subarray(4, 4 + stored.body.ciphertext.byteLength) } }).record)
     expect(decoded.body.ciphertext.byteLength).toBe(stored.body.ciphertext.byteLength)
     expect(new Uint8Array(decoded.body.ciphertext)).toEqual(new Uint8Array(stored.body.ciphertext))
   })

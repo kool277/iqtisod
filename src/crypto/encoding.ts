@@ -47,10 +47,38 @@ const BLOB_CHUNK_BYTES = 3 * 1024 * 1024
  * far, which browsers keep by reference, so only one piece of base64 is ever held as a string.
  */
 export function base64Blob(before: string, bytes: Uint8Array, after: string, type: string): Blob {
+  return base64BlobOfParts(before, [bytes], after, type)
+}
+
+/**
+ * {@link base64Blob} for bytes that come in several parts, encoded as if the parts were one array. A part whose length
+ * is not a multiple of three leaves up to two bytes over, which are joined with the start of the next part, so the
+ * parts are never copied into one buffer.
+ */
+export function base64BlobOfParts(before: string, parts: readonly Uint8Array[], after: string, type: string): Blob {
   let blob = new Blob([before], { type })
-  for (let offset = 0; offset < bytes.length; offset += BLOB_CHUNK_BYTES) {
-    blob = new Blob([blob, bytesToBase64(bytes.subarray(offset, offset + BLOB_CHUNK_BYTES))], { type })
+  const carry = new Uint8Array(3)
+  let carried = 0
+  for (const part of parts) {
+    let offset = 0
+    if (carried > 0) {
+      const take = Math.min(3 - carried, part.length)
+      carry.set(part.subarray(0, take), carried)
+      carried += take
+      offset = take
+      if (carried < 3) continue
+      blob = new Blob([blob, bytesToBase64(carry)], { type })
+      carried = 0
+    }
+    const whole = offset + Math.floor((part.length - offset) / 3) * 3
+    for (let start = offset; start < whole; start += BLOB_CHUNK_BYTES) {
+      blob = new Blob([blob, bytesToBase64(part.subarray(start, Math.min(whole, start + BLOB_CHUNK_BYTES)))], { type })
+    }
+    carried = part.length - whole
+    carry.set(part.subarray(whole), 0)
   }
+  if (carried > 0) blob = new Blob([blob, bytesToBase64(carry.subarray(0, carried))], { type })
+  carry.fill(0)
   return new Blob([blob, after], { type })
 }
 

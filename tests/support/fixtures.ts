@@ -3,8 +3,14 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { decryptDatabase, deriveKey, unwrapDek } from '../../src/crypto/crypto.service'
-import { parseBackupText } from '../../src/db/envelope'
+import { parseBackupText, type LegacyRecord, type VaultRecord } from '../../src/db/envelope'
 import { SqlDatabase } from '../../src/db/sqlite'
+
+/** Narrows a record read from a 1.x fixture or vault, whose body is one ciphertext. */
+export function asLegacy(record: VaultRecord): LegacyRecord {
+  if (record.version !== 2) throw new Error(`expected a 1.x record, got version ${record.version}`)
+  return record
+}
 
 export const FIXTURE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../fixtures/backups')
 
@@ -136,7 +142,7 @@ export function v1StoredRecordFromBackup(text: string, updatedAt = '2026-04-01T0
 }
 
 export async function decryptFixtureDatabase(fixture: Fixture, user: ExpectedUser = fixture.expected.users[0]): Promise<Uint8Array> {
-  const { record } = parseBackupText(fixture.text)
+  const record = asLegacy(parseBackupText(fixture.text).record)
   const wrap = record.wraps.find((item) => item.email === user.email)
   if (!wrap) throw new Error(`no wrap for ${user.email}`)
   const kek = await deriveKey(user.password, new Uint8Array(wrap.salt), wrap.kdf)

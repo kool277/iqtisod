@@ -61,6 +61,14 @@ describe('computeCapacity', () => {
     expect(capacity.fileBytes).toBeGreaterThan(72 * MIB)
   })
 
+  it('does not hold a vault stored in chunks to Chromium\'s single-value limit', () => {
+    const capacity = computeCapacity(CHROME_DESKTOP, { chunked: true })
+    expect(capacity.browserBytes).toBeNull()
+    expect(capacity.limitedBy).toBe('memory')
+    expect(capacity.vaultBytes).toBe(MEMORY_8GB_DESKTOP)
+    expect(computeCapacity(CHROME_DESKTOP, { chunked: false }).limitedBy).toBe('browser')
+  })
+
   it('gives a desktop browser that stores large values a budget far above the old 72 MB, limited by memory', () => {
     const capacity = computeCapacity(LARGE_VALUES_DESKTOP)
     expect(capacity.limitedBy).toBe('memory')

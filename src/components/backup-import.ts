@@ -8,6 +8,23 @@ import { fillTemplate } from '../lib/template'
 import type { ParsedBackup } from '../services/backup.service'
 
 const measureCapacity = () => import('../lib/capacity').then((module) => module.measureCapacity())
+/** A restored backup is stored the way its file says, whatever the open vault uses. */
+const capacityForFile = (chunked: boolean) => import('../lib/capacity').then((module) => module.capacityFor({ chunked }))
+
+/** `{"format":"moliya-vault","version":3,` as the app writes it: a backup whose vault is stored in chunks. */
+const CHUNKED_HEAD = /^\s*\{\s*"format"\s*:\s*"moliya-vault"\s*,\s*"version"\s*:\s*3\s*[,}]/
+
+/**
+ * Whether a file declares backup version 3, read from its first bytes only. A file laid out any other way is held to
+ * the stricter single-value budget, which every version accepts.
+ */
+export async function declaresChunkedBackup(file: Blob): Promise<boolean> {
+  try {
+    return CHUNKED_HEAD.test(await file.slice(0, 256).text())
+  } catch {
+    return false
+  }
+}
 
 type Translate = (key: MessageKey) => string
 
@@ -46,7 +63,7 @@ export function useBackupImport() {
   async function readFile(file: File): Promise<ParsedBackup> {
     // Persistent storage raises the quota in some browsers and keeps a large vault from being evicted.
     await requestPersistenceBriefly()
-    const measured = await measureCapacity()
+    const measured = await capacityForFile(await declaresChunkedBackup(file))
     setCapacity(measured)
     if (file.size > restoreLimitBytes(measured.fileBytes)) throw new BackupTooLargeError(measured, file.size)
     const { readBackup } = await import('../db/backup-reader')

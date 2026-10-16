@@ -5,6 +5,7 @@ import { LIMITS } from '../../src/lib/limits'
 import { createVault, sealVault, unlockVault } from '../../src/services/auth.service'
 import { createTransaction, deleteTransaction, listCategories, listTransactions } from '../../src/services/finance.service'
 import { listGroups } from '../../src/services/group.service'
+import { asLegacy } from '../support/fixtures'
 
 const MIB = 1024 * 1024
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
@@ -61,7 +62,7 @@ describe('a vault that reached its size limit', () => {
     const sealed = await sealVault(vault)
     expect(vault.db.freeBytes()).toBe(0)
     expect(vault.db.sizeBytes()).toBeLessThan(full - 8 * MIB)
-    expect(sealed.body.ciphertext.byteLength).toBe(vault.db.sizeBytes() + 16)
+    expect(asLegacy(sealed).body.ciphertext.byteLength).toBe(vault.db.sizeBytes() + 16)
 
     const reopened = await unlockVault(sealed, ADMIN.email, ADMIN.password)
     open.push(reopened)

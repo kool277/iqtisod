@@ -1,7 +1,7 @@
-import { base64Blob } from '../crypto/encoding'
-import { decodeStoredRecord, parseBackupText, storedToBackupJson, toBackupJson, type DecodedBackup, type VaultRecord } from '../db/envelope'
+import { base64BlobOfParts } from '../crypto/encoding'
+import { ciphertextParts, decodeStoredRecord, parseBackupText, storedToBackupJson, toBackupJson, type DecodedBackup, type VaultRecord } from '../db/envelope'
 import { getSetting, setSetting } from '../db/settings'
-import type { ArchiveEntry } from '../db/storage'
+import type { ArchiveEntry, LoadedArchive } from '../db/storage'
 import { ForbiddenError } from '../domain/errors'
 import type { OpenVault } from '../domain/types'
 import { toIsoDate } from '../lib/dates'
@@ -21,8 +21,8 @@ export function backupFileText(record: VaultRecord, exportedAt = new Date().toIS
   return JSON.stringify(toBackupJson(record, exportedAt))
 }
 
-export function archiveFileText(entry: ArchiveEntry, exportedAt = new Date().toISOString()): string {
-  return JSON.stringify(storedToBackupJson(entry.raw, exportedAt))
+export function archiveFileText(entry: ArchiveEntry | LoadedArchive, exportedAt = new Date().toISOString()): string {
+  return JSON.stringify(storedToBackupJson(entry.raw, exportedAt, undefined, 'chunks' in entry ? entry.chunks : undefined))
 }
 
 export const BACKUP_MIME = 'application/json'
@@ -32,20 +32,22 @@ const CIPHERTEXT_TAIL = '"}}'
 /**
  * The same bytes as the `*FileText` functions, with the base64 body streamed into the Blob rather than built as one
  * string. The JSON is written with an empty ciphertext and split by position, not by searching for a marker that
- * text elsewhere in the envelope could also contain.
+ * text elsewhere in the envelope could also contain. A version 3 body's chunks are encoded one after another as if
+ * they were one buffer.
  */
-function streamedBackup(json: object, ciphertext: ArrayBuffer): Blob {
+function streamedBackup(json: object, parts: readonly Uint8Array[]): Blob {
   const text = JSON.stringify(json)
   if (!text.endsWith(`"ciphertext":"${CIPHERTEXT_TAIL}`)) throw new Error('Backup layout changed')
-  return base64Blob(text.slice(0, -CIPHERTEXT_TAIL.length), new Uint8Array(ciphertext), CIPHERTEXT_TAIL, BACKUP_MIME)
+  return base64BlobOfParts(text.slice(0, -CIPHERTEXT_TAIL.length), parts, CIPHERTEXT_TAIL, BACKUP_MIME)
 }
 
 export function backupFileBlob(record: VaultRecord, exportedAt = new Date().toISOString()): Blob {
-  return streamedBackup(toBackupJson(record, exportedAt, ''), record.body.ciphertext)
+  return streamedBackup(toBackupJson(record, exportedAt, ''), ciphertextParts(record))
 }
 
-export function archiveFileBlob(entry: ArchiveEntry, exportedAt = new Date().toISOString()): Blob {
-  return streamedBackup(storedToBackupJson(entry.raw, exportedAt, ''), decodeStoredRecord(entry.raw).record.body.ciphertext)
+export function archiveFileBlob(entry: ArchiveEntry | LoadedArchive, exportedAt = new Date().toISOString()): Blob {
+  const chunks = 'chunks' in entry ? entry.chunks : undefined
+  return streamedBackup(storedToBackupJson(entry.raw, exportedAt, '', chunks), ciphertextParts(decodeStoredRecord(entry.raw, chunks).record))
 }
 
 export function backupFileName(kind: 'backup' | 'archive' = 'backup', date = new Date()): string {

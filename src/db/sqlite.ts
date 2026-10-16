@@ -121,6 +121,49 @@ export class SqlDatabase {
     return handle
   }
 
+  /**
+   * {@link openBytes} for a database that arrives in pieces: `fill` writes each piece straight into the heap buffer
+   * SQLite will use, so the whole plaintext never exists anywhere else. If `fill` fails, whatever it wrote is wiped
+   * before the buffer is freed.
+   */
+  static async openFilled(
+    size: number,
+    fill: (put: (offset: number, bytes: Uint8Array) => void) => Promise<void>,
+    options: { growth?: number } = {},
+  ): Promise<SqlDatabase> {
+    if (!Number.isSafeInteger(size) || size < 1) throw new Error('Database size is invalid')
+    const sqlite3 = await loadModule()
+    const room = size + (options.growth ?? growthRoom(size))
+    const pointer = sqlite3.wasm.alloc(room)
+    let owned = true
+    try {
+      // The heap can grow while `fill` waits, which replaces the view, so each piece reads it afresh.
+      await fill((offset, bytes) => {
+        if (!Number.isSafeInteger(offset) || offset < 0 || offset + bytes.byteLength > size) throw new Error('Piece outside the database')
+        sqlite3.wasm.heap8u().set(bytes, pointer + offset)
+      })
+      const db = new sqlite3.oo1.DB(':memory:', 'c')
+      try {
+        if (db.pointer == null) throw new Error('SQLite handle is not open')
+        const flags = sqlite3.capi.SQLITE_DESERIALIZE_FREEONCLOSE | sqlite3.capi.SQLITE_DESERIALIZE_RESIZEABLE
+        // From here SQLite owns the buffer and frees it itself, even when this call fails.
+        owned = false
+        db.checkRc(sqlite3.capi.sqlite3_deserialize(db.pointer, 'main', pointer, size, room, flags))
+        const handle = new SqlDatabase(sqlite3, db)
+        handle.configure()
+        return handle
+      } catch (error) {
+        db.close()
+        throw error
+      }
+    } finally {
+      if (owned) {
+        sqlite3.wasm.heap8u().fill(0, pointer, pointer + size)
+        sqlite3.wasm.dealloc(pointer)
+      }
+    }
+  }
+
   exec(sql: string, params: SqlValue[] = []): void {
     if (params.length === 0) this.db.exec(sql)
     else this.db.exec(sql, { bind: params })

@@ -8,12 +8,14 @@ import {
   isKdfParams,
   type KdfParams,
 } from '../crypto/crypto.service'
+import { Base64Decoder, Base64Error } from '../crypto/base64-stream'
 import { base64ToBytes, bytesToBase64, cloneBuffer, cloneBytes } from '../crypto/encoding'
 import { copyArgon2Params, isArgon2Params, type Argon2Params } from '../crypto/kdf'
 import { CorruptRecordError, FormatTooNewError, ValidationError } from '../domain/errors'
 import { LIMITS } from '../lib/limits'
 import { parseJsonSafely } from '../lib/safe-json'
 import { isAuditHead, type AuditHead } from './audit-chain'
+import { CHUNK_KEY, MAX_CHUNKS, chunkCiphertextSizes, chunkCount, isChunkSize, manifestJson, type BodyChunk, type ChunkedBody } from './chunks'
 import { copyKeysHeader, readKeysHeader, type KeysHeader } from './keys-header'
 import { BACKUP_VERSION, KEYS_BACKUP_VERSION, KEYS_RECORD_VERSION, KEYS_SCHEMA_VERSION, RECORD_VERSION, SCHEMA_VERSION } from './versions'
 
@@ -50,22 +52,30 @@ export type GrantRecord = {
   expiresAt?: string
 }
 
-export type VaultRecord = {
+/** Record versions 1–2: the whole database is one ciphertext. */
+export type PlainBody = { iv: ArrayBuffer; ciphertext: ArrayBuffer }
+
+type RecordFields = {
   id: typeof RECORD_ID
-  version: typeof RECORD_VERSION | typeof KEYS_RECORD_VERSION
   appVersion: string
   schemaVersion: number
   createdAt: string | null
   updatedAt: string
   cipher: PayloadCipher
+  /** Always empty in a version 3 record: each member's key is in `keys.identities` and `keys.dekWraps`. */
   wraps: WrapRecord[]
   grants?: GrantRecord[]
   /** The audit log's last entry when the record was sealed (1.4.2+). Advisory: lets a reader notice a shortened or rewritten log. */
   audit?: AuditHead
-  /** Version 3 only. Its `wraps` is then always empty: each member's key is in `keys.identities` and `keys.dekWraps`. */
-  keys?: KeysHeader
-  body: { iv: ArrayBuffer; ciphertext: ArrayBuffer }
 }
+
+/** A 1.x record (versions 1–2 are both read into this form). */
+export type LegacyRecord = RecordFields & { version: typeof RECORD_VERSION; keys?: undefined; body: PlainBody }
+
+/** A per-person-keys record (version 3), its body in chunks (docs/design/v2.0-key-redesign.md, 3.9). */
+export type KeysRecord = RecordFields & { version: typeof KEYS_RECORD_VERSION; keys: KeysHeader; body: ChunkedBody }
+
+export type VaultRecord = LegacyRecord | KeysRecord
 
 export type DecodedRecord = {
   record: VaultRecord
@@ -98,22 +108,34 @@ type BackupGrantJson = {
   expiresAt?: string
 }
 
-export type BackupFileV2 = {
+type BackupFields = {
   format: typeof BACKUP_FORMAT
-  version: typeof BACKUP_VERSION
   appVersion: string
   schemaVersion: number
   createdAt: string | null
   updatedAt: string
   exportedAt: string
   cipher: PayloadCipher
-  wraps: BackupWrapJson[]
   grants?: BackupGrantJson[]
   audit?: AuditHead
+}
+
+export type BackupFileV2 = BackupFields & {
+  version: typeof BACKUP_VERSION
+  wraps: BackupWrapJson[]
   body: { iv: string; ciphertext: string }
 }
 
-export type BackupFileV3 = Omit<BackupFileV2, 'version' | 'wraps'> & { version: typeof KEYS_BACKUP_VERSION } & KeysHeader
+/** The chunk ciphertexts are concatenated in order in `ciphertext`, which stays the body's last key. */
+export type BackupBodyV3 = {
+  chunkSize: number
+  length: number
+  chunks: string[]
+  seal: { iv: string; tag: string }
+  ciphertext: string
+}
+
+export type BackupFileV3 = BackupFields & { version: typeof KEYS_BACKUP_VERSION } & KeysHeader & { body: BackupBodyV3 }
 
 type Invalid = () => Error
 
@@ -146,9 +168,11 @@ function sharedBinary(value: unknown, invalid: Invalid): Uint8Array {
   return binary(value, invalid)
 }
 
+const BASE64_TEXT = /^[A-Za-z0-9+/]*={0,2}$/
+
 function base64(value: unknown, invalid: Invalid): Uint8Array {
   const text = asString(value, invalid)
-  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(text) || text.length % 4 !== 0) throw invalid()
+  if (!BASE64_TEXT.test(text) || text.length % 4 !== 0) throw invalid()
   try {
     return base64ToBytes(text)
   } catch {
@@ -191,8 +215,11 @@ function readVersion(value: unknown, supported: number, invalid: Invalid): numbe
 
 type ByteReader = (value: unknown, invalid: Invalid) => Uint8Array
 
-/** Small fields, and the ciphertext, which may be read without a copy. */
-type Readers = { bytes: ByteReader; ciphertext: ByteReader }
+/** The chunk ciphertexts of a version 3 body, given each one's expected size. */
+type ChunkReader = (body: Record<string, unknown>, sizes: readonly number[], invalid: Invalid) => (ArrayBuffer | undefined)[]
+
+/** Small fields, the ciphertext, which may be read without a copy, and a version 3 body's chunks. */
+type Readers = { bytes: ByteReader; ciphertext: ByteReader; chunks: ChunkReader; stored: boolean }
 
 function readWrapAad(value: unknown, invalid: Invalid): { aad?: typeof WRAP_AAD_V1 } {
   if (value === undefined) return {}
@@ -270,11 +297,47 @@ function readArgon2(value: unknown, invalid: Invalid): Argon2Params {
   return copyArgon2Params(value)
 }
 
-function readBody(value: unknown, readers: Readers, invalid: Invalid): VaultRecord['body'] {
+function readBody(value: unknown, readers: Readers, invalid: Invalid): PlainBody {
   const body = asObject(value, invalid)
   return {
     iv: checkLength(readers.bytes(body.iv, invalid), IV_BYTES, IV_BYTES, invalid),
     ciphertext: checkLengthOwned(readers.ciphertext(body.ciphertext, invalid), GCM_TAG_BYTES + 1, LIMITS.ciphertextBytes, invalid),
+  }
+}
+
+/**
+ * A version 3 body: its size, chunk size and seal, each chunk's IV, and (stored form) each chunk's storage key. The
+ * ciphertexts come from `readers.chunks`: the IndexedDB values for a stored record, `ciphertext` for a file.
+ */
+function readChunkedBody(value: unknown, readers: Readers, invalid: Invalid): ChunkedBody {
+  const body = asObject(value, invalid)
+  const { chunkSize, length } = body
+  if (!isChunkSize(chunkSize) || !Number.isSafeInteger(length) || (length as number) < 1) throw invalid()
+  if ((length as number) + GCM_TAG_BYTES > LIMITS.ciphertextBytes) throw invalid()
+  const count = chunkCount(length as number, chunkSize)
+  if (count > MAX_CHUNKS || !Array.isArray(body.chunks) || body.chunks.length !== count) throw invalid()
+  const seal = asObject(body.seal, invalid)
+  const sizes = chunkCiphertextSizes(length as number, chunkSize)
+  const entries = body.chunks.map((item): Omit<BodyChunk, 'ciphertext'> => {
+    if (!readers.stored) return { iv: checkLength(readers.bytes(item, invalid), IV_BYTES, IV_BYTES, invalid) }
+    const chunk = asObject(item, invalid)
+    if (typeof chunk.key !== 'string' || !CHUNK_KEY.test(chunk.key)) throw invalid()
+    return { iv: checkLength(readers.bytes(chunk.iv, invalid), IV_BYTES, IV_BYTES, invalid), key: chunk.key }
+  })
+  if (readers.stored && new Set(entries.map((entry) => entry.key)).size !== entries.length) throw invalid()
+  const ciphertexts = readers.chunks(body, sizes, invalid)
+  return {
+    chunkSize,
+    length: length as number,
+    chunks: entries.map((entry, index) => {
+      const ciphertext = ciphertexts[index]
+      if (ciphertext !== undefined && ciphertext.byteLength !== sizes[index]) throw invalid()
+      return ciphertext === undefined ? entry : { ...entry, ciphertext }
+    }),
+    seal: {
+      iv: checkLength(readers.bytes(seal.iv, invalid), IV_BYTES, IV_BYTES, invalid),
+      tag: checkLength(readers.bytes(seal.tag, invalid), GCM_TAG_BYTES, GCM_TAG_BYTES, invalid),
+    },
   }
 }
 
@@ -335,7 +398,7 @@ function decodeFields(
       ...optionalGrants(readGrants(source.grants, bytes, invalid, true)),
       ...readAudit(source.audit),
       keys,
-      body: readBody(source.body, readers, invalid),
+      body: readChunkedBody(source.body, readers, invalid),
     }
   }
   return {
@@ -371,24 +434,80 @@ function optionalGrants<T>(grants: T[] | undefined): { grants?: T[] } {
 const corrupt: Invalid = () => new CorruptRecordError()
 const badBackup: Invalid = () => new ValidationError('BACKUP')
 
-export function decodeStoredRecord(raw: unknown): DecodedRecord {
+/**
+ * Decodes the record kept under `primary`. A version 3 record lists its chunks by storage key: given `chunkValues`
+ * (what IndexedDB holds under those keys), every chunk must be there with the right size; without it the record
+ * carries no ciphertext, which is enough to read its header.
+ */
+export function decodeStoredRecord(raw: unknown, chunkValues?: ReadonlyMap<string, unknown>): DecodedRecord {
   const source = asObject(raw, corrupt)
   const version = readVersion(source.version, KEYS_RECORD_VERSION, corrupt)
-  return { record: decode(source, version, { bytes: binary, ciphertext: sharedBinary }, corrupt, () => new Date(0).toISOString()), sourceVersion: version }
+  const chunks: ChunkReader = (body, sizes, invalid) => {
+    if (!chunkValues) return sizes.map(() => undefined)
+    return (body.chunks as { key: string }[]).map((chunk) => {
+      const value = chunkValues.get(chunk.key)
+      if (!(value instanceof ArrayBuffer)) throw invalid()
+      return value
+    })
+  }
+  const readers: Readers = { bytes: binary, ciphertext: sharedBinary, chunks, stored: true }
+  return { record: decode(source, version, readers, corrupt, () => new Date(0).toISOString()), sourceVersion: version }
+}
+
+function copyGrants(grants: readonly GrantRecord[] | undefined): { grants?: GrantRecord[] } {
+  return optionalGrants(
+    grants?.map((grant) => ({
+      id: grant.id,
+      kind: grant.kind,
+      email: grant.email,
+      kdf: copyGrantKdf(grant.kdf),
+      salt: cloneBuffer(grant.salt),
+      iv: cloneBuffer(grant.iv),
+      wrappedDek: cloneBuffer(grant.wrappedDek),
+      ...(grant.expiresAt ? { expiresAt: grant.expiresAt } : {}),
+    })),
+  )
+}
+
+/** Copies a chunked body's small fields; ciphertexts are shared, like a 1.x body's. */
+export function copyChunkedBody(body: ChunkedBody): ChunkedBody {
+  return {
+    chunkSize: body.chunkSize,
+    length: body.length,
+    chunks: body.chunks.map((chunk) => ({
+      iv: cloneBuffer(chunk.iv),
+      ...(chunk.key !== undefined ? { key: chunk.key } : {}),
+      ...(chunk.ciphertext !== undefined ? { ciphertext: chunk.ciphertext } : {}),
+    })),
+    seal: { iv: cloneBuffer(body.seal.iv), tag: cloneBuffer(body.seal.tag) },
+  }
 }
 
 /** A defensive copy of a record in its in-memory form. `storedForm` gives what IndexedDB holds. */
 export function encodeStoredRecord(record: VaultRecord): VaultRecord {
-  const keys = record.version === KEYS_RECORD_VERSION && record.keys ? copyKeysHeader(record.keys) : null
-  return {
+  const fields = {
     id: RECORD_ID,
-    version: keys ? KEYS_RECORD_VERSION : RECORD_VERSION,
     appVersion: record.appVersion,
     schemaVersion: record.schemaVersion,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
     cipher: { ...PAYLOAD_CIPHER },
-    wraps: keys ? [] : record.wraps.map((wrap) => ({
+  } as const
+  if (record.version === KEYS_RECORD_VERSION) {
+    return {
+      ...fields,
+      version: KEYS_RECORD_VERSION,
+      wraps: [],
+      ...copyGrants(record.grants),
+      ...(record.audit ? { audit: { seq: record.audit.seq, hash: record.audit.hash } } : {}),
+      keys: copyKeysHeader(record.keys),
+      body: copyChunkedBody(record.body),
+    }
+  }
+  return {
+    ...fields,
+    version: RECORD_VERSION,
+    wraps: record.wraps.map((wrap) => ({
       userId: wrap.userId,
       email: wrap.email,
       kdf: { name: wrap.kdf.name, hash: wrap.kdf.hash, iterations: wrap.kdf.iterations },
@@ -397,20 +516,8 @@ export function encodeStoredRecord(record: VaultRecord): VaultRecord {
       wrappedDek: cloneBuffer(wrap.wrappedDek),
       ...(wrap.aad ? { aad: wrap.aad } : {}),
     })),
-    ...optionalGrants(
-      record.grants?.map((grant) => ({
-        id: grant.id,
-        kind: grant.kind,
-        email: grant.email,
-        kdf: copyGrantKdf(grant.kdf),
-        salt: cloneBuffer(grant.salt),
-        iv: cloneBuffer(grant.iv),
-        wrappedDek: cloneBuffer(grant.wrappedDek),
-        ...(grant.expiresAt ? { expiresAt: grant.expiresAt } : {}),
-      })),
-    ),
+    ...copyGrants(record.grants),
     ...(record.audit ? { audit: { seq: record.audit.seq, hash: record.audit.hash } } : {}),
-    ...(keys ? { keys } : {}),
     body: {
       iv: cloneBuffer(record.body.iv),
       // Shared, not cloned: ciphertext buffers are never written to, and IndexedDB copies what it stores.
@@ -419,17 +526,66 @@ export function encodeStoredRecord(record: VaultRecord): VaultRecord {
   }
 }
 
-/** The IndexedDB form. A version 3 record carries its header fields at the top level and has no `wraps`. */
+/**
+ * The IndexedDB form of `primary`. A version 3 record carries its header fields at the top level, has no `wraps`, and
+ * lists its chunks by storage key; their ciphertexts are separate values (see `storage.ts`), so every chunk must
+ * have a key by now.
+ */
 export function storedForm(record: VaultRecord): object {
-  const { wraps, keys, body, ...rest } = encodeStoredRecord(record)
-  return keys ? { ...rest, ...keys, body } : { ...rest, wraps, body }
+  const copy = encodeStoredRecord(record)
+  if (copy.version !== KEYS_RECORD_VERSION) {
+    const { keys: _keys, ...rest } = copy
+    return rest
+  }
+  const { wraps: _wraps, keys, body, ...rest } = copy
+  return {
+    ...rest,
+    ...keys,
+    body: {
+      chunkSize: body.chunkSize,
+      length: body.length,
+      chunks: body.chunks.map((chunk) => {
+        if (chunk.key === undefined) throw new Error('Chunk has no storage key')
+        return { iv: chunk.iv, key: chunk.key }
+      }),
+      seal: body.seal,
+    },
+  }
 }
 
 /**
  * A ciphertext a streaming reader decoded on its own, and the placeholder string it left in the JSON instead.
  * Only `body.ciphertext` (`payload.ciphertext` in version 1) may hold the placeholder, and it must, exactly once.
+ * For a version 3 file the reader may hand over the chunks already split (`chunks`).
  */
-export type CiphertextSlot = { placeholder: string; bytes: Uint8Array }
+export type CiphertextSlot = { placeholder: string; bytes: Uint8Array } | { placeholder: string; chunks: ArrayBuffer[] }
+
+/** Splits one buffer of concatenated chunk ciphertexts into a buffer per chunk. */
+function splitChunks(bytes: Uint8Array, sizes: readonly number[], invalid: Invalid): ArrayBuffer[] {
+  const total = sizes.reduce((sum, size) => sum + size, 0)
+  if (bytes.byteLength !== total) throw invalid()
+  let offset = 0
+  return sizes.map((size) => {
+    const chunk = bytes.slice(offset, offset + size).buffer
+    offset += size
+    return chunk
+  })
+}
+
+/** Base64 of all chunks decoded straight into a buffer per chunk. */
+function decodeChunks(text: string, sizes: readonly number[], invalid: Invalid): ArrayBuffer[] {
+  if (!BASE64_TEXT.test(text) || text.length % 4 !== 0) throw invalid()
+  const targets = sizes.map((size) => new Uint8Array(size))
+  const decoder = new Base64Decoder(targets)
+  try {
+    decoder.pushString(text)
+    if (decoder.finish() !== sizes.reduce((sum, size) => sum + size, 0)) throw invalid()
+  } catch (error) {
+    if (error instanceof Base64Error) throw invalid()
+    throw error
+  }
+  return targets.map((target) => target.buffer)
+}
 
 export function parseBackupJson(value: unknown, slot?: CiphertextSlot): DecodedBackup {
   const source = asObject(value, badBackup)
@@ -439,11 +595,20 @@ export function parseBackupJson(value: unknown, slot?: CiphertextSlot): DecodedB
   let filled = false
   const ciphertext: ByteReader = (field, invalid) => {
     if (!slot || field !== slot.placeholder) return base64(field, invalid)
-    if (filled) throw invalid()
+    if (filled || !('bytes' in slot)) throw invalid()
     filled = true
     return slot.bytes
   }
-  const record = decode(source, version, { bytes: base64, ciphertext }, badBackup, () => now)
+  const chunks: ChunkReader = (body, sizes, invalid) => {
+    const field = body.ciphertext
+    if (!slot || field !== slot.placeholder) return decodeChunks(asString(field, invalid), sizes, invalid)
+    if (filled) throw invalid()
+    filled = true
+    if ('bytes' in slot) return splitChunks(slot.bytes, sizes, invalid)
+    if (slot.chunks.length !== sizes.length || slot.chunks.some((chunk, index) => chunk.byteLength !== sizes[index])) throw invalid()
+    return slot.chunks
+  }
+  const record = decode(source, version, { bytes: base64, ciphertext, chunks, stored: false }, badBackup, () => now)
   if (slot && !filled) throw badBackup()
   if (version === 1) record.updatedAt = now
   return {
@@ -464,56 +629,108 @@ export function parseBackupText(text: string): DecodedBackup {
   return parseBackupJson(parsed)
 }
 
-/** `ciphertext` stands in for the base64 body, so a caller can stream the real one into the file instead. */
-export function toBackupJson(record: VaultRecord, exportedAt: string, ciphertext?: string): BackupFileV2 | BackupFileV3 {
-  const v2 = toBackupJsonV2(record, exportedAt, ciphertext)
-  if (record.version !== KEYS_RECORD_VERSION || !record.keys) return v2
-  const { wraps: _wraps, version: _version, body, ...rest } = v2
-  return { ...rest, version: KEYS_BACKUP_VERSION, ...copyKeysHeader(record.keys), body }
-}
-
-function toBackupJsonV2(record: VaultRecord, exportedAt: string, ciphertext?: string): BackupFileV2 {
+function backupFields(record: VaultRecord, exportedAt: string): BackupFields {
   return {
     format: BACKUP_FORMAT,
-    version: BACKUP_VERSION,
     appVersion: record.appVersion,
     schemaVersion: record.schemaVersion,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
     exportedAt,
     cipher: { ...PAYLOAD_CIPHER },
-    wraps: record.wraps.map((wrap) => ({
-      userId: wrap.userId,
-      email: wrap.email,
-      kdf: { name: wrap.kdf.name, hash: wrap.kdf.hash, iterations: wrap.kdf.iterations },
-      salt: bytesToBase64(cloneBytes(wrap.salt)),
-      iv: bytesToBase64(cloneBytes(wrap.iv)),
-      wrappedDek: bytesToBase64(cloneBytes(wrap.wrappedDek)),
-      ...(wrap.aad ? { aad: wrap.aad } : {}),
+  }
+}
+
+function backupGrants(record: VaultRecord): { grants?: BackupGrantJson[] } {
+  return optionalGrants(
+    record.grants?.map((grant) => ({
+      id: grant.id,
+      kind: grant.kind,
+      email: grant.email,
+      kdf: copyGrantKdf(grant.kdf),
+      salt: bytesToBase64(cloneBytes(grant.salt)),
+      iv: bytesToBase64(cloneBytes(grant.iv)),
+      wrappedDek: bytesToBase64(cloneBytes(grant.wrappedDek)),
+      ...(grant.expiresAt ? { expiresAt: grant.expiresAt } : {}),
     })),
-    ...optionalGrants(
-      record.grants?.map((grant) => ({
-        id: grant.id,
-        kind: grant.kind,
-        email: grant.email,
-        kdf: copyGrantKdf(grant.kdf),
-        salt: bytesToBase64(cloneBytes(grant.salt)),
-        iv: bytesToBase64(cloneBytes(grant.iv)),
-        wrappedDek: bytesToBase64(cloneBytes(grant.wrappedDek)),
-        ...(grant.expiresAt ? { expiresAt: grant.expiresAt } : {}),
+  )
+}
+
+/** The bytes a backup's `ciphertext` holds, in order: the one body, or every chunk. Throws if a chunk has none. */
+export function ciphertextParts(record: VaultRecord): Uint8Array[] {
+  if (record.version !== KEYS_RECORD_VERSION) return [new Uint8Array(record.body.ciphertext)]
+  return record.body.chunks.map((chunk) => {
+    if (chunk.ciphertext === undefined) throw new Error('Chunk ciphertext is missing')
+    return new Uint8Array(chunk.ciphertext)
+  })
+}
+
+function joinedBase64(parts: readonly Uint8Array[]): string {
+  if (parts.length === 1) return bytesToBase64(parts[0])
+  const total = parts.reduce((sum, part) => sum + part.byteLength, 0)
+  const joined = new Uint8Array(total)
+  let offset = 0
+  for (const part of parts) {
+    joined.set(part, offset)
+    offset += part.byteLength
+  }
+  return bytesToBase64(joined)
+}
+
+/** `ciphertext` stands in for the base64 body, so a caller can stream the real one into the file instead. */
+export function toBackupJson(record: VaultRecord, exportedAt: string, ciphertext?: string): BackupFileV2 | BackupFileV3 {
+  const fields = backupFields(record, exportedAt)
+  // Field order is part of the file: `format` and `version` first, `body` last with `ciphertext` as its last key.
+  const head = { format: fields.format }
+  const tail = {
+    appVersion: fields.appVersion,
+    schemaVersion: fields.schemaVersion,
+    createdAt: fields.createdAt,
+    updatedAt: fields.updatedAt,
+    exportedAt: fields.exportedAt,
+    cipher: fields.cipher,
+  }
+  if (record.version !== KEYS_RECORD_VERSION) {
+    return {
+      ...head,
+      version: BACKUP_VERSION,
+      ...tail,
+      wraps: record.wraps.map((wrap) => ({
+        userId: wrap.userId,
+        email: wrap.email,
+        kdf: { name: wrap.kdf.name, hash: wrap.kdf.hash, iterations: wrap.kdf.iterations },
+        salt: bytesToBase64(cloneBytes(wrap.salt)),
+        iv: bytesToBase64(cloneBytes(wrap.iv)),
+        wrappedDek: bytesToBase64(cloneBytes(wrap.wrappedDek)),
+        ...(wrap.aad ? { aad: wrap.aad } : {}),
       })),
-    ),
+      ...backupGrants(record),
+      ...(record.audit ? { audit: { seq: record.audit.seq, hash: record.audit.hash } } : {}),
+      body: {
+        iv: bytesToBase64(cloneBytes(record.body.iv)),
+        ciphertext: ciphertext ?? bytesToBase64(new Uint8Array(record.body.ciphertext)),
+      },
+    }
+  }
+  const { body } = record
+  return {
+    ...head,
+    version: KEYS_BACKUP_VERSION,
+    ...tail,
+    ...backupGrants(record),
     ...(record.audit ? { audit: { seq: record.audit.seq, hash: record.audit.hash } } : {}),
+    ...copyKeysHeader(record.keys),
     body: {
-      iv: bytesToBase64(cloneBytes(record.body.iv)),
-      ciphertext: ciphertext ?? bytesToBase64(new Uint8Array(record.body.ciphertext)),
+      ...manifestJson(body),
+      seal: { iv: bytesToBase64(cloneBytes(body.seal.iv)), tag: bytesToBase64(cloneBytes(body.seal.tag)) },
+      ciphertext: ciphertext ?? joinedBase64(ciphertextParts(record)),
     },
   }
 }
 
-export function storedToBackupJson(raw: unknown, exportedAt: string, ciphertext?: string): object {
-  const { record, sourceVersion } = decodeStoredRecord(raw)
-  if (sourceVersion !== 1) return toBackupJson(record, exportedAt, ciphertext)
+export function storedToBackupJson(raw: unknown, exportedAt: string, ciphertext?: string, chunkValues?: ReadonlyMap<string, unknown>): object {
+  const { record, sourceVersion } = decodeStoredRecord(raw, chunkValues)
+  if (sourceVersion !== 1 || record.version === KEYS_RECORD_VERSION) return toBackupJson(record, exportedAt, ciphertext)
   const kdf = record.wraps[0].kdf
   return {
     format: BACKUP_FORMAT,

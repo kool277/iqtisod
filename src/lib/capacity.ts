@@ -12,7 +12,8 @@ import { LIMITS } from './limits'
  *   ({@link PEAK_MEMORY_MULTIPLE}); never below what every device accepted up to 1.6.0;
  * - engine: the WebAssembly heap the bundled sqlite-wasm can grow to, less SQLite's own room, divided by the
  *   copies memdb holds while it grows;
- * - browser: in Chromium, the largest single IndexedDB value it stores, since the vault is saved as one value.
+ * - browser: in Chromium, the largest single IndexedDB value it stores, since a 1.x vault is saved as one value. A
+ *   version 3 vault is saved in chunks (docs/design/v2.0-key-redesign.md, 3.9), so this limit does not apply to it.
  */
 
 const MIB = 1024 * 1024
@@ -120,7 +121,12 @@ function nonNegative(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null
 }
 
-export function computeCapacity(signals: CapacitySignals): Capacity {
+export type CapacityOptions = {
+  /** The vault is stored in chunks (record 3), so Chromium's single-value limit does not apply. */
+  chunked?: boolean
+}
+
+export function computeCapacity(signals: CapacitySignals, options: CapacityOptions = {}): Capacity {
   const form = signals.mobile ? 'mobile' : 'desktop'
   const reported = positive(signals.deviceMemoryGiB)
   const deviceMemoryBytes = Math.min(reported ?? FALLBACK_DEVICE_MEMORY_GIB[form], DEVICE_MEMORY_MAX_GIB) * GIB
@@ -131,7 +137,7 @@ export function computeCapacity(signals: CapacitySignals): Capacity {
   const usage = nonNegative(signals.usage)
   const storageBytes = quota !== null && usage !== null ? floorMiB((Math.max(0, quota - usage) / STORAGE_MULTIPLE) * SAFETY_MARGIN) : null
   const engineBytes = ENGINE_MAX_BYTES
-  const browserBytes = signals.chromium ? BROWSER_MAX_BYTES : null
+  const browserBytes = signals.chromium && !options.chunked ? BROWSER_MAX_BYTES : null
   let limitedBy: CapacityLimit = 'engine'
   let vaultBytes = engineBytes
   if (memoryBytes < vaultBytes) [limitedBy, vaultBytes] = ['memory', memoryBytes]
@@ -250,6 +256,15 @@ export async function readCapacitySignals(g: CapacityGlobals = globalThis as unk
 }
 
 let latest: Capacity | null = null
+let chunkedVault = false
+
+/**
+ * Whether the open vault is stored in chunks: every later measurement that does not say otherwise (the size warning,
+ * the receipt limit, the health check) uses it.
+ */
+export function setChunkedVault(chunked: boolean): void {
+  chunkedVault = chunked
+}
 
 /** The last budget measured in this tab, or null before the first measurement. */
 export function currentCapacity(): Capacity | null {
@@ -269,8 +284,13 @@ export function onCapacity(listener: (capacity: Capacity) => void): () => void {
   }
 }
 
-export async function measureCapacity(g?: CapacityGlobals): Promise<Capacity> {
-  latest = computeCapacity(await readCapacitySignals(g))
+/** The budget for a vault stored as `options` says, without making it the open vault's budget. */
+export async function capacityFor(options: CapacityOptions, g?: CapacityGlobals): Promise<Capacity> {
+  return computeCapacity(await readCapacitySignals(g), options)
+}
+
+export async function measureCapacity(g?: CapacityGlobals, options: CapacityOptions = {}): Promise<Capacity> {
+  latest = computeCapacity(await readCapacitySignals(g), { chunked: options.chunked ?? chunkedVault })
   for (const listener of listeners) listener(latest)
   return latest
 }

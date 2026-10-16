@@ -17,8 +17,8 @@ import { getSetting, setSetting } from '../db/settings'
 import { SqlDatabase, type SqlValue } from '../db/sqlite'
 import { newUserWrap, unwrapUserDek } from '../crypto/user-wrap'
 import { grantsFromRecord, recordFromSession, wrapsFromRecord, type VaultRecord } from '../db/storage'
-import { SCHEMA_VERSION } from '../db/versions'
-import { AuthError, ValidationError } from '../domain/errors'
+import { RECORD_VERSION, SCHEMA_VERSION } from '../db/versions'
+import { AuthError, CorruptRecordError, ValidationError } from '../domain/errors'
 import { isCurrency, type GrantWrap, type OpenVault, type SessionUser, type UserWrap } from '../domain/types'
 import { assertEmail, normalizeEmail } from '../lib/email'
 import { LIMITS } from '../lib/limits'
@@ -225,7 +225,9 @@ function assertWrapOwner(db: SqlDatabase, wrap: UserWrap, email: string, verifie
   return user
 }
 
+/** The 1.x body, one ciphertext. A version 3 record is opened chunk by chunk (`openChunkedBody`), never through here. */
 export function decryptRecordBody(record: VaultRecord, dek: CryptoKey): Promise<Uint8Array> {
+  if (record.version !== RECORD_VERSION) return Promise.reject(new CorruptRecordError())
   return decryptDatabase(record.body.ciphertext, dek, new Uint8Array(record.body.iv))
 }
 

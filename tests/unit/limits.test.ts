@@ -13,7 +13,7 @@ import { AppError, CorruptRecordError } from '../../src/domain/errors'
 import { ENGINE_MAX_BYTES } from '../../src/lib/capacity'
 import { LIMITS, formatMiB } from '../../src/lib/limits'
 import { UnsafeJsonError, jsonDepth, parseJsonSafely } from '../../src/lib/safe-json'
-import { fixtureByPath } from '../support/fixtures'
+import { asLegacy, fixtureByPath } from '../support/fixtures'
 
 const v2Text = fixtureByPath('v2/ledger-v2').text
 const v4Text = fixtureByPath('v4/access-household').text
@@ -205,11 +205,11 @@ describe('envelope caps', () => {
   })
 
   it('bounds the body ciphertext', () => {
-    const stored = encodeStoredRecord(baseRecord())
+    const stored = asLegacy(encodeStoredRecord(baseRecord()))
     const withCiphertext = (bytes: number) => ({ ...stored, body: { iv: stored.body.iv, ciphertext: new ArrayBuffer(bytes) } })
     expect(() => decodeStoredRecord(withCiphertext(LIMITS.ciphertextBytes + 1))).toThrow(CorruptRecordError)
     expect(() => decodeStoredRecord(withCiphertext(GCM_TAG_BYTES))).toThrow(CorruptRecordError)
-    expect(decodeStoredRecord(withCiphertext(GCM_TAG_BYTES + 1)).record.body.ciphertext.byteLength).toBe(GCM_TAG_BYTES + 1)
+    expect(asLegacy(decodeStoredRecord(withCiphertext(GCM_TAG_BYTES + 1)).record).body.ciphertext.byteLength).toBe(GCM_TAG_BYTES + 1)
   })
 
   it('leaves the grants key out when there are none, for older readers', () => {

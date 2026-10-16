@@ -7,7 +7,7 @@ import { readVault, writeVault } from '../../src/db/storage'
 import { capacityCheck, vaultChecks } from '../../src/health/evaluate'
 import { computeCapacity, growthBudget, type CapacitySignals } from '../../src/lib/capacity'
 import { formatBytes, restoreLimitBytes } from '../../src/lib/limits'
-import { fixtureByPath } from '../support/fixtures'
+import { asLegacy, fixtureByPath } from '../support/fixtures'
 
 const MIB = 1024 * 1024
 
@@ -99,15 +99,15 @@ describe('SqlDatabase memory handling', () => {
 
 describe('IndexedDB storage of a large vault', () => {
   it('stores and reads back a 1 MiB ciphertext without the decoded record copying it', async () => {
-    const { record } = parseBackupText(fixtureByPath('v4/access-household').text)
+    const record = asLegacy(parseBackupText(fixtureByPath('v4/access-household').text).record)
     const ciphertext = new Uint8Array(MIB)
     for (let index = 0; index < ciphertext.length; index += 4096) ciphertext[index] = index % 251
     await writeVault({ ...record, body: { iv: record.body.iv, ciphertext: ciphertext.buffer } }, { expectedStamp: null })
     const loaded = await readVault()
     expect(loaded).not.toBeNull()
     const raw = loaded!.raw as { body: { ciphertext: ArrayBuffer } }
-    expect(loaded!.record.body.ciphertext).toBe(raw.body.ciphertext)
-    expect(new Uint8Array(loaded!.record.body.ciphertext)).toEqual(ciphertext)
+    expect(asLegacy(loaded!.record).body.ciphertext).toBe(raw.body.ciphertext)
+    expect(new Uint8Array(asLegacy(loaded!.record).body.ciphertext)).toEqual(ciphertext)
   })
 })
 
