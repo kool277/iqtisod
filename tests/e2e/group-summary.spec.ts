@@ -2,6 +2,7 @@ import { mkdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { watchViolations } from '../support/csp'
+import { escapeRegExp } from '../support/regexp'
 
 const TARGET = process.env.E2E_TARGET === 'preview' ? 'preview' : 'dev'
 const SCREENS = resolve(process.env.GROUP_SUMMARY_SCREENS ?? `/tmp/moliya-group-summary-screens/${TARGET}`)
@@ -161,7 +162,7 @@ test('groups page shows income, expenses and net per group and currency, scoped 
   await page.evaluate((href) => {
     window.location.hash = href
   }, homeHref!)
-  await expect(page).toHaveURL(new RegExp(`${homeHref!.replace(/[?]/g, '\\?')}$`))
+  await expect(page).toHaveURL(new RegExp(`${escapeRegExp(homeHref!)}$`))
   await expect.poll(() => ledgerAmounts(page)).toEqual(['300', '450'])
   await expect(page.getByTestId('transactions-filters-toggle')).not.toContainText(/\d/)
 

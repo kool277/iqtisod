@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { it } from 'vitest'
@@ -11,6 +11,16 @@ import { createTransaction, deleteTransaction, listCategories, updateTransaction
 import { createGroup, listGroups } from '../../../src/services/group.service'
 import { createCategory } from '../../../src/services/settings.service'
 import { createUser } from '../../../src/services/user.service'
+
+/** Creates `file`, or fails if it exists: fixtures are immutable, and checking and writing are one step (`wx`). */
+function writeOnce(file: string, data: string) {
+  try {
+    writeFileSync(file, data, { flag: 'wx' })
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST') throw new Error(`${file} exists; fixtures are immutable`)
+    throw error
+  }
+}
 
 const here = dirname(fileURLToPath(import.meta.url))
 const outDir = resolve(here, '../../../tests/fixtures/backups/v2')
@@ -61,7 +71,6 @@ it('generates ledger-v2', async () => {
   if (APP_VERSION !== '1.1.0') throw new Error(`v2 fixtures must be produced by 1.1.0, not ${APP_VERSION}`)
   const name = 'ledger-v2'
   const file = resolve(outDir, `${name}.moliya`)
-  if (existsSync(file)) throw new Error(`${file} exists; fixtures are immutable`)
 
   const admin = { email: 'admin@ledger.test', password: 'ledger-admin-v2' }
   const manager = { email: 'manager@ledger.test', password: 'ledger-manager-v2' }
@@ -159,8 +168,8 @@ it('generates ledger-v2', async () => {
   }
 
   mkdirSync(outDir, { recursive: true })
-  writeFileSync(file, text)
-  writeFileSync(resolve(outDir, `${name}.expected.json`), `${JSON.stringify(expected, null, 2)}\n`)
+  writeOnce(file, text)
+  writeOnce(resolve(outDir, `${name}.expected.json`), `${JSON.stringify(expected, null, 2)}\n`)
   const sums = [`${name}.expected.json`, `${name}.moliya`]
     .map((entry) => `${createHash('sha256').update(readFileSync(resolve(outDir, entry))).digest('hex')}  ${entry}`)
     .join('\n')

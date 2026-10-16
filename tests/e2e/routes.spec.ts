@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { watchViolations } from '../support/csp'
+import { escapeRegExp } from '../support/regexp'
 
 const TARGET = process.env.E2E_TARGET === 'preview' ? 'preview' : 'dev'
 
@@ -25,12 +26,8 @@ const APP_ROUTES = [
   '/app/help?section=backup',
 ]
 
-function escaped(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
 function endsWithHash(route: string): RegExp {
-  return new RegExp(`/#${escaped(route)}$`)
+  return new RegExp(`/#${escapeRegExp(route)}$`)
 }
 
 /** Console errors other than the missing exchange-rate snapshot, which dev and preview do not serve. */
