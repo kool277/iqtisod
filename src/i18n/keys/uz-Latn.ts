@@ -17,6 +17,11 @@ export const keysUzLatn: KeysMessages = {
     copied: 'Nusxalandi',
     done: 'Tayyor',
   },
+  blocked: {
+    help: 'Seyfni baribir faylga saqlab qoʻyish mumkin: shifrlangan holda, bu brauzer uni qanday saqlasa, shundayligicha. Shunda administrator buni koʻrib chiqquncha hech narsa yoʻqolmaydi. U aʼzoning paroli bilan tiklash vositasida ochiladi. Ochiq taklif kodlari unga kirmaydi.',
+    download: 'Bu seyfni fayl sifatida yuklab olish',
+    downloaded: 'Yuklab olindi. Administrator koʻrib chiqquncha faylni saqlab qoʻying.',
+  },
   rollback: {
     open: 'Bu eski nusxani baribir ochish',
     confirm: 'Eski nusxani ochasizmi? Shundan beri olib tashlangan odamlar unga kira olishi mumkin, keyin kiritilgan oʻzgarishlar esa unda yoʻq. Ochilgani audit jurnaliga yoziladi.',

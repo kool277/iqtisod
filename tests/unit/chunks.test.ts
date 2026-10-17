@@ -17,8 +17,8 @@ import { ciphertextParts, decodeStoredRecord, parseBackupJson, parseBackupText, 
 import { readKeysHeader } from '../../src/db/keys-header'
 import { SqlDatabase } from '../../src/db/sqlite'
 import { readBackupFile } from '../../src/db/backup-reader'
-import { listArchives, readArchive, readVault, readVaultRaw, writeVault } from '../../src/db/storage'
-import { archiveFileBlob, backupFileBlob } from '../../src/services/backup.service'
+import { listArchives, readArchive, readVault, readVaultCopy, readVaultRaw, writeVault } from '../../src/db/storage'
+import { archiveFileBlob, backupFileBlob, storedFileBlob } from '../../src/services/backup.service'
 import { KEYS_RECORD_VERSION, KEYS_SCHEMA_VERSION } from '../../src/db/versions'
 import { ConflictError, CorruptRecordError } from '../../src/domain/errors'
 
@@ -318,6 +318,40 @@ describe('version 3 records and backups', () => {
     const original = await openChunkedBody(first.body, dek, CONTEXT)
     track(original.db)
     expect(image(opened.db)).toEqual(image(original.db))
+  })
+
+  it('download the stored vault as it is, without its codes, when it cannot be opened', async () => {
+    const dek = await generateDek()
+    const db = await sampleDatabase(20)
+    const { body } = await sealChunkedBody(db, dek, CONTEXT, null, { chunkSize: 4 * KIB })
+    const grant = {
+      id: 'grant-1',
+      kind: 'INVITE' as const,
+      email: 'invitee@example.com',
+      kdf: { name: 'Argon2id' as const, m: 65_536, t: 3, p: 1, len: 32 as const, v: 19 as const },
+      salt: new Uint8Array(16).fill(1).buffer,
+      iv: new Uint8Array(12).fill(2).buffer,
+      wrappedDek: new Uint8Array(48).fill(3).buffer,
+      expiresAt: '2026-10-17T10:00:00.000Z',
+    }
+    const record = { ...keysRecord(body), grants: [grant] }
+    await writeVault(record, { expectedStamp: null })
+    const copy = await readVaultCopy()
+    expect(copy?.raw).not.toHaveProperty('grants')
+    const read = await readBackupFile(storedFileBlob(copy!, '2026-10-16T11:00:00.000Z'))
+    expect(read.exportedAt).toBe('2026-10-16T11:00:00.000Z')
+    const restored = read.record as KeysRecord
+    expect(restored.grants ?? []).toEqual([])
+    expect(restored.keys).toEqual(record.keys)
+    const opened = await openChunkedBody(restored.body, dek, CONTEXT)
+    track(opened.db)
+    expect(image(opened.db)).toEqual(image(db))
+    // Nothing in the store changed.
+    expect((await readVault())?.record.grants).toHaveLength(1)
+  })
+
+  it('has no stored vault to download when the browser holds none', async () => {
+    expect(await readVaultCopy()).toBeNull()
   })
 
   it('store each chunk as its own value, write only new chunks, and sweep the rest', async () => {

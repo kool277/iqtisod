@@ -1,6 +1,7 @@
 import { Suspense, lazy, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { PasswordHint, ThrottleNotice } from './auth/AuthBits'
+import { BlockedEscape } from './auth/BlockedEscape'
 import { SignInCheckStep } from './auth/SignInCheckStep'
 import { TrustStep } from './auth/TrustStep'
 import { KeysCatalog } from './keys/KeysCatalog'
@@ -9,7 +10,7 @@ import { Preferences } from './Preferences'
 import { Button, Field, Notice, controlClass } from './ui'
 import { useI18n } from '../context/I18nContext'
 import { useVault } from '../context/VaultContext'
-import { AppError } from '../domain/errors'
+import { AppError, KeysBlockedError } from '../domain/errors'
 import { CURRENCIES } from '../domain/types'
 import { errorText, textForError } from '../lib/errors'
 import { LIMITS } from '../lib/limits'
@@ -247,12 +248,15 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   // An older copy of a per-person-keys vault than this browser has seen: an admin may open it anyway.
   const [rollback, setRollback] = useState(false)
+  // A per-person-keys vault that failed a blocking check: it can still be kept as a file.
+  const [blocked, setBlocked] = useState(false)
   const [pending, setPending] = useState(false)
   const countdown = useCountdown()
 
   async function signIn(acceptRollback: boolean) {
     setError(null)
     setRollback(false)
+    setBlocked(false)
     const wait = guardWait('login', email)
     if (wait > 0) {
       countdown.start(wait)
@@ -267,6 +271,7 @@ export function LoginPage() {
       else {
         setError(textForError(caught, t))
         setRollback(caught instanceof AppError && caught.code === 'KEYS_ROSTER_ROLLBACK' && !acceptRollback)
+        setBlocked(caught instanceof KeysBlockedError)
       }
     } finally {
       setPending(false)
@@ -309,6 +314,7 @@ export function LoginPage() {
         ) : null}
         {error ? <Notice>{error}</Notice> : null}
         {rollback ? <RollbackOverride disabled={pending} onConfirm={() => void signIn(true)} /> : null}
+        {blocked ? <BlockedEscape /> : null}
         <ThrottleNotice remaining={countdown.remaining} />
         <Field label={t('login.email')}>
           <input data-testid="login-email" type="email" autoComplete="username" className={controlClass} maxLength={LIMITS.emailChars} value={email} onChange={(event) => setEmail(event.target.value)} required />

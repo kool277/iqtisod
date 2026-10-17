@@ -1,7 +1,7 @@
 import { base64BlobOfParts } from '../crypto/encoding'
 import { ciphertextParts, decodeStoredRecord, parseBackupText, storedToBackupJson, toBackupJson, type DecodedBackup, type VaultRecord } from '../db/envelope'
 import { getSetting, setSetting } from '../db/settings'
-import type { ArchiveEntry, LoadedArchive } from '../db/storage'
+import type { ArchiveEntry, LoadedArchive, StoredCopy } from '../db/storage'
 import { ForbiddenError } from '../domain/errors'
 import type { OpenVault } from '../domain/types'
 import { toIsoDate } from '../lib/dates'
@@ -25,6 +25,11 @@ export function archiveFileText(entry: ArchiveEntry | LoadedArchive, exportedAt 
   return JSON.stringify(storedToBackupJson(entry.raw, exportedAt, undefined, 'chunks' in entry ? entry.chunks : undefined))
 }
 
+/** A record as IndexedDB holds it (an archive, or the vault itself), as a backup file. */
+export function storedFileBlob(copy: StoredCopy, exportedAt = new Date().toISOString()): Blob {
+  return streamedBackup(storedToBackupJson(copy.raw, exportedAt, '', copy.chunks), ciphertextParts(decodeStoredRecord(copy.raw, copy.chunks).record))
+}
+
 export const BACKUP_MIME = 'application/json'
 /** The body is the file's last field and the ciphertext the body's last key, so the base64 goes right before this. */
 const CIPHERTEXT_TAIL = '"}}'
@@ -46,8 +51,7 @@ export function backupFileBlob(record: VaultRecord, exportedAt = new Date().toIS
 }
 
 export function archiveFileBlob(entry: ArchiveEntry | LoadedArchive, exportedAt = new Date().toISOString()): Blob {
-  const chunks = 'chunks' in entry ? entry.chunks : undefined
-  return streamedBackup(storedToBackupJson(entry.raw, exportedAt, '', chunks), ciphertextParts(decodeStoredRecord(entry.raw, chunks).record))
+  return storedFileBlob({ raw: entry.raw, chunks: 'chunks' in entry ? entry.chunks : undefined }, exportedAt)
 }
 
 export function backupFileName(kind: 'backup' | 'archive' = 'backup', date = new Date()): string {

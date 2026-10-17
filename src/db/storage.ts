@@ -47,6 +47,9 @@ export type ArchiveEntry = {
   raw: unknown
 }
 
+/** A record as IndexedDB holds it and, for version 3, the chunk values it lists: enough to write it out as a file. */
+export type StoredCopy = { raw: unknown; chunks?: ReadonlyMap<string, unknown> }
+
 /** What {@link readArchive} returns: for an archived version 3 record, also the chunk values it lists. */
 export type LoadedArchive = ArchiveEntry & { chunks?: ReadonlyMap<string, unknown> }
 
@@ -199,6 +202,16 @@ export async function readVault(): Promise<LoadedVault | null> {
   const { value: raw, chunks } = await readWithChunks(RECORD_ID)
   if (raw === undefined) return null
   return { ...decodeStoredRecord(raw, chunks), raw }
+}
+
+/**
+ * The vault as stored, for a file to keep when it cannot be opened (design 6.1, the blocked sign-in). Read without
+ * a password, so like an archive it leaves out grants: a used or revoked code must not open the copy.
+ */
+export async function readVaultCopy(): Promise<StoredCopy | null> {
+  const { value, chunks } = await readWithChunks(RECORD_ID)
+  if (value === undefined) return null
+  return { raw: withoutGrants(value), ...(chunks.size > 0 ? { chunks } : {}) }
 }
 
 /**

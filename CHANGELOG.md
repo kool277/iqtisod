@@ -19,13 +19,14 @@ Built only with `VITE_V2_KEYS=1` and never deployed; it becomes 2.0.0 after the 
 - **Invites only.** People join, and come back after losing their password, with an invite code that carries a signing key the admin's next save names; there are no temporary passwords, so the admin never knows anyone's keys.
 - **The vault in sealed chunks.** Record 3 stores the database as 1 MiB encrypted chunks, each its own IndexedDB value, with the list of chunks sealed under the vault key. Saves write only the chunks that changed, archives cost no copy, and Chromium's 126 MiB limit on a single value no longer applies.
 - Health check rows for the keys, the signed list of people and the upgrade, and the recovery tool reads format 3 (Node.js 24.7+) with `--verify`.
+- **A way out of a blocked vault.** When a vault fails a check that blocks it, the sign-in screen shows the reason and offers to download the vault as a file, exactly as the browser stores it and still encrypted, without open invite codes, so it can be kept for the admin or the recovery tool.
+- For developers: a bench page (`npm run bench`, dev server only) times Argon2id, the key operations, the roster check and the chunked saves on the device that opens it.
 
 #### Known limitations of the alpha
 
 - Removing or suspending someone takes their copy of the vault key out of the vault, but the key itself does not change until key rotation (Beta), so they can still open copies they already had and any later copy that reaches them.
 - Private safes and the sign-in check still use each person's password-based keys, as in 1.x.
 - Audit entries are not signed yet (RC); the audit log is hash-chained and checked as in 1.x.
-- A vault that fails a check shows the reason on the sign-in screen, without the planned button to download it as a file.
 
 ## [1.7.4] - 2026-10-17
 

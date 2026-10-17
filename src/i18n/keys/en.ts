@@ -16,6 +16,11 @@ export const keysEn = {
     copied: 'Copied',
     done: 'Done',
   },
+  blocked: {
+    help: 'The vault can still be saved as a file, encrypted exactly as this browser stores it, so nothing is lost while your admin looks into this. It opens with a member’s password in the recovery tool. Open invite codes are left out of it.',
+    download: 'Download this vault as a file',
+    downloaded: 'Downloaded. Keep the file until your admin has looked into this.',
+  },
   rollback: {
     open: 'Open this older copy anyway',
     confirm: 'Open the older copy? People removed since then may be able to sign in to it, and changes made since then are not in it. Opening it is written to the audit log.',

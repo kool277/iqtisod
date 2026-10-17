@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { expect, test, type Page } from '@playwright/test'
@@ -105,6 +106,36 @@ test('a vault with per-person keys: setup, an invite, and a first sign-in elsewh
   await expect(fresh.getByTestId('trust-step')).toHaveCount(0)
   expect(await freshViolations()).toEqual([])
   await context.close()
+  expect(await violations()).toEqual([])
+})
+
+test('a blocked sign-in still lets the person download the vault, as stored and without open codes', async ({ page }) => {
+  test.setTimeout(240_000)
+  const violations = await watchViolations(page)
+  await createVault(page)
+  // An open code: its wrap is in the stored record, and must not be in the downloaded copy.
+  await issueInvite(page, MEMBER.email)
+  await lock(page)
+  // This browser now expects another founder: the vault looks like a different household.
+  await page.evaluate(() => {
+    for (const key of Object.keys(localStorage)) if (key.startsWith('moliya.v2.founder.')) localStorage.setItem(key, btoa(String.fromCharCode(...new Uint8Array(32).fill(9))))
+  })
+  await signIn(page, FOUNDER.email, FOUNDER.password)
+  await expect(page.getByText('This vault’s founder key is not the one this browser saw before')).toBeVisible({ timeout: 60_000 })
+  await expect(page.getByTestId('kpi-net')).toHaveCount(0)
+  const download = page.waitForEvent('download')
+  await page.getByTestId('blocked-download').click()
+  const saved = await download
+  expect(saved.suggestedFilename()).toMatch(/^moliya-backup-\d{4}-\d{2}-\d{2}\.moliya$/)
+  const file = JSON.parse(await readFile((await saved.path())!, 'utf8')) as Record<string, unknown>
+  expect(file).toMatchObject({ format: 'moliya-vault', version: 3 })
+  expect(file).not.toHaveProperty('grants')
+  expect(Object.keys(file.identities as object)).toHaveLength(1)
+  await expect(page.getByTestId('blocked-downloaded')).toBeVisible()
+  // A different error clears the offer: a wrong password proves nothing about the vault.
+  await signIn(page, FOUNDER.email, 'not the password at all 7')
+  await expect(page.getByText('Email or password is incorrect.')).toBeVisible({ timeout: 60_000 })
+  await expect(page.getByTestId('blocked-escape')).toHaveCount(0)
   expect(await violations()).toEqual([])
 })
 

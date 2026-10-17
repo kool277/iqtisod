@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Jaybi 2.0 bench</title>
+    <style>
+      body { font: 15px/1.5 system-ui, sans-serif; margin: 2rem auto; max-width: 960px; padding: 0 1rem; color: #1c1917; }
+      table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
+      th, td { border-bottom: 1px solid #e7e5e4; padding: 0.35rem 0.5rem; text-align: left; vertical-align: top; }
+      td.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+      label { margin-right: 1rem; }
+      input { width: 5rem; }
+      textarea { width: 100%; font: 12px/1.4 ui-monospace, monospace; }
+      .muted { color: #57534e; }
+    </style>
+  </head>
+  <body>
+    <h1>Jaybi 2.0 bench</h1>
+    <p class="muted">
+      Measures what per-person keys cost on this device (docs/design/v2.0-key-redesign.md, section 7). It runs on the dev
+      server only and is never part of a build: <code>npm run bench</code>.
+    </p>
+    <p>
+      <label>Vault size (MiB) <input id="size" type="number" value="20" min="1" max="512" /></label>
+      <label>Runs <input id="runs" type="number" value="3" min="1" max="20" /></label>
+      <label>Members <input id="members" type="number" value="20" min="1" max="256" /></label>
+      <button id="start" type="button">Run</button>
+    </p>
+    <p id="status" role="status" class="muted"></p>
+    <table>
+      <thead>
+        <tr><th>Operation</th><th>Median</th><th>Min</th><th>Max</th><th>Notes</th></tr>
+      </thead>
+      <tbody id="results"></tbody>
+    </table>
+    <h2>Report</h2>
+    <p class="muted">Copy this into an issue or the design doc, together with the device it ran on.</p>
+    <textarea id="report" rows="18" readonly></textarea>
+    <script type="module" src="./bench.ts"></script>
+  </body>
+</html>

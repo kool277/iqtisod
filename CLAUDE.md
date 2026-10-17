@@ -16,6 +16,7 @@ Node 22.12+; CI uses Node 22 from `.nvmrc`. Install with `npm ci --ignore-script
 - E2E (Chromium): run `npx playwright install chromium` once. `npm run test:e2e` runs against the dev server; `npm run test:e2e:preview` builds and tests the production bundle on 4173 with the CSP active, which is what CI runs. One spec: `npx playwright test tests/e2e/vault.spec.ts` (prefix `E2E_TARGET=preview` for the production bundle).
 - `npm run fixtures:generate -- tools/fixtures/<version>` — generate a golden backup fixture with a released build's code (generators refuse to overwrite)
 - `npm run decrypt -- <file.moliya> --list` — standalone Node recovery tool (`tools/moliya-decrypt.mjs`)
+- `npm run bench` — the 2.0 bench page (`tests/bench/`, dev server only, never built): times Argon2id, the key operations, the roster check and chunked saves on this device
 - `npm run rates:fetch -- --out .fx-data` — fetch an exchange-rate snapshot; copy `.fx-data/rates` to `public/rates` to see live rates in dev
 - Guide screenshots: `E2E_TARGET=preview DOCS_SCREENS=1 npx playwright test tests/e2e/docs-screenshots.spec.ts` (`DOCS_LOCALES=en,ru` limits languages)
 

@@ -16,6 +16,7 @@
     "test:e2e:preview": "E2E_TARGET=preview playwright test",
     "fixtures:generate": "vitest run --config vitest.fixtures.config.ts",
     "decrypt": "node tools/moliya-decrypt.mjs",
+    "bench": "vite --open /tests/bench/index.html",
     "rates:fetch": "node --experimental-strip-types tools/fetch-rates.ts"
   },
   "dependencies": {
