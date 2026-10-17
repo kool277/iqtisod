@@ -146,6 +146,11 @@ export const peopleUzLatn: PeopleMessages = {
     reset: 'Yangi taklif kodi berish',
     resetHelp: 'Uning kalitlari darhol ishlamay qoladi. Kod bilan u parol tanlaydi va yangi kalitlar oladi; shaxsiy seyflar avvalgi parol yoki tiklash kodi bilan yana ochiladi.',
     inviteOnly: 'Bu seyfga odamlar taklif kodi bilan qoʻshiladi, shuning uchun administrator hech kimning kalitlarini bilmaydi.',
+    rotation: {
+      body: 'Qolganlarning hammasi yangi seyf kalitini oladi. Bu odamda u allaqachon nusxalab olgan narsalar, masalan, eski zaxira nusxalar qoladi, lekin bundan buyon saqlangan hech narsa unga ochilmaydi.',
+      codes: 'Ishlamay qoladigan ochiq taklif kodlari, chunki har birida eski kalit bor: {count}. Keyin yangi kodlar bering.',
+      archives: 'Bu brauzerda saqlangan seyfning oldingi nusxalari oʻchiriladi. Faqat shu oʻzgarishdan oldingi nusxa qoladi va u bu odamga ochilmaydi.',
+    },
   },
   errors: {
     USER_SUSPENDED: 'Bu odam toʻxtatilgan. Avval uni qayta faollashtiring.',

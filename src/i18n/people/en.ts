@@ -145,6 +145,11 @@ export const peopleEn = {
     reset: 'Give a new invite code',
     resetHelp: 'Their keys stop working at once. With the code they choose a password and get new keys; private safes open again with the same password as before or with their recovery code.',
     inviteOnly: 'In this vault people join with an invite code, so the admin never knows anyone’s keys.',
+    rotation: {
+      body: 'Everyone who stays gets a new household key. This person keeps whatever they already copied, such as old backups, but nothing saved from now on opens for them.',
+      codes: 'Open invite codes that stop working, because each holds the old key: {count}. Give new codes afterwards.',
+      archives: 'Earlier copies of the vault kept in this browser are deleted. Only the copy from just before this change stays, and it does not open for this person.',
+    },
   },
   errors: {
     USER_SUSPENDED: 'This person is suspended. Reactivate them first.',

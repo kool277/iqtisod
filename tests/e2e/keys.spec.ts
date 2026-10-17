@@ -139,6 +139,43 @@ test('a blocked sign-in still lets the person download the vault, as stored and 
   expect(await violations()).toEqual([])
 })
 
+test('suspending a member makes a new household key for everyone who stays, and they cannot sign in', async ({ page }) => {
+  test.setTimeout(240_000)
+  const violations = await watchViolations(page)
+  await createVault(page)
+  const code = await issueInvite(page, MEMBER.email)
+  await lock(page)
+  await page.getByTestId('join-link').click()
+  await page.getByTestId('register-email').fill(MEMBER.email)
+  await page.getByTestId('register-code').fill(code)
+  await page.getByTestId('register-password').fill(MEMBER.password)
+  await page.getByTestId('register-confirm').fill(MEMBER.password)
+  await page.getByTestId('register-submit').click()
+  await expect(page.getByTestId('kpi-net')).toBeVisible({ timeout: 60_000 })
+  await lock(page)
+
+  await signIn(page, FOUNDER.email, FOUNDER.password)
+  await expect(page.getByTestId('kpi-net')).toBeVisible({ timeout: 60_000 })
+  // An open invite for someone else, which the new key stops.
+  await issueInvite(page, 'pending@keys.test')
+  await page.getByRole('link', { name: `Open: ${MEMBER.email}` }).click()
+  await page.getByTestId('user-action-suspend').click()
+  await expect(page.getByTestId('removal-new-key')).toContainText('Everyone who stays gets a new household key')
+  await expect(page.getByTestId('removal-codes')).toContainText('1')
+  await page.getByTestId('user-suspend-dialog-confirm').click()
+  await expect(page.getByTestId('user-detail')).toHaveAttribute('data-status', 'SUSPENDED')
+  await lock(page)
+
+  await signIn(page, MEMBER.email, MEMBER.password)
+  await expect(page.getByText('Email or password is incorrect.')).toBeVisible({ timeout: 60_000 })
+  await signIn(page, FOUNDER.email, FOUNDER.password)
+  await expect(page.getByTestId('kpi-net')).toBeVisible({ timeout: 60_000 })
+  // The copy from just before the new key is the one earlier copy kept.
+  await page.getByTestId('nav-backup').click()
+  await expect(page.getByText('Before a new household key')).toBeVisible()
+  expect(await violations()).toEqual([])
+})
+
 test('an admin upgrades a 1.x vault: they become the founder and everyone else needs a new invite', async ({ page }) => {
   test.setTimeout(240_000)
   const violations = await watchViolations(page)

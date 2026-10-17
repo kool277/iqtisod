@@ -535,6 +535,22 @@ export function suspendUser(vault: OpenVault, userId: string, now = new Date()):
   if (rotating && rotation) switchEpoch(rotating, rotation)
 }
 
+export type RemovalEffects = {
+  /** Everyone who stays gets a new vault key. */
+  newKey: boolean
+  /** Open codes for other people that a new key revokes. */
+  codesStopped: number
+}
+
+/** What suspending or removing someone does besides that (design 4.5 and 6.1), for the dialog that asks first. */
+export function removalEffects(vault: OpenVault, userId: string): RemovalEffects {
+  assertManager(vault)
+  if (!rotationNeeded(vault, userId)) return { newKey: false, codesStopped: 0 }
+  const email = vault.db.queryValue('SELECT email FROM users WHERE id = ?', [userId])
+  const others = openGrantRows(vault.db).filter((grant) => grant.userId !== userId && grant.email !== email)
+  return { newKey: true, codesStopped: others.length }
+}
+
 /**
  * In a per-person-keys vault, someone who held the current DEK leaves only with a new epoch (design 4.5). Returns the
  * vault to rotate, after checking this session can sign the new epoch's roster, or null when no rotation is needed.

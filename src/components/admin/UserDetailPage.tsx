@@ -22,10 +22,12 @@ import {
   getUserDetail,
   listUsers,
   reactivateUser,
+  removalEffects,
   requirePasswordChange,
   suspendUser,
   updateUser,
   type DeleteOptions,
+  type RemovalEffects,
   type UserDetail,
 } from '../../services/user.service'
 import { fill } from '../table/model'
@@ -151,7 +153,7 @@ function UserDetailView() {
         <ConfirmDialog
           title={t('people.actions.suspendTitle')}
           body={t('people.actions.suspendBody')}
-          note={t('people.actions.suspendLimit')}
+          note={<RemovalNote person={person} />}
           confirm={t('people.actions.suspend')}
           testId="user-suspend-dialog"
           danger
@@ -224,6 +226,25 @@ function Notes({ person, self, admin }: { person: VaultUser; self: boolean; admi
       {person.status === 'FORMER' ? note(t('people.detail.formerNote'), 'user-former-note') : null}
       {admin && person.status === 'ACTIVE' && person.access === 'NONE' ? note(keys ? t('people.keys.noAccessNote') : t('people.detail.noAccessNote'), 'user-no-access-note') : null}
     </>
+  )
+}
+
+/**
+ * What taking this person out does to everyone else: in a 1.x vault the key stays the same; in a per-person-keys vault
+ * someone who held the key leaves with a new one for everyone who stays (design 4.5 and 6.1).
+ */
+function RemovalNote({ person }: { person: VaultUser }) {
+  const { t } = useI18n()
+  const { query, revision, keysInfo } = useVault()
+  const effects = useMemo<RemovalEffects>(() => query((vault) => removalEffects(vault, person.id)), [query, revision, person.id])
+  if (!keysInfo) return <p>{t('people.actions.suspendLimit')}</p>
+  if (!effects.newKey) return null
+  return (
+    <div className="grid gap-1" data-testid="removal-new-key">
+      <p>{t('people.keys.rotation.body')}</p>
+      {effects.codesStopped > 0 ? <p data-testid="removal-codes">{fill(t('people.keys.rotation.codes'), { count: effects.codesStopped })}</p> : null}
+      <p>{t('people.keys.rotation.archives')}</p>
+    </div>
   )
 }
 
@@ -417,7 +438,7 @@ function ConfirmDialog({
 }: {
   title: string
   body: string
-  note?: string
+  note?: ReactNode
   confirm: string
   testId: string
   danger?: boolean
@@ -433,9 +454,9 @@ function ConfirmDialog({
       <div className="grid gap-3">
         <p className="text-sm">{body}</p>
         {note ? (
-          <p role="note" className="rounded-2xl border border-brass/50 bg-brass-soft px-3 py-2 text-xs">
+          <div role="note" className="rounded-2xl border border-brass/50 bg-brass-soft px-3 py-2 text-xs empty:hidden">
             {note}
-          </p>
+          </div>
         ) : null}
         {error ? <Notice>{error}</Notice> : null}
         <div className="flex flex-wrap gap-2">
@@ -565,7 +586,7 @@ function ReactivateDialog({ person, onClose, onIssued }: { person: VaultUser; on
 
 function DeleteDialog({ person, onClose }: { person: VaultUser; onClose: () => void }) {
   const { t } = useI18n()
-  const { query, run, revision } = useVault()
+  const { query, run, revision, keysInfo } = useVault()
   const navigate = useNavigate()
   const { error, working, guard } = useGuard()
   const others = useMemo(
@@ -588,6 +609,11 @@ function DeleteDialog({ person, onClose }: { person: VaultUser; onClose: () => v
         <p className="text-sm text-clay-ink" data-testid="remove-safes-warn">
           {t('users.removeSafesWarn')}
         </p>
+        {keysInfo ? (
+          <div role="note" className="rounded-2xl border border-brass/50 bg-brass-soft px-3 py-2 text-xs empty:hidden">
+            <RemovalNote person={person} />
+          </div>
+        ) : null}
         {hasRecords ? (
           <fieldset className="grid gap-2">
             <legend className="mb-1 text-sm font-medium">{fill(t('people.actions.deleteRecords'), { count: person.records })}</legend>

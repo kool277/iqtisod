@@ -9,7 +9,7 @@ import type { OpenVault } from '../../src/domain/types'
 import { createVault, sealVault, unlockVault } from '../../src/services/auth.service'
 import { createInvite, issueReset, redeemGrant } from '../../src/services/grant.service'
 import { listGroups } from '../../src/services/group.service'
-import { createUser, deleteUser, reactivateUser, suspendUser, updateUser } from '../../src/services/user.service'
+import { createUser, deleteUser, reactivateUser, removalEffects, suspendUser, updateUser } from '../../src/services/user.service'
 import { readRosterDocs } from '../../src/services/v2/roster-store'
 import { commitSealed, confirmKeysSession, rotationOf } from '../../src/services/v2/session'
 import { upgradeToKeys } from '../../src/services/v2/upgrade'
@@ -202,6 +202,16 @@ describe('key rotation', () => {
     expect(back.keys!.epoch).toBe(2)
     const latest = (await readRosterDocs(back.db))!.at(-1)!
     expect(latest.members.find((member) => member.id === invite.id)?.status).toBe('active')
+  })
+
+  it('tells the dialog what a removal will do: a new key, and how many codes for others stop working', async () => {
+    const { founder, ids, group } = await household([ALICE])
+    await createInvite(founder, { email: BOB.email, roleName: 'Viewer', groupId: group.id, validity: '24h' })
+    await issueReset(founder, ids[0], { validity: '24h', stopOldPassword: true })
+    // Alice's own new code goes with her; Bob's open invite is the one that stops.
+    expect(removalEffects(founder, ids[0])).toEqual({ newKey: true, codesStopped: 1 })
+    const waiting = founder.db.queryValue('SELECT id FROM access_grants WHERE email = ?', [BOB.email])
+    expect(removalEffects(founder, String(waiting))).toEqual({ newKey: false, codesStopped: 0 })
   })
 
   it('makes one new epoch for several removals before a save', async () => {
