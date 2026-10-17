@@ -59,6 +59,7 @@ export function commitSealed(vault: OpenVault, record: unknown): void {
   vault.keys.chunks = chunks
   const { keys } = record as KeysRecord
   noteRosterSeen(keys.vaultId, keys.roster.version)
+  noteRosterTail(vault, keys.roster.version)
 }
 
 /**
@@ -111,4 +112,39 @@ export function confirmKeysSession(vault: OpenVault): void {
   if (keys.acceptedRollback) resetRosterSeen(keys.vaultId, keys.roster.version)
   else noteRosterSeen(keys.vaultId, keys.roster.version)
   keys.acceptedRollback = false
+  noteRosterTail(vault, keys.roster.version)
+}
+
+const rosterTailKey = (vaultId: string) => `moliya.v2.rosterTail.${vaultId}`
+/** How many of the newest roster versions this browser keeps (design 4.10), within a size budget for localStorage. */
+export const ROSTER_TAIL_VERSIONS = 20
+const ROSTER_TAIL_CHARS = 1_000_000
+
+/**
+ * Keeps the newest signed roster versions of the vault this browser just saved or signed in to, up to `version`, as
+ * the canonical JSON the database stores. A backup older than them can then be restored with the people removed since
+ * taken out again (design 4.10). They are signed, so they are checked when read, not trusted.
+ */
+export function noteRosterTail(vault: OpenVault, version: number): void {
+  if (!vault.keys) return
+  const rows = vault.db.query('SELECT doc FROM roster_versions WHERE version <= ? ORDER BY version DESC LIMIT ?', [version, ROSTER_TAIL_VERSIONS])
+  const docs: string[] = []
+  let chars = 0
+  for (const row of rows) {
+    const doc = String(row.doc)
+    if (chars + doc.length > ROSTER_TAIL_CHARS) break
+    chars += doc.length
+    docs.unshift(doc)
+  }
+  writePreference(rosterTailKey(vault.keys.vaultId), JSON.stringify(docs))
+}
+
+/** The roster versions {@link noteRosterTail} kept, unparsed; empty when there are none or they are unreadable. */
+export function rosterTailDocs(vaultId: string): string[] {
+  try {
+    const parsed = JSON.parse(readPreference(rosterTailKey(vaultId)) ?? '[]') as unknown
+    return Array.isArray(parsed) ? parsed.filter((doc): doc is string => typeof doc === 'string') : []
+  } catch {
+    return []
+  }
 }
