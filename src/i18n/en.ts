@@ -219,6 +219,7 @@ export const en = {
     archivesIntro: 'Jaybi keeps a copy of the vault before each format upgrade and before each import. Download one if you need to go back.',
     archiveUpgrade: 'Before upgrade',
     archiveImport: 'Before import',
+    archiveRotation: 'Before a new household key',
     archiveDownload: 'Download',
     archivesEmpty: 'No earlier copies.',
     savedBy: 'Saved by version',
@@ -831,6 +832,7 @@ export const en = {
     TRANSACTIONS_REASSIGNED: 'Records moved to another person',
     VAULT_UPGRADED: 'Vault upgraded to per-person keys',
     ROSTER_ROLLBACK_ACCEPTED: 'Older copy of the vault opened anyway',
+    EPOCH_ROTATED: 'New household key after someone left',
   },
 }
 

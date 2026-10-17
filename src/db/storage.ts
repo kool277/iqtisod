@@ -34,7 +34,7 @@ export const MAX_ARCHIVES = 3
 
 export type LoadedVault = DecodedRecord & { raw: unknown }
 
-export type ArchiveReason = 'upgrade' | 'import'
+export type ArchiveReason = 'upgrade' | 'import' | 'rotation'
 
 export type ArchiveEntry = {
   key: string
@@ -62,6 +62,11 @@ export type ArchiveSource = { reason: ArchiveReason; raw: unknown; record?: unde
 export type WriteOptions = {
   expectedStamp?: string | null
   archive?: ArchiveSource
+  /**
+   * The first save of a new epoch (design 4.5): the record it replaces is archived without the access of anyone not
+   * in `keep`, and every older archive is deleted, since each still opens with the old key for those who left.
+   */
+  rotation?: { keep: readonly string[] }
 }
 
 type ChunkPins = { archive: string; chunks: string[] }
@@ -80,6 +85,15 @@ function storedChunkKeys(raw: unknown): string[] {
     const key = typeof chunk === 'object' && chunk !== null ? (chunk as Record<string, unknown>).key : undefined
     return typeof key === 'string' && CHUNK_KEY.test(key) ? [key] : []
   })
+}
+
+/** A stored version 3 record with only these members' sealed identities and DEK wraps. */
+function keepingMembers(raw: unknown, keep: readonly string[]): unknown {
+  if (typeof raw !== 'object' || raw === null) return raw
+  const record = raw as Record<string, unknown>
+  const only = (value: unknown) =>
+    typeof value === 'object' && value !== null ? Object.fromEntries(Object.entries(value).filter(([memberId]) => keep.includes(memberId))) : value
+  return { ...record, identities: only(record.identities), dekWraps: only(record.dekWraps) }
 }
 
 /** Gives every chunk without a storage key (a record read from a file) a new one. */
@@ -221,6 +235,7 @@ export async function readVaultCopy(): Promise<StoredCopy | null> {
  * carried is refused, so `primary` never points at a missing chunk.
  */
 export async function writeVault(record: VaultRecord, options: WriteOptions = {}): Promise<void> {
+  if (options.archive && options.rotation) throw new Error('A write keeps at most one archive')
   const keyed = withChunkKeys(record)
   const stored = storedForm(keyed)
   const values = chunkValues(keyed)
@@ -255,18 +270,25 @@ export async function writeVault(record: VaultRecord, options: WriteOptions = {}
           const live = new Set(archiveKeys.result as string[])
           const pinned = new Map<string, ChunkPins>()
           ;(pinKeys.result as string[]).forEach((key, index) => pinned.set(key, pins.result[index] as ChunkPins))
-          if (options.archive) {
+          if (options.rotation) {
+            for (const old of live) store.delete(old)
+            live.clear()
+          }
+          // A rotation keeps the record it replaces, which must be a version 3 record whose chunks are stored.
+          const previous = options.rotation && versionOf(current.result) === KEYS_RECORD_VERSION ? keepingMembers(current.result, options.rotation.keep) : undefined
+          const archiving = options.archive ? { reason: options.archive.reason, raw: archiveRaw } : previous !== undefined ? { reason: 'rotation' as const, raw: previous } : null
+          if (archiving) {
             const archivedAt = new Date().toISOString()
-            const key = `${ARCHIVE_PREFIX}${archivedAt}:${options.archive.reason}`
+            const key = `${ARCHIVE_PREFIX}${archivedAt}:${archiving.reason}`
             const entry: ArchiveEntry = {
               key,
-              reason: options.archive.reason,
+              reason: archiving.reason,
               archivedAt,
               archivedBy: APP_VERSION,
-              sourceVersion: versionOf(archiveRaw),
-              sourceAppVersion: appVersionOf(archiveRaw),
-              sourceUpdatedAt: stampOf(archiveRaw),
-              raw: withoutGrants(archiveRaw),
+              sourceVersion: versionOf(archiving.raw),
+              sourceAppVersion: appVersionOf(archiving.raw),
+              sourceUpdatedAt: stampOf(archiving.raw),
+              raw: withoutGrants(archiving.raw),
             }
             const sorted = [...live].sort()
             for (const old of sorted.slice(0, Math.max(0, sorted.length - (MAX_ARCHIVES - 1)))) {
@@ -275,7 +297,7 @@ export async function writeVault(record: VaultRecord, options: WriteOptions = {}
             }
             store.put(entry, key)
             live.add(key)
-            const listed = storedChunkKeys(archiveRaw)
+            const listed = storedChunkKeys(archiving.raw)
             if (listed.length > 0) {
               const pinKey = `${ARCHIVE_CHUNKS_PREFIX}${key.slice(ARCHIVE_PREFIX.length)}`
               const pin: ChunkPins = { archive: key, chunks: listed }

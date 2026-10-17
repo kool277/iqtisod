@@ -214,6 +214,7 @@ export const uzCyrl: CoreMessages = {
     archivesIntro: 'Жайби ҳар бир формат янгиланиши ва ҳар бир импортдан олдин сейф нусхасини сақлайди. Орқага қайтиш керак бўлса, уни юклаб олинг.',
     archiveUpgrade: 'Янгиланишдан олдин',
     archiveImport: 'Импортдан олдин',
+    archiveRotation: 'Янги сейф калитидан олдин',
     archiveDownload: 'Юклаб олиш',
     archivesEmpty: 'Олдинги нусхалар йўқ.',
     savedBy: 'Сақлаган версия',
@@ -826,5 +827,6 @@ export const uzCyrl: CoreMessages = {
     TRANSACTIONS_REASSIGNED: 'Ёзувлар бошқа одамга ўтказилди',
     VAULT_UPGRADED: 'Сейф шахсий калитларга ўтказилди',
     ROSTER_ROLLBACK_ACCEPTED: 'Сейфнинг эски нусхаси огоҳлантиришга қарамай очилди',
+    EPOCH_ROTATED: 'Аъзо чиққандан кейин янги сейф калити',
   },
 }

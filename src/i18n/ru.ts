@@ -214,6 +214,7 @@ export const ru: CoreMessages = {
     archivesIntro: 'Джайби сохраняет копию сейфа перед каждым обновлением формата и перед каждым импортом. Скачайте её, если нужно вернуться назад.',
     archiveUpgrade: 'До обновления',
     archiveImport: 'До импорта',
+    archiveRotation: 'До нового ключа сейфа',
     archiveDownload: 'Скачать',
     archivesEmpty: 'Предыдущих версий нет.',
     savedBy: 'Сохранено версией',
@@ -826,5 +827,6 @@ export const ru: CoreMessages = {
     TRANSACTIONS_REASSIGNED: 'Записи переданы другому человеку',
     VAULT_UPGRADED: 'Сейф переведён на личные ключи',
     ROSTER_ROLLBACK_ACCEPTED: 'Старая копия сейфа открыта, несмотря на предупреждение',
+    EPOCH_ROTATED: 'Новый ключ сейфа после ухода участника',
   },
 }

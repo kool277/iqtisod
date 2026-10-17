@@ -176,7 +176,7 @@ describe('a per-person-keys vault', () => {
     track(await unlockVault(older, FOUNDER.email, FOUNDER.password))
   })
 
-  it('takes a suspended member out at the next admin save, and refuses their old keys put back', async () => {
+  it('takes a suspended member out with a new epoch, and refuses their old keys put back', async () => {
     const { vault, stamp } = await setUpFounder()
     const [group] = listGroups(vault)
     const invite = await createInvite(vault, { email: MEMBER.email, roleName: 'Viewer', groupId: group.id, validity: '24h' })
@@ -186,10 +186,14 @@ describe('a per-person-keys vault', () => {
     const redeemed = await stored()
 
     const founder = track(await unlockVault(redeemed, FOUNDER.email, FOUNDER.password))
+    const oldDek = founder.dek
     suspendUser(founder, invite.id)
     await save(founder, afterRedeem)
     const suspended = await stored()
     expect(suspended.keys.identities[invite.id]).toBeUndefined()
+    expect(suspended.keys.epoch).toBe(redeemed.keys.epoch + 1)
+    // The member held the old DEK, so the body is under a new one.
+    await expect(openChunkedBody(suspended.body, oldDek, { vaultId: suspended.keys.vaultId, epoch: suspended.keys.epoch })).rejects.toThrow()
     await expect(unlockVault(suspended, MEMBER.email, MEMBER.password)).rejects.toBeInstanceOf(AuthError)
 
     // Someone copies the member's old identity and DEK wrap back into the header: the signed roster says removed.
@@ -201,8 +205,11 @@ describe('a per-person-keys vault', () => {
         dekWraps: { ...suspended.keys.dekWraps, [invite.id]: redeemed.keys.dekWraps[invite.id] },
       },
     }
-    // The DEK did not change in the alpha (no rotation), so the old wrap still opens it: the roster is what refuses.
-    await expect(unlockVault(restored, MEMBER.email, MEMBER.password)).rejects.toMatchObject({ code: 'KEYS_REMOVED' })
+    // Their wrap is of the old epoch's key.
+    await expect(unlockVault(restored, MEMBER.email, MEMBER.password)).rejects.toMatchObject({ code: 'KEYS_EPOCH_MISMATCH' })
+    // Relabelled to the new epoch it no longer unwraps: the AAD binds the epoch.
+    const relabelled: KeysRecord = { ...restored, keys: { ...restored.keys, dekWraps: { ...restored.keys.dekWraps, [invite.id]: { ...redeemed.keys.dekWraps[invite.id], epoch: suspended.keys.epoch } } } }
+    await expect(unlockVault(relabelled, MEMBER.email, MEMBER.password)).rejects.toThrow()
   })
 
   it('changes a member\'s own password without an admin, and relabels an email without new keys', async () => {

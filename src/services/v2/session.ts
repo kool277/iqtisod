@@ -4,6 +4,7 @@ import type { FounderRef } from '../../crypto/roster'
 import type { ChunkState } from '../../db/chunks'
 import type { KeysRecord } from '../../db/envelope'
 import type { RosterRef } from '../../db/keys-header'
+import { KEYS_RECORD_VERSION } from '../../db/versions'
 import type { OpenVault } from '../../domain/types'
 import { readPreference, writePreference } from '../../lib/preference'
 
@@ -27,6 +28,13 @@ export type KeysSession = {
   firstSeen: boolean
   /** An admin chose to open a copy whose roster is older than this browser had seen; the browser then expects it. */
   acceptedRollback?: boolean
+  /**
+   * Everyone who holds or held this epoch's DEK: active in a roster version of this epoch, or holding a key binding.
+   * Taking any of them out of the vault makes a new epoch (design 4.5); anyone else never had this key.
+   */
+  holders: string[]
+  /** Made ahead, so that a removal can switch to the next epoch's key at once, before any save. */
+  nextDek: CryptoKey | null
 }
 
 export function isKeysVault(vault: OpenVault): vault is OpenVault & { keys: KeysSession } {
@@ -51,6 +59,18 @@ export function commitSealed(vault: OpenVault, record: unknown): void {
   vault.keys.chunks = chunks
   const { keys } = record as KeysRecord
   noteRosterSeen(keys.vaultId, keys.roster.version)
+}
+
+/**
+ * For the first save of a new epoch, what `writeVault` needs to archive the record it replaces: the members of the new
+ * epoch, whose access that archive keeps. Undefined for any other save.
+ */
+export function rotationOf(vault: OpenVault, record: unknown): { keep: string[] } | undefined {
+  const stored = vault.keys?.chunks?.context.epoch
+  if (stored === undefined || typeof record !== 'object' || record === null) return undefined
+  const sealed = record as Partial<KeysRecord>
+  if (sealed.version !== KEYS_RECORD_VERSION || !sealed.keys || sealed.keys.epoch <= stored) return undefined
+  return { keep: Object.keys(sealed.keys.dekWraps) }
 }
 
 // Per-device trust anchors (design 3.8 and 5.3): the founder key pinned on first sign-in, and the newest roster

@@ -5,7 +5,7 @@ import { KEYS_RECORD_VERSION, RECORD_VERSION, SCHEMA_VERSION } from '../db/versi
 import type { OpenVault, SessionUser } from '../domain/types'
 import { AppError, AuthError, ConflictError, ForbiddenError, KeysBlockedError, ValidationError, VaultInUseError } from '../domain/errors'
 import { keysEnabled } from '../lib/flags'
-import { commitSealed, confirmKeysSession, pinnedFounder } from '../services/v2/session'
+import { commitSealed, confirmKeysSession, pinnedFounder, rotationOf } from '../services/v2/session'
 import { observeClock } from '../lib/device-clock'
 import { readIdleMinutes, storeIdleMinutes, watchIdle, type IdleMinutes } from '../lib/idle'
 import { advanceAuditMark, readAuditMark, resetAuditMark } from '../lib/audit-mark'
@@ -270,6 +270,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       await writeVault(record, {
         expectedStamp: stampRef.current,
         archive: archive === null ? undefined : { reason: 'upgrade', raw: archive },
+        rotation: rotationOf(vault, record),
       })
       commitSealed(vault, record)
       archiveRef.current = null

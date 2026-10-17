@@ -27,7 +27,8 @@ export async function readRosterDocs(db: SqlDatabase): Promise<RosterDoc[] | nul
   return docs
 }
 
-export async function latestRosterDoc(db: SqlDatabase): Promise<RosterDoc | null> {
+/** The latest stored version. The chain was checked at sign-in, and only the open session writes the database since. */
+export function latestRosterDoc(db: SqlDatabase): RosterDoc | null {
   const row = db.queryOne('SELECT doc FROM roster_versions ORDER BY version DESC LIMIT 1')
   return row ? readRosterDoc(parse(row.doc)) : null
 }

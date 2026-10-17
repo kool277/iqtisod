@@ -16,6 +16,8 @@ import { accessCount, committedWraps, dropEnvelopeGrant, endGrant, grantAuditAct
 import { dropTotp } from './totp.service'
 import { dropProfile, readProfile, readProfiles, writeProfile, type UserProfile, type UserStatus } from './user-profile'
 import { checkUserGroup, roleIdByName } from './user-rules'
+import { assertCanRotate, recordRotation, rotationNeeded, switchEpoch, type RotationRecord } from './v2/rotation'
+import type { KeysSession } from './v2/session'
 
 export { checkUserGroup, roleIdByName }
 export type { UserStatus }
@@ -518,15 +520,30 @@ export function suspendUser(vault: OpenVault, userId: string, now = new Date()):
   if (status === 'SUSPENDED') throw new ValidationError('USER_SUSPENDED')
   if (row.roleName === 'Admin') assertNotLastAdmin(vault, [userId])
   const hadPassword = hasAccess(vault, userId)
+  const rotating = startRotation(vault, userId)
   const at = now.toISOString()
   let revoked: GrantRow[] = []
+  let rotation: RotationRecord | null = null
   vault.db.withTransaction(() => {
     revoked = revokeCodesFor(vault, row, 'SUSPENDED', at)
     writeProfile(vault.db, userId, { status: 'SUSPENDED', statusAt: at, updatedAt: at })
     writeAudit(vault.db, vault.user.id, 'USER_SUSPENDED', 'user', userId, { email: row.email, hadPassword, codesRevoked: revoked.length })
+    if (rotating) rotation = recordRotation(rotating, at)
   })
   for (const grant of revoked) dropEnvelopeGrant(vault, grant.id)
   dropAccess(vault, userId)
+  if (rotating && rotation) switchEpoch(rotating, rotation)
+}
+
+/**
+ * In a per-person-keys vault, someone who held the current DEK leaves only with a new epoch (design 4.5). Returns the
+ * vault to rotate, after checking this session can sign the new epoch's roster, or null when no rotation is needed.
+ */
+function startRotation(vault: OpenVault, userId: string): (OpenVault & { keys: KeysSession }) | null {
+  if (!vault.keys || !rotationNeeded(vault, userId)) return null
+  const keyed = vault as OpenVault & { keys: KeysSession }
+  assertCanRotate(keyed)
+  return keyed
 }
 
 /** Takes the person's password copy or sealed identity out of the envelope; the next admin save marks them removed. */
@@ -576,7 +593,9 @@ export function deleteUser(vault: OpenVault, userId: string, options: DeleteOpti
     if (!target || readProfile(vault.db, target.id).status === 'FORMER') throw new ValidationError('REASSIGN_TARGET')
   }
   const grants = openGrantRows(vault.db).filter((grant) => grant.userId === userId || grant.email === row.email)
+  const rotating = startRotation(vault, userId)
   const at = new Date().toISOString()
+  let rotation: RotationRecord | null = null
   vault.db.withTransaction(() => {
     if (mode === 'KEEP') {
       revokeCodesFor(vault, row, 'DELETED', at)
@@ -584,6 +603,7 @@ export function deleteUser(vault: OpenVault, userId: string, options: DeleteOpti
       deletePrivateData(vault, userId)
       writeProfile(vault.db, userId, { status: 'FORMER', statusAt: at, updatedAt: at })
       writeAudit(vault.db, vault.user.id, 'USER_DELETED', 'user', userId, { email: row.email, records: 'KEPT', count: records })
+      if (rotating) rotation = recordRotation(rotating, at)
       return
     }
     if (target) {
@@ -597,9 +617,11 @@ export function deleteUser(vault: OpenVault, userId: string, options: DeleteOpti
     deletePrivateData(vault, userId)
     dropProfile(vault.db, userId)
     vault.db.exec('DELETE FROM users WHERE id = ?', [userId])
+    if (rotating) rotation = recordRotation(rotating, at)
   })
   for (const grant of grants) dropEnvelopeGrant(vault, grant.id)
   dropAccess(vault, userId)
+  if (rotating && rotation) switchEpoch(rotating, rotation)
 }
 
 function deletePrivateData(vault: OpenVault, userId: string): void {

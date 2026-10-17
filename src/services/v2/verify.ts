@@ -15,6 +15,8 @@ export type VerifiedVault = {
   firstSeen: boolean
   /** The roster is older than the newest version this browser saw, and the caller accepted that. */
   rolledBack: boolean
+  /** Everyone who holds or held the current epoch's DEK (see `KeysSession.holders`). */
+  holders: string[]
 }
 
 /** Who is opening the vault: a member with their unsealed public keys, or an invitee with the invite key they derived. */
@@ -76,5 +78,16 @@ export async function verifyKeysVault(record: KeysRecord, db: SqlDatabase, opene
     const admin = !opener.invite && members.get(opener.memberId)?.role === 'Admin'
     if (!options.acceptRollback || !admin) throw new KeysBlockedError('KEYS_ROSTER_ROLLBACK', { seen, current: chain.latest.version })
   }
-  return { latest: chain.latest, latestHash: chain.latestHash, members, bindings, firstSeen: pinned === null, rolledBack }
+  return { latest: chain.latest, latestHash: chain.latestHash, members, bindings, firstSeen: pinned === null, rolledBack, holders: epochHolders(docs, chain.latest.epoch, bindings) }
+}
+
+/** Members active in any version of `epoch`, and everyone with a key binding: each of them unwrapped that epoch's DEK. */
+export function epochHolders(docs: readonly RosterDoc[], epoch: number, bindings: readonly KeyBinding[]): string[] {
+  const holders = new Set<string>()
+  for (const doc of docs) {
+    if (doc.epoch !== epoch) continue
+    for (const member of doc.members) if (member.status === 'active') holders.add(member.id)
+  }
+  for (const binding of bindings) holders.add(binding.memberId)
+  return [...holders].sort()
 }

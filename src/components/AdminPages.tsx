@@ -305,7 +305,9 @@ export function BackupPage() {
   const [archives, setArchives] = useState<ArchiveRow[]>([])
   const allowed = Boolean(user && canUser(user, Permission.EXPORT_VAULT))
   const archiveColumns = useMemo<Column<ArchiveRow>[]>(() => {
-    const reason = (entry: ArchiveRow) => (entry.reason === 'upgrade' ? t('backup.archiveUpgrade') : t('backup.archiveImport'))
+    const reasonKey = (entry: ArchiveRow) => (entry.reason === 'upgrade' || entry.reason === 'rotation' ? entry.reason : 'import')
+    const labels = { upgrade: t('backup.archiveUpgrade'), import: t('backup.archiveImport'), rotation: t('backup.archiveRotation') }
+    const reason = (entry: ArchiveRow) => labels[reasonKey(entry)]
     return [
       {
         id: 'reason',
@@ -315,10 +317,11 @@ export function BackupPage() {
         search: reason,
         filter: {
           kind: 'select',
-          value: (entry) => (entry.reason === 'upgrade' ? 'upgrade' : 'import'),
+          value: reasonKey,
           options: [
-            { value: 'upgrade', label: t('backup.archiveUpgrade') },
-            { value: 'import', label: t('backup.archiveImport') },
+            { value: 'upgrade', label: labels.upgrade },
+            { value: 'import', label: labels.import },
+            { value: 'rotation', label: labels.rotation },
           ],
         },
         exportAs: { kind: 'text', value: reason },

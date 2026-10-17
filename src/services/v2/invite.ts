@@ -1,5 +1,5 @@
 import { argon2idBits } from '../../crypto/argon2'
-import { randomBytes } from '../../crypto/crypto.service'
+import { generateDek, randomBytes } from '../../crypto/crypto.service'
 import { wrapDekTo } from '../../crypto/ecies'
 import { cloneBytes } from '../../crypto/encoding'
 import { IDENTITY_SALT_BYTES, generateIdentitySecret, importIdentity, sealIdentity, wipeSecret } from '../../crypto/identity'
@@ -169,6 +169,8 @@ export async function redeemKeysInvite(record: KeysRecord, input: KeysRedeemInpu
       roster: { ...keys.roster },
       chunks,
       firstSeen: verified.firstSeen,
+      holders: [...new Set([...verified.holders, memberId])].sort(),
+      nextDek: await generateDek(),
     }
     const vault = buildOpenVault(record, { db, dek, wraps: [], user, needsSave: true }, now)
     vault.grants = vault.grants.filter((item) => item.id !== grant.id)

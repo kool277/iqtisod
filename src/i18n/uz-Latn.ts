@@ -214,6 +214,7 @@ export const uzLatn: CoreMessages = {
     archivesIntro: 'Jaybi har bir format yangilanishi va har bir importdan oldin seyf nusxasini saqlaydi. Orqaga qaytish kerak boʻlsa, uni yuklab oling.',
     archiveUpgrade: 'Yangilanishdan oldin',
     archiveImport: 'Importdan oldin',
+    archiveRotation: 'Yangi seyf kalitidan oldin',
     archiveDownload: 'Yuklab olish',
     archivesEmpty: 'Oldingi nusxalar yoʻq.',
     savedBy: 'Saqlagan versiya',
@@ -826,5 +827,6 @@ export const uzLatn: CoreMessages = {
     TRANSACTIONS_REASSIGNED: 'Yozuvlar boshqa odamga oʻtkazildi',
     VAULT_UPGRADED: 'Seyf shaxsiy kalitlarga oʻtkazildi',
     ROSTER_ROLLBACK_ACCEPTED: 'Seyfning eski nusxasi ogohlantirishga qaramay ochildi',
+    EPOCH_ROTATED: 'Aʼzo chiqqandan keyin yangi seyf kaliti',
   },
 }

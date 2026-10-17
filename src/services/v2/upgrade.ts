@@ -103,6 +103,8 @@ export async function upgradeToKeys(vault: OpenVault, password: string): Promise
     roster: { version: 1, hash: rosterHash },
     chunks: null,
     firstSeen: true,
+    holders: [memberId],
+    nextDek: await generateDek(),
   }
   const upgraded = vault as OpenVault & { keys: KeysSession }
   upgraded.dek = dek

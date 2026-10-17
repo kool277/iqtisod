@@ -118,9 +118,25 @@ async function maySignRoster(vault: OpenVault & { keys: KeysSession }, latest: R
 }
 
 /**
+ * The members the next roster version should name, or null when nothing changed. A new epoch is always signed, even
+ * when the people are the same: the roster names the epoch the header and every DEK wrap must match.
+ */
+function plannedMembers(vault: OpenVault & { keys: KeysSession }, latest: RosterDoc, bindings: ReadonlyMap<string, KeyBinding>): RosterMember[] | null {
+  const { db, keys } = vault
+  const members = nextRosterMembers({ latest, bindings, people: rosterCandidates(db, keys), invites: rosterInvites(db) })
+  if (members || latest.epoch === keys.epoch) return members
+  // Same people in a new epoch: everyone active keeps their keys, so no entry carries a proof.
+  return latest.members.map((member) => {
+    if (member.status !== 'active') return member
+    const { proof: _proof, ...rest } = member
+    return rest
+  })
+}
+
+/**
  * The roster version a save should sign, if the people, their roles, groups or access changed since `latest`, folding
- * in redeemed invites. Signing is asynchronous, so the plan is applied only if the database still derives the same
- * members ({@link applyRosterPlan}).
+ * in redeemed invites, or if the epoch moved on. Signing is asynchronous, so the plan is applied only if the database
+ * still derives the same members ({@link applyRosterPlan}).
  */
 async function planRoster(vault: OpenVault & { keys: KeysSession }, latest: RosterDoc, now: string): Promise<RosterPlan | null> {
   const { db, keys } = vault
@@ -129,7 +145,7 @@ async function planRoster(vault: OpenVault & { keys: KeysSession }, latest: Rost
     const invited = latest.members.find((member) => member.id === binding.memberId)
     if (await bindingRedeems(binding, invited, keys.vaultId)) bindings.set(binding.memberId, binding)
   }
-  const members = nextRosterMembers({ latest, bindings, people: rosterCandidates(db, keys), invites: rosterInvites(db) })
+  const members = plannedMembers(vault, latest, bindings)
   if (!members) return null
   const doc = await signRoster(
     { type: 'roster', suite: SUITE, vaultId: keys.vaultId, version: latest.version + 1, prev: keys.roster.hash, epoch: keys.epoch, issuedAt: now, issuedBy: keys.memberId, members },
@@ -147,7 +163,8 @@ function applyRosterPlan(vault: OpenVault & { keys: KeysSession }, plan: RosterP
   const { db, keys } = vault
   // Another save may have signed a version meanwhile; the plan must then be made again on top of it.
   if (Number(db.queryValue('SELECT MAX(version) FROM roster_versions')) !== latest.version) return false
-  const members = nextRosterMembers({ latest, bindings: plan?.bindings ?? new Map(), people: rosterCandidates(db, keys), invites: rosterInvites(db) })
+  if (plan !== null && plan.doc.epoch !== keys.epoch) return false
+  const members = plannedMembers(vault, latest, plan?.bindings ?? new Map())
   if (plan === null ? members !== null : members === null || canonicalize(members) !== canonicalize(plan.members)) return false
   const current = plan?.doc.members ?? latest.members
   const stale = (readBindings(db) ?? []).filter(
@@ -163,6 +180,25 @@ function applyRosterPlan(vault: OpenVault & { keys: KeysSession }, plan: RosterP
 
 const ROSTER_ATTEMPTS = 3
 
+type WrapTarget = { id: string; encPub: string }
+
+/**
+ * Who should hold this epoch's DEK and has no wrap of it yet: after a rotation, everyone who stays (design 4.5). Their
+ * key comes from the signed roster, or from the binding of an invite they redeemed, never from the identity blob.
+ */
+function wrapTargets(vault: OpenVault & { keys: KeysSession }, latest: RosterDoc): WrapTarget[] {
+  const { db, keys } = vault
+  const people = new Map(readPeople(db).map((person) => [person.id, person]))
+  const bindings = new Map((readBindings(db) ?? []).map((binding) => [binding.memberId, binding]))
+  return latest.members.flatMap((member): WrapTarget[] => {
+    if (keys.dekWraps[member.id] || !keys.identities[member.id] || people.get(member.id)?.status !== 'ACTIVE') return []
+    if (member.status === 'active') return [{ id: member.id, encPub: member.encPub }]
+    if (member.status !== 'invited') return []
+    const binding = bindings.get(member.id)
+    return binding && binding.inviteSigPub === member.inviteSigPub ? [{ id: member.id, encPub: binding.encPub }] : []
+  })
+}
+
 /**
  * Seals an open per-person-keys vault into a version 3 record: an admin's save first signs a new roster version if
  * anything about the people changed; the body is re-encrypted where it changed (everything with `full`), and the
@@ -175,17 +211,29 @@ export async function sealKeysVault(vault: OpenVault & { keys: KeysSession }, op
   observeClock(now)
   recordClock(db, now)
   const updatedAt = new Date().toISOString()
+  // The key a later removal switches to, made ahead (see rotation.ts).
+  keys.nextDek ??= await generateDek()
   type Snapshot = { sealing: ReturnType<typeof sealChunkedBody>; header: KeysHeader; grants: OpenVault['grants']; createdAt: string | null; schemaVersion: number; audit: ReturnType<typeof auditHead> }
   let snapshot: Snapshot | null = null
   for (let attempt = 0; snapshot === null; attempt += 1) {
     if (attempt === ROSTER_ATTEMPTS) throw new ValidationError('SAVE_BUSY')
-    const latest = await latestRosterDoc(db)
+    const latest = latestRosterDoc(db)
     if (!latest || latest.version !== keys.roster.version) throw new CorruptRecordError()
+    const { dek } = vault
+    const { epoch } = keys
+    const wraps = await Promise.all(wrapTargets(vault, latest).map((target) => wrapDekTo(dek, target.encPub, { vaultId: keys.vaultId, epoch, memberId: target.id })))
     const signer = await maySignRoster(vault, latest)
     const plan = signer ? await planRoster(vault, latest, updatedAt) : null
     // From here to the image copy nothing awaits, so the roster, the image, the audit head and everything the header
     // names describe one state, even if the app or another save changes the session while this one encrypts.
+    if (vault.dek !== dek || keys.epoch !== epoch) continue
+    const wanted = new Set(wrapTargets(vault, latest).map((target) => target.id))
+    for (const wrap of wraps) if (wanted.has(wrap.memberId)) keys.dekWraps[wrap.memberId] = wrap
+    if (wrapTargets(vault, latest).length > 0) continue
     if (signer && !applyRosterPlan(vault, plan, latest)) continue
+    // A header whose epoch no roster version names would block the vault for everyone.
+    if ((signer && plan ? plan.doc.epoch : latest.epoch) !== keys.epoch) throw new CorruptRecordError()
+    for (const id of Object.keys(keys.dekWraps)) if (!keys.holders.includes(id)) keys.holders.push(id)
     compactIfSparse(db)
     snapshot = {
       sealing: sealChunkedBody(db, vault.dek, { vaultId: keys.vaultId, epoch: keys.epoch }, keys.chunks, { full: options.full }),
@@ -290,6 +338,8 @@ export async function createKeysVault(input: SetupInput): Promise<{ vault: OpenV
       chunks: null,
       // The person who creates the vault is its founder: there is nothing to compare yet.
       firstSeen: true,
+      holders: [memberId],
+      nextDek: await generateDek(),
     }
     const vault: OpenVault & { keys: KeysSession } = {
       db,
@@ -374,6 +424,8 @@ export async function unlockKeysVault(record: KeysRecord, email: string, passwor
       chunks,
       firstSeen: verified.firstSeen,
       ...(verified.rolledBack ? { acceptedRollback: true } : {}),
+      holders: verified.holders,
+      nextDek: await generateDek(),
     }
     const vault = buildOpenVault(record, { db, dek, wraps: [], user, needsSave: false }, now)
     vault.keys = session
