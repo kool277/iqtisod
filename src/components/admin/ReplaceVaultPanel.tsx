@@ -2,12 +2,14 @@ import { useState, type FormEvent } from 'react'
 import { Button, Field, Notice, controlClass } from '../ui'
 import { useI18n } from '../../context/I18nContext'
 import { useVault } from '../../context/VaultContext'
+import { AppError, OlderBackupError } from '../../domain/errors'
 import { textForError } from '../../lib/errors'
 import { LIMITS } from '../../lib/limits'
 import { formatWhen } from '../../lib/money'
 import { Permission, canUser } from '../../rbac'
 import type { ParsedBackup } from '../../services/backup.service'
 import { BackupTooLargeError, budgetText, tooLargeText, useBackupImport } from '../backup-import'
+import { KeysCatalog } from '../keys/KeysCatalog'
 
 /** Replacing the whole vault needs the import permission, the admin's password and the vault name typed out. */
 export function ReplaceVaultPanel() {
@@ -19,12 +21,20 @@ export function ReplaceVaultPanel() {
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
   const [reading, setReading] = useState(false)
+  // A backup with per-person keys: the person's password in it, asked for when the current one does not open it.
+  const [askBackupPassword, setAskBackupPassword] = useState(false)
+  const [backupPassword, setBackupPassword] = useState('')
+  // A backup older than this browser has seen, waiting for the admin to choose to restore it (design 4.10).
+  const [older, setOlder] = useState<OlderBackupError['older'] | null>(null)
   const { capacity, readFile } = useBackupImport()
   if (!user || !canUser(user, Permission.IMPORT_VAULT)) return null
 
   async function onFile(input: HTMLInputElement) {
     setBackup(null)
     setError(null)
+    setAskBackupPassword(false)
+    setBackupPassword('')
+    setOlder(null)
     const file = input.files?.[0]
     if (!file) return
     setReading(true)
@@ -39,19 +49,38 @@ export function ReplaceVaultPanel() {
     }
   }
 
-  async function onSubmit(event: FormEvent) {
-    event.preventDefault()
+  async function replace(acceptOlder: boolean) {
     if (!backup) return
     setPending(true)
     setError(null)
+    let again = false
     try {
-      await replaceWithBackup(backup, { password, confirmName })
+      await replaceWithBackup(backup, { password, confirmName, backupPassword: askBackupPassword ? backupPassword : undefined, acceptOlder })
     } catch (caught) {
       setError(textForError(caught, t))
+      // Both ask for one more step with the same passwords; anything else starts over.
+      if (caught instanceof OlderBackupError) {
+        setOlder(caught.older)
+        again = true
+      } else if (caught instanceof AppError && caught.code === 'BACKUP_KEYS_PASSWORD') {
+        setAskBackupPassword(true)
+        setOlder(null)
+        again = true
+      } else {
+        setOlder(null)
+      }
     } finally {
-      setPassword('')
+      if (!again) {
+        setPassword('')
+        setBackupPassword('')
+      }
       setPending(false)
     }
+  }
+
+  async function onSubmit(event: FormEvent) {
+    event.preventDefault()
+    await replace(false)
   }
 
   return (
@@ -92,6 +121,11 @@ export function ReplaceVaultPanel() {
               required
             />
           </Field>
+          {askBackupPassword ? (
+            <KeysCatalog>
+              <BackupPasswordField value={backupPassword} onChange={setBackupPassword} />
+            </KeysCatalog>
+          ) : null}
           <Field label={`${t('security.replaceName')}: ${vaultName}`}>
             <input
               data-testid="replace-name"
@@ -103,13 +137,70 @@ export function ReplaceVaultPanel() {
               required
             />
           </Field>
-          <div>
-            <Button type="submit" variant="danger" data-testid="confirm-import" disabled={pending}>
-              {pending ? t('security.replaceWorking') : t('security.replaceSubmit')}
-            </Button>
-          </div>
+          {older ? (
+            <KeysCatalog>
+              <OlderBackup older={older} pending={pending} onRestore={() => void replace(true)} onCancel={() => setOlder(null)} />
+            </KeysCatalog>
+          ) : (
+            <div>
+              <Button type="submit" variant="danger" data-testid="confirm-import" disabled={pending}>
+                {pending ? t('security.replaceWorking') : t('security.replaceSubmit')}
+              </Button>
+            </div>
+          )}
         </form>
       ) : null}
+    </div>
+  )
+}
+
+function BackupPasswordField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const { t } = useI18n()
+  return (
+    <Field label={t('keys.restore.backupPassword')}>
+      <input
+        data-testid="replace-backup-password"
+        type="password"
+        autoComplete="current-password"
+        className={controlClass}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        required
+      />
+    </Field>
+  )
+}
+
+/** An older backup than this browser has seen: who is taken out again, and the admin's choice to restore it anyway. */
+function OlderBackup({ older, pending, onRestore, onCancel }: { older: OlderBackupError['older']; pending: boolean; onRestore: () => void; onCancel: () => void }) {
+  const { t } = useI18n()
+  return (
+    <div data-testid="replace-older" className="grid gap-2 rounded-2xl border border-clay/50 bg-brass-soft px-3 py-3 text-sm">
+      {older.removals === null ? (
+        <p data-testid="replace-older-unknown">{t('keys.restore.unknown')}</p>
+      ) : older.removals.length === 0 ? (
+        <p>{t('keys.restore.noRemovals')}</p>
+      ) : (
+        <>
+          <p>{t('keys.restore.removals')}</p>
+          <ul data-testid="replace-older-removals" className="list-disc pl-5">
+            {older.removals.map((removal) => (
+              <li key={removal.id} className="break-all">
+                {removal.email}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      <p className="text-xs text-muted">{t('keys.restore.audit')}</p>
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" variant="danger" data-testid="replace-older-confirm" disabled={pending} onClick={onRestore}>
+          {t('keys.restore.confirm')}
+        </Button>
+        <Button type="button" variant="quiet" disabled={pending} onClick={onCancel}>
+          {t('common.cancel')}
+        </Button>
+      </div>
     </div>
   )
 }

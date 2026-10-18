@@ -809,6 +809,8 @@ export const en = {
     KDF_MEMORY: 'There was not enough memory to check the password. Close other tabs and try again.',
     SAVE_BUSY: 'The list of people kept changing while saving. Try again in a moment.',
     ALREADY_UPGRADED: 'This vault already uses per-person keys.',
+    BACKUP_KEYS_PASSWORD: 'Your email and password do not open this backup. A backup with per-person keys replaces the vault only once you can sign in to it: if your password was different then, enter that one too.',
+    BACKUP_OLDER: 'This backup is older than the vault this browser has seen. People removed since then may be back in it.',
   },
   securityAudit: {
     INVITE_CREATED: 'Invite code created',

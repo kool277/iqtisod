@@ -804,6 +804,8 @@ export const uzLatn: CoreMessages = {
     KDF_MEMORY: 'Parolni tekshirish uchun xotira yetmadi. Boshqa varaqlarni yopib, qayta urinib koʻring.',
     SAVE_BUSY: 'Saqlash vaqtida odamlar roʻyxati oʻzgarib turdi. Birozdan soʻng qayta urinib koʻring.',
     ALREADY_UPGRADED: 'Bu seyf allaqachon shaxsiy kalitlardan foydalanadi.',
+    BACKUP_KEYS_PASSWORD: 'Email va parolingiz bu zaxira nusxani ochmaydi. Shaxsiy kalitli nusxa seyfni faqat siz unga kira olsangiz almashtiradi: agar oʻshanda parolingiz boshqa boʻlgan boʻlsa, uni ham kiriting.',
+    BACKUP_OLDER: 'Bu zaxira nusxa bu brauzer koʻrgan seyfdan eskiroq. Shundan beri olib tashlangan odamlar unda yana boʻlishi mumkin.',
   },
   securityAudit: {
     INVITE_CREATED: 'Taklif kodi yaratildi',

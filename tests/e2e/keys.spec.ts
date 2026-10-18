@@ -176,6 +176,56 @@ test('suspending a member makes a new household key for everyone who stays, and 
   expect(await violations()).toEqual([])
 })
 
+test('restoring a backup from before a removal takes that person out again', async ({ page }) => {
+  test.setTimeout(240_000)
+  const violations = await watchViolations(page)
+  await createVault(page)
+  const code = await issueInvite(page, MEMBER.email)
+  await lock(page)
+  await page.getByTestId('join-link').click()
+  await page.getByTestId('register-email').fill(MEMBER.email)
+  await page.getByTestId('register-code').fill(code)
+  await page.getByTestId('register-password').fill(MEMBER.password)
+  await page.getByTestId('register-confirm').fill(MEMBER.password)
+  await page.getByTestId('register-submit').click()
+  await expect(page.getByTestId('kpi-net')).toBeVisible({ timeout: 60_000 })
+  await lock(page)
+  await signIn(page, FOUNDER.email, FOUNDER.password)
+  await expect(page.getByTestId('kpi-net')).toBeVisible({ timeout: 60_000 })
+  await expect(page.getByTestId('save-state')).toHaveText('Saved', { timeout: 60_000 })
+  await page.getByTestId('nav-backup').click()
+  const download = page.waitForEvent('download')
+  await page.getByTestId('export-backup').click()
+  const file = (await (await download).path())!
+
+  await page.getByTestId('nav-users').click()
+  await page.getByRole('link', { name: `Open: ${MEMBER.email}` }).click()
+  await page.getByTestId('user-action-suspend').click()
+  await page.getByTestId('user-suspend-dialog-confirm').click()
+  await expect(page.getByTestId('user-detail')).toHaveAttribute('data-status', 'SUSPENDED')
+  await expect(page.getByTestId('save-state')).toHaveText('Saved', { timeout: 60_000 })
+
+  // The backup from before the suspension is older than this browser has seen.
+  await page.getByTestId('nav-backup').click()
+  await page.getByTestId('import-file').setInputFiles(file)
+  await page.getByTestId('replace-password').fill(FOUNDER.password)
+  await page.getByTestId('replace-name').fill('Keys Home')
+  await page.getByTestId('confirm-import').click()
+  await expect(page.getByTestId('replace-older')).toBeVisible({ timeout: 60_000 })
+  await expect(page.getByTestId('replace-older-removals')).toHaveText(MEMBER.email)
+  await page.getByTestId('replace-older-confirm').click()
+  await expect(page.getByTestId('login-email')).toBeVisible({ timeout: 60_000 })
+
+  await signIn(page, MEMBER.email, MEMBER.password)
+  await expect(page.getByText('Email or password is incorrect.')).toBeVisible({ timeout: 60_000 })
+  // The restored copy is this browser's vault now: the founder signs in without the older-copy warning, back on the
+  // page they left.
+  await signIn(page, FOUNDER.email, FOUNDER.password)
+  await expect(page.getByTestId('lock-vault')).toBeVisible({ timeout: 60_000 })
+  await expect(page.getByTestId('rollback-open')).toHaveCount(0)
+  expect(await violations()).toEqual([])
+})
+
 test('an admin upgrades a 1.x vault: they become the founder and everyone else needs a new invite', async ({ page }) => {
   test.setTimeout(240_000)
   const violations = await watchViolations(page)

@@ -22,6 +22,14 @@ export const keysUzLatn: KeysMessages = {
     download: 'Bu seyfni fayl sifatida yuklab olish',
     downloaded: 'Yuklab olindi. Administrator koʻrib chiqquncha faylni saqlab qoʻying.',
   },
+  restore: {
+    backupPassword: 'Bu zaxira nusxadagi parolingiz',
+    removals: 'Shundan beri olib tashlangan odamlar. Ular yana toʻxtatiladi, qolganlarning hammasi esa yangi seyf kalitini oladi:',
+    noRemovals: 'Shundan beri hech kim olib tashlanmagan.',
+    unknown: 'Bu brauzer shundan beri kim olib tashlanganini aniqlay olmaydi, shuning uchun ular bu nusxani ocha olishi mumkin. Tiklangandan keyin ularni yana toʻxtating yoki oʻchiring.',
+    confirm: 'Bu eski nusxani tiklash',
+    audit: 'Tiklash audit jurnaliga yoziladi.',
+  },
   rollback: {
     open: 'Bu eski nusxani baribir ochish',
     confirm: 'Eski nusxani ochasizmi? Shundan beri olib tashlangan odamlar unga kira olishi mumkin, keyin kiritilgan oʻzgarishlar esa unda yoʻq. Ochilgani audit jurnaliga yoziladi.',

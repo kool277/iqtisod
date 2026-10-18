@@ -3,7 +3,7 @@ import { auditHead, type AuditHead } from '../db/audit-chain'
 import { readVault, readVaultRaw, stampOf, stripArchivedGrantsOnce, writeVault, type LoadedVault, type VaultRecord } from '../db/storage'
 import { KEYS_RECORD_VERSION, RECORD_VERSION, SCHEMA_VERSION } from '../db/versions'
 import type { OpenVault, SessionUser } from '../domain/types'
-import { AppError, AuthError, ConflictError, ForbiddenError, KeysBlockedError, ValidationError, VaultInUseError } from '../domain/errors'
+import { AppError, AuthError, ConflictError, ForbiddenError, KeysBlockedError, OlderBackupError, ValidationError, VaultInUseError } from '../domain/errors'
 import { keysEnabled } from '../lib/flags'
 import { commitSealed, confirmKeysSession, pinnedFounder, rotationOf } from '../services/v2/session'
 import { observeClock } from '../lib/device-clock'
@@ -29,7 +29,14 @@ type Status = 'checking' | 'setup' | 'locked' | 'trust' | 'challenge' | 'ready' 
 type SaveState = 'saved' | 'saving' | 'dirty' | 'error' | 'conflict'
 export type VaultLockReason = 'manual' | 'idle'
 
-export type ReplaceInput = { password: string; confirmName: string }
+export type ReplaceInput = {
+  password: string
+  confirmName: string
+  /** For a backup with per-person keys: the person's password in it, when it was not the one they use now. */
+  backupPassword?: string
+  /** Restore a backup older than this browser has seen, taking out again the people removed since (design 4.10). */
+  acceptOlder?: boolean
+}
 
 /** What the screens show about an open per-person-keys vault. */
 export type KeysInfo = {
@@ -650,24 +657,48 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       if (dirtyRef.current) enqueuePersist()
       await chainRef.current
       if (conflictRef.current) throw new ConflictError()
-      // A backup with per-person keys must come from the household this browser knows, if it knows one by that id.
+      let replacement: VaultRecord = backup.record
+      let restored: Awaited<ReturnType<typeof import('../services/v2/restore').checkKeysBackup>>['vault'] | null = null
+      let restore: typeof import('../services/v2/restore') | null = null
       if (backup.record.version === KEYS_RECORD_VERSION) {
+        // It must come from the household this browser knows, if it knows one by that id: there is no override, since
+        // a vault id is random and the same id with another founder is a forgery or damage.
         const pinned = pinnedFounder(backup.record.keys.vaultId)
         if (pinned !== null && pinned !== backup.record.keys.founder.sigPub) throw new KeysBlockedError('KEYS_FOUNDER_MISMATCH')
+        // Every check of a sign-in, as the person restoring it (design 4.9).
+        restore = await import('../services/v2/restore')
+        const check = await restore.checkKeysBackup(backup.record, vault.user.email, input.backupPassword || input.password)
+        restored = check.vault
+        try {
+          if (check.older) {
+            if (!input.acceptOlder) throw new OlderBackupError(check.older)
+            // An older copy goes in only as its admin chose: with the people removed since taken out again, sealed anew.
+            restore.takeOutAgain(check.vault, check.older.removals ?? [])
+            replacement = await sealVault(check.vault)
+          }
+        } catch (error) {
+          check.vault.db.close()
+          throw error
+        }
       }
-      await inChain(async () => {
-        writeAudit(vault.db, vault.user.id, 'VAULT_REPLACED_BY_IMPORT', 'vault', 'primary', {
-          backupAppVersion: backup.appVersion,
-          backupSchemaVersion: backup.record.schemaVersion,
-          backupExportedAt: backup.exportedAt,
-          people: backup.record.version === KEYS_RECORD_VERSION ? Object.keys(backup.record.keys.identities).length : backup.record.wraps.length,
+      try {
+        await inChain(async () => {
+          writeAudit(vault.db, vault.user.id, 'VAULT_REPLACED_BY_IMPORT', 'vault', 'primary', {
+            backupAppVersion: backup.appVersion,
+            backupSchemaVersion: backup.record.schemaVersion,
+            backupExportedAt: backup.exportedAt,
+            people: replacement.version === KEYS_RECORD_VERSION ? Object.keys(replacement.keys.identities).length : replacement.wraps.length,
+          })
+          const sealed = await sealVault(vault)
+          await writeVault(replacement, {
+            expectedStamp: stampRef.current,
+            archive: { reason: 'import', record: sealed },
+          })
         })
-        const sealed = await sealVault(vault)
-        await writeVault(backup.record, {
-          expectedStamp: stampRef.current,
-          archive: { reason: 'import', record: sealed },
-        })
-      })
+        if (restore && restored && replacement !== backup.record && replacement.version === KEYS_RECORD_VERSION) restore.adoptRestored(restored, replacement)
+      } finally {
+        restored?.db.close()
+      }
       closeAfterReplace()
     },
     [enqueuePersist, closeAfterReplace, inChain],

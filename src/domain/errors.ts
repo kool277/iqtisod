@@ -87,6 +87,25 @@ export class KeysBlockedError extends AppError {
   }
 }
 
+/**
+ * A backup with per-person keys whose signed roster is older than the newest this browser has seen (design 4.10). It
+ * replaces the vault only once an admin chooses so; the people removed since can be taken out again.
+ */
+export class OlderBackupError extends AppError {
+  constructor(
+    readonly older: {
+      /** The newest roster version this browser has seen, and the backup's. */
+      seen: number
+      version: number
+      /** People removed since, who would be taken out again; null when this browser cannot tell. */
+      removals: { id: string; email: string }[] | null
+    },
+  ) {
+    super('BACKUP_OLDER')
+    this.name = 'OlderBackupError'
+  }
+}
+
 export type SafeErrorCode =
   | 'SAFES_LOCKED'
   | 'SAFES_NOT_SET_UP'
