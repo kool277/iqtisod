@@ -1175,13 +1175,15 @@ export async function preparePasswordRewrap(
 ): Promise<((db: SqlDatabase, changedAt: string) => void) | null> {
   const userId = vault.user.id
   const row = readUserKeys(vault.db, userId)
-  if (!row || userState(vault.db, userId).mustChange) return null
+  if (!row) return null
   if (isIdentityKdf(row.kdf)) {
-    // The identity is re-sealed under the new password with the same seed, so the wrap stays; only its date follows.
-    // A stale one (a new invite replaced the identity) keeps its date, so the recovery code is still asked for.
+    // The identity is re-sealed under the new password with the same seed, so the wrap stays; only its date follows,
+    // also when an admin required the change. A stale one (a new invite replaced the identity) keeps its date, so
+    // the recovery code is still asked for.
     if (getSafeStatus(vault).stale) return null
     return (db, changedAt) => db.exec('UPDATE user_keys SET rewrapped_at = ? WHERE user_id = ?', [changedAt, userId])
   }
+  if (userState(vault.db, userId).mustChange) return null
   let extractable: CryptoKey
   try {
     const kek = await derivePersonalKek(current, row.kdfSalt, row.kdf)

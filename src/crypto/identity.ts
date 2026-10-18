@@ -129,11 +129,13 @@ export async function sealIdentity(
   const iv = randomBytes(IV_BYTES)
   const kek = await passwordKek(input.password, salt, kdf)
   const plain = pack(secret)
+  // Web Crypto copies what it encrypts; this copy is wiped with the packed one.
+  const buffer = copyToBuffer(plain)
   try {
     const sealed = await crypto.subtle.encrypt(
       { name: 'AES-GCM', iv: copyToBuffer(iv), additionalData: copyToBuffer(identityAad(input.vaultId, input.memberId, keys.encPub, keys.sigPub)) },
       kek,
-      copyToBuffer(plain),
+      buffer,
     )
     return {
       v: 2,
@@ -149,6 +151,7 @@ export async function sealIdentity(
     }
   } finally {
     plain.fill(0)
+    new Uint8Array(buffer).fill(0)
   }
 }
 

@@ -8,6 +8,7 @@ import type { OpenVault } from '../../src/domain/types'
 import { base32Decode, importTotpKey, totpAt } from '../../src/lib/totp'
 import { changeOwnPassword } from '../../src/services/account.service'
 import { createVault, sealVault, unlockVault } from '../../src/services/auth.service'
+import { requirePasswordChange } from '../../src/services/user.service'
 import { createInvite, issueReset, redeemGrant } from '../../src/services/grant.service'
 import { listGroups } from '../../src/services/group.service'
 import { getSafeStatus, initializeSafes, unlockSafes } from '../../src/services/safe.service'
@@ -103,6 +104,25 @@ describe('safes and the sign-in check with per-person keys', () => {
     expect(getSafeStatus(vault).stale).toBe(false)
     await unlockSafes(vault, { kind: 'password', password: NEXT })
     await expect(unlockSafes(vault, { kind: 'password', password: FOUNDER.password })).rejects.toBeInstanceOf(AuthError)
+  })
+
+  it('keeps safes open after a password change an admin required, since the identity keeps its seed', async () => {
+    let { vault, at } = await founded()
+    const [group] = listGroups(vault)
+    const invite = await createInvite(vault, { email: MEMBER.email, roleName: 'Viewer', groupId: group.id, validity: '24h' })
+    at = await save(vault, at)
+    const member = track(await redeemGrant(await stored(), { kind: 'INVITE', email: MEMBER.email, code: invite.code, password: MEMBER.password }))
+    await initializeSafes(member, MEMBER.password, { recovery: false, defaultSafeName: 'Main' })
+    at = await save(member, at)
+    const admin = track(await unlockVault(await stored(), FOUNDER.email, FOUNDER.password))
+    requirePasswordChange(admin, invite.id)
+    at = await save(admin, at)
+    const forced = track(await unlockVault(await stored(), MEMBER.email, MEMBER.password))
+    expect(forced.user.mustChangePassword).toBe(true)
+    await changeOwnPassword(forced, MEMBER.password, 'member-personal-password-2')
+    // Not stale: without a recovery code, a stale wrap would look lost for good.
+    expect(getSafeStatus(forced)).toMatchObject({ stale: false, hasRecovery: false })
+    await unlockSafes(forced, { kind: 'password', password: 'member-personal-password-2' })
   })
 
   it('opens safes only with the recovery code once a new invite replaced the identity', async () => {

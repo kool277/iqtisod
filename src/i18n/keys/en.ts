@@ -23,7 +23,9 @@ export const keysEn = {
   },
   restore: {
     backupPassword: 'Your password in this backup',
-    removals: 'People removed since then. They are suspended again, and everyone else gets a new household key:',
+    removals: 'People removed since then, or given new keys since. They are suspended again in this copy, and everyone else gets a new household key:',
+    invites: 'Invite codes revoked since then, which are revoked again in this copy:',
+    legacy: 'This backup is from before per-person keys: every password in it works again, including those of people removed since then. Give everyone who should not have access a new start once it is restored.',
     noRemovals: 'Nobody was removed since then.',
     unknown: 'This browser cannot tell who was removed since then, so they may be able to open this copy. Suspend or delete them again once it is restored.',
     confirm: 'Restore this older copy',

@@ -5,6 +5,7 @@ import type { SqlDatabase } from '../../db/sqlite'
 import { KeysBlockedError } from '../../domain/errors'
 import { readBindings, readPeople, readRosterDocs } from './roster-store'
 import { pinnedFounder, rosterSeen } from './session'
+import { chainHashes, keptTail, tailPosition } from './tail'
 
 export type VerifiedVault = {
   latest: RosterDoc
@@ -71,9 +72,11 @@ export async function verifyKeysVault(record: KeysRecord, db: SqlDatabase, opene
   // 5. One epoch everywhere; the opener's wrap was already unwrapped for the header's epoch.
   if (keys.epoch !== chain.latest.epoch) throw new KeysBlockedError('KEYS_EPOCH_MISMATCH')
 
-  // The rollback check comes last so that an admin can be offered to open an older copy only of a vault that passed the rest.
+  // The rollback check comes last so that an admin can be offered to open an older copy only of a vault that passed the
+  // rest. A copy is older when its roster is behind what this browser saw: an older version, or a fork of it, however
+  // high its own version numbers go (design 3.8 step 3, 4.10).
   const seen = rosterSeen(keys.vaultId)
-  const rolledBack = chain.latest.version < seen
+  const rolledBack = tailPosition(chain.latest.version, chainHashes(db), await keptTail(keys.vaultId), seen).behind
   if (rolledBack) {
     const admin = !opener.invite && members.get(opener.memberId)?.role === 'Admin'
     if (!options.acceptRollback || !admin) throw new KeysBlockedError('KEYS_ROSTER_ROLLBACK', { seen, current: chain.latest.version })

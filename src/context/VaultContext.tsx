@@ -658,47 +658,48 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       await chainRef.current
       if (conflictRef.current) throw new ConflictError()
       let replacement: VaultRecord = backup.record
-      let restored: Awaited<ReturnType<typeof import('../services/v2/restore').checkKeysBackup>>['vault'] | null = null
-      let restore: typeof import('../services/v2/restore') | null = null
+      let adopt: (() => void) | null = null
       if (backup.record.version === KEYS_RECORD_VERSION) {
         // It must come from the household this browser knows, if it knows one by that id: there is no override, since
         // a vault id is random and the same id with another founder is a forgery or damage.
         const pinned = pinnedFounder(backup.record.keys.vaultId)
         if (pinned !== null && pinned !== backup.record.keys.founder.sigPub) throw new KeysBlockedError('KEYS_FOUNDER_MISMATCH')
         // Every check of a sign-in, as the person restoring it (design 4.9).
-        restore = await import('../services/v2/restore')
+        const restore = await import('../services/v2/restore')
         const check = await restore.checkKeysBackup(backup.record, vault.user.email, input.backupPassword || input.password)
-        restored = check.vault
         try {
           if (check.older) {
             if (!input.acceptOlder) throw new OlderBackupError(check.older)
-            // An older copy goes in only as its admin chose: with the people removed since taken out again, sealed anew.
+            // An older copy goes in only as its admin chose: with everyone whose access ended since taken out again,
+            // sealed anew.
             restore.takeOutAgain(check.vault, check.older.removals ?? [])
-            replacement = await sealVault(check.vault)
+            const sealed = (await sealVault(check.vault)) as Extract<VaultRecord, { version: typeof KEYS_RECORD_VERSION }>
+            adopt = restore.adoptionOf(check.vault, sealed)
+            replacement = sealed
           }
-        } catch (error) {
+        } finally {
+          // Closed before the open vault is sealed for its archive, so two decrypted vaults are not held at once longer
+          // than the checks need.
           check.vault.db.close()
-          throw error
         }
+      } else if (vault.keys && !input.acceptOlder) {
+        // A 1.x backup over a vault with per-person keys brings back every password it holds, removed people's too.
+        throw new OlderBackupError({ seen: vault.keys.roster.version, version: 0, removals: null, legacy: true })
       }
-      try {
-        await inChain(async () => {
-          writeAudit(vault.db, vault.user.id, 'VAULT_REPLACED_BY_IMPORT', 'vault', 'primary', {
-            backupAppVersion: backup.appVersion,
-            backupSchemaVersion: backup.record.schemaVersion,
-            backupExportedAt: backup.exportedAt,
-            people: replacement.version === KEYS_RECORD_VERSION ? Object.keys(replacement.keys.identities).length : replacement.wraps.length,
-          })
-          const sealed = await sealVault(vault)
-          await writeVault(replacement, {
-            expectedStamp: stampRef.current,
-            archive: { reason: 'import', record: sealed },
-          })
+      await inChain(async () => {
+        writeAudit(vault.db, vault.user.id, 'VAULT_REPLACED_BY_IMPORT', 'vault', 'primary', {
+          backupAppVersion: backup.appVersion,
+          backupSchemaVersion: backup.record.schemaVersion,
+          backupExportedAt: backup.exportedAt,
+          people: replacement.version === KEYS_RECORD_VERSION ? Object.keys(replacement.keys.identities).length : replacement.wraps.length,
         })
-        if (restore && restored && replacement !== backup.record && replacement.version === KEYS_RECORD_VERSION) restore.adoptRestored(restored, replacement)
-      } finally {
-        restored?.db.close()
-      }
+        const sealed = await sealVault(vault)
+        await writeVault(replacement, {
+          expectedStamp: stampRef.current,
+          archive: { reason: 'import', record: sealed },
+        })
+      })
+      adopt?.()
       closeAfterReplace()
     },
     [enqueuePersist, closeAfterReplace, inChain],

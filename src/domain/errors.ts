@@ -88,8 +88,9 @@ export class KeysBlockedError extends AppError {
 }
 
 /**
- * A backup with per-person keys whose signed roster is older than the newest this browser has seen (design 4.10). It
- * replaces the vault only once an admin chooses so; the people removed since can be taken out again.
+ * A backup behind what this browser has seen (design 4.10): a roster older than, or forked from, the newest it saw, or a
+ * 1.x backup over a vault with per-person keys. It replaces the vault only once an admin chooses so; with per-person
+ * keys, everyone whose access ended since can be taken out again.
  */
 export class OlderBackupError extends AppError {
   constructor(
@@ -97,8 +98,10 @@ export class OlderBackupError extends AppError {
       /** The newest roster version this browser has seen, and the backup's. */
       seen: number
       version: number
-      /** People removed since, who would be taken out again; null when this browser cannot tell. */
-      removals: { id: string; email: string }[] | null
+      /** Everyone whose access ended since, who would be taken out again; null when this browser cannot tell. */
+      removals: { id: string; email: string; invite: boolean }[] | null
+      /** A 1.x backup over a vault with per-person keys: every password it holds opens it again. */
+      legacy?: boolean
     },
   ) {
     super('BACKUP_OLDER')

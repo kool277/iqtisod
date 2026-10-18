@@ -38,8 +38,18 @@ export async function sha256HexOf(data: Uint8Array): Promise<string> {
   return bytesToHex(await sha256Bytes(data))
 }
 
+/** Imports secret bytes as an HKDF key from a copy that is wiped right after: Web Crypto keeps its own. */
+async function hkdfMaterial(ikm: Uint8Array, usages: KeyUsage[]): Promise<CryptoKey> {
+  const raw = copyToBuffer(ikm)
+  try {
+    return await crypto.subtle.importKey('raw', raw, 'HKDF', false, usages)
+  } finally {
+    new Uint8Array(raw).fill(0)
+  }
+}
+
 export async function hkdfAesKey(ikm: Uint8Array, salt: Uint8Array, info: string, usages: KeyUsage[]): Promise<CryptoKey> {
-  const material = await crypto.subtle.importKey('raw', copyToBuffer(ikm), 'HKDF', false, ['deriveKey'])
+  const material = await hkdfMaterial(ikm, ['deriveKey'])
   return crypto.subtle.deriveKey(
     { name: 'HKDF', hash: 'SHA-256', salt: copyToBuffer(salt), info: new TextEncoder().encode(info) },
     material,
@@ -50,7 +60,7 @@ export async function hkdfAesKey(ikm: Uint8Array, salt: Uint8Array, info: string
 }
 
 export async function hkdfRaw(ikm: Uint8Array, info: string): Promise<Uint8Array> {
-  const material = await crypto.subtle.importKey('raw', copyToBuffer(ikm), 'HKDF', false, ['deriveBits'])
+  const material = await hkdfMaterial(ikm, ['deriveBits'])
   return new Uint8Array(await crypto.subtle.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(0), info: new TextEncoder().encode(info) }, material, 256))
 }
 

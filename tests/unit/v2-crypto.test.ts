@@ -6,7 +6,7 @@ import { canonicalize, signedBytes } from '../../src/crypto/canonical'
 import { generateDek } from '../../src/crypto/crypto.service'
 import { unwrapDekWith, wrapDekTo } from '../../src/crypto/ecies'
 import { bytesToHex } from '../../src/crypto/encoding'
-import { generateIdentitySecret, importIdentity, sealIdentity, unsealIdentity } from '../../src/crypto/identity'
+import { generateIdentitySecret, importIdentity, sealIdentity, seedKey, unsealIdentity, wipeSecret } from '../../src/crypto/identity'
 import { deriveInviteKeys, inviteAad, mintInviteKeys, signsFor, unwrapInviteDek, wrapDekForInvite } from '../../src/crypto/invite-crypto'
 import { ARGON2_DEFAULT, isArgon2Params, type Argon2Params } from '../../src/crypto/kdf'
 import { LABELS, fingerprintOf, formatFingerprint, signPayload, verifyPayload } from '../../src/crypto/sign'
@@ -157,6 +157,32 @@ describe('identity blobs', () => {
     const b = await sealIdentity(await generateIdentitySecret(), { vaultId: 'v', memberId: 'b', email: 'b@x.io', password: 'same' }, FAST)
     await expect(unsealIdentity({ ...a, memberId: 'b' }, 'v', 'same')).rejects.toThrow()
     await expect(unsealIdentity({ ...b, sealed: a.sealed, iv: a.iv, salt: a.salt }, 'v', 'same')).rejects.toThrow()
+  })
+})
+
+describe('wiping secrets', () => {
+  const contains = (haystack: Uint8Array, needle: Uint8Array) => Buffer.from(haystack).includes(Buffer.from(needle))
+
+  it('leaves no copy of the identity seed in what is handed to Web Crypto, once the caller wiped its own', async () => {
+    const secret = await generateIdentitySecret()
+    const seed = secret.seed.slice()
+    const imported: ArrayBuffer[] = []
+    const encrypted: ArrayBuffer[] = []
+    const importKey = crypto.subtle.importKey.bind(crypto.subtle)
+    const encrypt = crypto.subtle.encrypt.bind(crypto.subtle)
+    vi.spyOn(crypto.subtle, 'importKey').mockImplementation(((format: KeyFormat, data: BufferSource, ...rest: unknown[]) => {
+      if (format === 'raw' && data instanceof ArrayBuffer) imported.push(data)
+      return (importKey as (...args: unknown[]) => Promise<CryptoKey>)(format, data, ...rest)
+    }) as typeof crypto.subtle.importKey)
+    vi.spyOn(crypto.subtle, 'encrypt').mockImplementation(((algorithm: AlgorithmIdentifier, key: CryptoKey, data: BufferSource) => {
+      if (data instanceof ArrayBuffer) encrypted.push(data)
+      return encrypt(algorithm, key, data)
+    }) as typeof crypto.subtle.encrypt)
+    await seedKey(secret.seed, 'safe')
+    await sealIdentity(secret, { vaultId: 'v_wipe', memberId: 'm_wipe', email: 'wipe@keys.test', password: 'a-long-enough-password-1' }, FAST)
+    wipeSecret(secret)
+    vi.restoreAllMocks()
+    expect([...imported, ...encrypted].filter((buffer) => contains(new Uint8Array(buffer), seed))).toEqual([])
   })
 })
 

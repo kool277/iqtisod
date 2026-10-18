@@ -172,7 +172,11 @@ describe('a per-person-keys vault', () => {
     const accepted = track(await unlockKeysVault(older, FOUNDER.email, FOUNDER.password, { acceptRollback: true }))
     expect(accepted.needsSave).toBe(true)
     expect(accepted.db.queryValue("SELECT COUNT(*) FROM audit_logs WHERE action = 'ROSTER_ROLLBACK_ACCEPTED'")).toBe(1)
+    // Lowering only the mark is not enough: this browser also kept the newer version, which the older copy lacks.
     resetRosterSeen(newer.keys.vaultId, 1)
+    await expect(unlockVault(older, FOUNDER.email, FOUNDER.password)).rejects.toMatchObject({ code: 'KEYS_ROSTER_ROLLBACK' })
+    // Once the admin's sign-in to the older copy completes, this browser expects it, versions and mark alike.
+    confirmKeysSession(accepted)
     track(await unlockVault(older, FOUNDER.email, FOUNDER.password))
   })
 

@@ -90,7 +90,11 @@ function sameHex(a: string, b: string): boolean {
  */
 async function mintGrant(vault: OpenVault, kind: GrantRow['kind'], email: string, expiresAt: string): Promise<{ code: string; wrap: GrantWrap; verifier: string }> {
   if (vault.keys) {
+    const keys = vault.keys
+    const epoch = keys.epoch
     const minted = await (await import('./v2/invite')).mintKeysGrant(vault as OpenVault & { keys: NonNullable<OpenVault['keys']> }, kind, email, expiresAt)
+    // A removal started a new epoch while Argon2id ran: the code wraps the key from before it, so it is not issued.
+    if (keys.epoch !== epoch) throw new ValidationError('SAVE_BUSY')
     return { code: minted.code, wrap: minted.wrap, verifier: minted.inviteSigPub }
   }
   const dek = vault.dek
@@ -230,7 +234,13 @@ export async function issueReset(
   now = new Date(),
 ): Promise<IssuedGrant> {
   const reset = await prepareReset(vault, userId, input, now)
-  vault.db.withTransaction(() => commitReset(vault, reset))
+  vault.db.withTransaction(() => {
+    // Minting waited on Argon2id: the person may have been suspended or removed meanwhile.
+    if (vault.db.queryValue('SELECT 1 FROM users WHERE id = ?', [userId]) == null) throw new ValidationError('REQUIRED')
+    const status = userStatus(vault.db, userId)
+    if (status !== 'ACTIVE') throw new ValidationError(status === 'FORMER' ? 'USER_FORMER' : 'USER_SUSPENDED')
+    commitReset(vault, reset)
+  })
   return finishReset(vault, reset)
 }
 

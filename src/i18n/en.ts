@@ -803,7 +803,7 @@ export const en = {
     KEYS_FOUNDER_MISMATCH: 'This vault’s founder key is not the one this browser saw before, so it may be a different vault. Do not sign in: compare the key with your admin.',
     KEYS_HEADER_INVALID: 'This vault’s signed details do not check out. It may have been changed outside Jaybi. Ask your admin; a backup made before the change still opens.',
     KEYS_ROSTER_BROKEN: 'The signed list of people in this vault does not check out, or does not match the people in it. Someone may have changed roles or members outside Jaybi. Ask your admin; a backup made before the change still opens.',
-    KEYS_ROSTER_ROLLBACK: 'This is an older copy of the vault than this browser has seen: people removed since then may be back in it. Only an admin can open it anyway.',
+    KEYS_ROSTER_ROLLBACK: 'This copy of the vault is older than the one this browser has seen, or differs from it: people removed since then may be back in it. Only an admin can open it anyway.',
     KEYS_REMOVED: 'You are no longer a member of this vault. Ask an admin for a new invite code.',
     KEYS_EPOCH_MISMATCH: 'The vault key recorded for you does not match this vault. Ask your admin; a recent backup may open.',
     KEYS_INVITE_ONLY: 'In this vault people join with an invite code: a temporary password would let the admin know their keys.',
@@ -812,7 +812,7 @@ export const en = {
     SAVE_BUSY: 'The list of people kept changing while saving. Try again in a moment.',
     ALREADY_UPGRADED: 'This vault already uses per-person keys.',
     BACKUP_KEYS_PASSWORD: 'Your email and password do not open this backup. A backup with per-person keys replaces the vault only once you can sign in to it: if your password was different then, enter that one too.',
-    BACKUP_OLDER: 'This backup is older than the vault this browser has seen. People removed since then may be back in it.',
+    BACKUP_OLDER: 'This backup is older than the vault this browser has seen, or differs from it. People removed since then may be back in it.',
   },
   securityAudit: {
     INVITE_CREATED: 'Invite code created',

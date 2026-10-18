@@ -84,7 +84,8 @@ type RosterPlan = {
   bindings: Map<string, KeyBinding>
 }
 
-function rosterCandidates(db: SqlDatabase, keys: KeysSession): RosterCandidate[] {
+/** `wrapping` names people whose wrap of this epoch's DEK the save is about to store: they count as holding one. */
+function rosterCandidates(db: SqlDatabase, keys: KeysSession, wrapping: ReadonlySet<string> = new Set()): RosterCandidate[] {
   return readPeople(db).flatMap((person) =>
     person.role
       ? [
@@ -94,7 +95,7 @@ function rosterCandidates(db: SqlDatabase, keys: KeysSession): RosterCandidate[]
             role: person.role,
             group: person.group,
             active: person.status === 'ACTIVE',
-            sealed: keys.identities[person.id] !== undefined && keys.dekWraps[person.id] !== undefined,
+            sealed: keys.identities[person.id] !== undefined && (keys.dekWraps[person.id] !== undefined || wrapping.has(person.id)),
           },
         ]
       : [],
@@ -121,9 +122,14 @@ async function maySignRoster(vault: OpenVault & { keys: KeysSession }, latest: R
  * The members the next roster version should name, or null when nothing changed. A new epoch is always signed, even
  * when the people are the same: the roster names the epoch the header and every DEK wrap must match.
  */
-function plannedMembers(vault: OpenVault & { keys: KeysSession }, latest: RosterDoc, bindings: ReadonlyMap<string, KeyBinding>): RosterMember[] | null {
+function plannedMembers(
+  vault: OpenVault & { keys: KeysSession },
+  latest: RosterDoc,
+  bindings: ReadonlyMap<string, KeyBinding>,
+  wrapping?: ReadonlySet<string>,
+): RosterMember[] | null {
   const { db, keys } = vault
-  const members = nextRosterMembers({ latest, bindings, people: rosterCandidates(db, keys), invites: rosterInvites(db) })
+  const members = nextRosterMembers({ latest, bindings, people: rosterCandidates(db, keys, wrapping), invites: rosterInvites(db) })
   if (members || latest.epoch === keys.epoch) return members
   // Same people in a new epoch: everyone active keeps their keys, so no entry carries a proof.
   return latest.members.map((member) => {
@@ -138,14 +144,14 @@ function plannedMembers(vault: OpenVault & { keys: KeysSession }, latest: Roster
  * in redeemed invites, or if the epoch moved on. Signing is asynchronous, so the plan is applied only if the database
  * still derives the same members ({@link applyRosterPlan}).
  */
-async function planRoster(vault: OpenVault & { keys: KeysSession }, latest: RosterDoc, now: string): Promise<RosterPlan | null> {
+async function planRoster(vault: OpenVault & { keys: KeysSession }, latest: RosterDoc, now: string, wrapping: ReadonlySet<string>): Promise<RosterPlan | null> {
   const { db, keys } = vault
   const bindings = new Map<string, KeyBinding>()
   for (const binding of readBindings(db) ?? []) {
     const invited = latest.members.find((member) => member.id === binding.memberId)
     if (await bindingRedeems(binding, invited, keys.vaultId)) bindings.set(binding.memberId, binding)
   }
-  const members = plannedMembers(vault, latest, bindings)
+  const members = plannedMembers(vault, latest, bindings, wrapping)
   if (!members) return null
   const doc = await signRoster(
     { type: 'roster', suite: SUITE, vaultId: keys.vaultId, version: latest.version + 1, prev: keys.roster.hash, epoch: keys.epoch, issuedAt: now, issuedBy: keys.memberId, members },
@@ -215,21 +221,31 @@ export async function sealKeysVault(vault: OpenVault & { keys: KeysSession }, op
   keys.nextDek ??= await generateDek()
   type Snapshot = { sealing: ReturnType<typeof sealChunkedBody>; header: KeysHeader; grants: OpenVault['grants']; createdAt: string | null; schemaVersion: number; audit: ReturnType<typeof auditHead> }
   let snapshot: Snapshot | null = null
+  // Someone whose public key cannot take a wrap (not a usable X25519 key) gets none, which takes them out of the
+  // roster; it must not stop the save for everyone else.
+  const unwrappable = new Set<string>()
   for (let attempt = 0; snapshot === null; attempt += 1) {
     if (attempt === ROSTER_ATTEMPTS) throw new ValidationError('SAVE_BUSY')
     const latest = latestRosterDoc(db)
     if (!latest || latest.version !== keys.roster.version) throw new CorruptRecordError()
     const { dek } = vault
     const { epoch } = keys
-    const wraps = await Promise.all(wrapTargets(vault, latest).map((target) => wrapDekTo(dek, target.encPub, { vaultId: keys.vaultId, epoch, memberId: target.id })))
+    const targets = wrapTargets(vault, latest).filter((target) => !unwrappable.has(target.id))
+    const settled = await Promise.allSettled(targets.map((target) => wrapDekTo(dek, target.encPub, { vaultId: keys.vaultId, epoch, memberId: target.id })))
+    const wraps = settled.flatMap((outcome, index) => {
+      if (outcome.status === 'fulfilled') return [outcome.value]
+      unwrappable.add(targets[index].id)
+      return []
+    })
     const signer = await maySignRoster(vault, latest)
-    const plan = signer ? await planRoster(vault, latest, updatedAt) : null
+    // Planned with the wraps this attempt made, which are stored before the plan is checked again.
+    const plan = signer ? await planRoster(vault, latest, updatedAt, new Set(wraps.map((wrap) => wrap.memberId))) : null
     // From here to the image copy nothing awaits, so the roster, the image, the audit head and everything the header
     // names describe one state, even if the app or another save changes the session while this one encrypts.
     if (vault.dek !== dek || keys.epoch !== epoch) continue
     const wanted = new Set(wrapTargets(vault, latest).map((target) => target.id))
     for (const wrap of wraps) if (wanted.has(wrap.memberId)) keys.dekWraps[wrap.memberId] = wrap
-    if (wrapTargets(vault, latest).length > 0) continue
+    if (wrapTargets(vault, latest).some((target) => !unwrappable.has(target.id))) continue
     if (signer && !applyRosterPlan(vault, plan, latest)) continue
     // A header whose epoch no roster version names would block the vault for everyone.
     if ((signer && plan ? plan.doc.epoch : latest.epoch) !== keys.epoch) throw new CorruptRecordError()

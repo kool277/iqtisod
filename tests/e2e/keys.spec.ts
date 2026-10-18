@@ -254,6 +254,32 @@ test('an admin upgrades a 1.x vault: they become the founder and everyone else n
   expect(await violations()).toEqual([])
 })
 
+test('putting a 1.x backup back over an upgraded vault warns that every old password works again', async ({ page }) => {
+  test.setTimeout(240_000)
+  await page.goto('/')
+  await page.getByTestId('import-file').setInputFiles(V4)
+  await page.getByTestId('confirm-import').click()
+  await signIn(page, 'admin@access.test', 'Plum orchard admin v4')
+  await expect(page.getByTestId('upgrade-offer')).toBeVisible({ timeout: 60_000 })
+  await page.getByTestId('upgrade-password').fill('Plum orchard admin v4')
+  await page.getByTestId('upgrade-confirm').click()
+  await expect(page.getByTestId('fingerprint-notice')).toBeVisible({ timeout: 60_000 })
+  await page.getByTestId('fingerprint-done').click()
+  await expect(page.getByTestId('save-state')).toHaveText('Saved', { timeout: 60_000 })
+
+  await page.getByTestId('nav-backup').click()
+  await page.getByTestId('import-file').setInputFiles(V4)
+  await page.getByTestId('replace-password').fill('Plum orchard admin v4')
+  await page.getByTestId('replace-name').fill('Access House')
+  await page.getByTestId('confirm-import').click()
+  await expect(page.getByTestId('replace-older-legacy')).toBeVisible({ timeout: 60_000 })
+  await page.getByTestId('replace-older-confirm').click()
+  await expect(page.getByTestId('login-email')).toBeVisible({ timeout: 60_000 })
+  // The 1.x vault is back, old passwords and all (the Viewer lands back on the Backup page, which is not theirs).
+  await signIn(page, 'viewer@access.test', 'Viewer after reset code v4')
+  await expect(page.getByTestId('lock-vault')).toBeVisible({ timeout: 60_000 })
+})
+
 test('a browser without X25519 or Ed25519 is refused at setup, with no weaker fallback', async ({ page }) => {
   await page.addInitScript(() => {
     const subtle = window.crypto.subtle

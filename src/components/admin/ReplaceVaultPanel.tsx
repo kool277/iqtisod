@@ -174,22 +174,39 @@ function BackupPasswordField({ value, onChange }: { value: string; onChange: (va
 /** An older backup than this browser has seen: who is taken out again, and the admin's choice to restore it anyway. */
 function OlderBackup({ older, pending, onRestore, onCancel }: { older: OlderBackupError['older']; pending: boolean; onRestore: () => void; onCancel: () => void }) {
   const { t } = useI18n()
+  const members = older.removals?.filter((removal) => !removal.invite) ?? []
+  const invites = older.removals?.filter((removal) => removal.invite) ?? []
+  const list = (testId: string, items: typeof members) => (
+    <ul data-testid={testId} className="list-disc pl-5">
+      {items.map((removal) => (
+        <li key={removal.id} className="break-all">
+          {removal.email}
+        </li>
+      ))}
+    </ul>
+  )
   return (
     <div data-testid="replace-older" className="grid gap-2 rounded-2xl border border-clay/50 bg-brass-soft px-3 py-3 text-sm">
-      {older.removals === null ? (
+      {older.legacy ? (
+        <p data-testid="replace-older-legacy">{t('keys.restore.legacy')}</p>
+      ) : older.removals === null ? (
         <p data-testid="replace-older-unknown">{t('keys.restore.unknown')}</p>
-      ) : older.removals.length === 0 ? (
+      ) : members.length + invites.length === 0 ? (
         <p>{t('keys.restore.noRemovals')}</p>
       ) : (
         <>
-          <p>{t('keys.restore.removals')}</p>
-          <ul data-testid="replace-older-removals" className="list-disc pl-5">
-            {older.removals.map((removal) => (
-              <li key={removal.id} className="break-all">
-                {removal.email}
-              </li>
-            ))}
-          </ul>
+          {members.length > 0 ? (
+            <>
+              <p>{t('keys.restore.removals')}</p>
+              {list('replace-older-removals', members)}
+            </>
+          ) : null}
+          {invites.length > 0 ? (
+            <>
+              <p>{t('keys.restore.invites')}</p>
+              {list('replace-older-invites', invites)}
+            </>
+          ) : null}
         </>
       )}
       <p className="text-xs text-muted">{t('keys.restore.audit')}</p>

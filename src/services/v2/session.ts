@@ -130,7 +130,12 @@ const ROSTER_TAIL_CHARS = 1_000_000
  */
 export function noteRosterTail(vault: OpenVault, version: number): void {
   if (!vault.keys) return
-  const rows = vault.db.query('SELECT doc FROM roster_versions WHERE version <= ? ORDER BY version DESC LIMIT ?', [version, ROSTER_TAIL_VERSIONS])
+  keepRosterTail(vault.keys.vaultId, rosterTailOf(vault.db, version))
+}
+
+/** The newest roster versions up to `version`, oldest first, as {@link noteRosterTail} keeps them. */
+export function rosterTailOf(db: OpenVault['db'], version: number): string[] {
+  const rows = db.query('SELECT doc FROM roster_versions WHERE version <= ? ORDER BY version DESC LIMIT ?', [version, ROSTER_TAIL_VERSIONS])
   const docs: string[] = []
   let chars = 0
   for (const row of rows) {
@@ -139,7 +144,11 @@ export function noteRosterTail(vault: OpenVault, version: number): void {
     chars += doc.length
     docs.unshift(doc)
   }
-  writePreference(rosterTailKey(vault.keys.vaultId), JSON.stringify(docs))
+  return docs
+}
+
+export function keepRosterTail(vaultId: string, docs: readonly string[]): void {
+  writePreference(rosterTailKey(vaultId), JSON.stringify(docs))
 }
 
 /** The roster versions {@link noteRosterTail} kept, unparsed; empty when there are none or they are unreadable. */

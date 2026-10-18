@@ -798,7 +798,7 @@ export const uzLatn: CoreMessages = {
     KEYS_FOUNDER_MISMATCH: 'Bu seyf asoschisining kaliti bu brauzer avval koʻrgan kalitga mos kelmaydi, demak bu boshqa seyf boʻlishi mumkin. Kirmang: kalitni administrator bilan solishtiring.',
     KEYS_HEADER_INVALID: 'Bu seyfning imzolangan maʼlumotlari tekshiruvdan oʻtmadi. U Jaybidan tashqarida oʻzgartirilgan boʻlishi mumkin. Administratoringizga murojaat qiling; oʻzgarishdan oldin olingan zaxira nusxa hamon ochiladi.',
     KEYS_ROSTER_BROKEN: 'Bu seyfdagi odamlarning imzolangan roʻyxati tekshiruvdan oʻtmadi yoki undagi odamlarga mos kelmaydi. Kimdir rollar yoki aʼzolarni Jaybidan tashqarida oʻzgartirgan boʻlishi mumkin. Administratoringizga murojaat qiling; oʻzgarishdan oldin olingan zaxira nusxa hamon ochiladi.',
-    KEYS_ROSTER_ROLLBACK: 'Bu seyfning bu brauzer koʻrganidan eskiroq nusxasi: shundan beri olib tashlangan odamlar unda yana boʻlishi mumkin. Uni baribir faqat administrator ocha oladi.',
+    KEYS_ROSTER_ROLLBACK: 'Seyfning bu nusxasi bu brauzer koʻrganidan eskiroq yoki undan farq qiladi: shundan beri olib tashlangan odamlar unda yana boʻlishi mumkin. Uni baribir faqat administrator ocha oladi.',
     KEYS_REMOVED: 'Siz endi bu seyf aʼzosi emassiz. Administratordan yangi taklif kodini soʻrang.',
     KEYS_EPOCH_MISMATCH: 'Siz uchun yozilgan seyf kaliti bu seyfga mos kelmaydi. Administratoringizga murojaat qiling; yaqinda olingan zaxira nusxa ochilishi mumkin.',
     KEYS_INVITE_ONLY: 'Bu seyfga odamlar taklif kodi bilan qoʻshiladi: vaqtinchalik parol ularning kalitlarini administratorga maʼlum qilib qoʻyardi.',
@@ -807,7 +807,7 @@ export const uzLatn: CoreMessages = {
     SAVE_BUSY: 'Saqlash vaqtida odamlar roʻyxati oʻzgarib turdi. Birozdan soʻng qayta urinib koʻring.',
     ALREADY_UPGRADED: 'Bu seyf allaqachon shaxsiy kalitlardan foydalanadi.',
     BACKUP_KEYS_PASSWORD: 'Email va parolingiz bu zaxira nusxani ochmaydi. Shaxsiy kalitli nusxa seyfni faqat siz unga kira olsangiz almashtiradi: agar oʻshanda parolingiz boshqa boʻlgan boʻlsa, uni ham kiriting.',
-    BACKUP_OLDER: 'Bu zaxira nusxa bu brauzer koʻrgan seyfdan eskiroq. Shundan beri olib tashlangan odamlar unda yana boʻlishi mumkin.',
+    BACKUP_OLDER: 'Bu zaxira nusxa bu brauzer koʻrgan seyfdan eskiroq yoki undan farq qiladi. Shundan beri olib tashlangan odamlar unda yana boʻlishi mumkin.',
   },
   securityAudit: {
     INVITE_CREATED: 'Taklif kodi yaratildi',

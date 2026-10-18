@@ -35,13 +35,15 @@ export async function mintKeysGrant(
   email: string,
   expiresAt: string,
 ): Promise<{ code: string; wrap: GrantWrap; inviteSigPub: string }> {
+  // The key of the epoch the caller checks is still current once this returns, read before anything awaits.
+  const { dek } = vault
   await assertSuite()
   const id = crypto.randomUUID()
   const access = generateAccessCode()
   const salt = randomBytes(IDENTITY_SALT_BYTES)
   const kdf = { ...ARGON2_DEFAULT }
   const invite = await mintInviteKeys(access.canonical, salt, kdf)
-  const wrapped = await wrapDekForInvite(vault.dek, invite.kek, inviteAad(vault.keys.vaultId, id, kind, email, expiresAt))
+  const wrapped = await wrapDekForInvite(dek, invite.kek, inviteAad(vault.keys.vaultId, id, kind, email, expiresAt))
   return { code: access.display, inviteSigPub: invite.sigPub, wrap: { id, kind, email, kdf, salt, iv: wrapped.iv, wrappedDek: wrapped.cipherText, expiresAt } }
 }
 

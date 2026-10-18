@@ -1,4 +1,8 @@
 import 'fake-indexeddb/auto'
+import { cloneBytes } from '../../src/crypto/encoding'
+import { deriveInviteKeys } from '../../src/crypto/invite-crypto'
+import { signBinding } from '../../src/crypto/roster'
+import { normalizeAccessCode } from '../../src/lib/access-code'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { openChunkedBody } from '../../src/db/chunks'
 import { decodeStoredRecord, type KeysRecord, type LegacyRecord } from '../../src/db/envelope'
@@ -10,7 +14,7 @@ import { createVault, sealVault, unlockVault } from '../../src/services/auth.ser
 import { createInvite, issueReset, redeemGrant } from '../../src/services/grant.service'
 import { listGroups } from '../../src/services/group.service'
 import { createUser, deleteUser, reactivateUser, removalEffects, suspendUser, updateUser } from '../../src/services/user.service'
-import { readRosterDocs } from '../../src/services/v2/roster-store'
+import { readBindings, readRosterDocs, writeBinding } from '../../src/services/v2/roster-store'
 import { collectVaultFacts } from '../../src/health/vault'
 import { noteExport } from '../../src/services/backup.service'
 import { commitSealed, confirmKeysSession, rotationOf } from '../../src/services/v2/session'
@@ -350,6 +354,83 @@ describe('key rotation', () => {
     expect(after.keys.epoch).toBe(2)
     await expect(unlockVault(after, ALICE.email, ALICE.password)).rejects.toBeInstanceOf(AuthError)
     expect((await listArchives()).map((entry) => entry.reason)).toEqual(['rotation'])
+  })
+
+  it('does not issue a code minted while a removal started a new epoch, nor one for someone taken out meanwhile', async () => {
+    const { founder, at, ids } = await household([ALICE, BOB])
+    // Argon2id runs while Alice is suspended: a new epoch starts before the code exists.
+    const pending = issueReset(founder, ids[0], { validity: '24h', stopOldPassword: true })
+    suspendUser(founder, ids[0])
+    await expect(pending).rejects.toMatchObject({ code: 'SAVE_BUSY' })
+    await save(founder, at)
+    expect((await stored()).grants ?? []).toEqual([])
+    // Taken out without a new epoch, as someone who never held the key would be (made so here by hand): the code is
+    // refused when it is committed, since the person it is for is suspended by then.
+    const admin = await signIn(FOUNDER)
+    const later = issueReset(admin, ids[1], { validity: '24h', stopOldPassword: true })
+    admin.keys!.holders = admin.keys!.holders.filter((id) => id !== ids[1])
+    delete admin.keys!.dekWraps[ids[1]]
+    suspendUser(admin, ids[1])
+    expect(admin.keys!.epoch).toBe(2)
+    await expect(later).rejects.toMatchObject({ code: 'USER_SUSPENDED' })
+    expect(admin.grants).toEqual([])
+  })
+
+  it('gives no copy of the new key to someone whose signed key cannot take one, and still saves for everyone else', async () => {
+    const created = await createKeysVault({ ...FOUNDER, displayName: 'Bad Key Household', currency: 'USD' })
+    track(created.vault)
+    await writeVault(created.record, { expectedStamp: null })
+    commitSealed(created.vault, created.record)
+    confirmKeysSession(created.vault)
+    let at = created.record.updatedAt
+    const [group] = listGroups(created.vault)
+    const ids: Record<string, string> = {}
+    for (const person of [ALICE, CAROL]) {
+      const founder = await signIn(FOUNDER)
+      const invite = await createInvite(founder, { email: person.email, roleName: 'Viewer', groupId: group.id, validity: '24h' })
+      at = await save(founder, at)
+      const record = await stored()
+      const member = track(await redeemGrant(record, { kind: 'INVITE', email: person.email, code: invite.code, password: person.password }))
+      if (person === CAROL) {
+        // A modified client: the binding is signed as it must be, but names an all-zero X25519 key nobody can wrap to.
+        const grant = record.grants!.find((item) => item.id === invite.id)!
+        const inviteKeys = await deriveInviteKeys(normalizeAccessCode(invite.code), cloneBytes(grant.salt), grant.kdf as never)
+        const real = readBindings(member.db)!.find((binding) => binding.memberId === invite.id)!
+        writeBinding(member.db, await signBinding({ ...real, encPub: Buffer.alloc(32).toString('base64') }, inviteKeys.sigPriv, member.keys!.identity.sigPriv))
+      }
+      at = await save(member, at)
+      ids[person.email] = invite.id
+    }
+    let founder = await signIn(FOUNDER)
+    at = await save(founder, at)
+    founder = await signIn(FOUNDER)
+    suspendUser(founder, ids[ALICE.email])
+    await save(founder, at)
+    const record = await stored()
+    expect(Object.keys(record.keys.dekWraps)).toEqual([founder.user.id])
+    const latest = (await readRosterDocs(founder.db))!.at(-1)!
+    expect(latest.members.find((member) => member.id === ids[CAROL.email])?.status).toBe('removed')
+    track(await unlockVault(record, FOUNDER.email, FOUNDER.password))
+  })
+
+  it('signs only the roster version it stores on the first save after a removal', async () => {
+    const { founder, at, ids } = await household([ALICE, BOB])
+    suspendUser(founder, ids[0])
+    const signed: number[] = []
+    const real = crypto.subtle.sign.bind(crypto.subtle)
+    vi.spyOn(crypto.subtle, 'sign').mockImplementation(async (algorithm, key, data) => {
+      const bytes = new Uint8Array(data as ArrayBuffer)
+      const zero = bytes.indexOf(0)
+      if (zero > 0 && new TextDecoder().decode(bytes.subarray(0, zero)) === 'moliya/v2/roster') {
+        const body = JSON.parse(new TextDecoder().decode(bytes.subarray(zero + 1))) as { members: { status: string }[] }
+        signed.push(body.members.filter((member) => member.status === 'active').length)
+      }
+      return real(algorithm, key, data)
+    })
+    await save(founder, at)
+    vi.restoreAllMocks()
+    // One signature, for the version that names the founder and Bob active: no plan made before the new wraps.
+    expect(signed).toEqual([2])
   })
 
   it('refuses a removal it cannot sign into a new epoch, before changing anything', async () => {
