@@ -205,7 +205,7 @@ function wrapTargets(vault: OpenVault & { keys: KeysSession }, latest: RosterDoc
  * header is signed by the person saving. The session takes the new chunk state only once the record is written
  * (`commitSealed`).
  */
-export async function sealKeysVault(vault: OpenVault & { keys: KeysSession }, options: { full?: boolean } = {}): Promise<KeysRecord> {
+export async function sealKeysVault(vault: OpenVault & { keys: KeysSession }, options: { full?: boolean; chunkSize?: number } = {}): Promise<KeysRecord> {
   const { db, keys } = vault
   const now = Date.now()
   observeClock(now)
@@ -236,7 +236,7 @@ export async function sealKeysVault(vault: OpenVault & { keys: KeysSession }, op
     for (const id of Object.keys(keys.dekWraps)) if (!keys.holders.includes(id)) keys.holders.push(id)
     compactIfSparse(db)
     snapshot = {
-      sealing: sealChunkedBody(db, vault.dek, { vaultId: keys.vaultId, epoch: keys.epoch }, keys.chunks, { full: options.full }),
+      sealing: sealChunkedBody(db, vault.dek, { vaultId: keys.vaultId, epoch: keys.epoch }, keys.chunks, { full: options.full, chunkSize: options.chunkSize }),
       header: headerOf(
         { ...keys, roster: { ...keys.roster }, identities: structuredClone(keys.identities), dekWraps: structuredClone(keys.dekWraps) },
         { by: keys.memberId, alg: 'Ed25519', value: bytesToBase64(new Uint8Array(64)) },

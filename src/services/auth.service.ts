@@ -339,7 +339,8 @@ export async function verifyOwnPassword(vault: OpenVault, password: string): Pro
 }
 
 /** `full` re-encrypts every chunk of a per-person-keys vault, for a record that must stand on its own (a backup). */
-export async function sealVault(vault: OpenVault, options: { full?: boolean } = {}): Promise<VaultRecord> {
+/** `chunkSize` is for a version 3 body only: the golden fixture uses small chunks, so a small file has many. */
+export async function sealVault(vault: OpenVault, options: { full?: boolean; chunkSize?: number } = {}): Promise<VaultRecord> {
   if (vault.keys) return (await import('./v2/vault')).sealKeysVault(vault as OpenVault & { keys: NonNullable<OpenVault['keys']> }, options)
   return seal(vault.db, vault.dek, vault.wraps, vault.grants, vault.createdAt)
 }
