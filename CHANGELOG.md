@@ -22,11 +22,22 @@ Built only with `VITE_V2_KEYS=1` and never deployed; it becomes 2.0.0 after the 
 - **A way out of a blocked vault.** When a vault fails a check that blocks it, the sign-in screen shows the reason and offers to download the vault as a file, exactly as the browser stores it and still encrypted, without open invite codes, so it can be kept for the admin or the recovery tool.
 - For developers: a bench page (`npm run bench`, dev server only) times Argon2id, the key operations, the roster check and the chunked saves on the device that opens it.
 
-#### Known limitations of the alpha
+### 2.0 beta: a new household key when someone leaves (in development, not released)
 
-- Removing or suspending someone takes their copy of the vault key out of the vault, but the key itself does not change until key rotation (Beta), so they can still open copies they already had and any later copy that reaches them.
-- Private safes and the sign-in check still use each person's password-based keys, as in 1.x.
+On `feature/v2-beta`, version 2.0.0-beta.1; built only with `VITE_V2_KEYS=1` and never deployed. It reads and writes the same versions as the alpha. Record 3 is still a draft; the beta changes it (the sealed identity carries a seed; safe keys and the sign-in check are keyed from it; a new archive reason) and adds its golden fixture.
+
+#### Added
+
+- **A new household key when someone leaves.** Suspending or removing someone who held the vault key makes a new one for everyone who stays: the next save gives each of them a copy, signs the new key into the list of people, and encrypts the whole vault again. Every open invite code stops, because each holds the old key; the dialog says how many, and new codes work with the new key. The person keeps whatever they had already copied, but nothing saved from then on opens for them. The copy of the vault kept in the browser from just before does not open for them, and older copies there are deleted.
+- **Safes and the sign-in check on your own keys.** Private safes and the sign-in check are keyed from your sealed identity, so no weaker password-derived copy of their keys remains, and a new password no longer has to re-protect them. After a new invite code (new keys) safes open with the recovery code. Ones from 1.x move over the first time they open.
+- **Backups checked before they replace the vault.** A backup with per-person keys replaces the vault only once you can sign in to it and it passes the same checks as a sign-in. One from another founder is refused. One older than this browser has seen is restored only if you choose so, with the people removed since then suspended again and a new household key; if the browser cannot tell who they were, it says so.
+- Health check rows for the household key, and for a last backup that is older than the household key.
+- A golden backup with per-person keys (`v5/roster-household`), which every later release must open, and which the recovery tool decrypts and verifies.
+
+#### Known limitations
+
 - Audit entries are not signed yet (RC); the audit log is hash-chained and checked as in 1.x.
+- A new household key cannot reach other browsers or old backups: anyone who kept a copy from before can still open that copy.
 
 ## [1.7.4] - 2026-10-17
 

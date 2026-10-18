@@ -33,7 +33,7 @@ Three formats are versioned independently of the app version. A change to one do
 
 1.6.0 changes no version number. People details live in `settings` rows (see [People](#people-user_profile)) that earlier releases ignore, so 1.5.0 and earlier open a 1.6.0 vault unchanged; a suspended or former member has no wrap there either.
 
-2.0 (unreleased; the alpha is built only with `VITE_V2_KEYS=1`) adds a second track beside these: record 3, backup 3 and schema 5 for vaults with per-person keys, described in [Record version 3](#record-version-3-per-person-keys-20-draft). It still reads and writes record 2 / schema 4 for every other vault, so 1.x opens a vault that 2.0 has not upgraded.
+2.0 (unreleased; the alpha and beta are built only with `VITE_V2_KEYS=1`) adds a second track beside these: record 3, backup 3 and schema 5 for vaults with per-person keys, described in [Record version 3](#record-version-3-per-person-keys-20-draft). It still reads and writes record 2 / schema 4 for every other vault, so 1.x opens a vault that 2.0 has not upgraded.
 
 The constants live in `src/db/versions.ts`. The KDF parameters live in `src/crypto/crypto.service.ts`.
 
@@ -193,12 +193,12 @@ Differences from version 2: one `kdf` for all wraps at the top level (if absent,
 | Database | `moliya`, IndexedDB version 1 |
 | Object store | `vault` (out-of-line keys) |
 | Current vault | key `primary` |
-| Earlier copies | keys `archive:<ISO 8601 time>:<reason>`, at most 3, oldest removed first |
+| Earlier copies | keys `archive:<ISO 8601 time>:<reason>`, at most 3, oldest removed first (a 2.0 record 3 also uses `chunk:` and `archive-chunks:` keys; see [Body](#body)) |
 | Sign-in attempt counters | key `guard.throttle.v1` (from 1.4.2): a copy of the `moliya.guard.v1` local storage counters (hashed emails, counts, and times; no passwords or codes). The app merges both and keeps the larger values, so clearing one of them does not reset the attempt limits |
 
 The record under `primary` has the same fields as the backup of the same version, including the optional `grants`, except that binary fields are `ArrayBuffer`s, there is no `format` or `exportedAt`, and it has `id: "primary"`. Version 1 records also carry `updatedAt`. Version 2 records rename `payload` to `body` on purpose: 1.0.0 reads `record.payload.iv`, so if an old cached copy of the app meets a version 2 record it fails with an error screen instead of misreading or overwriting it.
 
-Archive entries have the shape `{ key, reason, archivedAt, archivedBy, sourceVersion, sourceAppVersion, sourceUpdatedAt, raw }`, where `raw` is the record as it was stored before the change. From 1.4.2 `raw` never contains `grants`: a code that was later used, revoked, or expired, together with an old archive, would otherwise open the vault key offline. Archives written by earlier releases lose their `grants` the next time the app loads, and an archive download never includes them. `reason` is `upgrade` (written in the same IndexedDB transaction as the first save after a format upgrade) or `import` (written in the same transaction as an imported backup replaces the vault; from 1.3.0 the archived copy is sealed after a `VAULT_REPLACED_BY_IMPORT` audit entry is written into it). The Backup page offers each archive as a download; a version 1 archive downloads as a byte-for-byte version 1 backup.
+Archive entries have the shape `{ key, reason, archivedAt, archivedBy, sourceVersion, sourceAppVersion, sourceUpdatedAt, raw }`, where `raw` is the record as it was stored before the change. From 1.4.2 `raw` never contains `grants`: a code that was later used, revoked, or expired, together with an old archive, would otherwise open the vault key offline. Archives written by earlier releases lose their `grants` the next time the app loads, and an archive download never includes them. `reason` is `upgrade` (written in the same IndexedDB transaction as the first save after a format upgrade), `import` (written in the same transaction as an imported backup replaces the vault; from 1.3.0 the archived copy is sealed after a `VAULT_REPLACED_BY_IMPORT` audit entry is written into it), or, for a 2.0 record 3, `rotation` (see [Keys](#keys)). The Backup page offers each archive as a download; a version 1 archive downloads as a byte-for-byte version 1 backup.
 
 Writes are compare-and-swap: a save only succeeds if `updatedAt` in IndexedDB is still the value the session loaded. Otherwise the app stops saving and asks the person to lock and unlock. A Web Lock named `moliya-vault-session` allows only one unlocked session per browser profile.
 
@@ -219,7 +219,7 @@ The backup file and the IndexedDB `primary` record carry the same fields (the re
 | `grants` | Open invite and reset codes, as in version 2 but with Argon2id `kdf` (below) and an `expiresAt` on every entry. |
 | `suite` | `J2-X25519-ED25519`: X25519 for agreement, Ed25519 for signatures, HKDF-SHA-256, AES-256-GCM. |
 | `vaultId` | Random id of this vault (letters, digits, `-`, `_`; at most 64). |
-| `epoch` | Number of the current DEK, from 1. A new DEK gets the next number (rotation; not in the alpha). |
+| `epoch` | Number of the current DEK, from 1. Taking out someone who held the DEK makes a new one with the next number (see [Keys](#keys)). |
 | `founder` | `{ memberId, sigPub, fingerprint }`: the founder's member id, Ed25519 public key (base64, 32 bytes), and `hex(SHA-256(sigPub))` cut to 32 characters. |
 | `roster` | `{ version, hash }` of the latest signed list of people in the database. |
 | `identities` | Each person's sealed key pairs, by member id. |
@@ -234,11 +234,14 @@ An identity is `{ v: 2, suite, memberId, email, kdf, salt (16 bytes), iv (12), s
 | Step | Algorithm |
 | --- | --- |
 | Password to identity key | Argon2id (version 0x13) of the password as UTF-8, with the identity's `salt` and `kdf` = `{ name: "Argon2id", m, t, p, len: 32, v: 19 }` (`m` in KiB), giving 32 bytes; then HKDF-SHA-256 with an empty salt and info `moliya/v2/identity-wrap\|kek` gives the AES-256-GCM key. |
-| Open an identity | AES-256-GCM of `sealed` with the identity's `iv` and additional data `moliya/v2/identity-wrap\|<vaultId>\|<memberId>\|J2-X25519-ED25519\|<encPub>\|<sigPub>`. The plaintext is a 2-byte big-endian length, the PKCS #8 X25519 private key, a 2-byte length, and the PKCS #8 Ed25519 private key. A failed decryption is the wrong-password answer; there is no separate check value. |
+| Open an identity | AES-256-GCM of `sealed` with the identity's `iv` and additional data `moliya/v2/identity-wrap\|<vaultId>\|<memberId>\|J2-X25519-ED25519\|<encPub>\|<sigPub>`. The plaintext is three parts, each with a 2-byte big-endian length in front: the PKCS #8 X25519 private key, the PKCS #8 Ed25519 private key, and a random 32-byte seed. A failed decryption is the wrong-password answer; there is no separate check value. |
+| Safe key and sign-in check | From the seed, HKDF-SHA-256 with an empty salt: info `moliya/v2/safe-kek` gives the AES-256-GCM key that wraps the person's safe key (`user_keys.wrapped_key`, with the 1.x additional data of that wrap), and info `moliya/v2/totp` the one that seals their sign-in check secret (`user_totp`, with the 1.x additional data). Such rows have `kdf` = `{"name":"identity"}` and an empty `kdf_salt`; `enc_version` stays 1, because everything encrypted under the safe key is unchanged. A new password seals the identity again with the same seed, so neither is re-wrapped. Rows with a PBKDF2 `kdf` (from before the founder upgrade) stay readable with the password, as in [Private safes](#private-safes), and move onto the identity the first time they open. |
 | Unwrap the DEK | `shared = X25519(person's private key, epk)`; key = HKDF-SHA-256(ikm = shared, salt = the wrap's `salt`, info = `moliya/v2/dek-wrap\|J2-X25519-ED25519\|<epk>\|<encPub>`); AES-256-GCM of `ct` with `iv` and additional data `moliya/v2/dek-wrap-aad\|<vaultId>\|<epoch>\|<memberId>\|<hex SHA-256 of the raw encPub>\|J2-X25519-ED25519` gives the raw 32-byte DEK. The wrap's `epoch` must equal the record's. |
 | Open an invite | Argon2id of the code (28 characters, no dashes) with the grant's `salt` and `kdf` gives 32 bytes. HKDF-SHA-256 (empty salt) with info `moliya/v2/invite\|kek` gives the key that unwraps `wrappedDek` (AES-256-GCM, additional data `moliya/v2/invite\|<vaultId>\|<grant id>\|<kind>\|<email>\|<expiresAt>\|J2-X25519-ED25519`); with info `moliya/v2/invite\|sig` it gives the 32-byte seed of an Ed25519 key, whose public half is the grant's `code_verifier` in the database and its `inviteSigPub` in the roster. |
 
 Readers accept Argon2id only within `m` 19,456–262,144, `t` 2–10, `p` 1–4, `len` 32, `v` 19, and refuse anything else before allocating memory. The app writes `m` 65,536, `t` 3, `p` 1.
+
+**A new epoch.** Suspending or removing someone who held the current DEK (active in a roster version of this epoch, or holding a key binding) makes a new DEK with the next `epoch`. Every open code is revoked at once, because each wraps the old DEK (audit `INVITE_REVOKED` or `RESET_REVOKED` with `reason: "ROTATION"`, then `EPOCH_ROTATED` with `{ from, to, codesRevoked }`). The next save wraps the new DEK to everyone who stays, from their keys in the signed roster or their key binding, signs a roster version with the new `epoch`, and encrypts every chunk again. In IndexedDB it also keeps the record it replaces as an archive with `reason` `rotation`, without the `identities` and `dekWraps` of anyone not in the new epoch, and deletes every older archive in the same transaction, since each still opens with the old DEK for those who left. A backup made from then on records its epoch in the `settings` row `last_backup_epoch`.
 
 ### Body
 
@@ -263,7 +266,7 @@ A roster member is `{ id, email, role, group, status }` with `status` `active` (
 
 ### Schema version 5
 
-Migration 5 adds `roster_versions (version, hash, doc)` (append-only, enforced by triggers), `key_bindings (member_id, doc)` and `audit_sigs` (empty until signed audit entries arrive). Every document is stored as its JCS text. `users.password_hash` and `users.salt` are empty for everyone. A person's private safes and sign-in check keep their own password-based keys, as in schema 4.
+Migration 5 adds `roster_versions (version, hash, doc)` (append-only, enforced by triggers), `key_bindings (member_id, doc)` and `audit_sigs` (empty until signed audit entries arrive). Every document is stored as its JCS text. `users.password_hash` and `users.salt` are empty for everyone. A person's private safes and sign-in check are keyed from their identity (see [Keys](#keys)); `settings` gains `last_backup_epoch`.
 
 ### Opening a version 3 record
 
@@ -278,6 +281,8 @@ A reader that wants the same guarantees as the app checks, in this order, before
 7. The roster version is not older than the newest this device saw.
 
 The body is opened (seal, then chunks) before steps 2–6, because the roster lives inside it; the seal and the chunk tags authenticate it first.
+
+**Per browser.** Local storage holds, per vault id, the pinned founder key (`moliya.v2.founder.<vaultId>`, base64 `sigPub`), the newest roster version seen (`moliya.v2.rosterSeen.<vaultId>`, decimal), and the newest signed roster versions seen (`moliya.v2.rosterTail.<vaultId>`, a JSON array of up to 20 roster versions as their JCS text, oldest first). The app restores a backup with per-person keys over the vault only after the checks above pass with the restoring admin's password. A backup older than `rosterSeen` goes in only when that admin chooses so: the kept versions, if they continue the backup's own chain and verify, name the people removed since, who are suspended again in the restored copy (making a new DEK); the restored copy is then sealed again and becomes the version this browser expects.
 
 ## SQLite database
 
@@ -689,6 +694,7 @@ Audit actions added in 1.6.0 (entity `user`, entity ID the person's ID):
 | `v2/ledger-v2` | 1.1.0 | Record/backup/schema 2, 600,000-iteration wraps, comma decimals, grouped digits, the largest accepted amount, hash-chained audit log |
 | `v3/safes-household` | 1.2.0 | Record/backup 2 with schema 3, HKDF verifiers, `PASSWORD_CHANGED` and `USER_PASSWORD_RESET` audit entries. Private safes for three people: cards (Visa with CVV, Humo without, Mastercard), subscriptions in USD, UZS, and EUR (monthly, yearly, cancelled, every 30 days with a trial), notes with non-ASCII text, an archived safe, a trashed item, a password-each-time safe, recovery codes, and a Viewer whose safes are stale after an admin reset |
 | `v4/access-household` | 1.3.0 | Record/backup 2 with schema 4 and a `grants[]` entry. A UZS vault with a receipt; a Manager who joined with an invite code (non-ASCII password) and turned on the sign-in check with recovery codes; a Viewer created with a temporary password whose first reset code was revoked and whose second (stopping the old password) was used; one invite still open in the file but expired, so opening the fixture ends it with `INVITE_EXPIRED`. The expected file lists every code, the TOTP secret, and the recovery codes, so the tests check that used, revoked, and expired codes are refused and that the sign-in check still works |
+| `v5/roster-household` | 2.0.0-beta.1 | Record/backup 3 with schema 5 (per-person keys; [draft](#record-version-3-per-person-keys-20-draft) until 2.0.0). A USD vault with a receipt; a founder, a Manager who joined by invite (non-ASCII password) and turned on the sign-in check, and a Viewer who joined after a new household key; a Viewer suspended, which made epoch 2 and revoked an open invite; one invite still open but expired; a private safe; roster version 5; Argon2id at the default parameters; a body in 25 chunks of 16 KiB. The expected file lists the roster, the founder fingerprint and the removed member, so the tests check that the removed member is refused |
 
 ## Exports
 
