@@ -9,6 +9,7 @@ import { Permission, canUser } from '../rbac'
 import { writeAudit } from './audit.service'
 
 export const BACKUP_STALE_DAYS = 7
+export const LAST_BACKUP_EPOCH = 'last_backup_epoch'
 const DAY_MS = 24 * 60 * 60 * 1000
 
 export type ParsedBackup = DecodedBackup
@@ -63,6 +64,8 @@ export function noteExport(vault: OpenVault): void {
   const now = new Date().toISOString()
   vault.db.withTransaction(() => {
     setSetting(vault.db, 'last_backup_at', now)
+    // With per-person keys, which household key the backup holds: one from before a new key still opens for those who left.
+    if (vault.keys) setSetting(vault.db, LAST_BACKUP_EPOCH, String(vault.keys.epoch))
     writeAudit(vault.db, vault.user.id, 'BACKUP_EXPORTED', 'vault', 'primary')
   })
   vault.lastBackupAt = now

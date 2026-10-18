@@ -86,6 +86,8 @@ export const healthEn = {
     rosterVersion: 'List version',
     pending: 'Waiting to be signed',
     reinvite: 'Need a new invite',
+    epoch: 'Household key',
+    missing: 'Without the current key',
   },
   checks: {
     crypto: {
@@ -324,6 +326,18 @@ export const healthEn = {
       title: 'Per-person keys',
       offer: 'This vault still uses 1.x keys: everyone shares one key. An admin can give each person their own.',
       fix: 'Lock the vault, sign in again as an admin, and choose Upgrade now.',
+    },
+    keysEpoch: {
+      title: 'Household key',
+      ok: 'Everyone in the signed list of people has a copy of the current household key.',
+      missing: 'Some people in the signed list have no copy of the current household key yet.',
+      fix: 'Wait for the vault to save. If this stays, sign in again as an admin.',
+    },
+    backupRotation: {
+      title: 'Backup after a new household key',
+      current: 'Your last backup was made with the current household key.',
+      before: 'Your last backup is from before the household key changed, so it still opens for the people who left.',
+      fix: 'Download a new backup, and delete older ones if they could reach those people.',
     },
     ratesFresh: {
       title: 'Exchange rates',

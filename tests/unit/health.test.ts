@@ -424,7 +424,7 @@ describe('vault checks', () => {
 
     // A per-person-keys vault (record 3, schema 5) is current on its own track, and gets its own rows.
     const keysStored = { ...stored, version: KEYS_RECORD_VERSION, schemaVersion: KEYS_SCHEMA_VERSION }
-    const keys = { founderKey: 'ABCD EF01 2345 6789 ABCD EF01', rosterVersion: 4, pending: 0, reinvite: 0, kdfBelow: false }
+    const keys = { founderKey: 'ABCD EF01 2345 6789 ABCD EF01', rosterVersion: 4, pending: 0, reinvite: 0, kdfBelow: false, epoch: 1, missing: 0, backupEpoch: 1 }
     const keysFacts: VaultFacts = { ...facts, schemaVersion: KEYS_SCHEMA_VERSION, keys }
     const keysResults = vaultChecks(keysFacts, keysStored, NOW)
     expect(byId(keysResults, 'format')).toMatchObject({ status: 'pass', detail: 'current' })
@@ -435,9 +435,19 @@ describe('vault checks', () => {
     expect(byId(vaultChecks({ ...keysFacts, keys: { ...keys, pending: 1 } }, keysStored, NOW), 'keysRoster')).toMatchObject({ status: 'info', detail: 'pending' })
     expect(byId(vaultChecks({ ...keysFacts, keys: { ...keys, kdfBelow: true } }, keysStored, NOW), 'keysKdf')).toMatchObject({ status: 'warn', action: 'account' })
     expect(byId(vaultChecks({ ...keysFacts, schemaVersion: KEYS_SCHEMA_VERSION + 1 }, keysStored, NOW), 'format').status).toBe('fail')
+    // The household key: everyone with keys holds the current one, and the last backup is from after it changed.
+    expect(byId(keysResults, 'keysEpoch')).toMatchObject({ status: 'pass', detail: 'ok', facts: { epoch: 1 } })
+    expect(byId(vaultChecks({ ...keysFacts, keys: { ...keys, missing: 2 } }, keysStored, NOW), 'keysEpoch')).toMatchObject({ status: 'warn', detail: 'missing', facts: { missing: 2 } })
+    expect(keysResults.some((item) => item.id === 'backupRotation')).toBe(false)
+    const rotated = { ...keys, epoch: 2 }
+    expect(byId(vaultChecks({ ...keysFacts, keys: rotated }, keysStored, NOW), 'backupRotation')).toMatchObject({ status: 'warn', detail: 'before', action: 'backup' })
+    expect(byId(vaultChecks({ ...keysFacts, keys: { ...rotated, backupEpoch: 2 } }, keysStored, NOW), 'backupRotation')).toMatchObject({ status: 'pass', detail: 'current' })
+    // Never backed up at all is the backup row's warning, not this one's; and only people who back up see it.
+    expect(vaultChecks({ ...keysFacts, lastBackupAt: null, keys: rotated }, keysStored, NOW).some((item) => item.id === 'backupRotation')).toBe(false)
+    expect(vaultChecks({ ...keysFacts, canBackup: false, keys: rotated }, keysStored, NOW).some((item) => item.id === 'backupRotation')).toBe(false)
     // A 1.x vault in a build with per-person keys: the upgrade is offered to admins.
     expect(byId(vaultChecks({ ...facts, upgradeOffer: true }, stored, NOW), 'keysUpgrade')).toMatchObject({ status: 'info', detail: 'offer', adminOnly: true })
-    expect(vaultChecks(facts, stored, NOW).some((item) => item.id.startsWith('keys'))).toBe(false)
+    expect(vaultChecks(facts, stored, NOW).some((item) => item.id.startsWith('keys') || item.id === 'backupRotation')).toBe(false)
   })
 
   it('read the clock marks only for people who manage users', async () => {

@@ -260,6 +260,19 @@ export function keysChecks(facts: VaultFacts): HealthResult[] {
           : result('keysRoster', 'pass', 'ok', { facts: shown }),
     )
     results.push(keys.kdfBelow ? result('keysKdf', 'warn', 'below', { action: 'account' }) : result('keysKdf', 'pass', 'ok'))
+    results.push(
+      keys.missing > 0
+        ? result('keysEpoch', 'warn', 'missing', { facts: { epoch: keys.epoch, missing: keys.missing } })
+        : result('keysEpoch', 'pass', 'ok', { facts: { epoch: keys.epoch } }),
+    )
+    // Only after a new household key, and only once there is a backup: the backup row covers never having made one.
+    if (facts.canBackup && keys.epoch > 1 && facts.lastBackupAt !== null) {
+      results.push(
+        keys.backupEpoch === keys.epoch
+          ? result('backupRotation', 'pass', 'current', { facts: { epoch: keys.epoch } })
+          : result('backupRotation', 'warn', 'before', { facts: { epoch: keys.epoch }, action: 'backup' }),
+      )
+    }
   }
   if (facts.upgradeOffer) results.push(result('keysUpgrade', 'info', 'offer', { adminOnly: true }))
   return results

@@ -88,6 +88,8 @@ export const healthUzLatn: HealthMessages = {
     rosterVersion: 'Roʻyxat versiyasi',
     pending: 'Imzo kutmoqda',
     reinvite: 'Yangi taklif kerak',
+    epoch: 'Seyf kaliti',
+    missing: 'Joriy kalitsiz',
   },
   checks: {
     crypto: {
@@ -326,6 +328,18 @@ export const healthUzLatn: HealthMessages = {
       title: 'Shaxsiy kalitlar',
       offer: 'Bu seyf hali 1.x kalitlaridan foydalanadi: hammada bitta umumiy kalit. Administrator har kimga oʻz kalitini bera oladi.',
       fix: 'Seyfni qulflang, administrator sifatida qayta kiring va “Hozir oʻtish”ni tanlang.',
+    },
+    keysEpoch: {
+      title: 'Seyf kaliti',
+      ok: 'Imzolangan roʻyxatdagi har bir odamda joriy seyf kalitining nusxasi bor.',
+      missing: 'Imzolangan roʻyxatdagi baʼzi odamlarda hali joriy seyf kalitining nusxasi yoʻq.',
+      fix: 'Seyf saqlanishini kuting. Agar shunday qolsa, administrator sifatida qayta kiring.',
+    },
+    backupRotation: {
+      title: 'Yangi kalitdan keyingi zaxira nusxa',
+      current: 'Oxirgi zaxira nusxa joriy seyf kaliti bilan qilingan.',
+      before: 'Oxirgi zaxira nusxa seyf kaliti oʻzgarishidan oldin qilingan, shuning uchun u ketgan odamlarga hali ham ochiladi.',
+      fix: 'Yangi zaxira nusxani yuklab oling va eskilari ularga yetib borishi mumkin boʻlsa, ularni oʻchiring.',
     },
     ratesFresh: {
       title: 'Valyuta kurslari',

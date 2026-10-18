@@ -10,7 +10,8 @@ import { keysEnabled } from '../lib/flags'
 import { CLOCK_KEY, accessCount, clockFloor } from '../services/grant-store'
 import { hasSignInCheck } from '../services/totp.service'
 import { usersOverview } from '../services/user.service'
-import { readBindings } from '../services/v2/roster-store'
+import { LAST_BACKUP_EPOCH } from '../services/backup.service'
+import { readBindings, readPeople } from '../services/v2/roster-store'
 
 export type SaveStateName = 'saved' | 'saving' | 'dirty' | 'error' | 'conflict'
 
@@ -40,7 +41,18 @@ export type VaultFacts = {
   /** Counts only, for people managers. */
   hygiene: { noTotp: number; mustChange: number; noAccess: number; expiredCodes: number; legacyWraps: number } | null
   /** A per-person-keys vault; the counts are for people managers only. */
-  keys: { founderKey: string; rosterVersion: number; pending: number | null; reinvite: number | null; kdfBelow: boolean } | null
+  keys: {
+    founderKey: string
+    rosterVersion: number
+    pending: number | null
+    reinvite: number | null
+    kdfBelow: boolean
+    /** The household key (epoch) now, and how many people with keys have no copy of it yet. */
+    epoch: number
+    missing: number
+    /** The epoch the last backup was made in; null for anyone who may not back up, or before any backup. */
+    backupEpoch: number | null
+  } | null
   /** A 1.x vault an admin can upgrade in this build. */
   upgradeOffer: boolean
 }
@@ -81,21 +93,25 @@ export function collectVaultFacts(vault: OpenVault, context: VaultContextFacts):
     weak: context.weak,
     members: canManageUsers ? accessCount(vault) : null,
     hygiene: canManageUsers ? hygieneOf(vault) : null,
-    keys: keysOf(vault, canManageUsers),
+    keys: keysOf(vault, canManageUsers, canBackup),
     upgradeOffer: !vault.keys && keysEnabled() && canManageUsers && user.roleName === 'Admin',
   }
 }
 
-function keysOf(vault: OpenVault, canManageUsers: boolean): VaultFacts['keys'] {
+function keysOf(vault: OpenVault, canManageUsers: boolean, canBackup: boolean): VaultFacts['keys'] {
   const keys = vault.keys
   if (!keys) return null
   const blob = keys.identities[keys.memberId]
+  const backupEpoch = canBackup ? Number(getSetting(vault.db, LAST_BACKUP_EPOCH)) : Number.NaN
   return {
     founderKey: formatFingerprint(keys.founder.fingerprint),
     rosterVersion: keys.roster.version,
     pending: canManageUsers ? (readBindings(vault.db)?.length ?? 0) : null,
     reinvite: canManageUsers ? usersOverview(vault).noAccess : null,
     kdfBelow: blob ? argon2BelowDefault(blob.kdf) : false,
+    epoch: keys.epoch,
+    missing: readPeople(vault.db).filter((person) => person.status === 'ACTIVE' && keys.identities[person.id] && !keys.dekWraps[person.id]).length,
+    backupEpoch: Number.isSafeInteger(backupEpoch) && backupEpoch > 0 ? backupEpoch : null,
   }
 }
 

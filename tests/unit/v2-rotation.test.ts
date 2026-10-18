@@ -11,6 +11,8 @@ import { createInvite, issueReset, redeemGrant } from '../../src/services/grant.
 import { listGroups } from '../../src/services/group.service'
 import { createUser, deleteUser, reactivateUser, removalEffects, suspendUser, updateUser } from '../../src/services/user.service'
 import { readRosterDocs } from '../../src/services/v2/roster-store'
+import { collectVaultFacts } from '../../src/health/vault'
+import { noteExport } from '../../src/services/backup.service'
 import { commitSealed, confirmKeysSession, rotationOf } from '../../src/services/v2/session'
 import { upgradeToKeys } from '../../src/services/v2/upgrade'
 import { createKeysVault, unlockKeysVault } from '../../src/services/v2/vault'
@@ -212,6 +214,20 @@ describe('key rotation', () => {
     expect(removalEffects(founder, ids[0])).toEqual({ newKey: true, codesStopped: 1 })
     const waiting = founder.db.queryValue('SELECT id FROM access_grants WHERE email = ?', [BOB.email])
     expect(removalEffects(founder, String(waiting))).toEqual({ newKey: false, codesStopped: 0 })
+  })
+
+  it('tells the health check which household key the last backup holds', async () => {
+    const { founder, at, ids } = await household([ALICE])
+    noteExport(founder)
+    const facts = () => collectVaultFacts(founder, { saveState: 'saved', weak: false, archives: 0, deviceMark: null, recordedHead: null }).keys
+    expect(facts()).toMatchObject({ epoch: 1, missing: 0, backupEpoch: 1 })
+    suspendUser(founder, ids[0])
+    // Until the next save wraps the new key, the people who stay hold none of it.
+    expect(facts()).toMatchObject({ epoch: 2, missing: 1, backupEpoch: 1 })
+    await save(founder, at)
+    expect(facts()).toMatchObject({ epoch: 2, missing: 0, backupEpoch: 1 })
+    noteExport(founder)
+    expect(facts()?.backupEpoch).toBe(2)
   })
 
   it('makes one new epoch for several removals before a save', async () => {

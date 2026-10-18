@@ -46,6 +46,8 @@ export const HEALTH_CHECKS = {
   keysRoster: { group: 'vault', details: ['ok', 'pending', 'reinvite'] },
   keysKdf: { group: 'vault', details: ['ok', 'below'] },
   keysUpgrade: { group: 'vault', details: ['offer'] },
+  keysEpoch: { group: 'vault', details: ['ok', 'missing'] },
+  backupRotation: { group: 'vault', details: ['current', 'before'] },
   ratesFresh: { group: 'rates', details: ['fresh', 'stale', 'cached', 'missing'] },
   ratesDigest: { group: 'rates', details: ['ok', 'mismatch', 'unknown'] },
   csp: { group: 'security', details: ['ok', 'missing', 'dev'] },
@@ -112,6 +114,8 @@ export const HEALTH_FACTS = [
   'rosterVersion',
   'pending',
   'reinvite',
+  'epoch',
+  'missing',
 ] as const
 export type HealthFactKey = (typeof HEALTH_FACTS)[number]
 
