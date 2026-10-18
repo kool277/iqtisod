@@ -1,7 +1,7 @@
 import { argon2idBits } from '../../crypto/argon2'
 import { generateDek, randomBytes } from '../../crypto/crypto.service'
 import { unwrapDekWith, wrapDekTo } from '../../crypto/ecies'
-import { IDENTITY_SALT_BYTES, generateIdentitySecret, importIdentity, openIdentitySecret, sealIdentity, unsealIdentity, wipeSecret, type IdentityBlob, type IdentityKeys } from '../../crypto/identity'
+import { IDENTITY_SALT_BYTES, generateIdentitySecret, importIdentity, openIdentitySecret, sealIdentity, seedKey, wipeSecret, type IdentityBlob, type IdentityKeys } from '../../crypto/identity'
 import { ARGON2_DEFAULT } from '../../crypto/kdf'
 import { canonicalize } from '../../crypto/canonical'
 import { bytesToBase64 } from '../../crypto/encoding'
@@ -391,8 +391,15 @@ export async function unlockKeysVault(record: KeysRecord, email: string, passwor
     throw new AuthError()
   }
   let identity: IdentityKeys
+  let signInTotpKey: CryptoKey
   try {
-    identity = await unsealIdentity(blob, keys.vaultId, password)
+    const secret = await openIdentitySecret(blob, keys.vaultId, password)
+    try {
+      identity = await importIdentity(secret)
+      signInTotpKey = await seedKey(secret.seed, 'totp')
+    } finally {
+      wipeSecret(secret)
+    }
   } catch (error) {
     if (error instanceof AppError) throw error
     throw new AuthError()
@@ -426,6 +433,7 @@ export async function unlockKeysVault(record: KeysRecord, email: string, passwor
       ...(verified.rolledBack ? { acceptedRollback: true } : {}),
       holders: verified.holders,
       nextDek: await generateDek(),
+      signInTotpKey,
     }
     const vault = buildOpenVault(record, { db, dek, wraps: [], user, needsSave: false }, now)
     vault.keys = session

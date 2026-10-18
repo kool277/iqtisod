@@ -80,7 +80,7 @@ describe('private safes service', () => {
 
   it('sets up, stores every kind of item, and reads it back after seal and unlock', async () => {
     const { vault, keyring, safeId } = await managerWithSafes()
-    expect(getSafeStatus(vault)).toEqual({ initialized: true, mustChangePassword: false, stale: false, hasRecovery: false })
+    expect(getSafeStatus(vault)).toEqual({ initialized: true, mustChangePassword: false, stale: false, hasRecovery: false, previousPassword: true })
     expect(await codeOf(initializeSafes(vault, MANAGER.password, { recovery: false, defaultSafeName: 'x' }))).toBe('SAFES_ALREADY_SET_UP')
 
     const cardId = await createItem(vault, keyring, safeId, CARD)

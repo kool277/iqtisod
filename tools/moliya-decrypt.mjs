@@ -467,14 +467,25 @@ function argon2id(password, blob) {
   return argon2Sync('argon2id', { message: Buffer.from(password, 'utf8'), nonce: blob.salt, parallelism: blob.kdf.p, tagLength: 32, memory: blob.kdf.m, passes: blob.kdf.t })
 }
 
+/** Three parts, each with a 16-bit length in front: the X25519 pkcs8, the Ed25519 pkcs8, and the 32-byte seed. */
 function unpackIdentity(plain) {
   const view = new DataView(plain.buffer, plain.byteOffset, plain.byteLength)
-  const encLength = view.getUint16(0)
-  const sigAt = 2 + encLength
-  if (sigAt + 2 > plain.length) throw new Error(DECRYPT_FAILED)
-  const sigLength = view.getUint16(sigAt)
-  if (sigAt + 2 + sigLength !== plain.length) throw new Error(DECRYPT_FAILED)
-  return { enc: plain.slice(2, sigAt), sig: plain.slice(sigAt + 2) }
+  const parts = []
+  let at = 0
+  while (at < plain.length && parts.length < 3) {
+    if (at + 2 > plain.length) break
+    const length = view.getUint16(at)
+    if (at + 2 + length > plain.length) break
+    parts.push(plain.slice(at + 2, at + 2 + length))
+    at += 2 + length
+  }
+  plain.fill(0)
+  if (parts.length !== 3 || at !== plain.length || parts[2].length !== 32) {
+    for (const part of parts) part.fill(0)
+    throw new Error(DECRYPT_FAILED)
+  }
+  parts[2].fill(0)
+  return { enc: parts[0], sig: parts[1] }
 }
 
 async function decryptKeysBackup(backup, email, password) {

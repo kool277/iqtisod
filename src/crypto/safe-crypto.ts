@@ -13,6 +13,17 @@ export const RECOVERY_CODE_BYTES = 15
 export const PERSONAL_KEK_INFO = 'moliya/personal-kek/v1'
 export const RECOVERY_KEK_INFO = 'moliya/recovery-kek/v1'
 
+/**
+ * Stored as the `kdf` of a safe key wrap or sign-in check secret rooted on the person's identity (2.0, design 4.7 and
+ * 4.8): its key comes from the seed in their sealed identity, not from the password through PBKDF2, so it has no salt.
+ */
+export const IDENTITY_KDF = { name: 'identity' } as const
+export type IdentityKdf = typeof IDENTITY_KDF
+
+export function isIdentityKdf(value: unknown): value is IdentityKdf {
+  return typeof value === 'object' && value !== null && !Array.isArray(value) && Object.keys(value).length === 1 && (value as { name?: unknown }).name === 'identity'
+}
+
 export const PERSONAL_KEY_USAGES: KeyUsage[] = ['encrypt', 'decrypt', 'wrapKey', 'unwrapKey']
 export const SAFE_KEY_USAGES: KeyUsage[] = ['encrypt', 'decrypt']
 

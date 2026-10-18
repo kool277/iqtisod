@@ -413,6 +413,8 @@ export const en = {
     staleBody:
       'Enter the password you used before the change (not a temporary one from an administrator), or your recovery code. Your safes will then open with your current password.',
     staleNoRecovery: 'You have no recovery code, so only your previous password can open these safes.',
+    staleKeysBody: 'You came back with a new invite code, so you have new keys, and your previous password no longer opens these safes. Enter your recovery code: your safes then open with your current password.',
+    staleKeysNoRecovery: 'You have no recovery code, so these safes cannot be opened any more.',
     staleLost: 'If you remember neither, your safes cannot be recovered. You can start over from the Account page.',
     previousPassword: 'Previous password',
     currentPassword: 'Current password',

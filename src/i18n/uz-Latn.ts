@@ -408,6 +408,8 @@ export const uzLatn: CoreMessages = {
     staleBody:
       'Oʻzgartirishdan oldingi parolingizni (administrator bergan vaqtinchalik parolni emas) yoki tiklash kodingizni kiriting. Shundan soʻng seyflar joriy parolingiz bilan ochiladi.',
     staleNoRecovery: 'Sizda tiklash kodi yoʻq, shuning uchun bu seyflarni faqat oldingi parolingiz ocha oladi.',
+    staleKeysBody: 'Siz yangi taklif kodi bilan qaytdingiz, shuning uchun sizda yangi kalitlar bor va oldingi parolingiz bu seyflarni endi ochmaydi. Tiklash kodingizni kiriting: shundan soʻng seyflar joriy parolingiz bilan ochiladi.',
+    staleKeysNoRecovery: 'Sizda tiklash kodi yoʻq, shuning uchun bu seyflarni endi ochib boʻlmaydi.',
     staleLost: 'Ikkalasini ham eslay olmasangiz, seyflaringizni tiklab boʻlmaydi. Hisob sahifasida qaytadan boshlashingiz mumkin.',
     previousPassword: 'Oldingi parol',
     currentPassword: 'Joriy parol',

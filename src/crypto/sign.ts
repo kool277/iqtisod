@@ -9,6 +9,8 @@ export const LABELS = {
   header: 'moliya/v2/header',
   invite: 'moliya/v2/invite',
   binding: 'moliya/v2/binding',
+  safeKek: 'moliya/v2/safe-kek',
+  totp: 'moliya/v2/totp',
 } as const
 
 const B64 = /^[A-Za-z0-9+/]*={0,2}$/

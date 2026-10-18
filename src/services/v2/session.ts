@@ -35,6 +35,8 @@ export type KeysSession = {
   holders: string[]
   /** Made ahead, so that a removal can switch to the next epoch's key at once, before any save. */
   nextDek: CryptoKey | null
+  /** From the identity a sign-in just opened, for its sign-in check (design 4.7); used once, and dropped when it ends. */
+  signInTotpKey?: CryptoKey
 }
 
 export function isKeysVault(vault: OpenVault): vault is OpenVault & { keys: KeysSession } {
@@ -112,6 +114,7 @@ export function confirmKeysSession(vault: OpenVault): void {
   if (keys.acceptedRollback) resetRosterSeen(keys.vaultId, keys.roster.version)
   else noteRosterSeen(keys.vaultId, keys.roster.version)
   keys.acceptedRollback = false
+  keys.signInTotpKey = undefined
   noteRosterTail(vault, keys.roster.version)
 }
 

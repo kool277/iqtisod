@@ -2,6 +2,7 @@ import { CURRENT_KDF, isKdfParams, kdfNeedsUpgrade, randomBytes, type KdfParams 
 import { base64ToBytes, bytesToBase64 } from '../crypto/encoding'
 import {
   ENC_VERSION,
+  IDENTITY_KDF,
   PERSONAL_KEY_USAGES,
   PK_SALT_BYTES,
   RECOVERY_SALT_BYTES,
@@ -11,11 +12,13 @@ import {
   deriveRecoveryKek,
   generateAesKey,
   generateRecoveryCode,
+  isIdentityKdf,
   openJson,
   parseRecoveryCode,
   sealJson,
   unwrapWithAad,
   wrapWithAad,
+  type IdentityKdf,
   type Sealed,
 } from '../crypto/safe-crypto'
 import type { SqlDatabase, SqlValue } from '../db/sqlite'
@@ -56,7 +59,14 @@ export type SafeKeyring = {
   lastAuthAt: number
 }
 
-export type SafeStatus = { initialized: boolean; mustChangePassword: boolean; stale: boolean; hasRecovery: boolean }
+export type SafeStatus = {
+  initialized: boolean
+  mustChangePassword: boolean
+  stale: boolean
+  hasRecovery: boolean
+  /** A previous password can open the stale wrap. Not one rooted on an identity that a new invite replaced. */
+  previousPassword: boolean
+}
 
 export type SafeSummary = {
   id: string
@@ -79,7 +89,7 @@ export type SetupOptions = { recovery: boolean; defaultSafeName: string }
 export type TrashedItem = SecureItem & { daysLeft: number; safeName: string | null }
 
 type UserKeysRow = {
-  kdf: KdfParams
+  kdf: KdfParams | IdentityKdf
   kdfSalt: Uint8Array
   wrap: Sealed
   recovery: { salt: Uint8Array; wrap: Sealed } | null
@@ -117,7 +127,7 @@ function readUserKeys(db: SqlDatabase, userId: string): UserKeysRow | null {
   } catch {
     kdf = null
   }
-  if (!isKdfParams(kdf) || Number(row.enc_version) !== ENC_VERSION) throw new SafeError('SAFES_NOT_SET_UP')
+  if (!(isKdfParams(kdf) || isIdentityKdf(kdf)) || Number(row.enc_version) !== ENC_VERSION) throw new SafeError('SAFES_NOT_SET_UP')
   return {
     kdf,
     kdfSalt: base64ToBytes(str(row.kdf_salt)),
@@ -322,12 +332,38 @@ export function getSafeStatus(vault: OpenVault): SafeStatus {
     mustChangePassword: state.mustChange,
     stale: keys !== null && state.passwordChangedAt !== null && keys.rewrappedAt < state.passwordChangedAt,
     hasRecovery: keys?.recovery != null,
+    previousPassword: keys !== null && !isIdentityKdf(keys.kdf),
   }
 }
 
-async function wrapPersonal(userId: string, personalKey: CryptoKey, password: string) {
+/**
+ * The key that wraps the personal key: from the password through PBKDF2 for a 1.x wrap, and from the person's sealed
+ * identity (opened with the password) for one rooted on it (design 4.8).
+ */
+async function personalKek(vault: OpenVault, row: Pick<UserKeysRow, 'kdf' | 'kdfSalt'>, password: string): Promise<CryptoKey> {
+  if (!isIdentityKdf(row.kdf)) return derivePersonalKek(password, row.kdfSalt, row.kdf)
+  if (!vault.keys) throw new SafeError('SAFES_NOT_SET_UP')
+  return (await import('./v2/identity-keys')).identityKey(vault, password, 'safe')
+}
+
+/** A 1.x wrap is redone at the current PBKDF2 cost; in a vault with per-person keys, one not rooted on the identity is. */
+function needsRewrap(vault: OpenVault, row: Pick<UserKeysRow, 'kdf'>): boolean {
+  if (isIdentityKdf(row.kdf)) return false
+  return vault.keys !== undefined || kdfNeedsUpgrade(row.kdf)
+}
+
+/**
+ * Wraps the personal key for this person. In a vault with per-person keys the wrap is rooted on their identity, which
+ * `password` must open; otherwise it is a PBKDF2 wrap under `password`.
+ */
+async function wrapPersonal(vault: OpenVault, userId: string, personalKey: CryptoKey, password: string) {
+  if (vault.keys) {
+    const kek = await (await import('./v2/identity-keys')).identityKey(vault, password, 'safe')
+    const kdf: KdfParams | IdentityKdf = IDENTITY_KDF
+    return { kdf, salt: new Uint8Array(0), wrap: await wrapWithAad(personalKey, kek, pkAad(userId)), kek }
+  }
   const salt = randomBytes(PK_SALT_BYTES)
-  const kdf: KdfParams = { ...CURRENT_KDF }
+  const kdf: KdfParams | IdentityKdf = { ...CURRENT_KDF }
   const kek = await derivePersonalKek(password, salt, kdf)
   const wrap = await wrapWithAad(personalKey, kek, pkAad(userId))
   return { kdf, salt, wrap, kek }
@@ -355,7 +391,7 @@ async function buildInitialSafes(
 ): Promise<{ keyring: SafeKeyring; recoveryCode: string | null; write: Writer }> {
   const userId = vault.user.id
   const extractable = await generateAesKey(PERSONAL_KEY_USAGES)
-  const personal = await wrapPersonal(userId, extractable, password)
+  const personal = await wrapPersonal(vault, userId, extractable, password)
   const recovery = options.recovery ? await wrapRecovery(userId, extractable) : null
   const personalKey = await sessionPersonalKey(userId, personal.wrap, personal.kek)
   const safeId = crypto.randomUUID()
@@ -468,8 +504,8 @@ export async function unlockSafes(
   let personalKey: CryptoKey
   const events: EventRow[] = []
   if (secret.kind === 'password') {
-    const kek = await derivePersonalKek(secret.password, row.kdfSalt, row.kdf)
-    const upgrade = kdfNeedsUpgrade(row.kdf)
+    const kek = await personalKek(vault, row, secret.password)
+    const upgrade = needsRewrap(vault, row)
     let unwrapped: CryptoKey
     try {
       unwrapped = await unwrapWithAad(row.wrap, kek, pkAad(userId), { extractable: upgrade, usages: PERSONAL_KEY_USAGES })
@@ -478,7 +514,7 @@ export async function unlockSafes(
       throw new AuthError()
     }
     if (upgrade) {
-      rewrap = await wrapPersonal(userId, unwrapped, secret.password)
+      rewrap = await wrapPersonal(vault, userId, unwrapped, secret.password)
       personalKey = await sessionPersonalKey(userId, rewrap.wrap, rewrap.kek)
     } else {
       personalKey = unwrapped
@@ -487,6 +523,8 @@ export async function unlockSafes(
     await verifyOwnPassword(vault, secret.current)
     let extractable: CryptoKey
     if (secret.kind === 'previousPassword') {
+      // A wrap rooted on an identity opens only with that identity, which a new invite replaced.
+      if (isIdentityKdf(row.kdf)) throw new AuthError()
       const kek = await derivePersonalKek(secret.previous, row.kdfSalt, row.kdf)
       try {
         extractable = await unwrapWithAad(row.wrap, kek, pkAad(userId), { extractable: true, usages: PERSONAL_KEY_USAGES })
@@ -505,7 +543,7 @@ export async function unlockSafes(
         bytes.fill(0)
       }
     }
-    rewrap = await wrapPersonal(userId, extractable, secret.current)
+    rewrap = await wrapPersonal(vault, userId, extractable, secret.current)
     personalKey = await sessionPersonalKey(userId, rewrap.wrap, rewrap.kek)
     events.push(await sealEvent(userId, personalKey, 'PASSWORD_REWRAPPED'))
   }
@@ -558,7 +596,7 @@ export async function confirmRecentAuth(vault: OpenVault, keyring: SafeKeyring, 
   const row = readUserKeys(vault.db, keyring.userId)
   if (!row) throw new SafeError('SAFES_NOT_SET_UP')
   try {
-    await sessionPersonalKey(keyring.userId, row.wrap, await derivePersonalKek(password, row.kdfSalt, row.kdf))
+    await sessionPersonalKey(keyring.userId, row.wrap, await personalKek(vault, row, password))
   } catch {
     throw new AuthError()
   }
@@ -1110,7 +1148,7 @@ export async function createRecoveryCode(vault: OpenVault, keyring: SafeKeyring,
   if (!row) throw new SafeError('SAFES_NOT_SET_UP')
   let extractable: CryptoKey
   try {
-    const kek = await derivePersonalKek(password, row.kdfSalt, row.kdf)
+    const kek = await personalKek(vault, row, password)
     extractable = await unwrapWithAad(row.wrap, kek, pkAad(keyring.userId), { extractable: true, usages: PERSONAL_KEY_USAGES })
   } catch {
     throw new AuthError()
@@ -1138,6 +1176,12 @@ export async function preparePasswordRewrap(
   const userId = vault.user.id
   const row = readUserKeys(vault.db, userId)
   if (!row || userState(vault.db, userId).mustChange) return null
+  if (isIdentityKdf(row.kdf)) {
+    // The identity is re-sealed under the new password with the same seed, so the wrap stays; only its date follows.
+    // A stale one (a new invite replaced the identity) keeps its date, so the recovery code is still asked for.
+    if (getSafeStatus(vault).stale) return null
+    return (db, changedAt) => db.exec('UPDATE user_keys SET rewrapped_at = ? WHERE user_id = ?', [changedAt, userId])
+  }
   let extractable: CryptoKey
   try {
     const kek = await derivePersonalKek(current, row.kdfSalt, row.kdf)
@@ -1145,7 +1189,8 @@ export async function preparePasswordRewrap(
   } catch {
     return null
   }
-  const rewrap = await wrapPersonal(userId, extractable, next)
+  // A 1.x wrap in a vault with per-person keys moves onto the identity, which the current password still opens here.
+  const rewrap = await wrapPersonal(vault, userId, extractable, vault.keys ? current : next)
   return (db, changedAt) => {
     db.exec('UPDATE user_keys SET kdf = ?, kdf_salt = ?, wrap_iv = ?, wrapped_key = ?, rewrapped_at = ? WHERE user_id = ?', [
       JSON.stringify(rewrap.kdf),

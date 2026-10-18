@@ -6,6 +6,8 @@ import { LABELS, exportPub, hkdfAesKey, importEncPub, importSigPub } from './sig
 import { SUITE, type Suite } from './suite'
 
 export const IDENTITY_SALT_BYTES = 16
+/** Sealed with the private keys: the root of the person's safe key and sign-in check (design 4.7 and 4.8). */
+export const IDENTITY_SEED_BYTES = 32
 
 /** One per member, in the vault header. The public keys are a hint: verification takes keys from the signed roster. */
 export type IdentityBlob = {
@@ -29,11 +31,11 @@ export type IdentityKeys = {
 }
 
 /**
- * Private key bytes, held only long enough to seal or re-seal them, with their public halves. The public keys come
- * from key generation, or from the blob whose AAD authenticates them; a private key is never exported as JWK, whose
- * `d` would stay in memory as a string nothing can wipe.
+ * Private key bytes and the seed, held only long enough to seal, re-seal or derive from them, with the public halves.
+ * The public keys come from key generation, or from the blob whose AAD authenticates them; a private key is never
+ * exported as JWK, whose `d` would stay in memory as a string nothing can wipe.
  */
-export type IdentitySecret = { enc: Uint8Array; sig: Uint8Array; encPub: string; sigPub: string }
+export type IdentitySecret = { enc: Uint8Array; sig: Uint8Array; seed: Uint8Array; encPub: string; sigPub: string }
 
 export function identityAad(vaultId: string, memberId: string, encPub: string, sigPub: string): Uint8Array {
   return new TextEncoder().encode(`${LABELS.identityWrap}|${vaultId}|${memberId}|${SUITE}|${encPub}|${sigPub}`)
@@ -45,6 +47,7 @@ export async function generateIdentitySecret(): Promise<IdentitySecret> {
   return {
     enc: new Uint8Array(await crypto.subtle.exportKey('pkcs8', enc.privateKey)),
     sig: new Uint8Array(await crypto.subtle.exportKey('pkcs8', sig.privateKey)),
+    seed: randomBytes(IDENTITY_SEED_BYTES),
     encPub: await exportPub(enc.publicKey),
     sigPub: await exportPub(sig.publicKey),
   }
@@ -75,24 +78,36 @@ export async function importIdentity(secret: IdentitySecret): Promise<IdentityKe
   return keys
 }
 
+/** Each part with a 16-bit length in front: the X25519 pkcs8, the Ed25519 pkcs8, then the seed. */
 function pack(secret: IdentitySecret): Uint8Array {
-  const out = new Uint8Array(4 + secret.enc.length + secret.sig.length)
+  const parts = [secret.enc, secret.sig, secret.seed]
+  const out = new Uint8Array(parts.reduce((total, part) => total + 2 + part.length, 0))
   const view = new DataView(out.buffer)
-  view.setUint16(0, secret.enc.length)
-  out.set(secret.enc, 2)
-  view.setUint16(2 + secret.enc.length, secret.sig.length)
-  out.set(secret.sig, 4 + secret.enc.length)
+  let at = 0
+  for (const part of parts) {
+    view.setUint16(at, part.length)
+    out.set(part, at + 2)
+    at += 2 + part.length
+  }
   return out
 }
 
 function unpack(bytes: Uint8Array, pubs: { encPub: string; sigPub: string }): IdentitySecret {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
-  const encLength = view.getUint16(0)
-  const sigAt = 2 + encLength
-  if (sigAt + 2 > bytes.length) throw new Error('Sealed identity is damaged')
-  const sigLength = view.getUint16(sigAt)
-  if (sigAt + 2 + sigLength !== bytes.length) throw new Error('Sealed identity is damaged')
-  return { enc: bytes.slice(2, sigAt), sig: bytes.slice(sigAt + 2), encPub: pubs.encPub, sigPub: pubs.sigPub }
+  const parts: Uint8Array[] = []
+  let at = 0
+  while (at < bytes.length && parts.length < 3) {
+    if (at + 2 > bytes.length) throw new Error('Sealed identity is damaged')
+    const length = view.getUint16(at)
+    if (at + 2 + length > bytes.length) throw new Error('Sealed identity is damaged')
+    parts.push(bytes.slice(at + 2, at + 2 + length))
+    at += 2 + length
+  }
+  if (parts.length !== 3 || at !== bytes.length || parts[2].length !== IDENTITY_SEED_BYTES) {
+    for (const part of parts) part.fill(0)
+    throw new Error('Sealed identity is damaged')
+  }
+  return { enc: parts[0], sig: parts[1], seed: parts[2], encPub: pubs.encPub, sigPub: pubs.sigPub }
 }
 
 async function passwordKek(password: string, salt: Uint8Array, kdf: Argon2Params): Promise<CryptoKey> {
@@ -170,4 +185,16 @@ export async function unsealIdentity(blob: IdentityBlob, vaultId: string, passwo
 export function wipeSecret(secret: IdentitySecret): void {
   secret.enc.fill(0)
   secret.sig.fill(0)
+  secret.seed.fill(0)
+}
+
+/**
+ * A key derived from the identity's seed: the one that wraps the person's safe key, or the one that seals their
+ * sign-in check secret. A new password re-seals the identity with the same seed, so neither has to be re-wrapped.
+ */
+export function seedKey(seed: Uint8Array, purpose: 'safe' | 'totp'): Promise<CryptoKey> {
+  if (seed.length !== IDENTITY_SEED_BYTES) throw new Error('Identity seed has the wrong size')
+  return purpose === 'safe'
+    ? hkdfAesKey(seed, new Uint8Array(0), LABELS.safeKek, ['wrapKey', 'unwrapKey'])
+    : hkdfAesKey(seed, new Uint8Array(0), LABELS.totp, ['encrypt', 'decrypt'])
 }

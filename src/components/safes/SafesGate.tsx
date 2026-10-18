@@ -220,11 +220,15 @@ function UnlockForm() {
   )
 }
 
-function StaleForm({ hasRecovery, onRecovered }: { hasRecovery: boolean; onRecovered: (withCode: boolean) => void }) {
+/**
+ * Safes wrapped before the password changed. A 1.x wrap opens with the previous password or the recovery code; one
+ * rooted on an identity that a new invite replaced opens only with the recovery code (`previousPassword` false).
+ */
+function StaleForm({ hasRecovery, previousPassword, onRecovered }: { hasRecovery: boolean; previousPassword: boolean; onRecovered: (withCode: boolean) => void }) {
   const { t } = useI18n()
   const { run } = useVault()
   const { adopt } = useSafes()
-  const [mode, setMode] = useState<'previous' | 'recovery'>('previous')
+  const [mode, setMode] = useState<'previous' | 'recovery'>(previousPassword ? 'previous' : 'recovery')
   const [secret, setSecret] = useState('')
   const [current, setCurrent] = useState('')
   const [error, setError] = useState<unknown>(null)
@@ -266,9 +270,9 @@ function StaleForm({ hasRecovery, onRecovered }: { hasRecovery: boolean; onRecov
           </span>
           <h2 className="min-w-0 break-words font-display text-2xl">{t('safes.staleTitle')}</h2>
         </div>
-        <p className="text-sm">{t('safes.staleBody')}</p>
-        {!hasRecovery ? <Warning testId="stale-no-recovery">{t('safes.staleNoRecovery')}</Warning> : null}
-        {mode === 'previous' ? (
+        <p className="text-sm">{previousPassword ? t('safes.staleBody') : t('safes.staleKeysBody')}</p>
+        {!hasRecovery ? <Warning testId="stale-no-recovery">{previousPassword ? t('safes.staleNoRecovery') : t('safes.staleKeysNoRecovery')}</Warning> : null}
+        {!previousPassword && !hasRecovery ? null : mode === 'previous' ? (
           <PasswordInput label={t('safes.previousPassword')} value={secret} onChange={setSecret} testId="stale-previous" autoComplete="off" autoFocus />
         ) : (
           <Field label={t('safes.recoveryCode')}>
@@ -282,10 +286,10 @@ function StaleForm({ hasRecovery, onRecovered }: { hasRecovery: boolean; onRecov
             />
           </Field>
         )}
-        <PasswordInput label={t('safes.currentPassword')} value={current} onChange={setCurrent} testId="stale-current" />
+        {!previousPassword && !hasRecovery ? null : <PasswordInput label={t('safes.currentPassword')} value={current} onChange={setCurrent} testId="stale-current" />}
         <ErrorNotice error={error} />
         <div className="flex flex-wrap items-center justify-between gap-2">
-          {hasRecovery ? (
+          {hasRecovery && previousPassword ? (
             <button
               type="button"
               className="text-sm text-pine-ink underline-offset-2 hover:underline"
@@ -297,9 +301,11 @@ function StaleForm({ hasRecovery, onRecovered }: { hasRecovery: boolean; onRecov
           ) : (
             <span />
           )}
-          <Button type="submit" disabled={busy} data-testid="stale-submit">
-            {busy ? t('safes.unlocking') : t('safes.unlock')}
-          </Button>
+          {!previousPassword && !hasRecovery ? null : (
+            <Button type="submit" disabled={busy} data-testid="stale-submit">
+              {busy ? t('safes.unlocking') : t('safes.unlock')}
+            </Button>
+          )}
         </div>
         <p className="text-xs text-muted">
           {t('safes.staleLost')}{' '}
@@ -332,7 +338,7 @@ export function SafesGate({ children }: { children: ReactNode }) {
   if (pendingCode) return <RecoveryCodeDisplay code={pendingCode} onDone={() => setPendingCode(null)} />
   if (!status.initialized) return <Onboarding onCode={setPendingCode} />
   if (!keyring) {
-    if (status.stale) return <StaleForm hasRecovery={status.hasRecovery} onRecovered={(withCode) => setRecovered(withCode ? 'code' : 'password')} />
+    if (status.stale) return <StaleForm hasRecovery={status.hasRecovery} previousPassword={status.previousPassword} onRecovered={(withCode) => setRecovered(withCode ? 'code' : 'password')} />
     return <UnlockForm />
   }
   return (

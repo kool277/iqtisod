@@ -1,7 +1,7 @@
 import { deriveTotpKek, recoveryCodeHash } from '../crypto/access-crypto'
 import { CURRENT_KDF, SALT_BYTES, isKdfParams, randomBytes, type KdfParams } from '../crypto/crypto.service'
 import { base64ToBytes, bytesToBase64 } from '../crypto/encoding'
-import { aad, openJson, sealJson } from '../crypto/safe-crypto'
+import { IDENTITY_KDF, aad, isIdentityKdf, openJson, sealJson, type IdentityKdf } from '../crypto/safe-crypto'
 import type { SqlDatabase } from '../db/sqlite'
 import { AuthError, ForbiddenError, ValidationError } from '../domain/errors'
 import type { OpenVault } from '../domain/types'
@@ -16,7 +16,7 @@ const RECOVERY_CHARS = 16
 const CROCKFORD = '0123456789ABCDEFGHJKMNPQRSTVWXYZ'
 
 type TotpRow = {
-  kdf: KdfParams
+  kdf: KdfParams | IdentityKdf
   salt: Uint8Array
   iv: string
   ciphertext: string
@@ -41,7 +41,7 @@ function readRow(db: SqlDatabase, userId: string): TotpRow | null {
   } catch {
     throw new AuthError()
   }
-  if (!isKdfParams(kdf) || !Array.isArray(hashes)) throw new AuthError()
+  if (!(isKdfParams(kdf) || isIdentityKdf(kdf)) || !Array.isArray(hashes)) throw new AuthError()
   return {
     kdf,
     salt: base64ToBytes(String(row.kdf_salt)),
@@ -86,7 +86,18 @@ export function beginTotpSetup(account: string): TotpSetup {
   }
 }
 
-async function sealSecret(secret: string, password: string, userId: string): Promise<{ kdf: KdfParams; salt: Uint8Array; iv: string; ct: string }> {
+type SealedSecret = { kdf: KdfParams | IdentityKdf; salt: Uint8Array; iv: string; ct: string }
+
+/**
+ * Seals the secret: in a vault with per-person keys under a key from the person's sealed identity, which `password`
+ * must open (design 4.7), otherwise under a PBKDF2 key from `password`.
+ */
+async function sealSecret(vault: OpenVault, secret: string, password: string, userId: string): Promise<SealedSecret> {
+  if (vault.keys) {
+    const key = await (await import('./v2/identity-keys')).identityKey(vault, password, 'totp')
+    const sealed = await sealJson({ secret }, key, aad('moliya.totp', userId))
+    return { kdf: IDENTITY_KDF, salt: new Uint8Array(0), iv: sealed.iv, ct: sealed.ct }
+  }
   const salt = randomBytes(SALT_BYTES)
   const kdf = { ...CURRENT_KDF }
   const kek = await deriveTotpKek(password, salt, kdf)
@@ -94,21 +105,36 @@ async function sealSecret(secret: string, password: string, userId: string): Pro
   return { kdf, salt, iv: sealed.iv, ct: sealed.ct }
 }
 
-async function openSecret(row: TotpRow, password: string, userId: string): Promise<string> {
-  const kek = await deriveTotpKek(password, row.salt, row.kdf)
-  const value = await openJson<{ secret?: unknown }>({ iv: row.iv, ct: row.ciphertext }, kek, aad('moliya.totp', userId))
+/** `identity` stands in for opening the identity again: the key a sign-in derived from it a moment ago. */
+async function openSecret(vault: OpenVault, row: TotpRow, password: string, userId: string, identity?: CryptoKey): Promise<string> {
+  const key = isIdentityKdf(row.kdf)
+    ? (identity ?? (await (await import('./v2/identity-keys')).identityKey(vault, password, 'totp')))
+    : await deriveTotpKek(password, row.salt, row.kdf)
+  const value = await openJson<{ secret?: unknown }>({ iv: row.iv, ct: row.ciphertext }, key, aad('moliya.totp', userId))
   if (typeof value.secret !== 'string') throw new AuthError()
   return value.secret
+}
+
+function writeSealed(db: SqlDatabase, userId: string, sealed: SealedSecret, at: string): void {
+  db.exec('UPDATE user_totp SET kdf = ?, kdf_salt = ?, secret_iv = ?, secret_ciphertext = ?, rewrapped_at = ? WHERE user_id = ?', [
+    JSON.stringify(sealed.kdf),
+    bytesToBase64(sealed.salt),
+    sealed.iv,
+    sealed.ct,
+    at,
+    userId,
+  ])
 }
 
 export async function enableTotp(vault: OpenVault, password: string, setup: TotpSetup, code: string, now = Date.now()): Promise<string[]> {
   const userId = vault.user.id
   if (hasSignInCheck(vault.db, userId)) throw new ValidationError('TOTP_ENABLED')
-  await verifyOwnPassword(vault, password)
+  // With per-person keys, sealing opens the identity, which checks the password.
+  if (!vault.keys) await verifyOwnPassword(vault, password)
   const key = await importTotpKey(base32Decode(setup.secret))
   const step = await verifyTotp(key, code.trim(), now, 0)
   if (step === null) throw new ValidationError('TOTP_INVALID')
-  const sealed = await sealSecret(setup.secret, password, userId)
+  const sealed = await sealSecret(vault, setup.secret, password, userId)
   const recoverySalt = randomBytes(SALT_BYTES)
   const codes: string[] = []
   const hashes: string[] = []
@@ -159,13 +185,20 @@ export function clearUserTotp(vault: OpenVault, userId: string): void {
 
 export async function openTotpChallenge(vault: OpenVault, password: string): Promise<TotpChallenge | null> {
   const userId = vault.user.id
+  const identity = vault.keys?.signInTotpKey
+  if (vault.keys) vault.keys.signInTotpKey = undefined
   const row = readRow(vault.db, userId)
   if (!row) return null
   let secret: string
   try {
-    secret = await openSecret(row, password, userId)
+    secret = await openSecret(vault, row, password, userId, identity)
   } catch {
     throw new AuthError()
+  }
+  if (vault.keys && !isIdentityKdf(row.kdf)) {
+    // Sealed by 1.x (the founder's, from before the upgrade): it moves onto the identity now that the password is known.
+    writeSealed(vault.db, userId, await sealSecret(vault, secret, password, userId), new Date().toISOString())
+    vault.needsSave = true
   }
   return { userId, key: await importTotpKey(base32Decode(secret)) }
 }
@@ -201,20 +234,17 @@ export async function completeTotpChallenge(
 }
 
 /** Re-seals the secret under the new password; returns a writer for the caller's transaction, or null. */
+/**
+ * Re-seals the secret under the new password; returns a writer for the caller's transaction, or null. One sealed under
+ * the identity stays as it is: the identity keeps its seed under the new password.
+ */
 export async function prepareTotpRewrap(vault: OpenVault, current: string, next: string): Promise<((db: SqlDatabase, at: string) => void) | null> {
   const userId = vault.user.id
   const row = readRow(vault.db, userId)
   if (!row) return null
-  const secret = await openSecret(row, current, userId)
-  const sealed = await sealSecret(secret, next, userId)
-  return (db, at) => {
-    db.exec('UPDATE user_totp SET kdf = ?, kdf_salt = ?, secret_iv = ?, secret_ciphertext = ?, rewrapped_at = ? WHERE user_id = ?', [
-      JSON.stringify(sealed.kdf),
-      bytesToBase64(sealed.salt),
-      sealed.iv,
-      sealed.ct,
-      at,
-      userId,
-    ])
-  }
+  if (isIdentityKdf(row.kdf)) return (db, at) => db.exec('UPDATE user_totp SET rewrapped_at = ? WHERE user_id = ?', [at, userId])
+  const secret = await openSecret(vault, row, current, userId)
+  // In a vault with per-person keys it moves onto the identity, which the current password still opens here.
+  const sealed = await sealSecret(vault, secret, vault.keys ? current : next, userId)
+  return (db, at) => writeSealed(db, userId, sealed, at)
 }
