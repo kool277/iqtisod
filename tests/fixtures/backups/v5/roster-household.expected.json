@@ -1,0 +1,211 @@
+{
+  "description": "Produced by Jaybi 2.0.0-beta.1 services: vault record v3, backup v3, schema v5 (per-person keys, a signed roster, one new household key after a suspension, and a body in 16 KiB chunks).",
+  "producedBy": {
+    "appVersion": "2.0.0-beta.1",
+    "commit": "d165b6e59329"
+  },
+  "format": {
+    "backup": 3,
+    "record": 3,
+    "schema": 5
+  },
+  "vaultName": "Roster Home",
+  "currency": "USD",
+  "users": [
+    {
+      "email": "founder@roster.test",
+      "password": "Founder roster lantern v5",
+      "role": "Admin",
+      "group": null
+    },
+    {
+      "email": "alice@roster.test",
+      "password": "Alice roster · v5 · Олма",
+      "role": "Manager",
+      "group": "Roster Home"
+    },
+    {
+      "email": "carol@roster.test",
+      "password": "Carol roster harbour v5",
+      "role": "Viewer",
+      "group": "Roster Home"
+    }
+  ],
+  "groups": [
+    "Roster Home"
+  ],
+  "categoryCount": 14,
+  "transactions": [
+    {
+      "id": "97748c76-6d28-42c2-b1f6-c84e4bef0f54",
+      "type": "INCOME",
+      "amountMinor": 420000,
+      "currency": "USD",
+      "category": "Salary",
+      "group": "Roster Home",
+      "date": "2026-10-01",
+      "notes": null,
+      "hasReceipt": false,
+      "userEmail": "founder@roster.test"
+    },
+    {
+      "id": "5707c32b-e0ec-406a-acb2-494bf6ab22d8",
+      "type": "EXPENSE",
+      "amountMinor": 8640,
+      "currency": "USD",
+      "category": "Food",
+      "group": "Roster Home",
+      "date": "2026-10-03",
+      "notes": "market",
+      "hasReceipt": true,
+      "userEmail": "founder@roster.test"
+    },
+    {
+      "id": "da0aafb6-f27a-48e0-b800-c2e1dcdd7c53",
+      "type": "EXPENSE",
+      "amountMinor": 1999,
+      "currency": "USD",
+      "category": "Food",
+      "group": "Roster Home",
+      "date": "2026-10-05",
+      "notes": "bread",
+      "hasReceipt": false,
+      "userEmail": "alice@roster.test"
+    }
+  ],
+  "totals": {
+    "range": {
+      "start": "2026-10-01",
+      "end": "2026-10-31"
+    },
+    "admin": {
+      "incomeMinor": 420000,
+      "expenseMinor": 10639,
+      "netMinor": 409361,
+      "savingsRate": 97.5
+    }
+  },
+  "auditActions": [
+    "VAULT_CREATED",
+    "TRANSACTION_CREATED",
+    "TRANSACTION_CREATED",
+    "INVITE_CREATED",
+    "INVITE_CREATED",
+    "INVITE_ACCEPTED",
+    "TOTP_ENABLED",
+    "TRANSACTION_CREATED",
+    "INVITE_ACCEPTED",
+    "INVITE_CREATED",
+    "USER_SUSPENDED",
+    "INVITE_REVOKED",
+    "EPOCH_ROTATED",
+    "INVITE_CREATED",
+    "INVITE_ACCEPTED",
+    "INVITE_CREATED",
+    "BACKUP_EXPORTED"
+  ],
+  "addedOnOpen": [
+    "INVITE_EXPIRED"
+  ],
+  "keys": {
+    "epoch": 2,
+    "roster": {
+      "version": 5,
+      "hash": "9eaeae99e31505681ab44585cc45e4accaa050841978ad2f57d5e437226ea426"
+    },
+    "founder": {
+      "email": "founder@roster.test",
+      "fingerprint": "73D6 ACB4 F3F9 F043 21A4 B281"
+    },
+    "removed": [
+      {
+        "email": "bob@roster.test",
+        "password": "Bob roster compass v5"
+      }
+    ],
+    "chunkSize": 16384,
+    "chunks": 25
+  },
+  "grants": {
+    "pending": [
+      {
+        "kind": "INVITE",
+        "email": "dave@roster.test",
+        "code": "F7PZ-X81T-E0TJ-PPMT-VRS8-JGFB-2DQB",
+        "expiresAt": "2026-10-18T11:15:00.000Z"
+      }
+    ],
+    "used": [
+      {
+        "kind": "INVITE",
+        "email": "alice@roster.test",
+        "code": "SND3-C4A3-CR0Z-C573-4P2C-NS11-ST3U"
+      },
+      {
+        "kind": "INVITE",
+        "email": "bob@roster.test",
+        "code": "WTCA-ZNYV-V782-E1MB-K8EF-1519-EV1E"
+      },
+      {
+        "kind": "INVITE",
+        "email": "carol@roster.test",
+        "code": "6NGZ-J0K2-AF3P-GB1H-NQDJ-TV25-PTHP"
+      }
+    ],
+    "revoked": [
+      {
+        "kind": "INVITE",
+        "email": "eve@roster.test",
+        "code": "6D41-R0BH-7J8M-93NH-GGF5-6FN9-CGS1"
+      }
+    ]
+  },
+  "safes": {
+    "summaryDate": "2026-10-18",
+    "owners": [
+      {
+        "email": "founder@roster.test",
+        "state": "OPEN",
+        "recoveryCode": "5D9J8-RZ2R0-JN2AB-1HXWE-SG68T",
+        "safes": [
+          {
+            "id": "dcbbe627-9f4c-4794-8c0d-03335b967ac7",
+            "name": "Main",
+            "archived": false,
+            "requirePassword": false,
+            "isDefault": true,
+            "items": [
+              {
+                "v": 1,
+                "kind": "NOTE",
+                "title": "Deposit box",
+                "body": "Box 42 at the Chilonzor branch",
+                "favorite": false,
+                "id": "3974be6e-cced-45db-a023-0aca5a30b86b",
+                "safeId": "dcbbe627-9f4c-4794-8c0d-03335b967ac7",
+                "deletedAt": null
+              }
+            ]
+          }
+        ],
+        "totals": []
+      }
+    ]
+  },
+  "signInCheck": {
+    "email": "alice@roster.test",
+    "secret": "XOBO2QLOW525AOEN7BJC7VR4JFPPPMF6",
+    "recoveryCodes": [
+      "P6YM-SVK1-970X-1Z14",
+      "TR8C-VA0P-TV7P-PYYE",
+      "11J5-DKHS-MT0W-QHRV",
+      "YS5Z-57K3-2REK-B8RJ",
+      "T7QX-K9BY-9E2W-WJ9D",
+      "TCDJ-4B7S-X4Y8-0YNZ",
+      "NEFH-YH8A-EWED-SJVD",
+      "4XND-XTMK-VP84-6CZY",
+      "G0Z0-DCPC-JE5G-FZMJ",
+      "PACW-EQ7Q-3CQ1-N5XC"
+    ]
+  }
+}

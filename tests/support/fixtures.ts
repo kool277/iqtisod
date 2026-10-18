@@ -75,6 +75,15 @@ export type Expected = {
     revoked: { kind: 'INVITE' | 'RESET'; email: string; code: string }[]
   }
   signInCheck?: { email: string; secret: string; recoveryCodes: string[] }
+  /** A fixture with per-person keys (record 3). */
+  keys?: {
+    epoch: number
+    roster: { version: number; hash: string }
+    founder: { email: string; fingerprint: string }
+    removed: { email: string; password: string }[]
+    chunkSize: number
+    chunks: number
+  }
 }
 
 export type Fixture = ManifestEntry & { text: string; expected: Expected }

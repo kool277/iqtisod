@@ -448,7 +448,7 @@ Bump `RECORD_VERSION` or `BACKUP_VERSION`, add a new branch in `src/db/envelope.
   - `keys.spec.ts` (only against a build with `VITE_V2_KEYS=1`, a second Playwright step in CI): setup, an invite and a first sign-in elsewhere that compares the founder key, a blocked sign-in that still downloads the vault, the founder upgrade, a browser without the suite, and an upgrade that cannot be saved.
   - `tests/bench/` is not a test: `npm run bench` opens a page on the dev server that times Argon2id, the key operations, the roster check and the chunked saves on that device (design section 7).
 
-Test helpers for safes (a household vault with an Admin and a Manager, sample card, subscription, and note, and byte search for plaintext leaks) are in `tests/support/safes.ts`, and for codes and the sign-in check in `tests/support/access.ts`. The v3 fixture was produced by `tools/fixtures/v3/generate.gen.ts` with 1.2.0, and the v4 fixture by `tools/fixtures/v4/generate.gen.ts` with 1.3.0.
+Test helpers for safes (a household vault with an Admin and a Manager, sample card, subscription, and note, and byte search for plaintext leaks) are in `tests/support/safes.ts`, and for codes and the sign-in check in `tests/support/access.ts`. The v3 fixture was produced by `tools/fixtures/v3/generate.gen.ts` with 1.2.0, the v4 fixture by `tools/fixtures/v4/generate.gen.ts` with 1.3.0, and the v5 fixture (per-person keys, record 3, a new household key after a suspension, a body in 16 KiB chunks) by `tools/fixtures/v5/generate.gen.ts` with 2.0.0-beta.1.
 
 Each Playwright test gets a fresh browser context, so IndexedDB starts empty. The warning "localStorage is not available" during unit tests comes from Node and is harmless.
 

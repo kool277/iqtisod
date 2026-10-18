@@ -131,8 +131,9 @@ describe('assertKnownSchema', () => {
     expect(await schemaCode(db, SCHEMA_VERSION)).toBeNull()
   })
 
-  it('accepts every fixture as stored, and again once upgraded', async () => {
-    for (const entry of readManifest()) {
+  it('accepts every 1.x fixture as stored, and again once upgraded', async () => {
+    // A record 3 fixture is checked against schema 5 each time fixtures.test.ts signs in to it.
+    for (const entry of readManifest().filter((item) => item.recordFormat < 3)) {
       const db = await track(openRawFixtureDatabase(fixtureByPath(entry.path)))
       expect(await schemaCode(db), `${entry.path} as stored`).toBeNull()
       migrate(db, APP)

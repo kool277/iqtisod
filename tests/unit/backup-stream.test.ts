@@ -160,8 +160,10 @@ describe('readBackupFile', () => {
       const { text } = readFixture(entry)
       const expected = parseBackupText(text)
       expect(await readBackupFile(blob(text)), entry.path).toEqual(expected)
-      // Forcing the streaming path for the ciphertext gives the same result.
-      expect(await readBackupFile(blob(text), { longStringBytes: 64 }), entry.path).toEqual(expected)
+      // Forcing the streaming path for the ciphertext gives the same result. A version 3 header has strings longer
+      // than 64 characters (sealed identities, signatures), so 1 KiB is the floor there.
+      const longStringBytes = expected.record.version === 3 ? 1024 : 64
+      expect(await readBackupFile(blob(text), { longStringBytes }), entry.path).toEqual(expected)
     }
   })
 

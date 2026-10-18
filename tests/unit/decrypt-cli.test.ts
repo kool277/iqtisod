@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process'
+import * as nodeCrypto from 'node:crypto'
 import { existsSync, lstatSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
@@ -11,6 +12,8 @@ import { backupFileText } from '../../src/services/backup.service'
 import { FIXTURE_ROOT, fixtureByPath, readFixture, readManifest } from '../support/fixtures'
 
 const run = promisify(execFile)
+// Backup format 3 needs Argon2id, which Node.js has from 24.7; CI also runs Node 22, where the tool says so instead.
+const argon2Sync = (nodeCrypto as unknown as { argon2Sync?: unknown }).argon2Sync
 const CLI = resolve(dirname(fileURLToPath(import.meta.url)), '../../tools/moliya-decrypt.mjs')
 const work = mkdtempSync(join(tmpdir(), 'moliya-cli-'))
 
@@ -22,6 +25,7 @@ function cli(args: string[], password?: string) {
 
 describe.each(readManifest().map((entry) => [entry.path, readFixture(entry)] as const))('moliya-decrypt %s', (path, fixture) => {
   const input = resolve(FIXTURE_ROOT, `${path}.moliya`)
+  const decrypts = fixture.backupFormat < 3 || Boolean(argon2Sync)
 
   it('lists the users and format without a password', async () => {
     const { stdout } = await cli([input, '--list'])
@@ -35,7 +39,7 @@ describe.each(readManifest().map((entry) => [entry.path, readFixture(entry)] as 
     expect(stdout).not.toMatch(/salt|iv"|wrappedDek|verifier/)
   })
 
-  it('writes a plain SQLite database with every record and no password material', async () => {
+  it.runIf(decrypts)('writes a plain SQLite database with every record and no password material', async () => {
     const out = join(work, `${path.replace('/', '-')}.sqlite`)
     const user = fixture.expected.users[fixture.expected.users.length - 1]
     const { stdout } = await cli([input, '--email', user.email, '--out', out], user.password)
@@ -60,7 +64,7 @@ describe.each(readManifest().map((entry) => [entry.path, readFixture(entry)] as 
     }
   })
 
-  it.runIf(fixture.expected.safes !== undefined)('keeps the still-encrypted private-safe rows with --keep-keys', async () => {
+  it.runIf(decrypts && fixture.expected.safes !== undefined)('keeps the still-encrypted private-safe rows with --keep-keys', async () => {
     const out = join(work, `${path.replace('/', '-')}-keys.sqlite`)
     const user = fixture.expected.users[0]
     await cli([input, '--email', user.email, '--out', out, '--keep-keys'], user.password)
@@ -73,7 +77,7 @@ describe.each(readManifest().map((entry) => [entry.path, readFixture(entry)] as 
     }
   })
 
-  it.runIf(fixture.expected.signInCheck !== undefined)('keeps the still-encrypted sign-in check rows with --keep-keys', async () => {
+  it.runIf(decrypts && fixture.expected.signInCheck !== undefined)('keeps the still-encrypted sign-in check rows with --keep-keys', async () => {
     const out = join(work, `${path.replace('/', '-')}-totp.sqlite`)
     const user = fixture.expected.users[0]
     await cli([input, '--email', user.email, '--out', out, '--keep-keys'], user.password)
@@ -86,7 +90,7 @@ describe.each(readManifest().map((entry) => [entry.path, readFixture(entry)] as 
     }
   })
 
-  it('rejects a wrong password without writing anything', async () => {
+  it.runIf(decrypts)('rejects a wrong password without writing anything', async () => {
     const user = fixture.expected.users[0]
     await expect(cli([input, '--email', user.email, '--out', join(work, 'wrong.sqlite')], 'nope')).rejects.toMatchObject({
       stderr: expect.stringContaining('wrong email or password'),

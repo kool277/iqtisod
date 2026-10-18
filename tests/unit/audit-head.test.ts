@@ -159,11 +159,13 @@ describe('audit head', () => {
     expect((await sealVault(owner)).audit).toEqual(auditHead(owner.db))
   })
 
-  it('leaves every released backup openable; none carries a head', async () => {
+  it('leaves every golden backup openable; only those with per-person keys carry a head', async () => {
     for (const entry of readManifest()) {
       const fixture = readFixture(entry)
       const { record } = parseBackup(fixture.text)
-      expect(record.audit, entry.path).toBeUndefined()
+      // Released 1.x backups predate the head; record 3 always has one.
+      if (record.version === 3) expect(record.audit, entry.path).toBeDefined()
+      else expect(record.audit, entry.path).toBeUndefined()
       const admin = fixture.expected.users.find((user) => user.role === 'Admin')!
       const vault = await unlockVault(record, admin.email, admin.password)
       open.push(vault.db)

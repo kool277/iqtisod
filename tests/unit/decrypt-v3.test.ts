@@ -16,6 +16,7 @@ import { createInvite, redeemGrant } from '../../src/services/grant.service'
 import { listGroups } from '../../src/services/group.service'
 import { commitSealed, confirmKeysSession } from '../../src/services/v2/session'
 import { createKeysVault } from '../../src/services/v2/vault'
+import { FIXTURE_ROOT, fixtureByPath } from '../support/fixtures'
 import { memoryStorage } from '../support/memory-storage'
 
 vi.mock('../../src/crypto/kdf', async (load) => {
@@ -123,6 +124,17 @@ describe('moliya-decrypt on a backup with per-person keys (format 3)', () => {
     writeFileSync(changed, JSON.stringify(json))
     const result = await failure([changed, '--email', FOUNDER.email, '--out', join(work, 'changed.sqlite')], FOUNDER.password)
     expect(result.stderr).toBe('moliya-decrypt: wrong email or password, or the backup is damaged\n')
+  })
+
+  it.skipIf(!argon2Sync)('verifies the golden v5 backup, through a new household key and a removal', async () => {
+    const fixture = fixtureByPath('v5/roster-household')
+    const golden = resolve(FIXTURE_ROOT, 'v5/roster-household.moliya')
+    const [, manager] = fixture.expected.users
+    const { stderr } = await cli([golden, '--email', manager.email, '--out', join(work, 'golden.sqlite'), '--verify'], manager.password)
+    expect(stderr).toContain(`verified (founder key ${fixture.expected.keys!.founder.fingerprint})`)
+    const [removed] = fixture.expected.keys!.removed
+    const gone = await failure([golden, '--email', removed.email, '--out', join(work, 'removed.sqlite')], removed.password)
+    expect(gone.stderr).toBe(`moliya-decrypt: no user ${removed.email} in this backup\n`)
   })
 
   it.skipIf(Boolean(argon2Sync))('says which Node.js it needs where Argon2id is missing', async () => {
