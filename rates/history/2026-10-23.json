@@ -1,0 +1,78 @@
+{
+  "schema": 1,
+  "generatedAt": "2026-10-23T19:33:08.226Z",
+  "quotes": [
+    {
+      "base": "USD",
+      "quote": "UZS",
+      "rate": "11965.51",
+      "date": "2026-10-22",
+      "source": "CBU",
+      "method": "official",
+      "legs": null,
+      "previous": {
+        "rate": "12012.30",
+        "date": "2026-10-21"
+      }
+    },
+    {
+      "base": "USD",
+      "quote": "KRW",
+      "rate": "1324.45278299",
+      "date": "2026-10-23",
+      "source": "ECB",
+      "method": "cross",
+      "legs": [
+        {
+          "pair": "EUR/KRW",
+          "rate": "1482.46"
+        },
+        {
+          "pair": "EUR/USD",
+          "rate": "1.1193"
+        }
+      ],
+      "previous": {
+        "rate": "1324.63186078",
+        "date": "2026-10-22"
+      }
+    },
+    {
+      "base": "USD",
+      "quote": "ILS",
+      "rate": "3.112",
+      "date": "2026-10-23",
+      "source": "BOI",
+      "method": "official",
+      "legs": null,
+      "previous": {
+        "rate": "3.107",
+        "date": "2026-10-22"
+      }
+    }
+  ],
+  "fetches": [
+    {
+      "source": "ECB",
+      "url": "https://data-api.ecb.europa.eu/service/data/EXR/D.USD+KRW+ILS.EUR.SP00.A?lastNObservations=2&detail=dataonly&format=csvdata",
+      "fetchedAt": "2026-10-23T19:33:08.226Z",
+      "sha256": "0782f574b50568b5f99a7c3f8dd3c9a81cc6ed922b3d218926dc22cab1cc182f"
+    },
+    {
+      "source": "BOI",
+      "url": "https://edge.boi.gov.il/FusionEdgeServer/sdmx/v2/data/dataflow/BOI.STATISTICS/EXR/1.0/RER_USD_ILS?lastNObservations=2&format=csv",
+      "fetchedAt": "2026-10-23T19:33:08.226Z",
+      "sha256": "14018d3f35dab45f0acf401909b58d0a798af0659670f8f9b4a3f9fe841b79cd"
+    }
+  ],
+  "checks": [
+    {
+      "subject": "USD/ILS BOI official",
+      "reference": "ECB cross via EUR (2026-10-23)",
+      "deviationPercent": "0.3045",
+      "tolerancePercent": "1.5",
+      "passed": true
+    }
+  ],
+  "digest": "b7e0f0191f07d083413d826c4765ce5f4a0f71a7fc7b012cdf3d77c9968a8168"
+}
