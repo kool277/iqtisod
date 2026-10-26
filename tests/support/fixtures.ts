@@ -83,6 +83,8 @@ export type Expected = {
     removed: { email: string; password: string }[]
     chunkSize: number
     chunks: number
+    /** Signed audit entries (from 2.0.0-rc.1): the first signed one, how many are signed, and the head of the log. */
+    audit?: { signedFrom: number; signed: number; head: { seq: number; hash: string } }
   }
 }
 

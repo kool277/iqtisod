@@ -26,6 +26,8 @@ export function writeAudit(
 export type AuditWarning =
   | { kind: 'BROKEN'; brokenAt: number }
   | { kind: AuditHeadProblem; source: 'device' | 'record'; expected: AuditHead; actual: AuditHead }
+  /** A per-person-keys vault: entries since this browser's last check whose signature, signer or role does not check out. */
+  | { kind: 'SIGNATURES'; count: number; firstSeq: number }
 
 /**
  * Run on the opened database at sign-in. `device` is the furthest entry this browser saw, `record` the head the record

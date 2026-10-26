@@ -35,6 +35,31 @@ function text(value: SqlValue): string | null {
   return value == null ? null : String(value)
 }
 
+/** A stored entry with the hash stored beside it, which a check compares with {@link auditHash}. */
+export type AuditRow = AuditLink & { hash: string }
+
+const ROW_COLUMNS = 'seq, id, actor_id, action, entity_type, entity_id, details, created_at, prev_hash, hash'
+
+export function auditRowOf(row: Record<string, SqlValue>): AuditRow {
+  return {
+    seq: Number(row.seq),
+    id: String(row.id),
+    actorId: text(row.actor_id),
+    action: String(row.action),
+    entityType: text(row.entity_type),
+    entityId: text(row.entity_id),
+    details: text(row.details),
+    createdAt: String(row.created_at),
+    prevHash: String(row.prev_hash),
+    hash: String(row.hash),
+  }
+}
+
+/** Every entry after `afterSeq`, in order. */
+export function readAuditRows(db: SqlDatabase, afterSeq = 0): AuditRow[] {
+  return db.query(`SELECT ${ROW_COLUMNS} FROM audit_logs WHERE seq > ? ORDER BY seq`, [afterSeq]).map(auditRowOf)
+}
+
 export function insertAuditLink(db: SqlDatabase, entry: Omit<AuditLink, 'seq' | 'prevHash'>): void {
   const last = db.queryOne('SELECT seq, hash FROM audit_logs ORDER BY seq DESC LIMIT 1')
   const link: AuditLink = {
@@ -91,28 +116,15 @@ export type ChainReport = {
 }
 
 export function verifyAuditChain(db: SqlDatabase): ChainReport {
-  const rows = db.query(
-    `SELECT seq, id, actor_id, action, entity_type, entity_id, details, created_at, prev_hash, hash
-     FROM audit_logs ORDER BY seq`,
-  )
+  const rows = readAuditRows(db)
   let previous = GENESIS_HASH
   let expectedSeq = 1
   for (const row of rows) {
-    const link: AuditLink = {
-      seq: Number(row.seq),
-      id: String(row.id),
-      actorId: text(row.actor_id),
-      action: String(row.action),
-      entityType: text(row.entity_type),
-      entityId: text(row.entity_id),
-      details: text(row.details),
-      createdAt: String(row.created_at),
-      prevHash: String(row.prev_hash),
-    }
-    if (link.seq !== expectedSeq || link.prevHash !== previous || auditHash(link) !== row.hash) {
+    const { hash, ...link } = row
+    if (link.seq !== expectedSeq || link.prevHash !== previous || auditHash(link) !== hash) {
       return { ok: false, entries: rows.length, brokenAt: link.seq, head: previous }
     }
-    previous = String(row.hash)
+    previous = hash
     expectedSeq += 1
   }
   return { ok: true, entries: rows.length, brokenAt: null, head: previous }

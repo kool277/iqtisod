@@ -26,6 +26,9 @@ import type { GroupSummary } from '../domain/group-summary'
 import { ledgerPathForGroup } from '../lib/ledger-link'
 import { DataTable, type Column } from './table/DataTable'
 import { auditLabel } from './audit-label'
+import { SignatureBadge, SignatureSummary, signatureOf, signatureText, useAuditSignatures } from './audit/AuditSignatures'
+import { useLazyCatalog } from '../context/useLazyCatalog'
+import { hasKeysMessages, loadKeysMessages } from '../i18n'
 import { optionsFrom } from './table/model'
 
 type ArchiveRow = Omit<ArchiveEntry, 'raw'>
@@ -191,19 +194,28 @@ export function GroupsPage() {
   )
 }
 
+const noCatalog = () => Promise.resolve()
+const catalogNotNeeded = () => true
+
 export function AuditPage() {
   const { t, locale } = useI18n()
-  const { user, query, revision } = useVault()
+  const { user, query, revision, keysInfo } = useVault()
   const allowed = Boolean(user && canUser(user, Permission.READ_AUDIT))
-  const rows = useMemo(() => (allowed ? query((vault) => listAudit(vault, AUDIT_PAGE_LIMIT)) : []), [allowed, query, revision])
+  // Entries of a vault with per-person keys are signed: each shows whether its signature checks out (design 6.1).
+  const signedLog = allowed && keysInfo !== null
+  const catalog = useLazyCatalog(signedLog ? loadKeysMessages : noCatalog, signedLog ? hasKeysMessages : catalogNotNeeded)
+  const signatures = useAuditSignatures(signedLog)
+  const [problemsOnly, setProblemsOnly] = useState(false)
+  const all = useMemo(() => (allowed ? query((vault) => listAudit(vault, AUDIT_PAGE_LIMIT)) : []), [allowed, query, revision])
+  const rows = useMemo(() => (problemsOnly ? all.filter((row) => Array.isArray(signatureOf(signatures, row.seq))) : all), [all, problemsOnly, signatures])
   const chain = useMemo(() => (allowed ? query((vault) => auditIntegrity(vault)) : null), [allowed, query, revision])
   const columns = useMemo<Column<AuditEntry>[]>(() => {
     const collator = new Intl.Collator(locale)
     const label = (row: AuditEntry) => auditLabel(row.action, t)
     const actor = (row: AuditEntry) => row.actorEmail ?? '—'
-    const actions = optionsFrom(rows, (row) => row.action, (action) => auditLabel(action, t), collator)
-    const actors = optionsFrom(rows, actor, (value) => value, collator)
-    const entities = optionsFrom(rows, (row) => row.entityType ?? '—', (value) => value, collator)
+    const actions = optionsFrom(all, (row) => row.action, (action) => auditLabel(action, t), collator)
+    const actors = optionsFrom(all, actor, (value) => value, collator)
+    const entities = optionsFrom(all, (row) => row.entityType ?? '—', (value) => value, collator)
     return [
       {
         id: 'when',
@@ -233,6 +245,18 @@ export function AuditPage() {
         filter: { kind: 'select', value: (row) => row.action, options: actions },
         exportAs: { kind: 'text', value: label },
       },
+      ...(signedLog && catalog === 'ready'
+        ? [
+            {
+              id: 'signature',
+              header: t('keys.audit.column'),
+              cell: (row: AuditEntry) => <SignatureBadge value={signatureOf(signatures, row.seq)} />,
+              sort: { type: 'text' as const, value: (row: AuditEntry) => signatureText(signatureOf(signatures, row.seq), t) },
+              search: (row: AuditEntry) => signatureText(signatureOf(signatures, row.seq), t),
+              exportAs: { kind: 'text' as const, value: (row: AuditEntry) => signatureText(signatureOf(signatures, row.seq), t) },
+            },
+          ]
+        : []),
       {
         id: 'entity',
         header: t('table.col.entity'),
@@ -262,7 +286,7 @@ export function AuditPage() {
         exportAs: { kind: 'text', value: (row) => row.details },
       },
     ]
-  }, [locale, rows, t])
+  }, [locale, all, t, signedLog, catalog, signatures])
   if (!allowed) return <Forbidden />
   return (
     <div className="grid gap-6">
@@ -276,6 +300,15 @@ export function AuditPage() {
           <span className="font-medium">{t('audit.integrity')}:</span> {chain.ok ? t('audit.intact') : t('audit.broken')} · {t('audit.entries')}:{' '}
           {chain.entries}
         </p>
+      ) : null}
+      {signedLog && catalog === 'ready' ? (
+        <>
+          <SignatureSummary state={signatures} />
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" data-testid="audit-problems-only" checked={problemsOnly} onChange={(event) => setProblemsOnly(event.target.checked)} />
+            {t('keys.audit.problemsOnly')}
+          </label>
+        </>
       ) : null}
       <DataTable
         id="audit"

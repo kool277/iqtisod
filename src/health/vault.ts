@@ -55,7 +55,12 @@ export type VaultFacts = {
   } | null
   /** A 1.x vault an admin can upgrade in this build. */
   upgradeOffer: boolean
+  /** The audit signature check of a per-person-keys vault, for people who can read the log. */
+  signatures: AuditSignatureFacts | null
 }
+
+/** From the check of the entries since `checkedFrom` (1: every entry). `signedFrom` is null while nothing is signed. */
+export type AuditSignatureFacts = { checkedFrom: number; signed: number; problems: number; firstProblem: number | null; signedFrom: number | null }
 
 export type VaultContextFacts = {
   saveState: SaveStateName
@@ -63,6 +68,7 @@ export type VaultContextFacts = {
   archives: number | null
   deviceMark: AuditHead | null
   recordedHead: AuditHead | null
+  signatures?: AuditSignatureFacts | null
 }
 
 export function collectVaultFacts(vault: OpenVault, context: VaultContextFacts): VaultFacts {
@@ -95,6 +101,7 @@ export function collectVaultFacts(vault: OpenVault, context: VaultContextFacts):
     hygiene: canManageUsers ? hygieneOf(vault) : null,
     keys: keysOf(vault, canManageUsers, canBackup),
     upgradeOffer: !vault.keys && keysEnabled() && canManageUsers && user.roleName === 'Admin',
+    signatures: canReadAudit && vault.keys ? (context.signatures ?? null) : null,
   }
 }
 

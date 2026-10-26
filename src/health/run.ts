@@ -11,7 +11,20 @@ import { Permission, canUser } from '../rbac'
 import { collectAppFacts, collectBrowserFacts, collectRatesFacts, collectSecurityFacts, collectStorageFacts, type HealthGlobals } from './collect'
 import { evaluateHealth } from './evaluate'
 import type { HealthResult } from './model'
-import { collectVaultFacts, type SaveStateName } from './vault'
+import { collectVaultFacts, type AuditSignatureFacts, type SaveStateName } from './vault'
+
+/** The check reads everything inside `query`, before it awaits, so a vault that locks meanwhile is not read. */
+async function auditSignatureFacts(vault: VaultAccess, full: boolean): Promise<AuditSignatureFacts | null> {
+  if (!vault.query((open) => open.keys !== undefined && canUser(open.user, Permission.READ_AUDIT))) return null
+  const { checkVaultAudit } = await import('../services/v2/audit-check')
+  const report = await vault.query((open) => {
+    const keys = open.keys
+    return keys ? checkVaultAudit(open as OpenVault & { keys: typeof keys }, { full }) : null
+  })
+  if (!report) return null
+  const problems = [...report.problems.keys()]
+  return { checkedFrom: report.start, signed: report.verified, problems: problems.length, firstProblem: problems.length > 0 ? Math.min(...problems) : null, signedFrom: report.signedFrom }
+}
 
 export type VaultAccess = {
   query: <T>(fn: (vault: OpenVault) => T) => T
@@ -19,8 +32,11 @@ export type VaultAccess = {
   weak: boolean
 }
 
-/** Runs every check that applies: the vault checks only for someone signed in, and admin rows only for admins. */
-export async function runHealthChecks(vault: VaultAccess | null, now = Date.now()): Promise<HealthResult[]> {
+/**
+ * Runs every check that applies: the vault checks only for someone signed in, and admin rows only for admins. The
+ * audit signatures are checked since this browser's last check, or all of them with `auditFull`.
+ */
+export async function runHealthChecks(vault: VaultAccess | null, now = Date.now(), options: { auditFull?: boolean } = {}): Promise<HealthResult[]> {
   const g = globalThis as unknown as HealthGlobals
   const dev = import.meta.env.DEV
   const base = document.baseURI
@@ -40,7 +56,8 @@ export async function runHealthChecks(vault: VaultAccess | null, now = Date.now(
     const archives = canBackup ? await listArchives().then((items) => items.length, () => null) : null
     const recordedHead = typeof storage.stored === 'object' ? storage.stored.audit : null
     try {
-      vaultFacts = vault.query((open) => collectVaultFacts(open, { saveState: vault.saveState, weak: vault.weak, archives, deviceMark: readAuditMark(), recordedHead }))
+      const signatures = await auditSignatureFacts(vault, options.auditFull === true)
+      vaultFacts = vault.query((open) => collectVaultFacts(open, { saveState: vault.saveState, weak: vault.weak, archives, deviceMark: readAuditMark(), recordedHead, signatures }))
     } catch {
       // The vault locked while the checks ran.
       vaultFacts = null

@@ -28,6 +28,7 @@ import { APP_VERSION } from '../../lib/version'
 import { writeAudit } from '../audit.service'
 import { assertDisplayName, buildOpenVault, compactIfSparse, loadUserById, type SetupInput } from '../auth.service'
 import { openGrantRows, recordClock } from '../grant-store'
+import { auditSigningCurrent, signAuditEntries, storeAuditSigning } from './audit-signing'
 import { appendRosterDoc, deleteBinding, latestRosterDoc, readBindings, readPeople } from './roster-store'
 import { rememberSealed, type KeysSession } from './session'
 import { verifyKeysVault } from './verify'
@@ -185,6 +186,8 @@ function applyRosterPlan(vault: OpenVault & { keys: KeysSession }, plan: RosterP
 }
 
 const ROSTER_ATTEMPTS = 3
+/** Signing again because the app wrote audit entries while a save signed is cheap, so it may happen more often. */
+const RESIGN_ATTEMPTS = 20
 
 type WrapTarget = { id: string; encPub: string }
 
@@ -224,8 +227,8 @@ export async function sealKeysVault(vault: OpenVault & { keys: KeysSession }, op
   // Someone whose public key cannot take a wrap (not a usable X25519 key) gets none, which takes them out of the
   // roster; it must not stop the save for everyone else.
   const unwrappable = new Set<string>()
-  for (let attempt = 0; snapshot === null; attempt += 1) {
-    if (attempt === ROSTER_ATTEMPTS) throw new ValidationError('SAVE_BUSY')
+  for (let attempt = 0, resigned = 0; snapshot === null; attempt += 1) {
+    if (attempt - resigned === ROSTER_ATTEMPTS || resigned > RESIGN_ATTEMPTS) throw new ValidationError('SAVE_BUSY')
     const latest = latestRosterDoc(db)
     if (!latest || latest.version !== keys.roster.version) throw new CorruptRecordError()
     const { dek } = vault
@@ -240,15 +243,23 @@ export async function sealKeysVault(vault: OpenVault & { keys: KeysSession }, op
     const signer = await maySignRoster(vault, latest)
     // Planned with the wraps this attempt made, which are stored before the plan is checked again.
     const plan = signer ? await planRoster(vault, latest, updatedAt, new Set(wraps.map((wrap) => wrap.memberId))) : null
+    // The entries this session wrote name the roster version and epoch of the record this save stores.
+    const signing = await signAuditEntries(vault, plan ? { rosterVersion: plan.doc.version, epoch: plan.doc.epoch } : { rosterVersion: latest.version, epoch: latest.epoch })
     // From here to the image copy nothing awaits, so the roster, the image, the audit head and everything the header
     // names describe one state, even if the app or another save changes the session while this one encrypts.
     if (vault.dek !== dek || keys.epoch !== epoch) continue
     const wanted = new Set(wrapTargets(vault, latest).map((target) => target.id))
     for (const wrap of wraps) if (wanted.has(wrap.memberId)) keys.dekWraps[wrap.memberId] = wrap
     if (wrapTargets(vault, latest).some((target) => !unwrappable.has(target.id))) continue
+    // No entry may be stored unsigned: ones written while this attempt signed are signed by the next.
+    if (!auditSigningCurrent(vault, signing)) {
+      resigned += 1
+      continue
+    }
     if (signer && !applyRosterPlan(vault, plan, latest)) continue
     // A header whose epoch no roster version names would block the vault for everyone.
     if ((signer && plan ? plan.doc.epoch : latest.epoch) !== keys.epoch) throw new CorruptRecordError()
+    storeAuditSigning(db, signing)
     for (const id of Object.keys(keys.dekWraps)) if (!keys.holders.includes(id)) keys.holders.push(id)
     compactIfSparse(db)
     snapshot = {
@@ -323,6 +334,7 @@ export async function createKeysVault(input: SetupInput): Promise<{ vault: OpenV
       identity.sigPriv,
     )
     let rosterHash = ''
+    const auditFrom = auditHead(db).seq + 1
     db.exec('BEGIN')
     try {
       db.exec(
@@ -356,6 +368,7 @@ export async function createKeysVault(input: SetupInput): Promise<{ vault: OpenV
       firstSeen: true,
       holders: [memberId],
       nextDek: await generateDek(),
+      auditFrom,
     }
     const vault: OpenVault & { keys: KeysSession } = {
       db,
@@ -450,6 +463,7 @@ export async function unlockKeysVault(record: KeysRecord, email: string, passwor
       holders: verified.holders,
       nextDek: await generateDek(),
       signInTotpKey,
+      auditFrom: auditHead(db).seq + 1,
     }
     const vault = buildOpenVault(record, { db, dek, wraps: [], user, needsSave: false }, now)
     vault.keys = session

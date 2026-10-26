@@ -52,6 +52,30 @@ export const keysEn = {
     you: 'You are this vault’s founder.',
     help: 'Anyone who signs in to this vault in a new browser compares this key with an admin.',
   },
+  audit: {
+    warning: 'Some audit log entries do not check out: a signature is missing or does not match, or the entry records something its signer was not allowed to do. The first is entry',
+    warningCount: '{count} in all',
+    column: 'Signature',
+    signed: 'Signed',
+    legacy: 'Before signatures',
+    checking: 'Checking…',
+    problem: {
+      CHAIN: 'Changed outside Jaybi',
+      UNSIGNED: 'Not signed',
+      SIGNATURE: 'Signature does not match',
+      SIGNER: 'Signer was not a member then',
+      ACTOR: 'Signed by someone else',
+      ROLE: 'Not allowed for their role',
+      ORDER: 'Out of order',
+      ORPHAN: 'Signature without its entry',
+    },
+    summary: 'Signatures: {signed} entries check out, {problems} have a problem.',
+    summaryLegacy: '{legacy} earlier entries were written before entries were signed.',
+    summaryNone: 'Signatures: no entry is signed yet. Every entry is signed from the next save on.',
+    summaryChecking: 'Checking signatures…',
+    summaryFailed: 'The signatures could not be checked.',
+    problemsOnly: 'Show problems only',
+  },
 }
 
 export type KeysMessages = typeof keysEn

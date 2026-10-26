@@ -173,6 +173,23 @@ test('suspending a member makes a new household key for everyone who stays, and 
   // The copy from just before the new key is the one earlier copy kept.
   await page.getByTestId('nav-backup').click()
   await expect(page.getByText('Before a new household key')).toBeVisible()
+
+  // Every entry, the member's own and the removal's, is signed by the person who made it and checks out.
+  await page.getByTestId('nav-audit').click()
+  await expect(page.getByTestId('audit-signatures')).toHaveAttribute('data-state', 'ready', { timeout: 30_000 })
+  await expect(page.getByTestId('audit-signatures')).toHaveAttribute('data-problems', '0')
+  await expect(page.getByTestId('audit-signatures')).toContainText('Signatures:')
+  await expect(page.locator('[data-testid="audit-signature"][data-signature="signed"]').first()).toBeVisible()
+  await expect(page.locator('[data-testid="audit-signature"]:not([data-signature="signed"])')).toHaveCount(0)
+  await page.getByTestId('audit-problems-only').check()
+  await expect(page.getByTestId('audit-signature')).toHaveCount(0)
+  await page.getByTestId('nav-health').click()
+  const signatures = page.locator('[data-testid="health-check"][data-id="auditSignatures"]')
+  await expect(signatures).toHaveAttribute('data-status', 'pass', { timeout: 60_000 })
+  // The sign-in checked what was new; the full check is offered and then covers every entry.
+  await signatures.getByTestId('health-action').click()
+  await expect(signatures).toHaveAttribute('data-status', 'pass', { timeout: 60_000 })
+  await expect(signatures.getByTestId('health-action')).toHaveCount(0)
   expect(await violations()).toEqual([])
 })
 
@@ -223,6 +240,11 @@ test('restoring a backup from before a removal takes that person out again', asy
   await signIn(page, FOUNDER.email, FOUNDER.password)
   await expect(page.getByTestId('lock-vault')).toBeVisible({ timeout: 60_000 })
   await expect(page.getByTestId('rollback-open')).toHaveCount(0)
+  // The restored copy's log checks out, with the suspension made again signed by the admin who restored it.
+  await page.getByTestId('nav-audit').click()
+  await expect(page.getByTestId('audit-signatures')).toHaveAttribute('data-state', 'ready', { timeout: 30_000 })
+  await expect(page.getByTestId('audit-signatures')).toHaveAttribute('data-problems', '0')
+  await expect(page.getByTestId('audit-warning')).toHaveCount(0)
   expect(await violations()).toEqual([])
 })
 
@@ -251,6 +273,48 @@ test('an admin upgrades a 1.x vault: they become the founder and everyone else n
   await signIn(page, 'admin@access.test', 'Plum orchard admin v4')
   await expect(page.getByTestId('kpi-net')).toBeVisible({ timeout: 60_000 })
   await expect(page.getByTestId('upgrade-offer')).toHaveCount(0)
+
+  // Signing starts at the upgrade: the 1.x entries before it are shown as written before signatures.
+  await page.getByTestId('nav-audit').click()
+  await expect(page.getByTestId('audit-signatures')).toHaveAttribute('data-problems', '0', { timeout: 30_000 })
+  await expect(page.locator('[data-testid="audit-signature"][data-signature="legacy"]').first()).toBeVisible()
+  await expect(page.getByTestId('audit-signatures')).toContainText('written before entries were signed')
+  expect(await violations()).toEqual([])
+})
+
+test('a browser that saw entries signed warns when their signatures are gone, until an admin accepts the log', async ({ page }) => {
+  test.setTimeout(240_000)
+  const violations = await watchViolations(page)
+  await page.goto('/')
+  await page.getByTestId('import-file').setInputFiles(V4)
+  await page.getByTestId('confirm-import').click()
+  await signIn(page, 'admin@access.test', 'Plum orchard admin v4')
+  await page.getByTestId('upgrade-password').fill('Plum orchard admin v4', { timeout: 60_000 })
+  await page.getByTestId('upgrade-confirm').click()
+  await page.getByTestId('fingerprint-done').click({ timeout: 60_000 })
+  await lock(page)
+  // As if this browser had seen every entry signed from the first one: the 1.x entries now read as stripped of theirs.
+  await page.evaluate(() => {
+    const vaultId = Object.keys(localStorage).find((key) => key.startsWith('moliya.v2.founder.'))!.slice('moliya.v2.founder.'.length)
+    localStorage.setItem(`moliya.v2.auditSeen.${vaultId}`, JSON.stringify({ seq: 0, hash: '0'.repeat(64), signedFrom: 1, rosterVersion: null, sigs: '0'.repeat(64) }))
+  })
+  await signIn(page, 'admin@access.test', 'Plum orchard admin v4')
+  await expect(page.getByTestId('audit-warning')).toHaveAttribute('data-kind', 'SIGNATURES', { timeout: 60_000 })
+  await expect(page.getByTestId('audit-warning')).toContainText('#1')
+  await page.getByTestId('audit-warning').getByRole('link').click()
+  await page.getByTestId('audit-problems-only').check()
+  await expect(page.locator('[data-testid="audit-signature"][data-signature="problem"]').first()).toContainText('Not signed')
+  await expect(page.locator('[data-testid="audit-signature"]:not([data-signature="problem"])')).toHaveCount(0)
+  await page.getByTestId('audit-accept').click()
+  await expect(page.getByTestId('audit-warning')).toHaveCount(0)
+  await lock(page)
+  // Accepted: this browser takes the log as it is now, and the acceptance itself is a signed entry.
+  await signIn(page, 'admin@access.test', 'Plum orchard admin v4')
+  await expect(page.getByTestId('kpi-net')).toBeVisible({ timeout: 60_000 })
+  await page.getByTestId('nav-audit').click()
+  await expect(page.getByTestId('audit-signatures')).toHaveAttribute('data-problems', '0', { timeout: 30_000 })
+  await expect(page.getByTestId('audit-warning')).toHaveCount(0)
+  await expect(page.locator('[data-testid="audit-signature"][data-signature="signed"]').first()).toBeVisible()
   expect(await violations()).toEqual([])
 })
 

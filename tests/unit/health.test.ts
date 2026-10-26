@@ -403,6 +403,7 @@ describe('vault checks', () => {
       hygiene: { noTotp: 2, mustChange: 1, noAccess: 1, expiredCodes: 0, legacyWraps: 0 },
       keys: null,
       upgradeOffer: false,
+      signatures: null,
     }
     const results = vaultChecks(facts, { ...stored, version: 1 }, NOW)
     expect(byId(results, 'format')).toMatchObject({ status: 'info', detail: 'older' })

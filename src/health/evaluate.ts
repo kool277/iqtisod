@@ -208,6 +208,8 @@ export function vaultChecks(facts: VaultFacts, stored: StorageFacts['stored'], n
     )
   }
 
+  if (facts.signatures) results.push(signatureCheck(facts.signatures))
+
   const behind = facts.clockFloor !== null && now < facts.clockFloor - CLOCK_TOLERANCE_MS
   const clockFacts = facts.clockMarks ? { deviceClock: stamp(now), vaultMark: stamp(facts.clockMarks.vault), deviceMark: stamp(facts.clockMarks.device) } : undefined
   results.push(
@@ -243,6 +245,16 @@ export function vaultChecks(facts: VaultFacts, stored: StorageFacts['stored'], n
   }
   results.push(...keysChecks(facts))
   return results
+}
+
+/** Design 6.2 `audit.signatures`: a check of the entries since this browser's last one offers to check every entry. */
+export function signatureCheck(facts: NonNullable<VaultFacts['signatures']>): HealthResult {
+  if (facts.problems > 0) {
+    return result('auditSignatures', 'fail', 'problems', { adminOnly: true, facts: { problems: facts.problems, firstProblem: facts.firstProblem ?? undefined, signed: facts.signed }, action: 'audit' })
+  }
+  if (facts.signedFrom === null) return result('auditSignatures', 'info', 'none', { adminOnly: true })
+  const partial = facts.checkedFrom > 1
+  return result('auditSignatures', 'pass', 'ok', { adminOnly: true, facts: { signed: facts.signed, checkedFrom: partial ? facts.checkedFrom : undefined }, ...(partial ? { action: 'auditFull' as const } : {}) })
 }
 
 /** Design 6.2: a per-person-keys vault's founder key, roster and password strength; the upgrade offer on a 1.x vault. */

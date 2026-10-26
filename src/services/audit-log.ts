@@ -8,6 +8,7 @@ export const AUDIT_PAGE_LIMIT = 10_000
 
 export function mapAuditRow(row: Record<string, SqlValue>): AuditEntry {
   return {
+    seq: Number(row.seq),
     id: String(row.id),
     actorId: row.actor_id == null ? null : String(row.actor_id),
     actorEmail: row.actor_email == null ? null : String(row.actor_email),
@@ -29,7 +30,7 @@ export function listAudit(vault: OpenVault, limit = 200): AuditEntry[] {
   if (!canUser(vault.user, Permission.READ_AUDIT)) throw new ForbiddenError()
   const bounded = Number.isSafeInteger(limit) ? Math.min(Math.max(limit, 1), AUDIT_PAGE_LIMIT) : 200
   const rows = vault.db.query(
-    `SELECT a.id, a.actor_id, ${AUDIT_ACTOR_EMAIL} AS actor_email, a.action, a.entity_type, a.entity_id, a.details, a.created_at
+    `SELECT a.seq, a.id, a.actor_id, ${AUDIT_ACTOR_EMAIL} AS actor_email, a.action, a.entity_type, a.entity_id, a.details, a.created_at
      FROM audit_logs a
      LEFT JOIN users u ON u.id = a.actor_id
      ORDER BY a.seq DESC

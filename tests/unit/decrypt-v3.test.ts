@@ -13,6 +13,7 @@ import { SqlDatabase } from '../../src/db/sqlite'
 import { sealVault, unlockVault } from '../../src/services/auth.service'
 import { backupFileText } from '../../src/services/backup.service'
 import { createInvite, redeemGrant } from '../../src/services/grant.service'
+import { writeAudit } from '../../src/services/audit.service'
 import { listGroups } from '../../src/services/group.service'
 import { commitSealed, confirmKeysSession } from '../../src/services/v2/session'
 import { createKeysVault } from '../../src/services/v2/vault'
@@ -34,6 +35,8 @@ const MEMBER = { email: 'member@cli.test', password: 'member-cli-password-1' }
 
 let file = ''
 let fingerprint = ''
+let forged = ''
+let forgedSeq = 0
 
 function cli(args: string[], password?: string) {
   return run(process.execPath, [CLI, ...args], { env: { ...process.env, MOLIYA_PASSWORD: password ?? '' } })
@@ -72,6 +75,13 @@ beforeAll(async () => {
   fingerprint = created.vault.keys!.founder.fingerprint
   file = join(work, 'household.moliya')
   writeFileSync(file, backupFileText((await readVault())!.record))
+  // The same household with one entry the founder signed while it names the member as its actor.
+  const forger = await unlockVault((await readVault())!.record, FOUNDER.email, FOUNDER.password)
+  writeAudit(forger.db, forger.db.queryValue('SELECT id FROM users WHERE email = ?', [MEMBER.email]) as string, 'TRANSACTION_DELETED', 'transaction', 'gone')
+  forgedSeq = Number(forger.db.queryValue('SELECT MAX(seq) FROM audit_logs'))
+  forged = join(work, 'forged.moliya')
+  writeFileSync(forged, backupFileText(await sealVault(forger, { full: true })))
+  forger.db.close()
 })
 
 afterAll(() => {
@@ -95,6 +105,7 @@ describe('moliya-decrypt on a backup with per-person keys (format 3)', () => {
     expect(stdout).toContain('backup format 3')
     expect(stderr).toContain('verified')
     expect(stderr).toContain(formatFingerprint(fingerprint))
+    expect(stderr).toMatch(/audit log verified: \d+ signed entries\n/)
     const db = await SqlDatabase.openBytes(new Uint8Array(readFileSync(out)))
     try {
       expect(db.queryValue('SELECT COUNT(*) FROM roster_versions')).toBe(3)
@@ -116,6 +127,19 @@ describe('moliya-decrypt on a backup with per-person keys (format 3)', () => {
     expect(result.stderr).toContain('verification failed: the backup is not signed by a member of its roster')
   })
 
+  it.skipIf(!argon2Sync)('still writes the database when audit entries do not check out, and says which, with exit status 4', async () => {
+    const out = join(work, 'forged.sqlite')
+    const result = await failure([forged, '--email', FOUNDER.email, '--out', out, '--verify'], FOUNDER.password)
+    expect(result.code).toBe(4)
+    expect(result.stderr).toContain(`warning: 1 audit log entries do not check out, the first at entry ${forgedSeq} (ACTOR)`)
+    const db = await SqlDatabase.openBytes(new Uint8Array(readFileSync(out)))
+    try {
+      expect(db.queryValue('SELECT action FROM audit_logs WHERE seq = ?', [forgedSeq])).toBe('TRANSACTION_DELETED')
+    } finally {
+      db.close()
+    }
+  })
+
   it.skipIf(!argon2Sync)('refuses a body whose sealed list of chunks was changed, before writing anything', async () => {
     const json = JSON.parse(readFileSync(file, 'utf8'))
     // Another IV for the first chunk: the seal no longer covers the list, whatever the ciphertext.
@@ -132,6 +156,8 @@ describe('moliya-decrypt on a backup with per-person keys (format 3)', () => {
     const [, manager] = fixture.expected.users
     const { stderr } = await cli([golden, '--email', manager.email, '--out', join(work, 'golden.sqlite'), '--verify'], manager.password)
     expect(stderr).toContain(`verified (founder key ${fixture.expected.keys!.founder.fingerprint})`)
+    // From before audit entries were signed.
+    expect(stderr).toContain(`audit log verified: 0 signed entries, and ${fixture.expected.auditActions.length} from before entries were signed`)
     const [removed] = fixture.expected.keys!.removed
     const gone = await failure([golden, '--email', removed.email, '--out', join(work, 'removed.sqlite')], removed.password)
     expect(gone.stderr).toBe(`moliya-decrypt: no user ${removed.email} in this backup\n`)

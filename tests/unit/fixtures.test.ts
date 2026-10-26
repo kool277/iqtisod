@@ -16,6 +16,7 @@ import { listCategories, listTransactions, loadDashboard } from '../../src/servi
 import { listGrants, redeemGrant } from '../../src/services/grant.service'
 import { listGroups } from '../../src/services/group.service'
 import { completeTotpChallenge, hasSignInCheck, openTotpChallenge } from '../../src/services/totp.service'
+import { auditCheckInput, checkAuditSignatures } from '../../src/services/v2/audit-check'
 import { formatFingerprint } from '../../src/crypto/sign'
 import { base32Decode, importTotpKey, totpAt } from '../../src/lib/totp'
 import { DecryptError, SAFE_KEY_USAGES, aad, unwrapWithAad } from '../../src/crypto/safe-crypto'
@@ -349,6 +350,22 @@ describe.each(keysFixtures.map((fixture) => [fixture.path, fixture] as const))('
     const added = fixture.expected.addedOnOpen ?? []
     expect(actions).toEqual([...fixture.expected.auditActions, ...added])
     expect(vault.needsSave).toBe(added.length > 0)
+  })
+
+  it('checks out its signed audit entries, and a save signs everything opening it added', async () => {
+    const vault = await unlock(record(), admin)
+    const check = async () => checkAuditSignatures((await auditCheckInput(vault.db, vault.keys!.vaultId, null))!)
+    const signed = keys.audit?.signed ?? 0
+    const before = await check()
+    expect([...before.problems]).toEqual([])
+    expect({ signedFrom: before.signedFrom, verified: before.verified }).toEqual({ signedFrom: keys.audit?.signedFrom ?? null, verified: signed })
+    if (keys.audit) expect(vault.db.queryOne('SELECT seq, hash FROM audit_logs ORDER BY seq DESC LIMIT 1 OFFSET ?', [fixture.expected.addedOnOpen?.length ?? 0])).toEqual(keys.audit.head)
+    await sealVault(vault)
+    const after = await check()
+    const added = fixture.expected.addedOnOpen?.length ?? 0
+    expect([...after.problems]).toEqual([])
+    // A log from before signatures starts its signed part at the first entry this build wrote.
+    expect({ signedFrom: after.signedFrom, verified: after.verified }).toEqual({ signedFrom: keys.audit?.signedFrom ?? fixture.expected.auditActions.length + 1, verified: signed + added })
   })
 
   it('survives a re-seal and a new backup with nothing lost', async () => {

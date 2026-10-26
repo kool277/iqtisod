@@ -229,7 +229,7 @@ export function getUserDetail(vault: OpenVault, userId: string, now = new Date()
   const activity = canUser(vault.user, Permission.READ_AUDIT)
     ? vault.db
         .query(
-          `SELECT a.id, a.actor_id, u.email AS actor_email, a.action, a.entity_type, a.entity_id, a.details, a.created_at
+          `SELECT a.seq, a.id, a.actor_id, u.email AS actor_email, a.action, a.entity_type, a.entity_id, a.details, a.created_at
            FROM audit_logs a LEFT JOIN users u ON u.id = a.actor_id
            WHERE a.actor_id = ? ORDER BY a.seq DESC LIMIT ?`,
           [userId, ACTIVITY_LIMIT],

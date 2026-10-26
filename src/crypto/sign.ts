@@ -6,6 +6,7 @@ export const LABELS = {
   dekWrap: 'moliya/v2/dek-wrap',
   dekWrapAad: 'moliya/v2/dek-wrap-aad',
   roster: 'moliya/v2/roster',
+  audit: 'moliya/v2/audit',
   header: 'moliya/v2/header',
   invite: 'moliya/v2/invite',
   binding: 'moliya/v2/binding',

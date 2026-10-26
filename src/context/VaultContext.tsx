@@ -149,6 +149,20 @@ function upgradeRefusedEarly(error: unknown): boolean {
   return error instanceof AuthError || error instanceof ForbiddenError || (error instanceof ValidationError && ['V2_UNSUPPORTED_BROWSER', 'ALREADY_UPGRADED', 'SCHEMA_UNKNOWN', 'KDF_MEMORY'].includes(error.code))
 }
 
+/** The audit checkpoint of a per-person-keys vault, loaded only for such a vault. */
+function auditSeen(): Promise<typeof import('../services/v2/audit-seen')> {
+  return import('../services/v2/audit-seen')
+}
+
+/** Keeps the checkpoint at `seq`; the entries up to it no longer change, so it may run after the save returned. */
+function keepCheckpoint(vault: OpenVault, seq: number, options: { reset?: boolean } = {}): void {
+  const keys = vault.keys
+  if (!keys) return
+  void auditSeen()
+    .then(({ keepAuditSeen }) => keepAuditSeen(vault.db, keys.vaultId, seq, options))
+    .catch(() => undefined)
+}
+
 function isCodeFailure(error: unknown): boolean {
   return error instanceof AppError && (error.code === 'INVITE_INVALID' || error.code === 'INVITE_CODE')
 }
@@ -181,7 +195,12 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const trustRef = useRef<PendingTrust | null>(null)
   // While a log warning is open, this browser's mark stays where it was; an accepted warning moves it back to the log.
   const auditHeldRef = useRef(false)
-  const auditResetRef = useRef(false)
+  const auditResetRef = useRef<AuditWarning['kind'] | null>(null)
+  // The signature check of a per-person-keys vault: until it passed, a save does not move this browser's checkpoint,
+  // and an accepted warning moves it only over entries that were checked (`warned`: problems were shown).
+  const signaturesRef = useRef<'idle' | 'checking' | 'ok' | 'warned' | 'failed'>('idle')
+  // Signature problems found while another warning was showing, shown once that one is accepted.
+  const signatureWarningRef = useRef<AuditWarning | null>(null)
   const capacityRef = useRef<(() => void) | null>(null)
   const [throttle] = useState(() => createThrottle({ mirror: indexedDbThrottleMirror() }))
   const throttleRef = useRef(throttle)
@@ -211,20 +230,71 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     const reader = canUser(vault.user, Permission.READ_AUDIT)
     const warning = checkAuditLog(vault.db, { device: readAuditMark(), record: recorded }, reader)
     auditHeldRef.current = warning !== null
-    auditResetRef.current = false
+    auditResetRef.current = null
+    signatureWarningRef.current = null
     setAuditWarning(reader ? warning : null)
     if (!warning) advanceAuditMark(auditHead(vault.db))
   }, [])
 
   const markSaved = useCallback((head: AuditHead | undefined) => {
     if (!head) return
-    if (auditResetRef.current) {
+    const vault = vaultRef.current
+    const accepted = auditResetRef.current
+    if (accepted) {
       resetAuditMark(head)
-      auditResetRef.current = false
+      auditResetRef.current = null
       auditHeldRef.current = false
-    } else if (!auditHeldRef.current) {
-      advanceAuditMark(head)
+      if (vault?.keys && (signaturesRef.current === 'ok' || (signaturesRef.current === 'warned' && accepted === 'SIGNATURES'))) {
+        signaturesRef.current = 'ok'
+        keepCheckpoint(vault, head.seq, { reset: true })
+      }
+      return
     }
+    if (!auditHeldRef.current) advanceAuditMark(head)
+    // Everything up to a saved head was checked since sign-in or signed by this session.
+    if (vault?.keys && signaturesRef.current === 'ok') keepCheckpoint(vault, head.seq)
+  }, [])
+
+  /** A log this session wrote from its first entry, or signed from its bridge on: this browser's checkpoint starts at it. */
+  const trustOwnLog = useCallback((vault: OpenVault, head: AuditHead | undefined) => {
+    if (!vault.keys || !head || !canUser(vault.user, Permission.READ_AUDIT)) return
+    signaturesRef.current = 'ok'
+    keepCheckpoint(vault, head.seq, { reset: true })
+  }, [])
+
+  /**
+   * For people who can read the audit log of a vault with per-person keys: checks the signatures of the entries since
+   * this browser's last check, once the session is open. It warns and blocks nothing (design 3.8 step 6).
+   */
+  const checkSignatures = useCallback((vault: OpenVault) => {
+    signaturesRef.current = 'idle'
+    const keys = vault.keys
+    if (!keys || !canUser(vault.user, Permission.READ_AUDIT)) return
+    signaturesRef.current = 'checking'
+    void import('../services/v2/audit-check')
+      .then(({ checkVaultAudit }) => checkVaultAudit(vault as OpenVault & { keys: typeof keys }))
+      .then((report) => {
+        if (vaultRef.current !== vault) return
+        if (report && report.problems.size === 0) {
+          signaturesRef.current = 'ok'
+          keepCheckpoint(vault, report.checkpoint.seq)
+          return
+        }
+        if (!report) {
+          signaturesRef.current = 'failed'
+          return
+        }
+        signaturesRef.current = 'warned'
+        const warning: AuditWarning = { kind: 'SIGNATURES', count: report.problems.size, firstSeq: Math.min(...report.problems.keys()) }
+        setAuditWarning((current) => {
+          if (current === null) return warning
+          signatureWarningRef.current = warning
+          return current
+        })
+      })
+      .catch(() => {
+        if (vaultRef.current === vault) signaturesRef.current = 'failed'
+      })
   }, [])
 
   const syncState = useCallback((vault: OpenVault) => {
@@ -359,12 +429,13 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         resetAuditMark(created.record.audit ?? null)
         releaseRef.current = release
         publish(created.vault, created.record.updatedAt)
+        trustOwnLog(created.vault, created.record.audit)
       } catch (error) {
         release()
         throw error
       }
     },
-    [publish],
+    [publish, trustOwnLog],
   )
 
   /** Counters are cleared only here, once the whole sign-in has succeeded, so a correct password alone hides nothing. */
@@ -388,6 +459,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       observeAuditLog(vault, loaded.record.audit)
       releaseRef.current = release
       publish(vault, stampOf(loaded.raw))
+      checkSignatures(vault)
       setWeakPassword(weak)
       setFailuresSeen(failures)
       setCheckFailuresSeen(checkFailures)
@@ -401,7 +473,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       }
       for (const scope of ['login', 'totp', 'check'] as const) throttle.succeed(scope, email)
     },
-    [publish, enqueuePersist, observeAuditLog],
+    [publish, enqueuePersist, observeAuditLog, checkSignatures],
   )
 
   const cancelSignInCheck = useCallback(() => {
@@ -577,6 +649,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         throttle.succeed('code', input.email)
         releaseRef.current = release
         publish(vault, record.updatedAt)
+        checkSignatures(vault)
         setWeakPassword(false)
       } catch (error) {
         vault.db.close()
@@ -584,7 +657,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         throw error
       }
     },
-    [publish, observeAuditLog, markSaved],
+    [publish, observeAuditLog, markSaved, checkSignatures],
   )
 
   const lock = useCallback(async (reason: VaultLockReason = 'manual') => {
@@ -597,6 +670,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     vault?.db.close()
     dirtyRef.current = false
     archiveRef.current = null
+    signaturesRef.current = 'idle'
     releaseSession()
     setUser(null)
     setWeakPassword(false)
@@ -634,6 +708,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     // A different log now lives here; the next sign-in starts from the head its record carries.
     resetAuditMark(null)
     auditHeldRef.current = false
+    signaturesRef.current = 'idle'
+    signatureWarningRef.current = null
     setStatus('locked')
   }, [releaseSession])
 
@@ -642,6 +718,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     async (backup: ParsedBackup) => {
       if ((await readVaultRaw()) !== undefined) throw new ValidationError('VAULT_EXISTS')
       await writeVault(backup.record, { expectedStamp: null })
+      if (backup.record.version === KEYS_RECORD_VERSION) (await auditSeen()).forgetAuditSeen(backup.record.keys.vaultId)
       closeAfterReplace()
     },
     [closeAfterReplace],
@@ -700,6 +777,12 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         })
       })
       adopt?.()
+      // The next sign-in checks every signature of the log that now lives here.
+      if (vault.keys || replacement.version === KEYS_RECORD_VERSION) {
+        const { forgetAuditSeen } = await auditSeen()
+        if (vault.keys) forgetAuditSeen(vault.keys.vaultId)
+        if (replacement.version === KEYS_RECORD_VERSION) forgetAuditSeen(replacement.keys.vaultId)
+      }
       closeAfterReplace()
     },
     [enqueuePersist, closeAfterReplace, inChain],
@@ -765,6 +848,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       confirmKeysSession(vault)
       stampRef.current = upgraded.record.updatedAt
       markSaved(upgraded.record.audit)
+      trustOwnLog(vault, upgraded.record.audit)
       syncState(vault)
       setUpgradeOffered(false)
       setFingerprintNotice(upgraded.vault.keys.founder.fingerprint)
@@ -774,7 +858,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         return measureCapacity()
       })
     },
-    [inChain, persistNow, lock, markSaved, syncState],
+    [inChain, persistNow, lock, markSaved, syncState, trustOwnLog],
   )
 
   const postponeUpgrade = useCallback(() => setUpgradeOffered(false), [])
@@ -788,8 +872,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     const warning = auditWarning
     if (!warning || warning.kind === 'BROKEN') return
     await run((vault) => acknowledgeAuditWarning(vault, warning), { dirty: true })
-    auditResetRef.current = true
-    setAuditWarning(null)
+    auditResetRef.current = warning.kind
+    // Signature problems found meanwhile come next; accepting them is a choice of its own.
+    const next = warning.kind === 'SIGNATURES' ? null : signatureWarningRef.current
+    signatureWarningRef.current = null
+    setAuditWarning(next)
   }, [auditWarning, run])
 
   const clearFailuresSeen = useCallback(() => {

@@ -144,6 +144,7 @@ export type DateRange = {
 }
 
 export type AuditEntry = {
+  seq: number
   id: string
   actorId: string | null
   actorEmail: string | null

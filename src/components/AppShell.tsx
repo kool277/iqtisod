@@ -22,12 +22,14 @@ import { useI18n } from '../context/I18nContext'
 import { useVault } from '../context/VaultContext'
 import type { MessageKey } from '../i18n'
 import { readPreference, writePreference } from '../lib/preference'
+import { fillTemplate as fill } from '../lib/template'
 import { BUILD } from '../lib/version'
 import { Permission, canUser, seesMembers } from '../rbac'
 import { backupReminder } from '../services/backup.service'
 import { upgradeReinvites } from '../services/v2/reinvites'
 import { BrandMark } from './Brand'
 import { FingerprintNotice, UpgradeOffer } from './keys/KeysDialogs'
+import { KeysCatalog } from './keys/KeysCatalog'
 import { HelpLink, type HelpSectionId } from './help/HelpLink'
 import { Preferences } from './Preferences'
 
@@ -225,6 +227,11 @@ export function AppShell() {
                   <>
                     {t('security.auditBroken')} <strong className="tabular-nums">#{auditWarning.brokenAt}</strong>
                   </>
+                ) : auditWarning.kind === 'SIGNATURES' ? (
+                  <KeysCatalog>
+                    {t('keys.audit.warning')} <strong className="tabular-nums">#{auditWarning.firstSeq}</strong>{' '}
+                    <span className="tabular-nums">({fill(t('keys.audit.warningCount'), { count: auditWarning.count })})</span>
+                  </KeysCatalog>
                 ) : (
                   <>
                     {t(auditWarning.kind === 'SHORTER' ? 'security.auditShorter' : 'security.auditChanged')}{' '}

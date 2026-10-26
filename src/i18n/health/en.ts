@@ -41,6 +41,7 @@ export const healthEn = {
     reload: 'Reload the app',
     clock: 'Open the clock check',
     audit: 'Open the audit log',
+    auditFull: 'Check every entry',
     account: 'Open Account',
     users: 'Open People',
   },
@@ -88,6 +89,10 @@ export const healthEn = {
     reinvite: 'Need a new invite',
     epoch: 'Household key',
     missing: 'Without the current key',
+    signed: 'Signed entries checked',
+    problems: 'Entries with a problem',
+    firstProblem: 'First problem at entry',
+    checkedFrom: 'Checked from entry',
   },
   checks: {
     crypto: {
@@ -266,6 +271,13 @@ export const healthEn = {
       shorter: 'The log is shorter than when this browser last saw it: entries were cut off.',
       changed: 'An entry this browser saw before has been rewritten.',
       fix: 'Open the audit log and check what changed. If you expected it (for example after importing an older backup), accept the log there.',
+    },
+    auditSignatures: {
+      title: 'Audit log signatures',
+      ok: 'Every signed entry checks out: signed by the person it names, who was allowed to do what it records.',
+      none: 'No audit entry is signed yet. From the next save on, every entry is signed by the person who made it.',
+      problems: 'Some entries do not check out: a signature is missing or does not match, or an entry records something its signer was not allowed to do.',
+      fix: 'Open the audit log and turn on “Show problems only” to see those entries and who signed them. A backup from before the first problem still has the log as it was. Once you know what happened, accept the log as it is from the warning at the top.',
     },
     clock: {
       title: 'Device clock',

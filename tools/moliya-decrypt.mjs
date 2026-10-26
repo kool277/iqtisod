@@ -24,7 +24,9 @@ const USAGE = `Usage:
 
 Decrypts a Moliya backup into a standard SQLite database.
 For a backup with per-person keys (format 3, Jaybi 2.0), --verify also checks the signed list
-of people and the backup's signature, and exits with status 3 if they do not hold.
+of people and the backup's signature, and exits with status 3 if they do not hold. It then
+checks the audit log's signatures; the database is still written when some entries do not
+check out, which is reported, with exit status 4.
 The password is read from MOLIYA_PASSWORD, or prompted for when unset.
 Password verifiers are blanked, and private-safe rows (1.2.0+, still encrypted with each
 owner's own key), sign-in check secrets and invite-code verifiers (1.3.0+) are removed from
@@ -301,11 +303,19 @@ async function main() {
       plain.fill(0)
       fail(error.message)
     }
-    if (problem) {
+    if (problem.problem) {
       plain.fill(0)
-      fail(`verification failed: ${problem}`, 3)
+      fail(`verification failed: ${problem.problem}`, 3)
     }
     process.stderr.write(`moliya-decrypt: signed list of people and backup signature verified (founder key ${formatFingerprint(backup.founder.fingerprint)})\n`)
+    const audit = problem.audit
+    if (audit.problems.length === 0) {
+      process.stderr.write(`moliya-decrypt: audit log verified: ${audit.verified} signed entries${audit.legacy ? `, and ${audit.legacy} from before entries were signed` : ''}\n`)
+    } else {
+      const [first] = audit.problems
+      process.stderr.write(`moliya-decrypt: warning: ${audit.problems.length} audit log entries do not check out, the first at entry ${first.seq} (${first.kinds.join(', ')})\n`)
+      process.exitCode = 4
+    }
   }
   let summary = null
   try {
@@ -346,6 +356,7 @@ const LABELS = {
   dekWrap: 'moliya/v2/dek-wrap',
   dekWrapAad: 'moliya/v2/dek-wrap-aad',
   roster: 'moliya/v2/roster',
+  audit: 'moliya/v2/audit',
   header: 'moliya/v2/header',
   binding: 'moliya/v2/binding',
   chunk: 'moliya/v2/chunk',
@@ -571,7 +582,174 @@ async function bindingHolds(fields, inviteSig, memberSig) {
   return (await verifySignature(LABELS.binding, signed, inviteSig, signed.inviteSigPub)) && (await verifySignature(LABELS.binding, signed, memberSig, signed.sigPub))
 }
 
-/** The checks of the app's unlock (design 3.8, steps 2–3 and 5) on a decrypted format 3 backup. Returns the problem, or null. */
+// What each role may do and who may write each audit action, as src/rbac/index.ts and src/rbac/audit-policy.ts say;
+// tests/unit/audit-policy.test.ts keeps them the same. An Admin may do everything.
+export const ROLE_PERMISSIONS = {
+  Manager: ['CREATE_TRANSACTION', 'UPDATE_TRANSACTION', 'DELETE_TRANSACTION', 'READ_TRANSACTIONS', 'READ_DASHBOARD'],
+  Viewer: ['READ_TRANSACTIONS', 'READ_DASHBOARD'],
+}
+const MANAGE_USERS = { permission: 'MANAGE_USERS' }
+const MANAGE_SETTINGS = { permission: 'MANAGE_SETTINGS' }
+const EXPORT_VAULT = { permission: 'EXPORT_VAULT' }
+export const AUDIT_POLICY = {
+  VAULT_CREATED: MANAGE_USERS,
+  VAULT_UPGRADED: MANAGE_USERS,
+  VAULT_REPLACED_BY_IMPORT: { permission: 'IMPORT_VAULT' },
+  ROSTER_ROLLBACK_ACCEPTED: MANAGE_USERS,
+  EPOCH_ROTATED: MANAGE_USERS,
+  SCHEMA_MIGRATED: { anyone: true },
+  SETTINGS_UPDATED: MANAGE_SETTINGS,
+  CATEGORY_CREATED: MANAGE_SETTINGS,
+  CATEGORY_UPDATED: MANAGE_SETTINGS,
+  CATEGORY_DELETED: MANAGE_SETTINGS,
+  GROUP_CREATED: { permission: 'MANAGE_GROUPS' },
+  GROUP_DELETED: { permission: 'MANAGE_GROUPS' },
+  TRANSACTION_CREATED: { permission: 'CREATE_TRANSACTION' },
+  TRANSACTION_UPDATED: { permission: 'UPDATE_TRANSACTION' },
+  TRANSACTION_DELETED: { permission: 'DELETE_TRANSACTION' },
+  BACKUP_EXPORTED: EXPORT_VAULT,
+  DATA_EXPORTED: EXPORT_VAULT,
+  PLAINTEXT_EXPORTED: EXPORT_VAULT,
+  AUDIT_MARK_RESET: { permission: 'READ_AUDIT' },
+  USER_CREATED: MANAGE_USERS,
+  USER_UPDATED: MANAGE_USERS,
+  USER_PASSWORD_RESET: MANAGE_USERS,
+  USER_MUST_CHANGE_PASSWORD: MANAGE_USERS,
+  USER_SUSPENDED: MANAGE_USERS,
+  USER_REACTIVATED: MANAGE_USERS,
+  USER_DELETED: MANAGE_USERS,
+  TRANSACTIONS_REASSIGNED: MANAGE_USERS,
+  INVITE_CREATED: MANAGE_USERS,
+  INVITE_REVOKED: MANAGE_USERS,
+  RESET_ISSUED: MANAGE_USERS,
+  RESET_REVOKED: MANAGE_USERS,
+  CLOCK_FLOOR_RESET: MANAGE_USERS,
+  INVITE_ACCEPTED: { anyone: true },
+  RESET_COMPLETED: { anyone: true },
+  INVITE_EXPIRED: { anyone: true },
+  PASSWORD_CHANGED: { self: true },
+  CREDENTIALS_UPGRADED: { self: true },
+  SIGNIN_FAILURES_SEEN: { self: true },
+  TOTP_ENABLED: { self: true },
+  TOTP_DISABLED: { self: true },
+  TOTP_RECOVERY_USED: { self: true },
+  TOTP_CLEARED: { permission: 'MANAGE_USERS', self: true },
+}
+
+function auditAllowed(role, row, actor) {
+  if (role === 'Admin') return true
+  if (!Object.hasOwn(AUDIT_POLICY, row.action)) return false
+  const rule = AUDIT_POLICY[row.action]
+  if (rule.anyone) return true
+  if (rule.self && row.entity_type === 'user' && row.entity_id === actor) return true
+  return rule.permission !== undefined && (ROLE_PERMISSIONS[role] ?? []).includes(rule.permission)
+}
+
+function auditHash(row) {
+  const fields = [row.seq, row.id, row.actor_id, row.action, row.entity_type, row.entity_id, row.details, row.created_at, row.prev_hash]
+  return nodeCrypto.createHash('sha256').update(JSON.stringify(fields)).digest('hex')
+}
+
+/**
+ * The audit log's signatures (docs/data-format.md, "Signed audit entries"): from the first signed entry on, each entry
+ * is signed by its actor with the key the roster version it names gives them, whose role there allows the action.
+ * Returns the problems by entry, as the app's Audit page shows them.
+ */
+async function checkAuditLog(backup, docs, bindings, rows, sigRows) {
+  const problems = new Map()
+  const flag = (seq, kind) => problems.set(seq, [...new Set([...(problems.get(seq) ?? []), kind])])
+  const firstSigned = sigRows.length > 0 ? Math.min(...sigRows.map((sig) => sig.seq)) : null
+  let previous = '0'.repeat(64)
+  let expected = 1
+  for (const row of rows) {
+    if (row.seq !== expected || row.prev_hash !== previous || auditHash(row) !== row.hash) flag(row.seq, 'CHAIN')
+    previous = row.hash
+    expected = row.seq + 1
+  }
+  const present = new Set(rows.map((row) => row.seq))
+  for (const sig of sigRows) if (!present.has(sig.seq)) flag(sig.seq, 'ORPHAN')
+  // The binding a redeeming entry carries outlives one an admin dropped before folding it into the roster.
+  const redeemed = rows.flatMap((row) => {
+    if (row.action !== 'INVITE_ACCEPTED' && row.action !== 'RESET_COMPLETED') return []
+    try {
+      const binding = JSON.parse(row.details)?.binding
+      return binding && binding.memberId === row.actor_id ? [binding] : []
+    } catch {
+      return []
+    }
+  })
+  const keyAt = async (actor, version) => {
+    const member = docs[version - 1]?.members.find((item) => item.id === actor)
+    if (!member) return null
+    if (member.status === 'active') return { sigPub: member.sigPub, role: member.role }
+    if (member.status !== 'invited') return null
+    for (const binding of [...bindings, ...redeemed]) {
+      if (binding.memberId !== actor || binding.inviteSigPub !== member.inviteSigPub || binding.vaultId !== backup.vaultId || binding.suite !== SUITE) continue
+      if (await bindingHolds(binding, binding.inviteSig, binding.memberSig)) return { sigPub: binding.sigPub, role: member.role }
+    }
+    for (let next = version + 1; next <= docs.length; next += 1) {
+      const before = docs[next - 2].members.find((item) => item.id === actor)
+      if (before?.status !== 'invited' || before.inviteSigPub !== member.inviteSigPub) return null
+      const after = docs[next - 1].members.find((item) => item.id === actor)
+      if (after?.status === 'active' && after.proof) return { sigPub: after.sigPub, role: member.role }
+    }
+    return null
+  }
+  const sigs = new Map(sigRows.map((sig) => [sig.seq, sig]))
+  let legacy = 0
+  let verified = 0
+  let lastVersion = 0
+  for (const row of rows) {
+    if (firstSigned === null || row.seq < firstSigned) {
+      legacy += 1
+      continue
+    }
+    const sig = sigs.get(row.seq)
+    if (!sig) {
+      flag(row.seq, 'UNSIGNED')
+      continue
+    }
+    if (row.actor_id !== null && row.actor_id !== sig.actor) flag(row.seq, 'ACTOR')
+    const doc = docs[sig.roster_version - 1]
+    if (!doc || sig.roster_version < lastVersion || sig.epoch !== doc.epoch) flag(row.seq, 'ORDER')
+    lastVersion = Math.max(lastVersion, sig.roster_version)
+    if (!doc) continue
+    const key = await keyAt(sig.actor, sig.roster_version)
+    if (!key) {
+      flag(row.seq, 'SIGNER')
+      continue
+    }
+    const body = {
+      type: 'audit',
+      suite: SUITE,
+      vaultId: backup.vaultId,
+      seq: row.seq,
+      prev: row.prev_hash,
+      hash: row.hash,
+      rosterVersion: sig.roster_version,
+      epoch: sig.epoch,
+      at: row.created_at,
+      actor: sig.actor,
+      action: row.action,
+      ...(row.seq === firstSigned ? { bridge: true } : {}),
+    }
+    if (!(await verifySignature(LABELS.audit, body, sig.sig, key.sigPub))) {
+      flag(row.seq, 'SIGNATURE')
+      continue
+    }
+    // The admin who signed a roster version that lowers their own role signed the entries of that save with it.
+    const before = sig.roster_version > 1 && doc.issuedBy === sig.actor ? docs[sig.roster_version - 2].members.find((item) => item.id === sig.actor) : undefined
+    if (!auditAllowed(key.role, row, sig.actor) && !(before && before.status !== 'removed' && before.role === 'Admin')) flag(row.seq, 'ROLE')
+    if (!problems.has(row.seq)) verified += 1
+  }
+  const listed = [...problems].sort(([left], [right]) => left - right).map(([seq, kinds]) => ({ seq, kinds }))
+  return { entries: rows.length, signedFrom: firstSigned, legacy, verified, problems: listed }
+}
+
+/**
+ * The checks of the app's unlock (design 3.8, steps 2–3 and 5) on a decrypted format 3 backup, then its audit
+ * signatures (step 6). `problem` blocks, as in the app; `audit` lists entries that do not check out.
+ */
 export async function verifyKeysBackup(backup, plain) {
   const DatabaseSync = await openSqlite()
   if (!DatabaseSync) throw new Error('--verify needs node:sqlite (Node.js 22.13 or newer)')
@@ -581,6 +759,8 @@ export async function verifyKeysBackup(backup, plain) {
   let bindingRows
   let people
   let profiles
+  let auditRows
+  let sigRows
   try {
     chmodSync(dir, 0o700)
     writeFileSync(path, plain, { mode: 0o600 })
@@ -590,6 +770,8 @@ export async function verifyKeysBackup(backup, plain) {
       bindingRows = db.prepare('SELECT member_id, doc FROM key_bindings ORDER BY member_id').all()
       people = db.prepare('SELECT u.id, u.email, r.name AS role, u.group_id AS grp FROM users u JOIN roles r ON r.id = u.role_id').all()
       profiles = db.prepare("SELECT key, value FROM settings WHERE key LIKE 'user_profile:%'").all()
+      auditRows = db.prepare('SELECT seq, id, actor_id, action, entity_type, entity_id, details, created_at, prev_hash, hash FROM audit_logs ORDER BY seq').all()
+      sigRows = db.prepare('SELECT seq, actor, roster_version, epoch, sig FROM audit_sigs ORDER BY seq').all()
     } finally {
       db.close()
     }
@@ -600,35 +782,36 @@ export async function verifyKeysBackup(backup, plain) {
       rmSync(dir, { recursive: true, force: true })
     }
   }
-  if (rows.length === 0) return 'the backup has no signed list of people'
+  const blocked = (problem) => ({ problem, audit: null })
+  if (rows.length === 0) return blocked('the backup has no signed list of people')
   const docs = rows.map((row) => JSON.parse(row.doc))
   for (const doc of docs) {
-    if (doc?.type !== 'roster' || !Array.isArray(doc.members) || !Number.isSafeInteger(doc.epoch) || doc.epoch < 1) return `roster version ${doc?.version} is malformed`
+    if (doc?.type !== 'roster' || !Array.isArray(doc.members) || !Number.isSafeInteger(doc.epoch) || doc.epoch < 1) return blocked(`roster version ${doc?.version} is malformed`)
     const ids = doc.members.map((member) => member?.id)
-    if (ids.some((id) => typeof id !== 'string') || new Set(ids).size !== ids.length) return `roster version ${doc.version} lists a member twice`
+    if (ids.some((id) => typeof id !== 'string') || new Set(ids).size !== ids.length) return blocked(`roster version ${doc.version} lists a member twice`)
     if (doc.members.some((member) => !['active', 'invited', 'removed'].includes(member.status) || !['Admin', 'Manager', 'Viewer'].includes(member.role))) {
-      return `roster version ${doc.version} has an unknown status or role`
+      return blocked(`roster version ${doc.version} has an unknown status or role`)
     }
   }
   let previous = null
   let founder = null
   for (let index = 0; index < docs.length; index += 1) {
     const doc = docs[index]
-    if (doc.version !== index + 1 || doc.vaultId !== backup.vaultId || doc.suite !== SUITE || doc.prev !== previous) return `roster version ${index + 1} is out of order`
-    if ((await sha256Hex(encoder.encode(canonicalize(doc)))) !== rows[index].hash) return `roster version ${doc.version} does not match its stored hash`
+    if (doc.version !== index + 1 || doc.vaultId !== backup.vaultId || doc.suite !== SUITE || doc.prev !== previous) return blocked(`roster version ${index + 1} is out of order`)
+    if ((await sha256Hex(encoder.encode(canonicalize(doc)))) !== rows[index].hash) return blocked(`roster version ${doc.version} does not match its stored hash`)
     const members = new Map(doc.members.map((member) => [member.id, member]))
     if (index === 0) {
       const [first] = doc.members
-      if (doc.members.length !== 1 || first.status !== 'active' || first.role !== 'Admin' || first.id !== doc.issuedBy || first.proof !== undefined) return 'roster version 1 does not name the founder alone'
-      if (!(await verifySignature(LABELS.roster, withoutSig(doc), doc.sig, first.sigPub))) return 'roster version 1 is not signed by the founder'
+      if (doc.members.length !== 1 || first.status !== 'active' || first.role !== 'Admin' || first.id !== doc.issuedBy || first.proof !== undefined) return blocked('roster version 1 does not name the founder alone')
+      if (!(await verifySignature(LABELS.roster, withoutSig(doc), doc.sig, first.sigPub))) return blocked('roster version 1 is not signed by the founder')
       founder = first
     } else {
-      if (doc.epoch < docs[index - 1].epoch) return `roster version ${doc.version} goes back to an older vault key`
+      if (doc.epoch < docs[index - 1].epoch) return blocked(`roster version ${doc.version} goes back to an older vault key`)
       const before = new Map(docs[index - 1].members.map((member) => [member.id, member]))
       const was = before.get(doc.issuedBy)
       const now = members.get(doc.issuedBy)
       const key = was?.status === 'active' && was.role === 'Admin' ? was.sigPub : was?.status === 'invited' && was.role === 'Admin' && now?.status === 'active' && now.proof ? now.sigPub : null
-      if (!key || !(await verifySignature(LABELS.roster, withoutSig(doc), doc.sig, key))) return `roster version ${doc.version} is not signed by an admin of version ${doc.version - 1}`
+      if (!key || !(await verifySignature(LABELS.roster, withoutSig(doc), doc.sig, key))) return blocked(`roster version ${doc.version} is not signed by an admin of version ${doc.version - 1}`)
       for (const member of doc.members) {
         if (member.status !== 'active') continue
         const prior = before.get(member.id)
@@ -636,22 +819,22 @@ export async function verifyKeysBackup(backup, plain) {
         const proof = member.proof
         const fields = { type: 'binding', suite: SUITE, vaultId: backup.vaultId, memberId: member.id, rosterVersion: proof?.rosterVersion, inviteSigPub: prior?.inviteSigPub, encPub: member.encPub, sigPub: member.sigPub, at: proof?.at }
         if (prior?.status !== 'invited' || !proof || !Number.isSafeInteger(proof.rosterVersion) || proof.rosterVersion > doc.version - 1 || !(await bindingHolds(fields, proof.inviteSig, proof.memberSig))) {
-          return `roster version ${doc.version} adds keys for ${member.email} without an invite`
+          return blocked(`roster version ${doc.version} adds keys for ${member.email} without an invite`)
         }
       }
     }
     previous = await sha256Hex(encoder.encode(canonicalize(doc)))
   }
   const latest = docs[docs.length - 1]
-  if (backup.founder?.memberId !== founder.id || backup.founder?.sigPub !== founder.sigPub || backup.founder?.fingerprint !== (await sha256Hex(b64(founder.sigPub, 'founder key', 32))).slice(0, 32)) return 'the backup names another founder than its roster'
-  if (backup.roster?.version !== latest.version || backup.roster?.hash !== previous) return 'the backup does not name its latest roster version'
-  if (backup.epoch !== latest.epoch) return 'the backup and its roster disagree about the vault key'
+  if (backup.founder?.memberId !== founder.id || backup.founder?.sigPub !== founder.sigPub || backup.founder?.fingerprint !== (await sha256Hex(b64(founder.sigPub, 'founder key', 32))).slice(0, 32)) return blocked('the backup names another founder than its roster')
+  if (backup.roster?.version !== latest.version || backup.roster?.hash !== previous) return blocked('the backup does not name its latest roster version')
+  if (backup.epoch !== latest.epoch) return blocked('the backup and its roster disagree about the vault key')
   const active = new Map(latest.members.filter((member) => member.status === 'active').map((member) => [member.id, member]))
   for (const row of bindingRows) {
     const binding = JSON.parse(row.doc)
     const invited = latest.members.find((member) => member.id === binding.memberId)
     if (binding.memberId !== row.member_id || invited?.status !== 'invited' || binding.inviteSigPub !== invited.inviteSigPub || binding.vaultId !== backup.vaultId || !(await bindingHolds(binding, binding.inviteSig, binding.memberSig))) {
-      return `the key binding for ${row.member_id} is not valid`
+      return blocked(`the key binding for ${row.member_id} is not valid`)
     }
     active.set(binding.memberId, { ...invited, encPub: binding.encPub, sigPub: binding.sigPub })
   }
@@ -670,8 +853,8 @@ export async function verifyKeysBackup(backup, plain) {
   )
   for (const member of active.values()) {
     const person = users.get(member.id)
-    if (!person || person.email !== member.email || person.role !== member.role || (person.grp ?? null) !== member.group) return `${member.email} in the database does not match the signed list of people`
-    if ((statusOf.get(member.id) ?? 'ACTIVE') !== 'ACTIVE') return `${member.email} is suspended or a former member but still in the signed list of people`
+    if (!person || person.email !== member.email || person.role !== member.role || (person.grp ?? null) !== member.group) return blocked(`${member.email} in the database does not match the signed list of people`)
+    if ((statusOf.get(member.id) ?? 'ACTIVE') !== 'ACTIVE') return blocked(`${member.email} is suspended or a former member but still in the signed list of people`)
   }
   const signer = active.get(backup.sig?.by)
   const header = {
@@ -689,8 +872,9 @@ export async function verifyKeysBackup(backup, plain) {
     roster: { version: backup.roster.version, hash: backup.roster.hash },
     body: { chunkSize: backup.body.chunkSize, length: backup.body.length, chunks: backup.body.manifest, seal: { iv: backup.body.sealText.iv, tag: backup.body.sealText.tag } },
   }
-  if (!signer || backup.sig?.alg !== 'Ed25519' || !(await verifySignature(LABELS.header, header, backup.sig.value, signer.sigPub))) return 'the backup is not signed by a member of its roster'
-  return null
+  if (!signer || backup.sig?.alg !== 'Ed25519' || !(await verifySignature(LABELS.header, header, backup.sig.value, signer.sigPub))) return blocked('the backup is not signed by a member of its roster')
+  const bindings = bindingRows.map((row) => JSON.parse(row.doc))
+  return { problem: null, audit: await checkAuditLog(backup, docs, bindings, auditRows, sigRows) }
 }
 
 if (process.argv[1]?.endsWith('moliya-decrypt.mjs')) {

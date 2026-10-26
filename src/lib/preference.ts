@@ -14,3 +14,11 @@ export function writePreference(key: string, value: string): void {
     // The choice still applies until the page reloads.
   }
 }
+
+export function removePreference(key: string): void {
+  try {
+    localStorage.removeItem(key)
+  } catch {
+    // Nothing stored, or nothing that can be removed.
+  }
+}

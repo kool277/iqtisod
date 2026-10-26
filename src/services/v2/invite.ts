@@ -7,6 +7,7 @@ import { deriveInviteKeys, inviteAad, mintInviteKeys, signsFor, unwrapInviteDek,
 import { ARGON2_DEFAULT, isArgon2Params } from '../../crypto/kdf'
 import { signBinding } from '../../crypto/roster'
 import { SUITE, assertSuite } from '../../crypto/suite'
+import { auditHead } from '../../db/audit-chain'
 import type { KeysRecord } from '../../db/envelope'
 import { getSetting } from '../../db/settings'
 import { AppError, ValidationError } from '../../domain/errors'
@@ -136,6 +137,7 @@ export async function redeemKeysInvite(record: KeysRecord, input: KeysRedeemInpu
     }
     const wrap = await wrapDekTo(dek, identity.encPub, { vaultId: keys.vaultId, epoch: keys.epoch, memberId })
     const at = now.toISOString()
+    const auditFrom = auditHead(db).seq + 1
     const binding = await signBinding(
       { type: 'binding', suite: SUITE, vaultId: keys.vaultId, memberId, rosterVersion: verified.latest.version, inviteSigPub, encPub: identity.encPub, sigPub: identity.sigPub, at },
       invite.sigPriv,
@@ -149,12 +151,14 @@ export async function redeemKeysInvite(record: KeysRecord, input: KeysRedeemInpu
           [memberId, email, row.roleId, row.groupId, at],
         )
         endGrant(db, row.id, 'USED', memberId, at)
-        writeAudit(db, memberId, 'INVITE_ACCEPTED', 'grant', row.id, { email, role: String(db.queryValue('SELECT name FROM roles WHERE id = ?', [row.roleId])), groupId: row.groupId, keys: true })
+        // The binding goes into the entry too, so the person's signatures stay attributable if an admin replaces or
+        // removes the invite before any admin save folds the binding into the roster.
+        writeAudit(db, memberId, 'INVITE_ACCEPTED', 'grant', row.id, { email, role: String(db.queryValue('SELECT name FROM roles WHERE id = ?', [row.roleId])), groupId: row.groupId, keys: true, binding })
       } else {
         db.exec("UPDATE users SET password_hash = '', salt = '', must_change_password = 0, password_changed_at = ? WHERE id = ?", [at, memberId])
         dropTotp(db, memberId, memberId, 'PASSWORD_RESET')
         endGrant(db, row.id, 'USED', memberId, at)
-        writeAudit(db, memberId, 'RESET_COMPLETED', 'grant', row.id, { email, keys: true })
+        writeAudit(db, memberId, 'RESET_COMPLETED', 'grant', row.id, { email, keys: true, binding })
       }
       writeBinding(db, binding)
     })
@@ -173,6 +177,7 @@ export async function redeemKeysInvite(record: KeysRecord, input: KeysRedeemInpu
       firstSeen: verified.firstSeen,
       holders: [...new Set([...verified.holders, memberId])].sort(),
       nextDek: await generateDek(),
+      auditFrom,
     }
     const vault = buildOpenVault(record, { db, dek, wraps: [], user, needsSave: true }, now)
     vault.grants = vault.grants.filter((item) => item.id !== grant.id)

@@ -43,6 +43,7 @@ export const healthUzLatn: HealthMessages = {
     reload: 'Ilovani qayta yuklash',
     clock: 'Soat tekshiruvini ochish',
     audit: 'Audit jurnalini ochish',
+    auditFull: 'Har bir yozuvni tekshirish',
     account: '“Hisob” sahifasini ochish',
     users: '“Odamlar” sahifasini ochish',
   },
@@ -90,6 +91,10 @@ export const healthUzLatn: HealthMessages = {
     reinvite: 'Yangi taklif kerak',
     epoch: 'Seyf kaliti',
     missing: 'Joriy kalitsiz',
+    signed: 'Tekshirilgan imzoli yozuvlar',
+    problems: 'Muammoli yozuvlar',
+    firstProblem: 'Birinchi muammo yozuvi',
+    checkedFrom: 'Tekshiruv boshlangan yozuv',
   },
   checks: {
     crypto: {
@@ -268,6 +273,13 @@ export const healthUzLatn: HealthMessages = {
       shorter: 'Jurnal bu brauzer oxirgi marta koʻrgandagidan qisqaroq: yozuvlar kesib tashlangan.',
       changed: 'Bu brauzer oldin koʻrgan yozuv qayta yozilgan.',
       fix: 'Audit jurnalini ochib, nima oʻzgarganini tekshiring. Agar bu kutilgan boʻlsa (masalan, eskiroq zaxira nusxani import qilgandan keyin), jurnalni oʻsha yerda qabul qiling.',
+    },
+    auditSignatures: {
+      title: 'Audit jurnali imzolari',
+      ok: 'Har bir imzolangan yozuv tekshiruvdan oʻtadi: uni yozuvda koʻrsatilgan kishi imzolagan va unga yozuv qayd etgan ishni qilishga ruxsat berilgan edi.',
+      none: 'Hali birorta audit yozuvi imzolanmagan. Keyingi saqlashdan boshlab har bir yozuvni uni qilgan kishi imzolaydi.',
+      problems: 'Baʼzi yozuvlar tekshiruvdan oʻtmaydi: imzo yoʻq yoki mos kelmaydi, yoki yozuv uni imzolagan kishiga ruxsat berilmagan ishni qayd etadi.',
+      fix: 'Audit jurnalini oching va qaysi yozuvlar ekanini hamda ularni kim imzolaganini koʻrish uchun «Faqat muammolar»ni yoqing. Birinchi muammodan oldin olingan zaxira nusxada jurnal avvalgidek qolgan. Nima boʻlganini aniqlagach, yuqoridagi ogohlantirishda jurnalni boricha qabul qiling.',
     },
     clock: {
       title: 'Qurilma soati',

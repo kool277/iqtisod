@@ -5,6 +5,7 @@ import { signRoster } from '../../crypto/roster'
 import { fingerprintOf } from '../../crypto/sign'
 import { SUITE, assertSuite } from '../../crypto/suite'
 import type { KeysRecord } from '../../db/envelope'
+import { auditHead } from '../../db/audit-chain'
 import { KEYS_MIGRATIONS, assertKnownSchema, migrate, readSchemaVersion } from '../../db/migrations'
 import { KEYS_SCHEMA_VERSION, RECORD_VERSION, KEYS_RECORD_VERSION } from '../../db/versions'
 import { ForbiddenError, ValidationError } from '../../domain/errors'
@@ -71,6 +72,8 @@ export async function upgradeToKeys(vault: OpenVault, password: string): Promise
   migrate(db, { appVersion: APP_VERSION, migrations: KEYS_MIGRATIONS })
   await assertKnownSchema(db, readSchemaVersion(db), KEYS_SCHEMA_VERSION)
   let rosterHash = ''
+  // The upgrade's own entries are the first this vault signs: everything before them stays as 1.x wrote it.
+  const auditFrom = auditHead(db).seq + 1
   db.exec('BEGIN')
   try {
     for (const grant of openGrantRows(db)) {
@@ -105,6 +108,7 @@ export async function upgradeToKeys(vault: OpenVault, password: string): Promise
     firstSeen: true,
     holders: [memberId],
     nextDek: await generateDek(),
+    auditFrom,
   }
   const upgraded = vault as OpenVault & { keys: KeysSession }
   upgraded.dek = dek

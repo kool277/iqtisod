@@ -65,6 +65,8 @@ function HealthView({ mode }: { mode: Mode }) {
   const [notice, setNotice] = useState<string | null>(null)
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
   const runId = useRef(0)
+  // Once someone asked for it, every run on this page checks every audit entry; results are kept, so that stays quick.
+  const auditFull = useRef(false)
   const access = useRef({ query, saveState, weak: weakPassword })
   access.current = { query, saveState, weak: weakPassword }
 
@@ -73,7 +75,7 @@ function HealthView({ mode }: { mode: Mode }) {
     setRunning(true)
     setCopyState('idle')
     try {
-      const next = await runHealthChecks(signedIn ? access.current : null)
+      const next = await runHealthChecks(signedIn ? access.current : null, Date.now(), { auditFull: auditFull.current })
       if (id === runId.current) {
         setResults(next)
         setCheckedAt(new Date())
@@ -122,6 +124,11 @@ function HealthView({ mode }: { mode: Mode }) {
         granted = false
       }
       setNotice(t(granted ? 'health.persistGranted' : 'health.persistRefused'))
+      await run()
+      return
+    }
+    if (action === 'auditFull') {
+      auditFull.current = true
       await run()
       return
     }

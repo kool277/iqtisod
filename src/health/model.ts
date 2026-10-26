@@ -3,7 +3,7 @@ export type HealthStatus = 'pass' | 'warn' | 'fail' | 'info'
 export const HEALTH_GROUPS = ['browser', 'storage', 'app', 'vault', 'rates', 'security'] as const
 export type HealthGroup = (typeof HEALTH_GROUPS)[number]
 
-export type HealthAction = 'persist' | 'backup' | 'reload' | 'clock' | 'audit' | 'account' | 'users'
+export type HealthAction = 'persist' | 'backup' | 'reload' | 'clock' | 'audit' | 'auditFull' | 'account' | 'users'
 
 /** Plain values shown under a check and copied into the report. Never a secret, an email or a name. */
 export type HealthFacts = Record<string, string | number>
@@ -37,6 +37,7 @@ export const HEALTH_CHECKS = {
   archives: { group: 'vault', details: ['count'] },
   auditChain: { group: 'vault', details: ['ok', 'broken'] },
   auditHead: { group: 'vault', details: ['ok', 'first', 'shorter', 'changed'] },
+  auditSignatures: { group: 'vault', details: ['ok', 'none', 'problems'] },
   clock: { group: 'vault', details: ['ok', 'behind'] },
   totp: { group: 'vault', details: ['on', 'off'] },
   password: { group: 'vault', details: ['ok', 'weak', 'mustChange'] },
@@ -116,6 +117,10 @@ export const HEALTH_FACTS = [
   'reinvite',
   'epoch',
   'missing',
+  'signed',
+  'problems',
+  'firstProblem',
+  'checkedFrom',
 ] as const
 export type HealthFactKey = (typeof HEALTH_FACTS)[number]
 
