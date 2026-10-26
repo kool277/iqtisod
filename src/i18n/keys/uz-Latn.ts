@@ -24,7 +24,7 @@ export const keysUzLatn: KeysMessages = {
   },
   restore: {
     backupPassword: 'Bu zaxira nusxadagi parolingiz',
-    removals: 'Shundan beri olib tashlangan yoki yangi kalit olgan odamlar. Bu nusxada ular yana toʻxtatiladi, qolganlarning hammasi esa yangi seyf kalitini oladi:',
+    removals: 'Bu brauzer oxirgi koʻrgan seyfda xuddi shu kalitlarga ega boʻlmagan odamlar: shundan beri olib tashlangan yoki yangi kalit olganlar yoxud faqat shu nusxada qoʻshilganlar. Bu nusxada ular toʻxtatiladi, qolganlarning hammasi esa yangi seyf kalitini oladi:',
     invites: 'Shundan beri bekor qilingan taklif kodlari; bu nusxada ular yana bekor qilinadi:',
     legacy: 'Bu zaxira nusxa shaxsiy kalitlarga oʻtishdan oldin qilingan: undagi har bir parol yana ishlaydi, shundan beri olib tashlangan odamlarniki ham. Tiklangandan keyin kirish huquqi boʻlmasligi kerak boʻlganlarni yana cheklang.',
     noRemovals: 'Shundan beri hech kim olib tashlanmagan.',

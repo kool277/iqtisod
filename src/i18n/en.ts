@@ -216,7 +216,7 @@ export const en = {
     storageBestEffort: 'Not protected. The browser may clear it when space runs low or after a long time without visits. Keep backups.',
     storageUnsupported: 'This browser does not report whether the data is protected. Keep backups.',
     archives: 'Earlier copies in this browser',
-    archivesIntro: 'Jaybi keeps a copy of the vault before each format upgrade and before each import. Download one if you need to go back.',
+    archivesIntro: 'Jaybi keeps a copy of the vault before each format upgrade, each import and each new household key, which deletes the older copies. Download one if you need to go back.',
     archiveUpgrade: 'Before upgrade',
     archiveImport: 'Before import',
     archiveRotation: 'Before a new household key',

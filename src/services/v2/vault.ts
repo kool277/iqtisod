@@ -443,6 +443,8 @@ export type KeysUnlockOptions = { acceptRollback?: boolean }
  * unwraps the epoch DEK, the DEK opens the chunked body, and the checks of 3.8 run before any session exists.
  */
 export async function unlockKeysVault(record: KeysRecord, email: string, password: string, options: KeysUnlockOptions = {}, now = new Date()): Promise<OpenVault & { keys: KeysSession }> {
+  // Without the suite the keys cannot be imported, which would read as a wrong password and count towards the throttle.
+  await assertSuite()
   const normalized = normalizeEmail(email)
   const { keys } = record
   const blob = Object.values(keys.identities).find((item) => item.email.toLowerCase() === normalized)

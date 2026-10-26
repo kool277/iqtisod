@@ -1,4 +1,6 @@
 import 'fake-indexeddb/auto'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { Base64Decoder, Base64Error } from '../../src/crypto/base64-stream'
 import { generateDek } from '../../src/crypto/crypto.service'
@@ -16,11 +18,12 @@ import {
 import { ciphertextParts, decodeStoredRecord, parseBackupJson, parseBackupText, storedForm, toBackupJson, type KeysRecord } from '../../src/db/envelope'
 import { readKeysHeader } from '../../src/db/keys-header'
 import { SqlDatabase } from '../../src/db/sqlite'
-import { readBackupFile } from '../../src/db/backup-reader'
+import { readBackup, readBackupFile } from '../../src/db/backup-reader'
 import { listArchives, readArchive, readVault, readVaultCopy, readVaultRaw, writeVault } from '../../src/db/storage'
 import { archiveFileBlob, backupFileBlob, storedFileBlob } from '../../src/services/backup.service'
 import { KEYS_RECORD_VERSION, KEYS_SCHEMA_VERSION } from '../../src/db/versions'
 import { ConflictError, CorruptRecordError } from '../../src/domain/errors'
+import { FIXTURE_ROOT } from '../support/fixtures'
 
 const KIB = 1024
 const CONTEXT: BodyContext = { vaultId: 'vault-1', epoch: 1 }
@@ -299,6 +302,35 @@ describe('version 3 records and backups', () => {
     const json = JSON.parse(await blob.text()) as { body: { ciphertext: string } }
     json.body.ciphertext = Buffer.from(json.body.ciphertext, 'base64').subarray(0, -(4 * KIB + 16)).toString('base64')
     await expect(readBackupFile(new Blob([JSON.stringify(json)]))).rejects.toThrow()
+  })
+
+  it('refuses a small file that declares huge chunks before allocating them', async () => {
+    const file = JSON.parse(readFileSync(resolve(FIXTURE_ROOT, 'v5/roster-household.moliya'), 'utf8')) as Record<string, unknown>
+    const chunkSize = 64 * 1024 * 1024
+    const length = 640 * 1024 * 1024 - 160
+    file.body = {
+      chunkSize,
+      length,
+      chunks: Array.from({ length: Math.ceil(length / chunkSize) }, () => 'AAAAAAAAAAAAAAAA'),
+      seal: { iv: 'AAAAAAAAAAAAAAAA', tag: 'AAAAAAAAAAAAAAAAAAAAAA==' },
+      ciphertext: 'AAAA',
+    }
+    const text = JSON.stringify(file)
+    const Original = Uint8Array
+    let allocated = 0
+    globalThis.Uint8Array = new Proxy(Original, {
+      construct(target, args, newTarget) {
+        if (typeof args[0] === 'number') allocated += args[0]
+        return Reflect.construct(target, args, newTarget === globalThis.Uint8Array ? target : newTarget)
+      },
+    })
+    try {
+      expect(() => parseBackupText(text)).toThrow()
+      await expect(readBackup(new Blob([text]))).rejects.toThrow()
+    } finally {
+      globalThis.Uint8Array = Original
+    }
+    expect(allocated).toBeLessThan(8 * 1024 * 1024)
   })
 
   it('download an archived version 3 record as a backup', async () => {

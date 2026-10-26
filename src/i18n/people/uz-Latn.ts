@@ -145,7 +145,8 @@ export const peopleUzLatn: PeopleMessages = {
     noAccessNote: 'Bu kishining kalitlari ham, ochiq taklifi ham yoʻq, shuning uchun u kira olmaydi. Unga yangi taklif kodi bering.',
     reset: 'Yangi taklif kodi berish',
     resetHelp: 'Uning kalitlari darhol ishlamay qoladi. Kod bilan u parol tanlaydi va yangi kalitlar oladi. Shaxsiy kalitlarga oʻtilgandan keyin ochgan shaxsiy seyflari faqat tiklash kodi bilan yana ochiladi.',
-    reactivateBody: 'U yangi taklif kodini oladi: u bilan parol tanlaydi va yangi kalitlar oladi.',
+    reactivateBody: 'U yangi taklif kodini oladi: u bilan parol tanlaydi va yangi kalitlar oladi. Shaxsiy kalitlarga oʻtilgandan keyin ochgan shaxsiy seyflari shundan soʻng faqat tiklash kodi bilan ochiladi.',
+    codeFor: 'Yangi taklif kodi, kimga:',
     inviteOnly: 'Bu seyfga odamlar taklif kodi bilan qoʻshiladi, shuning uchun administrator hech kimning kalitlarini bilmaydi.',
     rotation: {
       body: 'Qolganlarning hammasi yangi seyf kalitini oladi. Bu odamda u allaqachon nusxalab olgan narsalar, masalan, eski zaxira nusxalar qoladi, lekin bundan buyon saqlangan hech narsa unga ochilmaydi.',

@@ -168,7 +168,7 @@ describe('a per-person-keys vault', () => {
 
     const blocked = unlockVault(older, FOUNDER.email, FOUNDER.password)
     await expect(blocked).rejects.toBeInstanceOf(KeysBlockedError)
-    await expect(blocked).rejects.toMatchObject({ code: 'KEYS_ROSTER_ROLLBACK', versions: { seen: 2, current: 1 } })
+    await expect(blocked).rejects.toMatchObject({ code: 'KEYS_ROSTER_ROLLBACK', versions: { seen: 2, current: 1 }, admin: true })
     const accepted = track(await unlockKeysVault(older, FOUNDER.email, FOUNDER.password, { acceptRollback: true }))
     expect(accepted.needsSave).toBe(true)
     expect(accepted.db.queryValue("SELECT COUNT(*) FROM audit_logs WHERE action = 'ROSTER_ROLLBACK_ACCEPTED'")).toBe(1)

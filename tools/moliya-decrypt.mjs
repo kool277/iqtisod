@@ -298,7 +298,7 @@ async function main() {
     if (backup.version !== 3) fail('--verify needs a backup with per-person keys (format 3)', 2)
     let problem
     try {
-      problem = await verifyKeysBackup(backup, plain)
+      problem = await verifyKeysBackup(backup, plain, options.email)
     } catch (error) {
       plain.fill(0)
       fail(error.message)
@@ -759,7 +759,7 @@ async function checkAuditLog(backup, docs, bindings, rows, sigRows) {
  * The checks of the app's unlock (design 3.8, steps 2–3 and 5) on a decrypted format 3 backup, then its audit
  * signatures (step 6). `problem` blocks, as in the app; `audit` lists entries that do not check out.
  */
-export async function verifyKeysBackup(backup, plain) {
+export async function verifyKeysBackup(backup, plain, email) {
   const DatabaseSync = await openSqlite()
   if (!DatabaseSync) throw new Error('--verify needs node:sqlite (Node.js 22.13 or newer)')
   const dir = mkdtempSync(join(tmpdir(), 'moliya-decrypt-'))
@@ -778,7 +778,7 @@ export async function verifyKeysBackup(backup, plain) {
       rows = db.prepare('SELECT version, hash, doc FROM roster_versions ORDER BY version').all()
       bindingRows = db.prepare('SELECT member_id, doc FROM key_bindings ORDER BY member_id').all()
       people = db.prepare('SELECT u.id, u.email, r.name AS role, u.group_id AS grp FROM users u JOIN roles r ON r.id = u.role_id').all()
-      profiles = db.prepare("SELECT key, value FROM settings WHERE key LIKE 'user_profile:%'").all()
+      profiles = db.prepare("SELECT key, value FROM settings WHERE substr(key, 1, 13) = 'user_profile:'").all()
       auditRows = db.prepare('SELECT seq, id, actor_id, action, entity_type, entity_id, details, created_at, prev_hash, hash FROM audit_logs ORDER BY seq').all()
       sigRows = db.prepare('SELECT seq, actor, roster_version, epoch, sig FROM audit_sigs ORDER BY seq').all()
     } finally {
@@ -871,6 +871,10 @@ export async function verifyKeysBackup(backup, plain) {
     if (!person || person.email !== member.email || person.role !== member.role || (person.grp ?? null) !== member.group) return blocked(`${member.email} in the database does not match the signed list of people`)
     if ((statusOf.get(member.id) ?? 'ACTIVE') !== 'ACTIVE') return blocked(`${member.email} is suspended or a former member but still in the signed list of people`)
   }
+  // As at sign-in: whoever opened the file must be an active member with the keys that opened it.
+  const opener = backup.identities.find((item) => item.email.toLowerCase() === String(email).trim().toLowerCase())
+  const self = opener ? active.get(opener.memberId) : undefined
+  if (!self || self.encPub !== opener.encPub || self.sigPub !== opener.sigPub) return blocked(`${email} is not an active member with the keys that opened the backup`)
   const signer = active.get(backup.sig?.by)
   const header = {
     version: 3,

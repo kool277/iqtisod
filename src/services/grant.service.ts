@@ -27,6 +27,7 @@ import {
   grantRow,
   hasAccess,
   openGrantRows,
+  storedGrantFor,
   type GrantRow,
 } from './grant-store'
 import { dropTotp } from './totp.service'
@@ -312,7 +313,7 @@ export async function redeemGrant(record: VaultRecord, input: RedeemInput, now =
   assertEmail(email)
   const canonical = normalizeAccessCode(input.code)
   assertPasswordLength(input.password)
-  const grant = (record.grants ?? []).find((item) => item.kind === input.kind && item.email === email)
+  const grant = storedGrantFor(record, input.kind, email)
   if (!grant || grant.kdf.name !== 'PBKDF2') {
     await spendPasswordWork(canonical)
     throw invalid()

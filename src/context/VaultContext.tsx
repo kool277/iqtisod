@@ -327,7 +327,15 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       setSaveState('saved')
       setLockReason(null)
       setStatus('ready')
-      setUpgradeOffered(offersUpgrade(vault))
+      setUpgradeOffered(false)
+      // Offered only where it can work: a browser without the suite could only fail at the last step.
+      if (offersUpgrade(vault)) {
+        void import('../crypto/suite')
+          .then(({ suiteSupported }) => suiteSupported())
+          .then((supported) => {
+            if (supported && vaultRef.current === vault) setUpgradeOffered(true)
+          })
+      }
       void requestPersistenceBriefly()
         .then(() => import('../lib/capacity'))
         .then(async ({ growthBudget, measureCapacity, onCapacity, setChunkedVault }) => {

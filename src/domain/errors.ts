@@ -81,6 +81,8 @@ export class KeysBlockedError extends AppError {
     code: KeysBlock,
     /** For a rollback: the version this device saw and the version the vault has. */
     readonly versions?: { seen: number; current: number },
+    /** For a rollback: whether the person who opened it is an admin of it, who alone may open it anyway. */
+    readonly admin = false,
   ) {
     super(code)
     this.name = 'KeysBlockedError'

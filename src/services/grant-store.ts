@@ -23,6 +23,16 @@ export type GrantRow = {
   endedReason: GrantEndReason | null
 }
 
+/**
+ * The stored code for `email`: of the kind asked for, or else the only one that email has. Someone given a new code (a
+ * reset) often opens the join page, and the other way round. An email has at most one open code, and its kind is bound
+ * into the code's authenticated data, so this only lets a genuine code work from either page.
+ */
+export function storedGrantFor<T extends { kind: GrantRow['kind']; email: string }>(record: { grants?: readonly T[] }, kind: GrantRow['kind'], email: string): T | undefined {
+  const theirs = (record.grants ?? []).filter((grant) => grant.email === email)
+  return theirs.find((grant) => grant.kind === kind) ?? (theirs.length === 1 ? theirs[0] : undefined)
+}
+
 const optStr = (value: SqlValue): string | null => (value == null ? null : String(value))
 const optNum = (value: SqlValue): number | null => (value == null ? null : Number(value))
 

@@ -12,6 +12,8 @@ import { createUser, suspendUser, updateUser } from '../../src/services/user.ser
 import { commitSealed, confirmKeysSession, rosterSeen } from '../../src/services/v2/session'
 import { upgradeToKeys } from '../../src/services/v2/upgrade'
 import { createKeysVault } from '../../src/services/v2/vault'
+import { checkKeysBackup } from '../../src/services/v2/restore'
+import { resetSuiteDetectionForTests } from '../../src/crypto/suite'
 import { memoryStorage } from '../support/memory-storage'
 
 // The smallest Argon2id the readers accept, so the derivations here stay quick.
@@ -124,7 +126,8 @@ describe('found in review', () => {
     const removed = await stored()
     expect(removed.keys.roster.version).toBeGreaterThan(beforeRemoval.keys.roster.version)
     expect(rosterSeen(removed.keys.vaultId)).toBe(removed.keys.roster.version)
-    await expect(unlockVault(beforeRemoval, MEMBER.email, MEMBER.password)).rejects.toMatchObject({ code: 'KEYS_ROSTER_ROLLBACK' })
+    // Only an admin of the copy is offered to open it anyway.
+    await expect(unlockVault(beforeRemoval, MEMBER.email, MEMBER.password)).rejects.toMatchObject({ code: 'KEYS_ROSTER_ROLLBACK', admin: false })
   })
 
   it('a full seal that overlaps a save signing a roster version names only what its own image holds', async () => {
@@ -158,4 +161,32 @@ describe('found in review', () => {
     track(await unlockVault(exported, FOUNDER.email, FOUNDER.password))
     track(await unlockVault(autosave, FOUNDER.email, FOUNDER.password))
   })
+
+  it('a browser without X25519 or Ed25519 says so when signing in, redeeming or checking a backup, instead of a wrong password', async () => {
+    const { founder, at } = await founded()
+    const [group] = listGroups(founder)
+    const invite = await createInvite(founder, { email: MEMBER.email, roleName: 'Viewer', groupId: group.id, validity: '24h' })
+    await save(founder, at)
+    const record = await stored()
+    const subtle = globalThis.crypto.subtle
+    const importKey = subtle.importKey.bind(subtle)
+    const generateKey = subtle.generateKey.bind(subtle)
+    const missing = (algorithm: unknown) => ['X25519', 'Ed25519'].includes(typeof algorithm === 'string' ? algorithm : String((algorithm as { name?: unknown }).name))
+    const refuse = () => Promise.reject(new DOMException('Unrecognized name', 'NotSupportedError'))
+    vi.spyOn(subtle, 'importKey').mockImplementation(((...args: Parameters<SubtleCrypto['importKey']>) =>
+      missing(args[2]) ? refuse() : importKey(...args)) as SubtleCrypto['importKey'])
+    vi.spyOn(subtle, 'generateKey').mockImplementation(((...args: Parameters<SubtleCrypto['generateKey']>) =>
+      missing(args[0]) ? refuse() : generateKey(...args)) as SubtleCrypto['generateKey'])
+    resetSuiteDetectionForTests()
+    try {
+      const unsupported = { code: 'V2_UNSUPPORTED_BROWSER' }
+      await expect(unlockVault(record, FOUNDER.email, FOUNDER.password)).rejects.toMatchObject(unsupported)
+      await expect(redeemGrant(record, { kind: 'INVITE', email: MEMBER.email, code: invite.code, password: MEMBER.password })).rejects.toMatchObject(unsupported)
+      await expect(checkKeysBackup(record, FOUNDER.email, FOUNDER.password)).rejects.toMatchObject(unsupported)
+    } finally {
+      vi.restoreAllMocks()
+      resetSuiteDetectionForTests()
+    }
+  })
 })
+

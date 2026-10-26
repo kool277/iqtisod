@@ -7,7 +7,10 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { wrapDekTo } from '../../src/crypto/ecies'
+import { generateIdentitySecret, importIdentity, sealIdentity, wipeSecret } from '../../src/crypto/identity'
 import { formatFingerprint } from '../../src/crypto/sign'
+import type { KeysRecord } from '../../src/db/envelope'
 import { readVault, writeVault } from '../../src/db/storage'
 import { SqlDatabase } from '../../src/db/sqlite'
 import { sealVault, unlockVault } from '../../src/services/auth.service'
@@ -125,6 +128,25 @@ describe('moliya-decrypt on a backup with per-person keys (format 3)', () => {
     const result = await failure([tampered, '--email', FOUNDER.email, '--out', join(work, 'tampered.sqlite'), '--verify'], FOUNDER.password)
     expect(result.code).toBe(3)
     expect(result.stderr).toContain('verification failed: the backup is not signed by a member of its roster')
+  })
+
+  it.skipIf(!argon2Sync)('refuses, with exit status 3, a backup opened by someone its signed list of people does not name', async () => {
+    const record = (await readVault())!.record as KeysRecord
+    const founder = await unlockVault(record, FOUNDER.email, FOUNDER.password)
+    const { vaultId, epoch } = founder.keys!
+    const outsider = { email: 'outsider@cli.test', password: 'outsider-cli-password-1', memberId: 'outsider-1' }
+    const secret = await generateIdentitySecret()
+    record.keys.identities[outsider.memberId] = await sealIdentity(secret, { vaultId, memberId: outsider.memberId, email: outsider.email, password: outsider.password })
+    const identity = await importIdentity(secret)
+    wipeSecret(secret)
+    // Identities and wraps sit outside the signed header, so only the check of who opened the file can catch this.
+    record.keys.dekWraps[outsider.memberId] = await wrapDekTo(founder.dek, identity.encPub, { vaultId, epoch, memberId: outsider.memberId })
+    founder.db.close()
+    const path = join(work, 'outsider.moliya')
+    writeFileSync(path, backupFileText(record))
+    const result = await failure([path, '--email', outsider.email, '--out', join(work, 'outsider.sqlite'), '--verify'], outsider.password)
+    expect(result.code).toBe(3)
+    expect(result.stderr).toContain(`verification failed: ${outsider.email} is not an active member with the keys that opened the backup`)
   })
 
   it.skipIf(!argon2Sync)('still writes the database when audit entries do not check out, and says which, with exit status 4', async () => {

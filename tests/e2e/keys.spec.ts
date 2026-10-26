@@ -289,7 +289,8 @@ test('an admin upgrades a 1.x vault: they become the founder and everyone else n
   const code = (await page.getByTestId('issued-code').textContent({ timeout: 60_000 }))!.trim()
   await page.getByTestId('code-done').click()
   await lock(page)
-  await page.getByTestId('reset-link').click()
+  // A new code is a reset code underneath; told it is an invite, the person may well open the join page, which takes it.
+  await page.getByTestId('join-link').click()
   await page.getByTestId('register-email').fill('viewer@access.test')
   await page.getByTestId('register-code').fill(code)
   await page.getByTestId('register-password').fill('Viewer keys after upgrade 7')
@@ -407,12 +408,10 @@ test('a browser without X25519 or Ed25519 is refused at setup, with no weaker fa
     })
   })
   await page.goto('/')
-  await page.getByTestId('setup-name').fill('Old Browser')
-  await page.getByTestId('setup-email').fill(FOUNDER.email)
-  await page.getByTestId('setup-password').fill(FOUNDER.password)
-  await page.getByTestId('setup-confirm').fill(FOUNDER.password)
-  await page.getByTestId('setup-submit').click()
-  await expect(page.getByText('This browser cannot use the keys this vault needs')).toBeVisible({ timeout: 30_000 })
+  // The setup screen says so before anything is typed, and keeps importing a backup open.
+  await expect(page.getByTestId('setup-unsupported')).toContainText('This browser cannot use the keys this vault needs', { timeout: 30_000 })
+  await expect(page.getByTestId('setup-submit')).toBeDisabled()
+  await expect(page.getByTestId('import-file')).toBeEnabled()
   await expect(page.getByTestId('kpi-net')).toHaveCount(0)
 })
 

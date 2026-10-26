@@ -211,7 +211,7 @@ export const uzLatn: CoreMessages = {
     storageBestEffort: 'Himoyalanmagan. Joy yetishmasa yoki uzoq vaqt kirilmasa, brauzer maʼlumotlarni oʻchirishi mumkin. Nusxa olib turing.',
     storageUnsupported: 'Brauzer maʼlumotlar himoyalanganini bildirmaydi. Nusxa olib turing.',
     archives: 'Bu brauzerdagi oldingi nusxalar',
-    archivesIntro: 'Jaybi har bir format yangilanishi va har bir importdan oldin seyf nusxasini saqlaydi. Orqaga qaytish kerak boʻlsa, uni yuklab oling.',
+    archivesIntro: 'Jaybi har bir format yangilanishi, har bir import va har bir yangi seyf kalitidan oldin seyf nusxasini saqlaydi; yangi seyf kaliti eskiroq nusxalarni oʻchiradi. Orqaga qaytish kerak boʻlsa, uni yuklab oling.',
     archiveUpgrade: 'Yangilanishdan oldin',
     archiveImport: 'Importdan oldin',
     archiveRotation: 'Yangi seyf kalitidan oldin',

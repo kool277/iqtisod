@@ -8,7 +8,7 @@ import {
   isKdfParams,
   type KdfParams,
 } from '../crypto/crypto.service'
-import { Base64Decoder, Base64Error } from '../crypto/base64-stream'
+import { Base64Decoder, Base64Error, base64DecodedLength } from '../crypto/base64-stream'
 import { base64ToBytes, bytesToBase64, cloneBuffer, cloneBytes } from '../crypto/encoding'
 import { copyArgon2Params, isArgon2Params, type Argon2Params } from '../crypto/kdf'
 import { CorruptRecordError, FormatTooNewError, ValidationError } from '../domain/errors'
@@ -16,7 +16,7 @@ import { LIMITS } from '../lib/limits'
 import { parseJsonSafely } from '../lib/safe-json'
 import { isAuditHead, type AuditHead } from './audit-chain'
 import { CHUNK_KEY, MAX_CHUNKS, chunkCiphertextSizes, chunkCount, isChunkSize, manifestJson, type BodyChunk, type ChunkedBody } from './chunks'
-import { copyKeysHeader, readKeysHeader, type KeysHeader } from './keys-header'
+import { assertKnownKeysFormat, copyKeysHeader, readKeysHeader, type KeysHeader } from './keys-header'
 import { BACKUP_VERSION, KEYS_BACKUP_VERSION, KEYS_RECORD_VERSION, KEYS_SCHEMA_VERSION, RECORD_VERSION, SCHEMA_VERSION } from './versions'
 
 export const BACKUP_FORMAT = 'moliya-vault'
@@ -384,6 +384,7 @@ function decodeFields(
   }
   if (version === KEYS_RECORD_VERSION) {
     if (source.wraps !== undefined) throw invalid()
+    assertKnownKeysFormat(source)
     const keys = readKeysHeader(source)
     if (!keys) throw invalid()
     return {
@@ -575,6 +576,9 @@ function splitChunks(bytes: Uint8Array, sizes: readonly number[], invalid: Inval
 /** Base64 of all chunks decoded straight into a buffer per chunk. */
 function decodeChunks(text: string, sizes: readonly number[], invalid: Invalid): ArrayBuffer[] {
   if (!BASE64_TEXT.test(text) || text.length % 4 !== 0) throw invalid()
+  // The sizes come from the file: a few bytes may declare hundreds of MiB, so compare before allocating any of it.
+  const padding = text.endsWith('==') ? 2 : text.endsWith('=') ? 1 : 0
+  if (base64DecodedLength(text.length, padding) !== sizes.reduce((sum, size) => sum + size, 0)) throw invalid()
   const targets = sizes.map((size) => new Uint8Array(size))
   const decoder = new Base64Decoder(targets)
   try {

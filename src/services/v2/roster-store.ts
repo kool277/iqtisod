@@ -51,6 +51,23 @@ export function readBindings(db: SqlDatabase): KeyBinding[] | null {
   return bindings
 }
 
+/**
+ * The key bindings that redeeming entries of the audit log carry, each under the member who redeemed it. They outlive
+ * the stored bindings, which a new code or a removal drops before any admin save folds them in.
+ */
+export function redeemedBindings(db: SqlDatabase): KeyBinding[] {
+  const rows = db.query("SELECT actor_id, details FROM audit_logs WHERE action IN ('INVITE_ACCEPTED', 'RESET_COMPLETED') AND details IS NOT NULL")
+  return rows.flatMap((row) => {
+    try {
+      const details = parseJsonSafely(String(row.details), { maxChars: 65_536 }) as { binding?: unknown } | null
+      const binding = readKeyBinding(details?.binding)
+      return binding && binding.memberId === row.actor_id ? [binding] : []
+    } catch {
+      return []
+    }
+  })
+}
+
 export function writeBinding(db: SqlDatabase, binding: KeyBinding): void {
   db.exec('INSERT OR REPLACE INTO key_bindings (member_id, doc) VALUES (?, ?)', [binding.memberId, canonicalize(binding)])
 }

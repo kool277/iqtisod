@@ -1,4 +1,4 @@
-import { Suspense, lazy, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { Suspense, lazy, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { PasswordHint, ThrottleNotice } from './auth/AuthBits'
 import { SignInCheckStep } from './auth/SignInCheckStep'
@@ -8,9 +8,10 @@ import { Preferences } from './Preferences'
 import { Button, Field, Notice, controlClass } from './ui'
 import { useI18n } from '../context/I18nContext'
 import { useVault } from '../context/VaultContext'
-import { AppError, KeysBlockedError } from '../domain/errors'
+import { KeysBlockedError } from '../domain/errors'
 import { CURRENCIES } from '../domain/types'
 import { errorText, textForError } from '../lib/errors'
+import { keysEnabled } from '../lib/flags'
 import { LIMITS } from '../lib/limits'
 import { isNewAddress } from '../lib/origin-move'
 import { ThrottledError } from '../lib/throttle'
@@ -122,6 +123,20 @@ export function SetupPage() {
   const importRef = useRef<HTMLInputElement>(null)
   const [reading, setReading] = useState(false)
   const { capacity, readFile } = useBackupImport()
+  // Setup creates per-person keys, which this browser may lack; importing a backup still works, so only setup stops.
+  const [unsupported, setUnsupported] = useState(false)
+  useEffect(() => {
+    if (!keysEnabled()) return
+    let live = true
+    void import('../crypto/suite')
+      .then(({ suiteSupported }) => suiteSupported())
+      .then((supported) => {
+        if (live) setUnsupported(!supported)
+      })
+    return () => {
+      live = false
+    }
+  }, [])
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
@@ -178,6 +193,11 @@ export function SetupPage() {
         </div>
       ) : null}
       <form className="mt-6 grid gap-4" onSubmit={(event) => void onSubmit(event)}>
+        {unsupported ? (
+          <p role="alert" data-testid="setup-unsupported" className="rounded-xl bg-clay/10 px-3 py-2 text-sm text-clay-ink">
+            {errorText('V2_UNSUPPORTED_BROWSER', t)}
+          </p>
+        ) : null}
         {error ? <Notice>{error}</Notice> : null}
         <Field label={t('setup.displayName')}>
           <input data-testid="setup-name" className={controlClass} maxLength={LIMITS.nameChars} value={displayName} onChange={(event) => setDisplayName(event.target.value)} required />
@@ -201,7 +221,7 @@ export function SetupPage() {
             ))}
           </select>
         </Field>
-        <Button type="submit" data-testid="setup-submit" disabled={pending}>
+        <Button type="submit" data-testid="setup-submit" disabled={pending || unsupported}>
           {pending ? t('setup.working') : t('setup.submit')}
         </Button>
       </form>
@@ -271,7 +291,7 @@ export function LoginPage() {
       if (caught instanceof ThrottledError) countdown.start(caught.waitMs)
       else {
         setError(textForError(caught, t))
-        setRollback(caught instanceof AppError && caught.code === 'KEYS_ROSTER_ROLLBACK' && !acceptRollback)
+        setRollback(caught instanceof KeysBlockedError && caught.code === 'KEYS_ROSTER_ROLLBACK' && caught.admin && !acceptRollback)
         setBlocked(caught instanceof KeysBlockedError)
       }
     } finally {

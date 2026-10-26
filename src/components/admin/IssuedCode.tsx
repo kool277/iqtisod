@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Button } from '../ui'
 import { useI18n } from '../../context/I18nContext'
+import { useVault } from '../../context/VaultContext'
 import { copySecret } from '../../lib/clipboard'
 import { formatWhen } from '../../lib/money'
 import type { IssuedGrant } from '../../services/grant.service'
@@ -18,6 +19,7 @@ function registerLink(grant: IssuedGrant): string {
 /** Shows a freshly issued code once. Nothing here is stored; closing it discards the code. */
 export function IssuedCode({ grant, onDone }: { grant: IssuedGrant; onDone: () => void }) {
   const { t, locale } = useI18n()
+  const keys = useVault().keysInfo !== null
   const [copied, setCopied] = useState(false)
 
   const copy = (text: string) => {
@@ -29,7 +31,7 @@ export function IssuedCode({ grant, onDone }: { grant: IssuedGrant; onDone: () =
   return (
     <div data-testid="issued-code-panel" className="grid gap-3 rounded-2xl border border-pine/40 bg-paper p-4">
       <p className="text-sm">
-        {grant.kind === 'RESET' ? t('invites.resetFor') : t('invites.codeFor')} <span className="break-all font-medium">{grant.email}</span>
+        {grant.kind === 'RESET' ? (keys ? t('people.keys.codeFor') : t('invites.resetFor')) : t('invites.codeFor')} <span className="break-all font-medium">{grant.email}</span>
       </p>
       <p data-testid="issued-code" className="select-all break-all font-mono text-lg tracking-wider text-pine-ink">
         {grant.code}

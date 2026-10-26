@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { SUITE } from '../../src/crypto/suite'
-import { readKeysHeader } from '../../src/db/keys-header'
+import { assertKnownKeysFormat, readKeysHeader } from '../../src/db/keys-header'
+import { FormatTooNewError } from '../../src/domain/errors'
 
 const b64 = (bytes: number) => Buffer.alloc(bytes, 7).toString('base64')
 
@@ -66,5 +67,20 @@ describe('readKeysHeader', () => {
     expect(readKeysHeader(parsed({ ...header, founder: { ...header.founder, extra: 'x' } }))).toBeNull()
     const second = { ...identity, memberId: 'm2', email: 'FOUNDER@example.com' }
     expect(readKeysHeader(parsed({ ...header, identities: { m1: identity, m2: second }, dekWraps: { m1: wrap, m2: { ...wrap, memberId: 'm2' } } }))).toBeNull()
+  })
+
+  it('reports a suite, identity or wrap version, or KDF of a later release as a newer format, not as damage', () => {
+    const later = [
+      { ...header, suite: 'J2-P256' },
+      { ...header, identities: { m1: { ...identity, v: 3 } } },
+      { ...header, identities: { m1: { ...identity, kdf: { ...identity.kdf, name: 'Argon3' } } } },
+      { ...header, dekWraps: { m1: { ...wrap, v: 3 } } },
+      { ...header, dekWraps: { m1: { ...wrap, suite: 'J2-P256' } } },
+    ]
+    for (const source of later) expect(() => assertKnownKeysFormat(parsed(source))).toThrow(FormatTooNewError)
+    // What no release writes stays damage, for readKeysHeader to refuse.
+    for (const source of [header, { ...header, suite: 7 }, { ...header, identities: { m1: { ...identity, v: 1 } } }, { ...header, dekWraps: 'x' }]) {
+      expect(() => assertKnownKeysFormat(parsed(source))).not.toThrow()
+    }
   })
 })

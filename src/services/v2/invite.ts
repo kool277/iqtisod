@@ -18,7 +18,7 @@ import { assertEmail, normalizeEmail } from '../../lib/email'
 import { assertNewPassword, assertPasswordLength } from '../../lib/password-policy'
 import { writeAudit } from '../audit.service'
 import { buildOpenVault, loadUserById } from '../auth.service'
-import { CLOCK_TOLERANCE_MS, clockFloor, endGrant, grantRow } from '../grant-store'
+import { CLOCK_TOLERANCE_MS, clockFloor, endGrant, grantRow, storedGrantFor } from '../grant-store'
 import { dropTotp } from '../totp.service'
 import { userStatus } from '../user-profile'
 import { writeBinding } from './roster-store'
@@ -79,11 +79,12 @@ export type KeysRedeemInput = { kind: GrantWrap['kind']; email: string; code: st
  * right away.
  */
 export async function redeemKeysInvite(record: KeysRecord, input: KeysRedeemInput, now = new Date()): Promise<OpenVault & { keys: KeysSession }> {
+  await assertSuite()
   const email = normalizeEmail(input.email)
   assertEmail(email)
   const canonical = normalizeAccessCode(input.code)
   assertPasswordLength(input.password)
-  const grant = (record.grants ?? []).find((item) => item.kind === input.kind && item.email === email)
+  const grant = storedGrantFor(record, input.kind, email)
   if (!grant || !isArgon2Params(grant.kdf)) {
     await spendInviteWork(canonical)
     throw invalid()

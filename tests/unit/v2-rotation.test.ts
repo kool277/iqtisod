@@ -169,6 +169,30 @@ describe('key rotation', () => {
     expect(again.keys!.epoch).toBe(2)
   })
 
+  it('counts as holding the key someone who redeemed and got a new code before any admin save folded them in', async () => {
+    const { founder, group } = await household([])
+    let at = (await stored()).updatedAt
+    const invite = await createInvite(founder, { email: ALICE.email, roleName: 'Viewer', groupId: group.id, validity: '24h' })
+    at = await save(founder, at)
+    const alice = track(await redeemGrant(await stored(), { kind: 'INVITE', email: ALICE.email, code: invite.code, password: ALICE.password }))
+    at = await save(alice, at)
+    const aliceDek = alice.dek
+    // The new code drops her binding before any save folds it in, so no roster version lists her as active.
+    const admin = await signIn(FOUNDER)
+    await issueReset(admin, invite.id, { validity: '24h', stopOldPassword: true })
+    at = await save(admin, at)
+    expect(readBindings(admin.db)).toEqual([])
+    // A later session still knows from her redeeming entry that she held this epoch's key.
+    const later = await signIn(FOUNDER)
+    expect(later.keys!.holders).toContain(invite.id)
+    expect(removalEffects(later, invite.id)).toMatchObject({ newKey: true })
+    suspendUser(later, invite.id)
+    await save(later, at)
+    const record = await stored()
+    expect(record.keys.epoch).toBe(2)
+    await expect(openChunkedBody(record.body, aliceDek, { vaultId: record.keys.vaultId, epoch: record.keys.epoch })).rejects.toThrow()
+  })
+
   it('revokes every open code, since each wraps the old key, and a code made afterwards opens the vault', async () => {
     const { founder, ids, group } = await household([ALICE])
     let at = (await stored()).updatedAt

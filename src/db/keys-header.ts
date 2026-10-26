@@ -2,6 +2,7 @@ import type { DekWrap } from '../crypto/ecies'
 import type { IdentityBlob } from '../crypto/identity'
 import { isArgon2Params } from '../crypto/kdf'
 import { SUITE, type Suite } from '../crypto/suite'
+import { FormatTooNewError } from '../domain/errors'
 import { LIMITS } from '../lib/limits'
 
 export type FounderRef = { memberId: string; sigPub: string; fingerprint: string }
@@ -93,6 +94,22 @@ const HEADER_CHECKS: Record<(typeof KEYS_HEADER_FIELDS)[number], Check> = {
   identities: (v) => isMap(v, isIdentityBlob, 1),
   dekWraps: (v) => isMap(v, isDekWrap, 1),
   sig: (v) => shape(v, { by: id, alg: (a) => a === 'Ed25519', value: b64(64) }),
+}
+
+/**
+ * Refuses, as made by a newer version, a header that names a suite, an identity or wrap version, or a KDF that a later
+ * release may add, so that it is not reported as damaged (data-format.md, "Changing a format"). Anything else is left to
+ * {@link readKeysHeader}.
+ */
+export function assertKnownKeysFormat(source: Record<string, unknown>): void {
+  const later = (value: unknown, known: unknown) => typeof value === 'string' && value.length > 0 && value.length <= 64 && value !== known
+  const newer = (value: unknown, current: number) => Number.isSafeInteger(value) && (value as number) > current
+  const entries = (value: unknown) => (isPlain(value) ? Object.values(value).filter(isPlain) : [])
+  if (later(source.suite, SUITE)) throw new FormatTooNewError()
+  for (const blob of entries(source.identities)) {
+    if (newer(blob.v, 2) || later(blob.suite, SUITE) || (isPlain(blob.kdf) && later(blob.kdf.name, 'Argon2id'))) throw new FormatTooNewError()
+  }
+  for (const wrap of entries(source.dekWraps)) if (newer(wrap.v, 2) || later(wrap.suite, SUITE)) throw new FormatTooNewError()
 }
 
 /** Reads the header fields out of a record or backup object, or returns null when any is malformed. */

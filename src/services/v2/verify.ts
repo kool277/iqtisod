@@ -3,7 +3,7 @@ import type { KeysRecord } from '../../db/envelope'
 import { verifyHeader } from '../../db/header-sig'
 import type { SqlDatabase } from '../../db/sqlite'
 import { KeysBlockedError } from '../../domain/errors'
-import { readBindings, readPeople, readRosterDocs } from './roster-store'
+import { readBindings, readPeople, readRosterDocs, redeemedBindings } from './roster-store'
 import { pinnedFounder, rosterSeen } from './session'
 import { chainHashes, keptTail, tailPosition } from './tail'
 
@@ -79,18 +79,26 @@ export async function verifyKeysVault(record: KeysRecord, db: SqlDatabase, opene
   const rolledBack = tailPosition(chain.latest.version, chainHashes(db), await keptTail(keys.vaultId), seen).behind
   if (rolledBack) {
     const admin = !opener.invite && members.get(opener.memberId)?.role === 'Admin'
-    if (!options.acceptRollback || !admin) throw new KeysBlockedError('KEYS_ROSTER_ROLLBACK', { seen, current: chain.latest.version })
+    if (!options.acceptRollback || !admin) throw new KeysBlockedError('KEYS_ROSTER_ROLLBACK', { seen, current: chain.latest.version }, admin)
   }
-  return { latest: chain.latest, latestHash: chain.latestHash, members, bindings, firstSeen: pinned === null, rolledBack, holders: epochHolders(docs, chain.latest.epoch, bindings) }
+  const holders = epochHolders(docs, chain.latest.epoch, bindings, redeemedBindings(db))
+  return { latest: chain.latest, latestHash: chain.latestHash, members, bindings, firstSeen: pinned === null, rolledBack, holders }
 }
 
-/** Members active in any version of `epoch`, and everyone with a key binding: each of them unwrapped that epoch's DEK. */
-export function epochHolders(docs: readonly RosterDoc[], epoch: number, bindings: readonly KeyBinding[]): string[] {
+/**
+ * Everyone who unwrapped `epoch`'s DEK: members active in any version of it, everyone with a key binding, and everyone
+ * whose redeeming entry names a version of it. The last covers someone given a new code, or removed, before an admin
+ * save folded them in: their binding is gone and no version lists them as active, yet they held the key.
+ */
+export function epochHolders(docs: readonly RosterDoc[], epoch: number, bindings: readonly KeyBinding[], redeemed: readonly KeyBinding[] = []): string[] {
   const holders = new Set<string>()
+  const versions = new Set<number>()
   for (const doc of docs) {
     if (doc.epoch !== epoch) continue
+    versions.add(doc.version)
     for (const member of doc.members) if (member.status === 'active') holders.add(member.id)
   }
   for (const binding of bindings) holders.add(binding.memberId)
+  for (const binding of redeemed) if (versions.has(binding.rosterVersion)) holders.add(binding.memberId)
   return [...holders].sort()
 }

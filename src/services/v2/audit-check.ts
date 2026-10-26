@@ -1,16 +1,15 @@
 import { auditSigBody, verifyAuditEntry, type AuditSig } from '../../crypto/audit-sign'
-import { bindingRedeems, readKeyBinding, type KeyBinding, type RosterDoc, type RosterRole } from '../../crypto/roster'
+import { bindingRedeems, type KeyBinding, type RosterDoc, type RosterRole } from '../../crypto/roster'
 import { bytesToHex } from '../../crypto/encoding'
 import { importSigPub } from '../../crypto/sign'
 import { GENESIS_HASH, auditHashText, compareAuditHead, readAuditRows, type AuditRow } from '../../db/audit-chain'
 import type { SqlDatabase } from '../../db/sqlite'
 import { ForbiddenError } from '../../domain/errors'
 import type { OpenVault } from '../../domain/types'
-import { parseJsonSafely } from '../../lib/safe-json'
 import { Permission, canUser } from '../../rbac'
 import { actorlessAction, auditActionAllowed } from '../../rbac/audit-policy'
 import { readAuditSeen, sigOf, type AuditCheckpoint } from './audit-seen'
-import { readBindings, readRosterDocs } from './roster-store'
+import { readBindings, readRosterDocs, redeemedBindings } from './roster-store'
 import type { KeysSession } from './session'
 
 export type { AuditCheckpoint }
@@ -291,19 +290,6 @@ export async function checkAuditSignatures(input: AuditCheckInput): Promise<Audi
   return { start: (from?.seq ?? 0) + 1, checked: rows.length, signedFrom, legacy, verified, pending, problems, checkpoint }
 }
 
-function redeemedBindings(db: SqlDatabase): KeyBinding[] {
-  const rows = db.query("SELECT actor_id, details FROM audit_logs WHERE action IN ('INVITE_ACCEPTED', 'RESET_COMPLETED') AND details IS NOT NULL")
-  return rows.flatMap((row) => {
-    try {
-      const details = parseJsonSafely(String(row.details), { maxChars: 65_536 }) as { binding?: unknown } | null
-      const binding = readKeyBinding(details?.binding)
-      return binding && binding.memberId === row.actor_id ? [binding] : []
-    } catch {
-      return []
-    }
-  })
-}
-
 /** The chain hash the log holds at each end of the log a roster version recorded. */
 function recordedHeads(db: SqlDatabase): Map<number, string | null> {
   const ends = db.query(
@@ -346,6 +332,8 @@ export async function auditCheckInput(db: SqlDatabase, vaultId: string, kept: Au
  */
 export async function checkVaultAudit(vault: OpenVault & { keys: KeysSession }, options: { full?: boolean } = {}): Promise<AuditCheckReport | null> {
   if (!canUser(vault.user, Permission.READ_AUDIT)) throw new ForbiddenError()
+  // Taken with the rows: a save that signs entries while the roster is read must not make them look unsigned.
+  const pendingAfter = vault.keys.auditSigned
   const input = await auditCheckInput(vault.db, vault.keys.vaultId, readAuditSeen(vault.keys.vaultId), options)
-  return input ? checkAuditSignatures({ ...input, pendingAfter: vault.keys.auditSigned }) : null
+  return input ? checkAuditSignatures({ ...input, pendingAfter }) : null
 }

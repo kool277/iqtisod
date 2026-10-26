@@ -382,14 +382,21 @@ describe('redeemGrant', () => {
     })
   })
 
+  it('takes a code from either page: the stored code decides whether it invites or resets', async () => {
+    const invited = await redeem(pending, { kind: 'RESET', email: INVITEE.email, code: invite.code, password: INVITEE.password })
+    expect(invited.user.email).toBe(INVITEE.email)
+    expect(grantRowOf(invited.db, invite.id)).toMatchObject({ ended_reason: 'USED' })
+    const member = await redeem(pending, { kind: 'INVITE', email: MEMBER.email, code: reset.code, password: NEW_PASSWORD })
+    expect(member.user).toMatchObject({ id: household.memberId, email: MEMBER.email })
+    expect(grantRowOf(member.db, reset.id)).toMatchObject({ ended_reason: 'USED' })
+  })
+
   it('rejects unknown, mismatched and malformed codes without saying which part was wrong', async () => {
     const password = NEW_PASSWORD
     const cases: [Parameters<typeof redeemGrant>[1], string][] = [
       [{ kind: 'INVITE', email: 'stranger@maple.test', code: invite.code, password }, 'INVITE_INVALID'],
       [{ kind: 'INVITE', email: INVITEE.email, code: generateAccessCode().display, password }, 'INVITE_INVALID'],
       [{ kind: 'INVITE', email: INVITEE.email, code: reset.code, password }, 'INVITE_INVALID'],
-      [{ kind: 'RESET', email: INVITEE.email, code: invite.code, password }, 'INVITE_INVALID'],
-      [{ kind: 'INVITE', email: MEMBER.email, code: reset.code, password }, 'INVITE_INVALID'],
       [{ kind: 'RESET', email: MANAGER.email, code: reset.code, password }, 'INVITE_INVALID'],
       [{ kind: 'INVITE', email: INVITEE.email, code: 'ABCD-EFGH', password }, 'INVITE_CODE'],
       [{ kind: 'INVITE', email: INVITEE.email, code: `${invite.code[0] === 'A' ? 'B' : 'A'}${invite.code.slice(1)}`, password }, 'INVITE_CODE'],

@@ -1,4 +1,5 @@
 import { verifyRosterChain, type RosterDoc } from '../../crypto/roster'
+import { assertSuite } from '../../crypto/suite'
 import type { KeysRecord } from '../../db/envelope'
 import { AuthError, ValidationError } from '../../domain/errors'
 import type { OpenVault } from '../../domain/types'
@@ -37,6 +38,7 @@ export type KeysBackupCheck = {
  * but is reported, with who must be taken out again.
  */
 export async function checkKeysBackup(record: KeysRecord, email: string, password: string): Promise<KeysBackupCheck> {
+  await assertSuite()
   let vault: OpenVault & { keys: KeysSession }
   try {
     vault = await unlockKeysVault(record, email, password, { acceptRollback: true })
