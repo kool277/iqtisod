@@ -2,7 +2,7 @@
 
 **English** · [Русский](ru/user-guide.md) · [Oʻzbekcha](uz-Latn/user-guide.md) · [Ўзбекча](uz-Cyrl/user-guide.md)
 
-Jaybi is a private household and small-business ledger that runs entirely in your browser. Your records, your private safes and your settings are encrypted on your own device and never sent anywhere. This guide walks you through every screen, step by step, with pictures. Admins will also find their extra tasks here: inviting people, backups, settings and the audit log. Technical details for hosting and recovery are in the [admin guide](admin-guide.md).
+Jaybi is a private household and small-business ledger that runs entirely in your browser. Your records, your private safes and your settings are encrypted on your own device and never sent anywhere. Since version 2.0 everyone in a vault has their own keys, an admin signs the list of people, and every entry in the audit log is signed by the person who made it. This guide walks you through every screen, step by step, with pictures. Admins will also find their extra tasks here: inviting people, backups, settings and the audit log. Technical details for hosting and recovery are in the [admin guide](admin-guide.md).
 
 <a id="contents"></a>
 ## Contents
@@ -24,6 +24,7 @@ Jaybi is a private household and small-business ledger that runs entirely in you
 - [Health check](#health)
 - [Using this help](#help)
 - [Updates and versions](#updates)
+- [Vaults created before 2.0](#before-2)
 - [Security tips](#security)
 - [Troubleshooting](#troubleshooting)
 - [Questions and answers](#faq)
@@ -38,10 +39,10 @@ Jaybi is a private household and small-business ledger that runs entirely in you
 Jaybi keeps the whole ledger in one encrypted file, the **vault**, inside one browser on one device. There is no server account and no cloud copy. This has three consequences you should know from the start:
 
 - Open Jaybi in the same browser, on the same device, every time. Another browser, another browser profile, a private window or another phone shows an empty setup screen, because the vault is not there.
-- Nobody can reset the master password for you or read your data for you, not even the people who make Jaybi.
+- Nobody can recover a forgotten password or read your data for you, not even the people who make Jaybi.
 - A **backup file** is the only copy that survives if the browser data is deleted. Admins should download one regularly (see [Backups](#backup)).
 
-Jaybi works in current versions of Chrome, Edge, Firefox and Safari, on computers and phones. Open it at [https://jaybi.uz](https://jaybi.uz). Jaybi was called Moliya before version 1.3.0; the old address `kool277.github.io/iqtisod` forwards to jaybi.uz.
+Jaybi works in current versions of Chrome, Edge, Firefox and Safari, on computers and phones: Chrome and Edge 137 or later, Firefox 130 or later, and Safari 17 or later (on iPhone and iPad, iOS 17). Older browsers lack the keys Jaybi uses (X25519 and Ed25519): they can go on using a vault created before 2.0, but cannot create a vault or open one with per-person keys. Open it at [https://jaybi.uz](https://jaybi.uz). Jaybi was called Moliya before version 1.3.0; the old address `kool277.github.io/iqtisod` forwards to jaybi.uz.
 
 <a id="create-vault"></a>
 ### Creating a vault (the first admin)
@@ -51,11 +52,18 @@ The person who creates the vault becomes its first **Admin**.
 1. Open Jaybi. Pick your language and theme in the top right corner.
 2. Under **Create your vault**, enter the **Vault name** (for example your family or business name), the **Admin email** and a **Master password**, then the same password again under **Confirm password**.
 3. Choose the **Currency** that totals should use. You can change it later in [Vault settings](#settings).
-4. Choose **Create encrypted vault**. Encrypting takes a few seconds.
+4. Choose **Create encrypted vault**. Creating your keys and encrypting takes a few seconds.
 
 ![The Create your vault screen with the name, email, password and currency filled in](images/en/setup.webp)
 
-Choose the master password carefully: it encrypts the vault and **cannot be recovered**. See [Choosing a password](#choosing-a-password).
+Choose the master password carefully: it seals your keys and **cannot be recovered**. If the founder forgets it and there is no other admin, nobody can add or remove people any more, so [invite](#invite) a second admin early. See [Choosing a password](#choosing-a-password).
+
+<a id="founder-key"></a>
+### Your founder key
+
+Jaybi then shows **Write down your founder key**: six groups of four letters and digits. You are the vault's **founder**, and this key tells your vault apart from any other: whoever opens the vault in a new browser is asked to compare it with you. Write it down or choose **Copy**, keep it where you can read it out, and choose **Done**. The [Account](#vault-keys) page shows it again.
+
+![The founder key shown once the vault exists, with Copy and Done](images/en/founder-key.webp)
 
 When the vault is ready you land on the dashboard. It is empty until someone records money.
 
@@ -75,7 +83,7 @@ Everyone except the first admin joins with a **one-time code** from an admin. Th
 
 ![The Join this vault screen with the email, code and new password filled in](images/en/register.webp)
 
-You are signed in straight away. Nobody else, not even the admin, knows your password.
+You are signed in straight away. Nobody else, not even the admin, knows your password. Jaybi creates your own keys and seals them with it, and the admin's next save adds you to the vault's signed list of people. If this browser has not opened the vault before, Jaybi then shows the vault's founder key: compare it with your admin, and tell them at once if it is different.
 
 If Jaybi says "There is no vault in this browser yet", you are on the wrong device or browser: a code works only where the vault is stored. If it says the code has expired or does not match, ask the admin for a new one.
 
@@ -96,6 +104,25 @@ After five wrong tries for the same email, Jaybi shows **Too many attempts. Try 
 
 The links under the form are there for everyone: **Have a one-time code? Join the vault**, **Have a reset code?**, **Help** (this guide) and **Health check**, which checks the browser even when you cannot sign in.
 
+<a id="compare-key"></a>
+### Comparing the founder key
+
+The first time anyone signs in to a vault with per-person keys in a browser, for example after [moving it](#moving) with a backup, Jaybi shows **Compare the founder key** before the vault opens. Compare the key on the screen with the one your founder wrote down, in person or by phone. If it matches, choose **It matches, continue**: this browser remembers the key and checks it at every later sign-in. If it is different, choose **Cancel**, because this is not your vault.
+
+![Comparing the founder key before the vault opens in a new browser](images/en/trust-step.webp)
+
+<a id="blocked"></a>
+### When Jaybi will not open the vault
+
+Every sign-in checks that the vault is the one this browser knows, and that its signed details and its list of people check out. If a check fails, the vault does not open and the sign-in screen says why:
+
+- "This vault’s founder key is not the one this browser saw before": it may be a different vault. Do not sign in; compare the key with your admin.
+- "This vault’s signed details do not check out" or "The signed list of people in this vault does not check out": someone may have changed the vault outside Jaybi. Ask your admin; a backup made before the change still opens.
+- "This copy of the vault is older than the one this browser has seen, or differs from it": people removed since then may be back in it. Only an admin can open it anyway, with **Open this older copy anyway**, which is written to the audit log.
+- "You are no longer a member of this vault": ask an admin for a new invite code.
+
+Under the message, **Download this vault as a file** saves the vault exactly as this browser stores it, still encrypted and without its open invite codes, so nothing is lost while your admin looks into it. The file opens with a member's password in the recovery tool of the [admin guide](admin-guide.md).
+
 <a id="second-step"></a>
 ### The second step (sign-in check)
 
@@ -104,15 +131,15 @@ If you turned on the [sign-in check](#sign-in-check), Jaybi asks for a 6-digit c
 ![The sign-in check step asking for the 6-digit code](images/en/sign-in-totp.webp)
 
 <a id="reset-code"></a>
-### Forgot your password? Use a reset code
+### Forgot your password? Ask for a new code
 
-Jaybi has no "forgot password" e-mail, because there is no server. Ask an admin for a **reset code**, then:
+Jaybi has no "forgot password" e-mail, because there is no server, and nobody can recover a password. Ask an admin for a new code (**Give a new invite code**), then:
 
 1. On **Unlock vault**, choose **Have a reset code?** (or open the link the admin sent).
 2. Enter **Your email**, the **One-time code** and your new password twice.
-3. Choose **Set new password**. You are signed in with the new password.
+3. Choose **Set new password**. You are signed in with the new password and new keys.
 
-A reset code also turns off your sign-in check; turn it on again in [Your account](#account). If you use private safes, read [After an admin resets your password](#after-reset) first.
+The code ends your old keys at once, and it also turns off your sign-in check; turn it on again in [Your account](#account). If you use private safes, read [After a new code](#after-reset) first.
 
 <a id="locking"></a>
 ### Locking
@@ -339,7 +366,7 @@ Admins add a group by typing its **Group name** and choosing **Add group**. A gr
 <a id="users"></a>
 ## People and invitations
 
-Admins manage who can open the vault on the **People** page (menu item **Users**). Each person unlocks the same vault with their own password. Managers see the page too, read-only, for the people in their own group.
+Admins manage who can open the vault on the **People** page (menu item **Users**). Each person unlocks the same vault with their own password and their own keys. Managers see the page too, read-only, for the people in their own group.
 
 [Open People](https://jaybi.uz/#/app/users)
 
@@ -348,28 +375,28 @@ Admins manage who can open the vault on the **People** page (menu item **Users**
 <a id="people-overview"></a>
 ### The overview
 
-**Overview** at the top counts the people in the vault and how many of the 256 places are used, including places held for open codes. It shows how many active people have a sign-in check and who **Needs attention**: people who must change their password, cannot sign in, have no group, are suspended, or still have an older password copy. It also lists recent sign-ins and open codes with their expiry, and two small charts show people by role and by group. Nothing secret appears here: no codes, passwords or keys.
+**Overview** at the top counts the people in the vault and how many of the 256 places are used, including places held for open codes. It shows how many active people have a sign-in check and who **Needs attention**: people who must change their password, cannot sign in (for example because they still need a new invite code), have no group, or are suspended. It also lists recent sign-ins and open codes with their expiry, and two small charts show people by role and by group. Nothing secret appears here: no codes, passwords or keys.
 
 ![The People overview with counts, recent sign-ins, open codes and charts](images/en/users-overview.webp)
 
+The **Access** column says whether each person **Has keys**, is **Invited** (a code is waiting for them) or **Needs a new invite**.
+
 <a id="invite"></a>
-### Inviting someone (recommended)
+### Inviting someone
+
+People join a vault with per-person keys only with an invite code, so the admin never chooses or learns anyone's password and nobody else can hold their keys.
 
 1. Choose **Add user**. **Send an invite code** is already selected.
 2. Enter **Their email**, choose how long the **Code works for**, then the **Role** and the **Group**.
+
+   ![The Add a person dialog with an invite for a Manager](images/en/user-create.webp)
+
 3. Choose **Create invite code**.
 4. Jaybi shows the code once. Choose **Copy code** or **Copy link** and give it to the person in person or over a channel you trust, then choose **Done**.
 
 ![A new invite code, shown only once, with Copy code and Copy link](images/en/invite-code.webp)
 
 The person then [joins with the code](#joining) in this browser and chooses their own password. Until they do, the code is listed under **Open codes**, where **Revoke** cancels it.
-
-<a id="temporary-password"></a>
-### Adding someone with a temporary password
-
-Choose **Add user**, then **Set a temporary password**. Enter the email, a name if you like, a temporary password, the role and the group, and choose **Add user**. The person must replace the password at their first sign-in. An invite code is safer, because then only they ever know their password.
-
-![The Add user dialog with a temporary password for a Manager](images/en/user-create.webp)
 
 <a id="person-page"></a>
 ### A person's page
@@ -381,15 +408,28 @@ Choose a person's email in the list, or **Open** on their row. Their page shows 
 From there an admin can:
 
 - **Edit** the name, email, role and group. After an email change the person signs in with the new email and their current password. Revoke any open code for them first.
-- **Issue reset code**, as described [below](#reset-for-someone).
+- **Give a new invite code**, as described [below](#reset-for-someone).
 - **Turn off sign-in check** for someone who lost both their authenticator and their recovery codes.
 - **Require a new password**: they must choose one at their next sign-in and can do nothing else until then.
-- **Suspend**: they cannot sign in until you **Reactivate** them, and their records, private safes and history stay. Reactivating gives them a reset code. A copy of the vault file saved before the suspension still opens with their old password, because the vault key does not change.
-- **Delete**: type their email to confirm. If they entered records, move them to another person or keep them under this person as a former member. Deleting destroys their private safes for good. The audit log keeps their name either way.
+- **Suspend**: they cannot sign in until you **Reactivate** them, and their records, private safes and history stay. Reactivating gives them a new invite code. If they held the household key, everyone who stays gets a new one ([below](#household-key)).
+- **Delete**: type their email to confirm. If they entered records, move them to another person or keep them under this person as a former member. Deleting destroys their private safes for good, and as with a suspension everyone who stays may get a new household key. The audit log keeps their name either way.
 
 ![Deleting a person, with their records moved to someone else](images/en/user-delete.webp)
 
 You cannot suspend or delete yourself, and the vault always keeps at least one active admin. Every change is written to the audit log.
+
+<a id="household-key"></a>
+### A new household key when someone leaves
+
+Everyone in the vault opens it with the same **household key**, each through their own keys. When you suspend or delete someone who held it, the dialog says so, and Jaybi makes a new household key for everyone who stays:
+
+- Nothing saved from then on opens for the person who left. Whatever they already copied, such as old backups or an exported file, stays readable to them: a new key cannot reach copies that already exist.
+- Open invite codes stop working, because each holds the old key. The dialog says how many; give new codes afterwards.
+- Earlier copies of the vault in this browser are deleted, except the copy from just before the change, which does not open for the person who left.
+
+![Suspending a member: everyone who stays gets a new household key](images/en/user-suspend.webp)
+
+Someone who never used their invite, or who still needs a new invite after the [upgrade](#upgrade-offer), leaves without a new key, because they never held it. Afterwards, download a new backup and delete older ones they could reach; the [Health check](#health) reminds you while the last backup is from before the new key.
 
 <a id="bulk-changes"></a>
 ### Changing several people at once
@@ -397,13 +437,13 @@ You cannot suspend or delete yourself, and the vault always keeps at least one a
 Tick people in the list, choose a new **Role**, a new **Group** or both, choose **Apply to selected** and confirm. Each person's change is written to the audit log on its own. Former members are left out.
 
 <a id="reset-for-someone"></a>
-### Resetting someone's password
+### Giving someone a new code
 
-On the person's row or their page, choose **Issue reset code**, choose how long the code works, and decide whether to **Stop their current password from working now** (choose this if someone else may know it). Choose **Issue reset code** again and give them the code. **Set a temporary password instead** on the row is the older way.
+When someone forgot their password, choose **Give a new invite code** on their row or their page, choose how long the code works, and choose **Give a new invite code** again. Give them the code. Their keys stop working at once; with the code they choose a new password and get new keys.
 
-![Issuing a reset code for a member](images/en/user-reset-code.webp)
+![Giving a member a new invite code](images/en/user-reset-code.webp)
 
-Read the yellow note before you reset: their private safes stay locked until they enter their previous password or their recovery code. You cannot open or recover anyone's safes.
+Read the yellow note first: private safes they opened since the vault got per-person keys open again only with their recovery code. You cannot open or recover anyone's safes. A new code makes no new household key, because the person stays a member: if you think someone else learned their password, suspend and reactivate them instead, which does.
 
 <a id="clock"></a>
 ### Clock check for codes
@@ -441,7 +481,7 @@ You get one empty safe called **Personal**.
 <a id="recovery-code"></a>
 ### Why the recovery code matters
 
-The recovery code matters in one situation: an admin resets your password and you no longer remember your previous one. Without the code your safes are then lost for good. You can create or replace it later under **Account → Recovery code**. Keep it as private as your password.
+The recovery code matters in one situation: you forgot your password, or for another reason an admin gives you a new invite code. The code gives you new keys, and only the recovery code opens the safes you had. Without it your safes are then lost for good. You can create or replace it later under **Account → Recovery code**. Keep it as private as your password.
 
 <a id="cards"></a>
 ### Cards
@@ -512,19 +552,19 @@ Deleted safes and items go to **Trash** for 30 days. **Restore** brings them bac
 ![The Activity list of the private safes](images/en/safes-activity.webp)
 
 <a id="after-reset"></a>
-### After an admin resets your password
+### After a new code
 
-1. Set your new password with the reset code (or sign in with the temporary password and choose a new one).
-2. Open **Private safes**. Jaybi says your password changed since you last opened them.
-3. Enter your **previous password**, the one you chose yourself before the reset, or choose to use your recovery code. Also enter your current password.
+1. Set your new password with the code.
+2. Open **Private safes**. Jaybi says that you came back with a new invite code, so your previous password no longer opens these safes.
+3. Enter your **Recovery code** and your **Current password**, and choose **Open safes**.
 4. Your safes open, and from now on your current password opens them.
 
-Never type a temporary password from the admin as your previous password. If you remember neither your previous password nor your recovery code, nobody can open your safes; **Account → Start over → Reset private safes** gives you new, empty ones.
+Without a recovery code, Jaybi says these safes cannot be opened any more, and nobody can open them; **Account → Start over → Reset private safes** gives you new, empty ones. Safes you have not opened since your vault was [upgraded](#upgrade-offer) to per-person keys also open with your previous password.
 
 <a id="backup"></a>
 ## Backups and moving to another device
 
-Only admins can make backups. A backup is an encrypted copy of the whole vault in one `.moliya` file. It opens with any password that belongs to the vault, and it is the **only** way back if this browser's data is lost.
+Only admins can make backups. A backup is an encrypted copy of the whole vault in one `.moliya` file. It opens with the password of anyone who was in the vault when it was made, and it is the **only** way back if this browser's data is lost.
 
 [Open Backup](https://jaybi.uz/#/app/backup)
 
@@ -543,7 +583,7 @@ When there are records and no backup yet, or the last one is more than 7 days ol
 
 The page also shows **Storage in this browser**. "Not protected" means the browser may clear the data when space runs low; the [Health check](#health) can ask the browser to keep it.
 
-**Earlier copies in this browser** lists the copies Jaybi keeps before each format upgrade and each import. Download one if you need to go back.
+**Earlier copies in this browser** lists the copies Jaybi keeps before each format upgrade, each import and each new household key. Download one if you need to go back.
 
 <a id="export-data"></a>
 ### Exporting data for other apps
@@ -555,7 +595,9 @@ The page also shows **Storage in this browser**. "Not protected" means the brows
 <a id="restore"></a>
 ### Restoring a backup in this browser
 
-Under **Replace this vault with a backup**, choose the backup file, enter your password and type the vault name to confirm, then choose **Replace vault**. A copy of the current vault is kept under **Earlier copies in this browser**.
+Under **Replace this vault with a backup**, choose the backup file, enter your password and type the vault name to confirm, then choose **Replace vault**. If your password was different when the backup was made, Jaybi asks for **Your password in this backup** as well. A copy of the current vault is kept under **Earlier copies in this browser**.
+
+A backup from before the latest change to the people in the vault, such as an invite or someone leaving, is older than the vault this browser has seen. Jaybi says so and lists the people removed since then or given new keys since, who are suspended again in the restored copy, and the invite codes revoked since, which are revoked again; choose **Restore this older copy** to go on. If this browser cannot tell who was removed, it says so: suspend or delete them again once the backup is restored. A backup from before per-person keys brings back every password it holds, including those of people removed since, and Jaybi asks you to confirm that too.
 
 Under the file picker, Jaybi shows the **Largest backup this device can restore** and what limits it: free storage in this browser, this device's memory, or what this browser can save (Chrome, Edge and other Chromium browsers save vaults of up to 126 MB; Firefox and Safari save larger ones). Every device restores backups of at least 72 MB. If a backup is larger, Jaybi says so before reading it and suggests what to do: free up disk space or let Jaybi keep its data on the [Health check](#health) page, restore it in Firefox or Safari, or restore it on a computer with more memory. The same applies on the setup screen of a new device.
 
@@ -567,7 +609,7 @@ Under the file picker, Jaybi shows the **Largest backup this device can restore*
 1. On the old device, download a backup.
 2. On the new device, open [https://jaybi.uz](https://jaybi.uz). It shows **Create your vault**: do not fill it in.
 3. Under **Import a backup instead**, choose the backup file and choose **Replace vault**.
-4. Sign in with your usual email and password.
+4. Sign in with your usual email and password, and [compare the founder key](#compare-key) with your founder.
 
 ![Importing a backup on a new device, on the setup screen](images/en/move-import.webp)
 
@@ -598,9 +640,9 @@ Everyone has an **Account** page with settings that apply only to them.
 <a id="change-password"></a>
 ### Changing your password
 
-Enter the **Current password**, then the **New password** and **Confirm new password**, and choose **Change password**. Your private safes and sign-in check move to the new password at the same time.
+Enter the **Current password**, then the **New password** and **Confirm new password**, and choose **Change password**. Your keys, your private safes and your sign-in check move to the new password at the same time.
 
-If an admin chose your password, Jaybi asks you to choose a new one before anything else: every page leads to **Account** until you do.
+If an admin asked you to choose a new password, Jaybi asks you before anything else: every page leads to **Account** until you do.
 
 <a id="choosing-a-password"></a>
 ### Choosing a password
@@ -623,6 +665,11 @@ The sign-in check asks for a 6-digit code from an authenticator app (Google Auth
 
 To turn it off, choose **Turn off sign-in check** and enter your password. To get new recovery codes, turn it off and on again.
 
+<a id="vault-keys"></a>
+### Vault keys
+
+**Vault keys** shows the vault's **Founder key**, which everyone compares when they first sign in in a new browser ([Comparing the founder key](#compare-key)). If you founded the vault, it says "You are this vault’s founder.": read the key out to anyone who asks you to compare.
+
 <a id="auto-lock"></a>
 ### Lock automatically and safe timers
 
@@ -638,6 +685,13 @@ The **Audit log** lists who did what and when: records added, changed and delete
 ![The audit log with its integrity line](images/en/audit.webp)
 
 Every entry is linked to the one before it. **Integrity** says "Intact: every entry links to the one before it" when nothing was changed outside the app. If entries were changed or removed, Jaybi shows a red bar on every page and the Health check reports it. If you expected the change, for example after importing an older backup, choose **Accept the log as it is**; otherwise restore a recent backup and change passwords.
+
+<a id="audit-signatures"></a>
+### Signatures
+
+In a vault with per-person keys every entry is signed by the person who made it, and the **Signature** column shows the result: **Signed** when it checks out, **Before signatures** for entries written before the vault had per-person keys, and **Signed when saved** for your own newest entries until the vault saves. The line above the table counts the entries that check out and those with a problem, and **Show problems only** lists just the entries that do not check out, with the reason, such as **Not signed**, **Signature does not match** or **Not allowed for their role**.
+
+When an entry does not check out, everyone who can read the audit log sees a red bar, and the Health check reports it. Nothing is blocked. Find out what happened, for example with a backup made before the first problem; once you know, choose **Accept the log as it is**, so that signing in on this browser no longer warns about those entries.
 
 <a id="health"></a>
 ## Health check
@@ -657,14 +711,14 @@ Each row is marked **OK**, **Warning**, **Problem** or **Note**, with a short ex
 
 | Area | Checks |
 | --- | --- |
-| **Browser support** | Encryption, the browser database, WebAssembly, one tab at a time, page isolation, the service worker, a secure connection, Trusted Types, cookies and site data, private window |
+| **Browser support** | Encryption, the keys for per-person keys, the browser database, WebAssembly, one tab at a time, page isolation, the service worker, a secure connection, Trusted Types, cookies and site data, private window |
 | **Storage** | Whether storage can be written, free space, whether the browser keeps the data when space runs low, small settings storage, whether a vault is stored here, the largest vault this device can hold |
 | **App and version** | Whether a newer version is published, the build, and whether pages loaded on demand match the running version |
-| **Vault** | Data format, vault size against this device's limit (at least 48 MB), saving, backup age, earlier copies, audit log integrity, the device clock, your sign-in check, your password, and the number of people |
+| **Vault** | Data format, vault size against this device's limit (at least 48 MB), saving, backup age, earlier copies, audit log integrity and signatures, the device clock, your sign-in check, your password, and the number of people; with per-person keys also the founder key this browser checks, the signed list of people, how your keys are protected, the household key, and a backup from before the household key changed |
 | **Exchange rates** | Whether rates are current and match their checksum |
 | **Security** | The content security policy, not running inside another page, and the address |
 
-Rows marked **Admin only** appear only for admins: the audit log rows, the earlier copies, the number of people, and **People hygiene**, which warns when someone cannot sign in, a code has expired, or an older password copy is left; it only ever shows counts. Admins also see backup dates and the clock marks. Everyone else sees a shorter list about the browser and their own account; the backup row just reminds them that backups are made by an admin.
+Rows marked **Admin only** appear only for admins: the audit log rows, the earlier copies, the number of people, the upgrade of a vault created before 2.0, and **People hygiene**, which warns when someone cannot sign in, a code has expired, or an older password copy is left; it only ever shows counts. Admins also see backup dates and the clock marks. Everyone else sees a shorter list about the browser and their own account; the backup row just reminds them that backups are made by an admin.
 
 ![The Health check as a Viewer sees it](images/en/viewer-health.webp)
 
@@ -706,15 +760,50 @@ When a new version of Jaybi is published, a bar says **A new version of Jaybi is
 
 The version you are using is shown at the bottom of the menu, on the sign-in screen and on the Health check. Mention it when you report a problem.
 
+<a id="before-2"></a>
+## Vaults created before 2.0
+
+A vault created before Jaybi 2.0 keeps working as before after the update: everyone signs in as they did, and nothing changes until an admin upgrades it to per-person keys. Until then:
+
+- There is no founder key to compare, and audit entries are not signed; the log is still linked entry to entry.
+- An admin can still add someone with a temporary password, and a reset code can leave the old password working ([below](#temporary-password)).
+- Suspending someone does not change the vault key: a copy of the vault saved before still opens with their old password.
+- After a reset, private safes open with the previous password as well as with the recovery code.
+
+<a id="upgrade-offer"></a>
+### Upgrading to per-person keys
+
+When an admin signs in to such a vault, Jaybi offers **Upgrade to per-person keys**. Read it first: you become the vault's founder, and everyone else needs a new invite code from you, because their old passwords stop working. Records, history and private safes stay as they are.
+
+![The upgrade offer with the number of people who will need a new code](images/en/upgrade-offer.webp)
+
+1. Enter **Your password** and choose **Upgrade now**. Or choose **Not now**: the vault stays as it is, and Jaybi asks again at your next sign-in.
+2. Write down your [founder key](#founder-key).
+3. On **People**, everyone else shows **Needs a new invite**. Give each of them a new code: on their page, choose **Give a new invite code**. They keep their records and history. Their sign-in check is turned off, and their private safes open again with their previous password or their recovery code.
+
+The admin who first chooses **Upgrade now** becomes the founder. Other devices that still hold the old vault keep opening their own copy with the old passwords; it does not change any more, so move everyone to the upgraded vault with a new backup.
+
+<a id="undo-upgrade"></a>
+### Going back
+
+The upgrade keeps the vault as it was in this browser under **Backup → Earlier copies in this browser → Before upgrade**. Restoring it brings back every old password, including those of people removed since, and loses everything done after the upgrade.
+
+<a id="temporary-password"></a>
+### Temporary passwords and reset codes before the upgrade
+
+In a vault created before 2.0, **Add user** also offers **Set a temporary password**: enter the email, a name if you like, a temporary password, the role and the group, and choose **Add user**. The person must replace the password at their first sign-in. An invite code is safer, because then only they ever know their password. **Issue reset code** there also asks whether to **Stop their current password from working now** (choose this if someone else may know it), and **Set a temporary password instead** is the older way to reset.
+
 <a id="security"></a>
 ## Security tips
 
-- Use a long password that you use nowhere else. It is the only thing protecting copies of the vault.
+- Use a long password that you use nowhere else. It is what protects your keys in every copy of the vault.
 - Lock the vault before leaving a shared device, and lock your safes when you are done with them.
 - Turn on the sign-in check and keep the recovery codes away from this device.
 - Admins: download a backup at least weekly and keep it off this device.
 - Do not clear this site's browsing data: that deletes the vault from the browser.
 - Use one-time codes soon, and tell the admin if someone else may have seen yours.
+- Compare the founder key with your founder the first time you sign in in a new browser.
+- Admins: when someone leaves, download a new backup and delete the older ones they could reach.
 - Create a recovery code for your private safes and keep it offline.
 - Always check the address: the official one is `jaybi.uz`. Jaybi refuses to run inside another site's page.
 - Never store card PINs. Keep the CVV only if you really need it.
@@ -729,7 +818,12 @@ Start with the [Health check](#health): most problems show up there with a fix.
 | What you see | What to do |
 | --- | --- |
 | **Create your vault** although you have a vault | You are in another browser, profile, private window or address. Open Jaybi where you created the vault, or import a backup. Do not create a new vault. |
-| "Email or password is incorrect" | Check both. After several tries, wait for the countdown. If you forgot the password, ask an admin for a reset code. |
+| "Email or password is incorrect" | Check both. After several tries, wait for the countdown. If you forgot the password, ask an admin for a new code. |
+| **Compare the founder key** before the vault opens | This browser has not opened the vault before. Compare the key with your founder, then continue. |
+| "This vault’s founder key is not the one this browser saw before" | Do not sign in. Compare the key with your admin; see [When Jaybi will not open the vault](#blocked). |
+| "You are no longer a member of this vault" | Ask an admin for a new invite code. |
+| "This browser cannot use the keys this vault needs" | Update the browser, or use a current Chrome, Edge, Firefox or Safari. |
+| "There was not enough memory to check the password" | Close other tabs and try again. |
 | **Too many attempts** | Wait for the countdown to finish; refreshing does not help. |
 | **Could not save** | The browser refused to store data. Keep the tab open, free disk space, then run the Health check. |
 | **Not saved: changed elsewhere** | The vault is open in another tab. Lock, sign in again and redo your last change. |
@@ -754,7 +848,11 @@ An old or mistyped link shows **Page not found**. Choose **Go to the dashboard**
 
 **Can the admin read my private safes?** No. Safes are encrypted with a key only your password or your recovery code opens.
 
-**I forgot my password. Can anyone recover it?** Nobody can see it, but an admin can give you a reset code. If the only admin forgets their password, nobody can reset it for them, so it is wise to have two admins.
+**I forgot my password. Can anyone recover it?** Nobody can see or recover it, but an admin can give you a new invite code: you choose a new password and get new keys, and your private safes then open with your recovery code. If the founder is the only admin and forgets their password, nobody can let people in or out any more, so it is wise to have two admins.
+
+**What happens to old backups when someone leaves?** They stay readable to everyone who was in the vault when they were made, the person who left included. The new household key protects only what is saved after it. Download a new backup and delete the older copies they could reach.
+
+**Can a Viewer see the other groups?** Not in Jaybi: roles and groups decide what each person sees and changes in the app. Everyone in the vault holds the same household key, though, so groups organise the ledger rather than hide it from someone who takes the vault apart with developer tools.
 
 **Does Jaybi send my data anywhere?** No. Apart from the app itself, Jaybi only loads the public exchange rates and the published version number.
 
@@ -769,14 +867,19 @@ An old or mistyped link shows **Page not found**. Choose **Go to the dashboard**
 
 - **Vault**: the encrypted file that holds the ledger, the people and their private safes, stored in one browser.
 - **Master password**: the first admin's password, chosen when the vault was created.
+- **Founder**: the admin who created the vault, or who upgraded it to per-person keys.
+- **Founder key**: a short code that tells your vault apart from any other, compared at the first sign-in in a new browser.
+- **Per-person keys**: everyone's own keys, sealed with their password (since 2.0).
+- **Household key**: the key that encrypts the vault. Everyone in it holds a copy, and it changes when someone who held it leaves.
+- **Signed list of people**: who belongs to the vault, with which role, group and keys, signed by an admin.
 - **Group**: a part of the vault with its own records and people.
 - **Record**: one income or expense entry in the ledger.
 - **Vault currency**: the currency that totals and charts count.
-- **One-time code**: an invite or reset code from an admin that works once and expires.
+- **One-time code**: an invite or reset code from an admin that works once and expires. With per-person keys a reset code is a new invite code.
 - **Sign-in check**: a 6-digit code from an authenticator app asked after the password.
 - **Recovery codes**: ten single-use codes that replace the authenticator if you lose it.
 - **Private safe**: your own encrypted place for cards, subscriptions and notes.
 - **Recovery code (safes)**: the backup key for your private safes.
 - **Backup**: an encrypted `.moliya` file with the whole vault.
-- **Audit log**: the admin's linked list of who did what and when.
+- **Audit log**: the admin's linked list of who did what and when, with every entry signed by the person who made it in a vault with per-person keys.
 - **Health check**: the page that checks the browser, storage, version, vault and rates.

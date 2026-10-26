@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { expect, test, type Browser, type Locator } from '@playwright/test'
+import { expect, test, type Browser, type Locator, type Page } from '@playwright/test'
 import { addDays, sealSnapshot, type FxSnapshot } from '../../src/domain/fx'
 import { base32Decode, importTotpKey, totpAt } from '../../src/lib/totp'
 import { watchViolations } from '../support/csp'
@@ -124,9 +124,12 @@ const DEMO: Record<Locale, Demo> = {
 }
 
 const ADMIN = { email: 'aziza@example.com', password: 'Quiet cedar morning 42' }
-const MEMBER = { email: 'rustam@example.com', temporary: 'Temporary maple kettle 7', password: 'Rustam keeps the ledger 8' }
+const MEMBER = { email: 'rustam@example.com', password: 'Rustam keeps the ledger 8' }
 const INVITED = { email: 'dilnoza@example.com', password: 'Bright river window 19' }
 const CARD_NUMBER = '4111 1111 1111 1111'
+// A 1.x household (golden backup v4), for the upgrade offer.
+const LEGACY_BACKUP = resolve(process.cwd(), 'tests/fixtures/backups/v4/access-household.moliya')
+const LEGACY_ADMIN = { email: 'admin@access.test', password: 'Plum orchard admin v4' }
 
 /** BASE is the vault currency; OTHER is UZS in a dollar vault and dollars in a sum vault. Amounts are in dollars. */
 type Entry = { daysAgo: number; type: 'INCOME' | 'EXPENSE'; category: number; amount: number; currency: 'BASE' | 'OTHER' | 'EUR' | 'RUB'; group: 0 | 1 | 2; note: NoteKey }
@@ -320,6 +323,9 @@ for (const locale of LOCALES) {
     await page.getByTestId('setup-confirm').fill(ADMIN.password)
     await shot('setup')
     await page.getByTestId('setup-submit').click()
+    await expect(page.getByTestId('fingerprint-notice')).toBeVisible({ timeout: 60_000 })
+    await shot('founder-key', { target: page.getByTestId('fingerprint-notice') })
+    await page.getByTestId('fingerprint-done').click()
     await expect(page.getByTestId('kpi-net')).toBeVisible({ timeout: 60_000 })
     await shot('dashboard-empty')
 
@@ -410,15 +416,14 @@ for (const locale of LOCALES) {
     // People.
     await page.getByTestId('nav-users').click()
     await page.getByTestId('user-add').click()
-    await page.getByTestId('advanced-temp-toggle').click()
-    await page.getByTestId('user-email').fill(MEMBER.email)
-    await page.getByTestId('user-password').fill(MEMBER.temporary)
-    await page.getByTestId('user-role').selectOption('Manager')
-    await page.getByTestId('user-group').selectOption({ label: demo.business })
+    await page.getByTestId('invite-email').fill(MEMBER.email)
+    await page.getByTestId('invite-role').selectOption('Manager')
+    await page.getByTestId('invite-group').selectOption({ label: demo.business })
     await shot('user-create', { target: page.getByTestId('add-user-dialog') })
-    await page.getByTestId('user-save').click()
-    const member = page.getByTestId('person-row').filter({ hasText: MEMBER.email })
-    await expect(member).toBeVisible({ timeout: 30_000 })
+    await page.getByTestId('invite-create').click()
+    await expect(page.getByTestId('issued-code-panel')).toBeVisible({ timeout: 30_000 })
+    const memberCode = (await page.getByTestId('issued-code').textContent())!.trim()
+    await page.getByTestId('code-done').click()
     await page.getByTestId('user-add').click()
     await page.getByTestId('invite-email').fill(INVITED.email)
     await page.getByTestId('invite-role').selectOption('Viewer')
@@ -429,15 +434,15 @@ for (const locale of LOCALES) {
     const inviteLink = await page.evaluate(() => navigator.clipboard.readText())
     await page.getByTestId('code-done').click()
 
-    // The manager replaces the temporary password and records a purchase, so their page has something to show.
+    // The manager joins with their code and records a purchase, so their page has something to show.
     await lock()
-    await signIn(MEMBER.email, MEMBER.temporary)
-    await expect(page.getByTestId('must-change-banner')).toBeVisible({ timeout: 30_000 })
-    await page.getByTestId('account-current').fill(MEMBER.temporary)
-    await page.getByTestId('account-new').fill(MEMBER.password)
-    await page.getByTestId('account-confirm').fill(MEMBER.password)
-    await page.getByTestId('account-save').click()
-    await expect(page.getByTestId('must-change-banner')).toHaveCount(0, { timeout: 30_000 })
+    await page.getByTestId('join-link').click()
+    await page.getByTestId('register-email').fill(MEMBER.email)
+    await page.getByTestId('register-code').fill(memberCode)
+    await page.getByTestId('register-password').fill(MEMBER.password)
+    await page.getByTestId('register-confirm').fill(MEMBER.password)
+    await page.getByTestId('register-submit').click()
+    await expect(page.getByTestId('app-shell')).toBeVisible({ timeout: 60_000 })
     await page.getByTestId('nav-transactions').click()
     await page.getByTestId('add-transaction').click()
     await page.getByTestId('tx-type').selectOption('EXPENSE')
@@ -453,6 +458,8 @@ for (const locale of LOCALES) {
     await dismissReminder()
 
     await page.getByTestId('nav-users').click()
+    const member = page.getByTestId('person-row').filter({ hasText: MEMBER.email })
+    await expect(member).toBeVisible({ timeout: 30_000 })
     await expect(page.getByTestId('chart-users-roles')).toBeVisible({ timeout: 30_000 })
     await expect(page.getByTestId('chart-users-groups')).toBeVisible()
     // Chart.js draws on a canvas, which Playwright's animation switch does not reach.
@@ -470,6 +477,11 @@ for (const locale of LOCALES) {
     await expect(page.getByTestId('user-records')).toHaveAttribute('data-count', '1', { timeout: 30_000 })
     await expect(page.getByTestId('user-activity-entry').first()).toBeVisible()
     await shot('user-detail', { full: true })
+    await page.getByTestId('user-action-suspend').click()
+    await expect(page.getByTestId('removal-new-key')).toBeVisible()
+    await shot('user-suspend', { target: page.getByTestId('user-suspend-dialog') })
+    await page.keyboard.press('Escape')
+    await expect(page.getByTestId('user-suspend-dialog')).toHaveCount(0)
     await page.getByTestId('user-action-delete').click()
     await page.getByTestId('delete-reassign').check()
     await page.getByTestId('delete-reassign-to').selectOption({ label: ADMIN.email })
@@ -606,6 +618,7 @@ for (const locale of LOCALES) {
     await shot('preferences', { target: page.locator('header') })
     await page.getByTestId('nav-audit').click()
     await expect(page.getByTestId('audit-integrity')).toHaveAttribute('data-ok', 'true')
+    await expect(page.getByTestId('audit-signatures')).toHaveAttribute('data-state', 'ready', { timeout: 30_000 })
     await shot('audit')
     await page.getByTestId('nav-help').click()
     await expect(page.getByTestId('help-section').first()).toBeVisible({ timeout: 30_000 })
@@ -713,7 +726,13 @@ for (const locale of LOCALES) {
       await page.unroute('**/version.json')
     }
 
-    // Moving to a new device: a fresh browser profile restores the backup file.
+    // Moving to a new device: a fresh browser profile restores the backup file, then compares the founder key.
+    async function shotOf(target: Page | Locator, name: string, full = false) {
+      if (ONLY && !ONLY.has(name)) return
+      const png = 'goto' in target ? await target.screenshot({ fullPage: full, animations: 'disabled' }) : await target.screenshot({ animations: 'disabled' })
+      writeFileSync(resolve(dir, `${name}.webp`), await encoder.encode(png, 1440))
+      taken.push(name)
+    }
     const fresh = await browser.newContext({ viewport: DESKTOP })
     const other = await fresh.newPage()
     await other.goto(page.url().replace(/#.*$/, ''))
@@ -721,11 +740,38 @@ for (const locale of LOCALES) {
     await other.getByTestId('import-file').setInputFiles(backupFile)
     await expect(other.getByTestId('confirm-import')).toBeVisible({ timeout: 30_000 })
     await other.mouse.move(0, 0)
-    if (!ONLY || ONLY.has('move-import')) {
-      writeFileSync(resolve(dir, 'move-import.webp'), await encoder.encode(await other.screenshot({ fullPage: true, animations: 'disabled' }), 1440))
-      taken.push('move-import')
-    }
+    await shotOf(other, 'move-import', true)
+    await other.getByTestId('confirm-import').click()
+    await other.getByTestId('login-email').fill(ADMIN.email)
+    await other.getByTestId('login-password').fill(ADMIN.password)
+    await other.getByTestId('login-submit').click()
+    await expect(other.getByTestId('trust-step')).toBeVisible({ timeout: 60_000 })
+    await other.mouse.move(0, 0)
+    await shotOf(other, 'trust-step')
     await fresh.close()
+
+    // A vault from before 2.0: its admin is offered the upgrade at sign-in.
+    const older = await browser.newContext({ viewport: DESKTOP })
+    await older.route('**/rates/latest.json', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: freshSnapshot() }))
+    const legacy = await older.newPage()
+    await legacy.goto(page.url().replace(/#.*$/, ''))
+    await legacy.getByTestId('language-select').selectOption(locale)
+    await legacy.getByTestId('import-file').setInputFiles(LEGACY_BACKUP)
+    await legacy.getByTestId('confirm-import').click()
+    await legacy.getByTestId('login-email').fill(LEGACY_ADMIN.email)
+    await legacy.getByTestId('login-password').fill(LEGACY_ADMIN.password)
+    await legacy.getByTestId('login-submit').click()
+    await expect(legacy.getByTestId('upgrade-password')).toBeVisible({ timeout: 60_000 })
+    await expect(legacy.getByTestId('save-state')).toHaveText(demo.saved, { timeout: 30_000 })
+    await legacy.mouse.move(0, 0)
+    await legacy.evaluate(() => document.fonts.ready)
+    const dialog = (await legacy.getByTestId('upgrade-offer').boundingBox())!
+    if (!ONLY || ONLY.has('upgrade-offer')) {
+      const clip = { x: dialog.x - 32, y: dialog.y - 32, width: dialog.width + 64, height: dialog.height + 64 }
+      writeFileSync(resolve(dir, 'upgrade-offer.webp'), await encoder.encode(await legacy.screenshot({ clip, animations: 'disabled' }), 1440))
+      taken.push('upgrade-offer')
+    }
+    await older.close()
 
     await encoder.close()
     console.log(`${locale}: ${taken.length} screenshots`)

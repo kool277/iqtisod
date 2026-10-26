@@ -56,6 +56,7 @@ On `feature/v2-rc`, versions 2.0.0-rc.1 to 2.0.0-rc.3, never deployed; rc.1 and 
 
 - **Per-person keys by default.** Setup creates vaults with per-person keys, and an admin who signs in to a 1.x vault is offered the upgrade each time until they take it. A 1.x vault keeps working as one until then. A build made with `VITE_V2_KEYS=0` sets up 1.x vaults and offers no upgrade, as before.
 - Giving someone a new code in a vault with per-person keys now says that the private safes they opened since then open again only with their recovery code; it said their previous password would do. Reactivating someone there says they get a new invite code rather than a reset code.
+- The user guides (in all four languages, with new pictures) and the admin guide describe per-person keys: the founder key and its comparison in a new browser, invites only, a new household key when someone leaves, new codes and private safes, restoring older backups, signed audit entries, the upgrade of a vault created before 2.0, and the browsers that can use them.
 - For developers: CI runs the browser tests twice, against the default build and against one made with `VITE_V2_KEYS=0`.
 
 #### Known limitations

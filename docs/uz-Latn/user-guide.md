@@ -2,7 +2,7 @@
 
 [English](../user-guide.md) · [Русский](../ru/user-guide.md) · **Oʻzbekcha** · [Ўзбекча](../uz-Cyrl/user-guide.md)
 
-Jaybi — butunlay brauzeringizda ishlaydigan, oila va kichik biznes uchun shaxsiy daftar. Yozuvlaringiz, shaxsiy seyflaringiz va sozlamalaringiz oʻz qurilmangizda shifrlanadi va hech qayerga yuborilmaydi. Bu qoʻllanma sizni har bir ekran boʻylab qadamma-qadam, rasmlar bilan olib oʻtadi. Administratorlar bu yerda oʻzlarining qoʻshimcha vazifalarini ham topadi: odamlarni taklif qilish, zaxira nusxalar, sozlamalar va audit jurnali. Joylashtirish va tiklash boʻyicha texnik tafsilotlar alohida qoʻllanmada: [administrator qoʻllanmasi](../admin-guide.md).
+Jaybi — butunlay brauzeringizda ishlaydigan, oila va kichik biznes uchun shaxsiy daftar. Yozuvlaringiz, shaxsiy seyflaringiz va sozlamalaringiz oʻz qurilmangizda shifrlanadi va hech qayerga yuborilmaydi. 2.0 versiyasidan boshlab seyfdagi har bir kishining oʻz kalitlari bor, odamlar roʻyxatini administrator imzolaydi, audit jurnalidagi har bir yozuvni esa uni kiritgan kishi imzolaydi. Bu qoʻllanma sizni har bir ekran boʻylab qadamma-qadam, rasmlar bilan olib oʻtadi. Administratorlar bu yerda oʻzlarining qoʻshimcha vazifalarini ham topadi: odamlarni taklif qilish, zaxira nusxalar, sozlamalar va audit jurnali. Joylashtirish va tiklash boʻyicha texnik tafsilotlar alohida qoʻllanmada: [administrator qoʻllanmasi](../admin-guide.md).
 
 <a id="contents"></a>
 ## Mundarija
@@ -24,6 +24,7 @@ Jaybi — butunlay brauzeringizda ishlaydigan, oila va kichik biznes uchun shaxs
 - [Holat tekshiruvi](#health)
 - [Bu yordamdan foydalanish](#help)
 - [Yangilanishlar va versiyalar](#updates)
+- [2.0 versiyasidan oldin yaratilgan seyflar](#before-2)
 - [Xavfsizlik boʻyicha maslahatlar](#security)
 - [Muammolarni hal qilish](#troubleshooting)
 - [Savol va javoblar](#faq)
@@ -38,10 +39,10 @@ Jaybi — butunlay brauzeringizda ishlaydigan, oila va kichik biznes uchun shaxs
 Jaybi butun daftarni bitta shifrlangan faylda — **seyf** ichida — bitta qurilmadagi bitta brauzerda saqlaydi. Serverdagi hisob ham, bulutdagi nusxa ham yoʻq. Buning boshidanoq bilishingiz kerak boʻlgan uchta oqibati bor:
 
 - Jaybini har safar oʻsha brauzerda, oʻsha qurilmada oching. Boshqa brauzer, boshqa brauzer profili, maxfiy oyna yoki boshqa telefon boʻsh sozlash ekranini koʻrsatadi, chunki seyf u yerda yoʻq.
-- Asosiy parolni siz uchun hech kim tiklay olmaydi va maʼlumotlaringizni siz uchun hech kim oʻqiy olmaydi, hatto Jaybini yaratganlar ham.
+- Unutilgan parolni hech kim tiklay olmaydi va maʼlumotlaringizni siz uchun hech kim oʻqiy olmaydi, hatto Jaybini yaratganlar ham.
 - Brauzer maʼlumotlari oʻchirilsa, saqlanib qoladigan yagona nusxa — **zaxira nusxa fayli**. Administratorlar uni muntazam yuklab olishi kerak ([Zaxira nusxalar](#backup) boʻlimiga qarang).
 
-Jaybi kompyuter va telefonlarda Chrome, Edge, Firefox va Safari brauzerlarining joriy versiyalarida ishlaydi. Uni [https://jaybi.uz](https://jaybi.uz) manzilida oching. 1.3.0 versiyasigacha Jaybi Moliya deb atalgan; eski `kool277.github.io/iqtisod` manzili jaybi.uz saytiga yoʻnaltiradi.
+Jaybi kompyuter va telefonlarda Chrome, Edge, Firefox va Safari brauzerlarining joriy versiyalarida ishlaydi: Chrome va Edge 137 yoki undan yangi, Firefox 130 yoki undan yangi, Safari 17 yoki undan yangi (iPhone va iPad qurilmalarida iOS 17). Eskiroq brauzerlarda Jaybi foydalanadigan kalitlar (X25519 va Ed25519) yoʻq: ularda 2.0 versiyasidan oldin yaratilgan seyfdan foydalanishda davom etish mumkin, lekin seyf yaratib ham, shaxsiy kalitli seyfni ochib ham boʻlmaydi. Uni [https://jaybi.uz](https://jaybi.uz) manzilida oching. 1.3.0 versiyasigacha Jaybi Moliya deb atalgan; eski `kool277.github.io/iqtisod` manzili jaybi.uz saytiga yoʻnaltiradi.
 
 <a id="create-vault"></a>
 ### Seyf yaratish (birinchi administrator)
@@ -51,11 +52,18 @@ Seyfni yaratgan odam uning birinchi **Administrator**i boʻladi.
 1. Jaybini oching. Yuqori oʻng burchakda til va mavzuni tanlang.
 2. **Seyf yarating** ostida **Seyf nomi**ni (masalan, oilangiz yoki biznesingiz nomi), **Administrator pochtasi**ni va **Asosiy parol**ni kiriting, soʻng **Parolni tasdiqlang** maydoniga oʻsha parolni yana yozing.
 3. Jami summalar hisoblanadigan **Valyuta**ni tanlang. Uni keyinroq [Seyf sozlamalari](#settings) boʻlimida oʻzgartirishingiz mumkin.
-4. **Shifrlangan seyf yaratish** tugmasini bosing. Shifrlash bir necha soniya davom etadi.
+4. **Shifrlangan seyf yaratish** tugmasini bosing. Kalitlaringizni yaratish va shifrlash bir necha soniya davom etadi.
 
 ![Nomi, pochta, parol va valyuta toʻldirilgan «Seyf yarating» ekrani](../images/uz-Latn/setup.webp)
 
-Asosiy parolni ehtiyotkorlik bilan tanlang: u seyfni shifrlaydi va **uni tiklab boʻlmaydi**. [Parol tanlash](#choosing-a-password) boʻlimiga qarang.
+Asosiy parolni ehtiyotkorlik bilan tanlang: u kalitlaringizni muhrlaydi va **uni tiklab boʻlmaydi**. Agar asoschi uni unutsa va boshqa administrator boʻlmasa, endi hech kim odam qoʻsha ham, olib tashlay ham olmaydi, shuning uchun ikkinchi administratorni oldindan [taklif qiling](#invite). [Parol tanlash](#choosing-a-password) boʻlimiga qarang.
+
+<a id="founder-key"></a>
+### Asoschi kalitingiz
+
+Soʻng Jaybi **Asoschi kalitini yozib qoʻying** oynasini koʻrsatadi: harf va raqamlardan iborat toʻrttadan oltita guruh. Siz seyfning **asoschisi**siz va bu kalit seyfingizni boshqa har qanday seyfdan ajratib turadi: seyfni yangi brauzerda ochgan har bir kishidan uni siz bilan solishtirish soʻraladi. Kalitni yozib oling yoki **Nusxalash** tugmasini bosing, uni oʻqib bera oladigan joyda saqlang va **Tayyor** tugmasini bosing. [Hisob](#vault-keys) sahifasi uni yana koʻrsatadi.
+
+![Seyf yaratilgach koʻrsatiladigan asoschi kaliti, «Nusxalash» va «Tayyor» tugmalari bilan](../images/uz-Latn/founder-key.webp)
 
 Seyf tayyor boʻlgach, boshqaruv sahifasiga tushasiz. Kimdir pul harakatini yozmaguncha u boʻsh turadi.
 
@@ -75,7 +83,7 @@ Birinchi administratordan boshqa hamma administrator bergan **bir martalik kod**
 
 ![Pochta, kod va yangi parol toʻldirilgan «Seyfga qoʻshilish» ekrani](../images/uz-Latn/register.webp)
 
-Siz darhol tizimga kirasiz. Parolingizni boshqa hech kim, hatto administrator ham bilmaydi.
+Siz darhol tizimga kirasiz. Parolingizni boshqa hech kim, hatto administrator ham bilmaydi. Jaybi sizning oʻz kalitlaringizni yaratadi va ularni shu parol bilan muhrlaydi, administratorning keyingi saqlashi esa sizni seyfdagi odamlarning imzolangan roʻyxatiga qoʻshadi. Agar bu brauzer seyfni avval ochmagan boʻlsa, Jaybi soʻng seyf asoschisining kalitini koʻrsatadi: uni administrator bilan solishtiring va farq qilsa, darhol unga xabar bering.
 
 Agar Jaybi «Bu brauzerda hali seyf yoʻq» desa, siz notoʻgʻri qurilma yoki brauzerdasiz: kod faqat seyf saqlangan joyda ishlaydi. Agar kod muddati tugagan yoki mos kelmayapti desa, administratordan yangisini soʻrang.
 
@@ -96,6 +104,25 @@ Bir pochta uchun beshta notoʻgʻri urinishdan keyin Jaybi teskari sanoq bilan *
 
 Shakl ostidagi havolalar hamma uchun: **Bir martalik kodingiz bormi? Seyfga qoʻshiling**, **Parol yangilash kodingiz bormi?**, **Yordam** (shu qoʻllanma) va **Holat tekshiruvi** — u tizimga kira olmaganingizda ham brauzerni tekshiradi.
 
+<a id="compare-key"></a>
+### Asoschi kalitini solishtirish
+
+Kimdir shaxsiy kalitli seyfga bu brauzerda birinchi marta kirganda, masalan, seyf zaxira nusxa orqali [koʻchirilgandan](#moving) keyin, Jaybi seyfni ochishdan oldin **Asoschi kalitini solishtiring** ekranini koʻrsatadi. Ekrandagi kalitni asoschingiz yozib qoʻygan kalit bilan yuzma-yuz yoki telefon orqali solishtiring. Mos kelsa, **Mos keladi, davom etish** tugmasini bosing: brauzer kalitni eslab qoladi va keyingi har bir kirishda uni tekshiradi. Farq qilsa, **Bekor qilish** tugmasini bosing, chunki bu sizning seyfingiz emas.
+
+![Yangi brauzerda seyf ochilishidan oldin asoschi kalitini solishtirish](../images/uz-Latn/trust-step.webp)
+
+<a id="blocked"></a>
+### Jaybi seyfni ochmasa
+
+Har bir kirishda Jaybi bu brauzer biladigan seyf ekanini hamda uning imzolangan maʼlumotlari va odamlar roʻyxati tekshiruvdan oʻtishini tekshiradi. Tekshiruvdan oʻtmasa, seyf ochilmaydi va kirish ekrani sababini aytadi:
+
+- «Bu seyf asoschisining kaliti bu brauzer avval koʻrgan kalitga mos kelmaydi»: bu boshqa seyf boʻlishi mumkin. Kirmang; kalitni administrator bilan solishtiring.
+- «Bu seyfning imzolangan maʼlumotlari tekshiruvdan oʻtmadi» yoki «Bu seyfdagi odamlarning imzolangan roʻyxati tekshiruvdan oʻtmadi»: kimdir seyfni Jaybidan tashqarida oʻzgartirgan boʻlishi mumkin. Administratoringizga murojaat qiling; oʻzgarishdan oldin olingan zaxira nusxa hamon ochiladi.
+- «Seyfning bu nusxasi bu brauzer koʻrganidan eskiroq yoki undan farq qiladi»: shundan beri olib tashlangan odamlar unda yana boʻlishi mumkin. Uni baribir faqat administrator **Bu eski nusxani baribir ochish** tugmasi bilan ocha oladi; bu audit jurnaliga yoziladi.
+- «Siz endi bu seyf aʼzosi emassiz»: administratordan yangi taklif kodini soʻrang.
+
+Xabar ostidagi **Bu seyfni fayl sifatida yuklab olish** tugmasi seyfni bu brauzer qanday saqlasa, aynan shundayligicha — shifrlangan holda va ochiq taklif kodlarisiz — saqlab qoʻyadi, shunda administrator vaziyatni koʻrib chiqquncha hech narsa yoʻqolmaydi. Fayl [administrator qoʻllanmasi](../admin-guide.md)dagi tiklash vositasida aʼzoning paroli bilan ochiladi.
+
 <a id="second-step"></a>
 ### Ikkinchi qadam (kirish tekshiruvi)
 
@@ -104,15 +131,15 @@ Agar [kirish tekshiruvi](#sign-in-check)ni yoqqan boʻlsangiz, Jaybi paroldan ke
 ![6 xonali kodni soʻrayotgan kirish tekshiruvi qadami](../images/uz-Latn/sign-in-totp.webp)
 
 <a id="reset-code"></a>
-### Parolni unutdingizmi? Parol yangilash kodidan foydalaning
+### Parolni unutdingizmi? Yangi kod soʻrang
 
-Jaybida «parolni unutdim» xati yoʻq, chunki server yoʻq. Administratordan **parol yangilash kodi**ni soʻrang, soʻng:
+Jaybida «parolni unutdim» xati yoʻq, chunki server yoʻq, parolni esa hech kim tiklay olmaydi. Administratordan yangi kod (**Yangi taklif kodi berish**) soʻrang, soʻng:
 
 1. **Seyfni ochish** ekranida **Parol yangilash kodingiz bormi?** havolasini bosing (yoki administrator yuborgan havolani oching).
 2. **Pochtangiz**, **Bir martalik kod** va yangi parolingizni ikki marta kiriting.
-3. **Yangi parolni oʻrnatish** tugmasini bosing. Siz yangi parol bilan tizimga kirasiz.
+3. **Yangi parolni oʻrnatish** tugmasini bosing. Siz yangi parol va yangi kalitlar bilan tizimga kirasiz.
 
-Parol yangilash kodi kirish tekshiruvingizni ham oʻchiradi; uni [Hisobingiz](#account) boʻlimida qayta yoqing. Shaxsiy seyflardan foydalansangiz, avval [Administrator parolingizni yangilagandan keyin](#after-reset) boʻlimini oʻqing.
+Kod eski kalitlaringizni darhol bekor qiladi va kirish tekshiruvingizni ham oʻchiradi; uni [Hisobingiz](#account) boʻlimida qayta yoqing. Shaxsiy seyflardan foydalansangiz, avval [Yangi koddan keyin](#after-reset) boʻlimini oʻqing.
 
 <a id="locking"></a>
 ### Qulflash
@@ -339,7 +366,7 @@ Administratorlar guruhni **Guruh nomi**ni yozib, **Guruh qoʻshish** tugmasini b
 <a id="users"></a>
 ## Odamlar va takliflar
 
-Administratorlar seyfni kim ocha olishini **Odamlar** sahifasida (**Foydalanuvchilar** menyu bandi) boshqaradi. Har bir odam oʻsha bitta seyfni oʻz paroli bilan ochadi. Menejerlar ham bu sahifani koʻradi, lekin faqat oʻqish uchun va faqat oʻz guruhidagi odamlarni.
+Administratorlar seyfni kim ocha olishini **Odamlar** sahifasida (**Foydalanuvchilar** menyu bandi) boshqaradi. Har bir odam oʻsha bitta seyfni oʻz paroli va oʻz kalitlari bilan ochadi. Menejerlar ham bu sahifani koʻradi, lekin faqat oʻqish uchun va faqat oʻz guruhidagi odamlarni.
 
 [Odamlar sahifasini ochish](https://jaybi.uz/#/app/users)
 
@@ -348,28 +375,28 @@ Administratorlar seyfni kim ocha olishini **Odamlar** sahifasida (**Foydalanuvch
 <a id="people-overview"></a>
 ### Umumiy koʻrinish
 
-Tepadagi **Umumiy koʻrinish** seyfda nechta odam borligini va 256 ta joydan nechtasi bandligini, jumladan faol kodlar uchun ajratilgan joylarni koʻrsatadi. Unda nechta faol odamda kirish tekshiruvi yoqilgani va kim **Eʼtibor talab qiladi**: parolini oʻzgartirishi kerak, kira olmaydi, guruhi yoʻq, toʻxtatilgan yoki hali eski parol nusxasi bor odamlar. Shuningdek, yaqinda kirganlar, faol kodlar va ularning muddati hamda ikkita kichik grafik — rollar va guruhlar boʻyicha odamlar koʻrinadi. Bu yerda hech qanday maxfiy narsa yoʻq: kodlar, parollar va kalitlar koʻrsatilmaydi.
+Tepadagi **Umumiy koʻrinish** seyfda nechta odam borligini va 256 ta joydan nechtasi bandligini, jumladan faol kodlar uchun ajratilgan joylarni koʻrsatadi. Unda nechta faol odamda kirish tekshiruvi yoqilgani va kim **Eʼtibor talab qiladi**: parolini oʻzgartirishi kerak, kira olmaydi (masalan, unga hali yangi taklif kodi kerak), guruhi yoʻq yoki toʻxtatilgan odamlar. Shuningdek, yaqinda kirganlar, faol kodlar va ularning muddati hamda ikkita kichik grafik — rollar va guruhlar boʻyicha odamlar koʻrinadi. Bu yerda hech qanday maxfiy narsa yoʻq: kodlar, parollar va kalitlar koʻrsatilmaydi.
 
 ![Odamlar sahifasidagi umumiy koʻrinish: hisoblagichlar, yaqinda kirganlar, faol kodlar va grafiklar](../images/uz-Latn/users-overview.webp)
 
+**Kirish usuli** ustuni har bir odamning **Kalitlari bor**, **Taklif qilingan** (uni kod kutyapti) yoki unga **Yangi taklif kerak** ekanini koʻrsatadi.
+
 <a id="invite"></a>
-### Odamni taklif qilish (tavsiya etiladi)
+### Odamni taklif qilish
+
+Shaxsiy kalitli seyfga odamlar faqat taklif kodi bilan qoʻshiladi, shuning uchun administrator hech kimning parolini tanlamaydi ham, bilmaydi ham va boshqa hech kim birovning kalitlariga ega boʻla olmaydi.
 
 1. **Foydalanuvchi qoʻshish** tugmasini bosing. **Taklif kodini yuborish** allaqachon tanlangan.
 2. **Uning pochtasi**ni kiriting, kod qancha vaqt ishlashini **Amal qilish muddati** maydonida, soʻng **Rol** va **Guruh**ni tanlang.
+
+   ![Menejer uchun taklif bilan «Odam qoʻshish» oynasi](../images/uz-Latn/user-create.webp)
+
 3. **Taklif kodini yaratish** tugmasini bosing.
 4. Jaybi kodni bir marta koʻrsatadi. **Kodni nusxalash** yoki **Havolani nusxalash** tugmasini bosing va kodni odamga shaxsan yoki ishonchli kanal orqali bering, soʻng **Tayyor** tugmasini bosing.
 
 ![Faqat bir marta koʻrsatiladigan yangi taklif kodi, «Kodni nusxalash» va «Havolani nusxalash» tugmalari bilan](../images/uz-Latn/invite-code.webp)
 
 Shundan soʻng odam shu brauzerda [kod bilan qoʻshiladi](#joining) va oʻz parolini tanlaydi. U shunday qilmaguncha kod **Faol kodlar** roʻyxatida turadi, u yerda **Bekor qilish** tugmasi kodni bekor qiladi.
-
-<a id="temporary-password"></a>
-### Odamni vaqtinchalik parol bilan qoʻshish
-
-**Foydalanuvchi qoʻshish**, soʻng **Vaqtinchalik parol oʻrnatish** tugmasini bosing. Pochta, xohlasangiz ism, vaqtinchalik parol, rol va guruhni kiriting va **Foydalanuvchi qoʻshish** tugmasini bosing. Odam birinchi kirishda parolni almashtirishi kerak. Taklif kodi xavfsizroq, chunki unda parolni faqat uning oʻzi biladi.
-
-![Menejer uchun vaqtinchalik parol bilan «Odam qoʻshish» oynasi](../images/uz-Latn/user-create.webp)
 
 <a id="person-page"></a>
 ### Odamning sahifasi
@@ -381,15 +408,28 @@ Roʻyxatda odamning pochtasini yoki uning qatoridagi **Ochish** tugmasini bosing
 Bu yerdan administrator quyidagilarni qila oladi:
 
 - **Tahrirlash**: ism, pochta, rol va guruhni oʻzgartirish. Pochta oʻzgargandan keyin odam yangi pochta va joriy paroli bilan kiradi. Avval unga berilgan faol kodni bekor qiling.
-- **Parol yangilash kodini berish**, [quyida](#reset-for-someone) aytilganidek.
+- **Yangi taklif kodi berish**, [quyida](#reset-for-someone) aytilganidek.
 - **Kirish tekshiruvini oʻchirish** — autentifikatorini ham, tiklash kodlarini ham yoʻqotgan odam uchun.
 - **Yangi parol talab qilish**: keyingi kirishda u yangi parol tanlashi kerak boʻladi va ungacha boshqa hech narsa qila olmaydi.
-- **Toʻxtatish**: siz uni **Qayta faollashtirish**ingizgacha u kira olmaydi, yozuvlari, shaxsiy seyflari va tarixi esa saqlanadi. Qayta faollashtirilganda u parol yangilash kodini oladi. Toʻxtatishdan oldin saqlangan seyf fayli nusxasi uning eski paroli bilan ochilaveradi, chunki seyf kaliti oʻzgarmaydi.
-- **Oʻchirish**: tasdiqlash uchun uning pochtasini yozing. Agar u yozuvlar kiritgan boʻlsa, ularni boshqa odamga oʻtkazing yoki sobiq aʼzo sifatida shu odam nomida qoldiring. Oʻchirish uning shaxsiy seyflarini butunlay yoʻq qiladi. Audit jurnalida ismi har qanday holatda saqlanadi.
+- **Toʻxtatish**: siz uni **Qayta faollashtirish**ingizgacha u kira olmaydi, yozuvlari, shaxsiy seyflari va tarixi esa saqlanadi. Qayta faollashtirilganda u yangi taklif kodini oladi. Agar seyf kaliti unda boʻlgan boʻlsa, qolganlarning hammasi yangisini oladi ([quyida](#household-key)).
+- **Oʻchirish**: tasdiqlash uchun uning pochtasini yozing. Agar u yozuvlar kiritgan boʻlsa, ularni boshqa odamga oʻtkazing yoki sobiq aʼzo sifatida shu odam nomida qoldiring. Oʻchirish uning shaxsiy seyflarini butunlay yoʻq qiladi va toʻxtatishdagi kabi qolganlarning hammasi yangi seyf kalitini olishi mumkin. Audit jurnalida ismi har qanday holatda saqlanadi.
 
 ![Odamni oʻchirish va uning yozuvlarini boshqa odamga oʻtkazish](../images/uz-Latn/user-delete.webp)
 
 Oʻzingizni toʻxtata yoki oʻchira olmaysiz, seyfda esa doim kamida bitta faol administrator qoladi. Har bir oʻzgarish audit jurnaliga yoziladi.
+
+<a id="household-key"></a>
+### Kimdir ketganda yangi seyf kaliti
+
+Seyfdagi hamma uni bitta **seyf kaliti** bilan, har kim oʻz kalitlari orqali ochadi. Bu kalit boʻlgan odamni toʻxtatsangiz yoki oʻchirsangiz, tasdiqlash oynasi buni aytadi va Jaybi qolganlarning hammasi uchun yangi seyf kalitini yaratadi:
+
+- Bundan buyon saqlangan hech narsa ketgan odamga ochilmaydi. U allaqachon nusxalab olgan narsalar, masalan, eski zaxira nusxalar yoki eksport qilingan fayl, unga ochiq qoladi: yangi kalit mavjud nusxalarga yeta olmaydi.
+- Ochiq taklif kodlari ishlamay qoladi, chunki har birida eski kalit bor. Oyna ular nechta ekanini aytadi; keyin yangi kodlar bering.
+- Bu brauzerdagi seyfning oldingi nusxalari oʻchiriladi, faqat oʻzgarishdan oldingi nusxa qoladi va u ketgan odamga ochilmaydi.
+
+![Aʼzoni toʻxtatish: qolganlarning hammasi yangi seyf kalitini oladi](../images/uz-Latn/user-suspend.webp)
+
+Taklifidan hech foydalanmagan yoki [shaxsiy kalitlarga oʻtilgandan](#upgrade-offer) keyin hali yangi taklif kerak boʻlgan odam yangi kalitsiz ketadi, chunki bu kalit unda hech qachon boʻlmagan. Shundan soʻng yangi zaxira nusxa yuklab oling va u yeta oladigan eskilarini oʻchiring; oxirgi zaxira nusxa yangi kalitdan oldin olingan ekan, [Holat tekshiruvi](#health) buni eslatib turadi.
 
 <a id="bulk-changes"></a>
 ### Bir nechta odamni birdaniga oʻzgartirish
@@ -397,13 +437,13 @@ Oʻzingizni toʻxtata yoki oʻchira olmaysiz, seyfda esa doim kamida bitta faol 
 Roʻyxatda odamlarni belgilang, yangi **Rol**, yangi **Guruh** yoki ikkalasini tanlang, **Tanlanganlarga qoʻllash** tugmasini bosing va tasdiqlang. Har bir odamning oʻzgarishi audit jurnaliga alohida yoziladi. Sobiq aʼzolar oʻtkazib yuboriladi.
 
 <a id="reset-for-someone"></a>
-### Boshqa odamning parolini yangilash
+### Boshqa odamga yangi kod berish
 
-Odamning qatorida yoki sahifasida **Parol yangilash kodini berish** tugmasini bosing, kod qancha vaqt ishlashini tanlang va **Uning joriy parolini hoziroq bekor qilish** kerakmi-yoʻqmi, hal qiling (parolni boshqa kimdir bilishi mumkin boʻlsa, shuni tanlang). **Parol yangilash kodini berish** tugmasini yana bosing va kodni unga bering. Qatordagi **Oʻrniga vaqtinchalik parol oʻrnatish** — eskiroq usul.
+Kimdir parolini unutsa, uning qatorida yoki sahifasida **Yangi taklif kodi berish** tugmasini bosing, kod qancha vaqt ishlashini tanlang va **Yangi taklif kodi berish** tugmasini yana bosing. Kodni unga bering. Uning kalitlari darhol ishlamay qoladi; kod bilan u yangi parol tanlaydi va yangi kalitlar oladi.
 
-![Aʼzo uchun parol yangilash kodini berish](../images/uz-Latn/user-reset-code.webp)
+![Aʼzoga yangi taklif kodini berish](../images/uz-Latn/user-reset-code.webp)
 
-Parolni yangilashdan oldin sariq ogohlantirishni oʻqing: uning shaxsiy seyflari oldingi paroli yoki tiklash kodi kiritilmaguncha qulflangan qoladi. Siz hech kimning seyflarini ocha ham, tiklay ham olmaysiz.
+Avval sariq ogohlantirishni oʻqing: u shaxsiy kalitlarga oʻtilgandan keyin ochgan shaxsiy seyflari faqat tiklash kodi bilan yana ochiladi. Siz hech kimning seyflarini ocha ham, tiklay ham olmaysiz. Yangi kod yangi seyf kalitini yaratmaydi, chunki odam aʼzo boʻlib qoladi: agar uning parolini boshqa kimdir bilib olgan deb oʻylasangiz, uni toʻxtatib, qayta faollashtiring — bu yangi kalit yaratadi.
 
 <a id="clock"></a>
 ### Kodlar uchun soat tekshiruvi
@@ -441,7 +481,7 @@ Sizda **Shaxsiy** nomli bitta boʻsh seyf paydo boʻladi.
 <a id="recovery-code"></a>
 ### Tiklash kodi nega muhim
 
-Tiklash kodi bitta holatda muhim: administrator parolingizni yangilaydi, siz esa oldingi parolingizni eslay olmaysiz. Kod boʻlmasa, bunday holatda seyflaringiz butunlay yoʻqoladi. Uni keyinroq **Hisob → Tiklash kodi** boʻlimida yaratishingiz yoki almashtirishingiz mumkin. Uni parolingiz kabi sir tuting.
+Tiklash kodi bitta holatda muhim: parolingizni unutdingiz yoki boshqa sabab bilan administrator sizga yangi taklif kodi berdi. Yangi kod bilan sizda yangi kalitlar paydo boʻladi va oldingi seyflaringizni faqat tiklash kodi ochadi. Kod boʻlmasa, bunday holatda seyflaringiz butunlay yoʻqoladi. Uni keyinroq **Hisob → Tiklash kodi** boʻlimida yaratishingiz yoki almashtirishingiz mumkin. Uni parolingiz kabi sir tuting.
 
 <a id="cards"></a>
 ### Kartalar
@@ -512,19 +552,19 @@ Oʻchirilgan seyflar va yozuvlar 30 kunga **Savat**ga tushadi. **Tiklash** ularn
 ![Shaxsiy seyflarning «Faollik» roʻyxati](../images/uz-Latn/safes-activity.webp)
 
 <a id="after-reset"></a>
-### Administrator parolingizni yangilagandan keyin
+### Yangi koddan keyin
 
-1. Parol yangilash kodi bilan yangi parol oʻrnating (yoki vaqtinchalik parol bilan kirib, yangisini tanlang).
-2. **Shaxsiy seyflar** boʻlimini oching. Jaybi seyflar oxirgi marta ochilgandan beri parolingiz oʻzgarganini aytadi.
-3. **Oldingi parol**ni, yaʼni parol yangilanishidan oldin oʻzingiz tanlagan parolni kiriting yoki tiklash kodidan foydalanishni tanlang. Joriy parolingizni ham kiriting.
+1. Kod bilan yangi parol oʻrnating.
+2. **Shaxsiy seyflar** boʻlimini oching. Jaybi siz yangi taklif kodi bilan qaytganingizni va oldingi parolingiz bu seyflarni endi ochmasligini aytadi.
+3. **Tiklash kodi** va **Joriy parol**ni kiriting va **Seyflarni ochish** tugmasini bosing.
 4. Seyflaringiz ochiladi va bundan buyon ularni joriy parolingiz ochadi.
 
-Administrator bergan vaqtinchalik parolni hech qachon oldingi parol sifatida yozmang. Agar oldingi parolingizni ham, tiklash kodingizni ham eslay olmasangiz, seyflaringizni hech kim ocha olmaydi; **Hisob → Qaytadan boshlash → Shaxsiy seyflarni noldan boshlash** sizga yangi, boʻsh seyflar beradi.
+Tiklash kodi boʻlmasa, Jaybi bu seyflarni endi ochib boʻlmasligini aytadi va ularni hech kim ocha olmaydi; **Hisob → Qaytadan boshlash → Shaxsiy seyflarni noldan boshlash** sizga yangi, boʻsh seyflar beradi. Seyfingiz shaxsiy kalitlarga [oʻtganidan](#upgrade-offer) beri ochmagan seyflaringiz oldingi parol bilan ham ochiladi.
 
 <a id="backup"></a>
 ## Zaxira nusxalar va boshqa qurilmaga koʻchish
 
-Zaxira nusxani faqat administratorlar oladi. Zaxira nusxa — butun seyfning bitta `.moliya` faylidagi shifrlangan nusxasi. Uni seyfga tegishli istalgan parol ochadi va bu brauzer maʼlumotlari yoʻqolsa, u seyfni qaytarishning **yagona** yoʻli.
+Zaxira nusxani faqat administratorlar oladi. Zaxira nusxa — butun seyfning bitta `.moliya` faylidagi shifrlangan nusxasi. Uni yaratilgan paytda seyfda boʻlgan istalgan kishining paroli ochadi va bu brauzer maʼlumotlari yoʻqolsa, u seyfni qaytarishning **yagona** yoʻli.
 
 [Zaxira nusxa sahifasini ochish](https://jaybi.uz/#/app/backup)
 
@@ -543,7 +583,7 @@ Yozuvlar bor-u, hali zaxira nusxa olinmagan boʻlsa yoki oxirgisi 7 kundan eski 
 
 Sahifada **Bu brauzerdagi saqlash** holati ham koʻrsatiladi. «Himoyalanmagan» joy yetishmaganda brauzer maʼlumotlarni oʻchirib yuborishi mumkinligini bildiradi; [Holat tekshiruvi](#health) brauzerdan ularni saqlab qolishni soʻray oladi.
 
-**Bu brauzerdagi oldingi nusxalar** Jaybi har bir format yangilanishi va har bir importdan oldin saqlaydigan nusxalarni koʻrsatadi. Orqaga qaytish kerak boʻlsa, ulardan birini yuklab oling.
+**Bu brauzerdagi oldingi nusxalar** Jaybi har bir format yangilanishi, har bir import va har bir yangi seyf kalitidan oldin saqlaydigan nusxalarni koʻrsatadi. Orqaga qaytish kerak boʻlsa, ulardan birini yuklab oling.
 
 <a id="export-data"></a>
 ### Boshqa ilovalar uchun maʼlumotlarni eksport qilish
@@ -555,7 +595,9 @@ Sahifada **Bu brauzerdagi saqlash** holati ham koʻrsatiladi. «Himoyalanmagan»
 <a id="restore"></a>
 ### Zaxira nusxani shu brauzerda tiklash
 
-**Bu seyfni zaxira nusxa bilan almashtirish** ostida zaxira faylini tanlang, parolingizni kiriting va tasdiqlash uchun seyf nomini yozing, soʻng **Seyfni almashtirish** tugmasini bosing. Joriy seyf nusxasi **Bu brauzerdagi oldingi nusxalar** boʻlimida saqlanib qoladi.
+**Bu seyfni zaxira nusxa bilan almashtirish** ostida zaxira faylini tanlang, parolingizni kiriting va tasdiqlash uchun seyf nomini yozing, soʻng **Seyfni almashtirish** tugmasini bosing. Agar zaxira nusxa olingan paytda parolingiz boshqa boʻlgan boʻlsa, Jaybi **Bu zaxira nusxadagi parolingiz**ni ham soʻraydi. Joriy seyf nusxasi **Bu brauzerdagi oldingi nusxalar** boʻlimida saqlanib qoladi.
+
+Seyfdagi odamlar tarkibidagi oxirgi oʻzgarishdan, masalan, taklif yoki kimningdir ketishidan oldin olingan zaxira nusxa bu brauzer koʻrgan seyfdan eskiroq boʻladi. Jaybi buni aytadi va shundan beri olib tashlangan yoki yangi kalit olgan odamlarni (tiklangan nusxada ular yana toʻxtatiladi) hamda shundan beri bekor qilingan taklif kodlarini (ular yana bekor qilinadi) sanab beradi; davom etish uchun **Bu eski nusxani tiklash** tugmasini bosing. Agar brauzer kim olib tashlanganini aniqlay olmasa, buni aytadi: zaxira nusxa tiklangach, ularni yana toʻxtating yoki oʻchiring. Shaxsiy kalitlarga oʻtishdan oldin olingan zaxira nusxa undagi har bir parolni, shundan beri olib tashlangan odamlarnikini ham qaytaradi va Jaybi buni ham tasdiqlashni soʻraydi.
 
 Fayl tanlash maydoni ostida Jaybi **Bu qurilmada tiklash mumkin boʻlgan eng katta zaxira nusxa** hajmini va uni nima cheklashini koʻrsatadi: brauzerdagi boʻsh joy, qurilma xotirasi yoki bu brauzer saqlay oladigan hajm (Chrome, Edge va Chromium asosidagi boshqa brauzerlar 126 MB gacha boʻlgan seyflarni saqlaydi, Firefox va Safari esa kattaroqlarini). 72 MB gacha boʻlgan zaxira nusxalar istalgan qurilmada tiklanadi. Nusxa kattaroq boʻlsa, Jaybi buni faylni oʻqishdan oldin aytadi va nima qilishni maslahat beradi: diskda joy boʻshatish yoki [“Holat tekshiruvi”](#health) sahifasida Jaybi maʼlumotlarini saqlashga ruxsat berish, nusxani Firefox yoki Safari brauzerida tiklash yoki uni xotirasi kattaroq kompyuterda tiklash. Yangi qurilmadagi seyf yaratish ekranida ham shunday.
 
@@ -567,7 +609,7 @@ Fayl tanlash maydoni ostida Jaybi **Bu qurilmada tiklash mumkin boʻlgan eng kat
 1. Eski qurilmada zaxira nusxani yuklab oling.
 2. Yangi qurilmada [https://jaybi.uz](https://jaybi.uz) saytini oching. U **Seyf yarating** ekranini koʻrsatadi: uni toʻldirmang.
 3. **Yoki zaxira nusxani import qiling** ostida zaxira faylini tanlang va **Seyfni almashtirish** tugmasini bosing.
-4. Odatdagi pochta va parolingiz bilan tizimga kiring.
+4. Odatdagi pochta va parolingiz bilan tizimga kiring va [asoschi kalitini](#compare-key) asoschingiz bilan solishtiring.
 
 ![Yangi qurilmada, sozlash ekranida zaxira nusxani import qilish](../images/uz-Latn/move-import.webp)
 
@@ -598,9 +640,9 @@ Har kimda faqat oʻziga tegishli sozlamalar boʻlgan **Hisob** sahifasi bor.
 <a id="change-password"></a>
 ### Parolni oʻzgartirish
 
-**Joriy parol**ni, soʻng **Yangi parol** va **Yangi parolni tasdiqlang** maydonlarini toʻldiring va **Parolni oʻzgartirish** tugmasini bosing. Shaxsiy seyflaringiz va kirish tekshiruvingiz ham shu zahoti yangi parolga oʻtadi.
+**Joriy parol**ni, soʻng **Yangi parol** va **Yangi parolni tasdiqlang** maydonlarini toʻldiring va **Parolni oʻzgartirish** tugmasini bosing. Kalitlaringiz, shaxsiy seyflaringiz va kirish tekshiruvingiz ham shu zahoti yangi parolga oʻtadi.
 
-Agar parolingizni administrator tanlagan boʻlsa, Jaybi hamma narsadan oldin yangisini tanlashni soʻraydi: shunday qilmaguningizcha har bir sahifa sizni **Hisob** sahifasiga olib boradi.
+Agar administrator sizdan yangi parol tanlashni soʻragan boʻlsa, Jaybi buni hamma narsadan oldin soʻraydi: shunday qilmaguningizcha har bir sahifa sizni **Hisob** sahifasiga olib boradi.
 
 <a id="choosing-a-password"></a>
 ### Parol tanlash
@@ -623,6 +665,11 @@ Kirish tekshiruvi paroldan keyin autentifikator ilovasidagi (Google Authenticato
 
 Uni oʻchirish uchun **Kirish tekshiruvini oʻchirish** tugmasini bosing va parolingizni kiriting. Yangi tiklash kodlarini olish uchun uni oʻchirib, qayta yoqing.
 
+<a id="vault-keys"></a>
+### Seyf kalitlari
+
+**Seyf kalitlari** bloki seyfning **Asoschi kaliti**ni koʻrsatadi — yangi brauzerda birinchi marta kirganda hamma shu kalitni solishtiradi ([Asoschi kalitini solishtirish](#compare-key)). Agar seyfni siz yaratgan boʻlsangiz, u yerda «Siz bu seyf asoschisisiz.» deb yoziladi: kalitni solishtirishni soʻragan har bir kishiga uni oʻqib bering.
+
 <a id="auto-lock"></a>
 ### Avtomatik qulflash va seyf taymerlari
 
@@ -638,6 +685,13 @@ Uni oʻchirish uchun **Kirish tekshiruvini oʻchirish** tugmasini bosing va paro
 ![Butunlik qatori bor audit jurnali](../images/uz-Latn/audit.webp)
 
 Har bir yozuv oʻzidan oldingisi bilan bogʻlangan. Ilovadan tashqarida hech narsa oʻzgartirilmagan boʻlsa, **Butunlik** qatorida «Buzilmagan: har bir yozuv oldingisi bilan bogʻlangan» deb yoziladi. Agar yozuvlar oʻzgartirilgan yoki oʻchirilgan boʻlsa, Jaybi har bir sahifada qizil chiziq koʻrsatadi va Holat tekshiruvi bu haqda xabar beradi. Agar bu oʻzgarishni kutgan boʻlsangiz, masalan, eskiroq zaxira nusxani import qilgandan keyin, **Jurnalni boricha qabul qilish** tugmasini bosing; aks holda yaqindagi zaxira nusxani tiklang va parollarni oʻzgartiring.
+
+<a id="audit-signatures"></a>
+### Imzolar
+
+Shaxsiy kalitli seyfda har bir yozuvni uni kiritgan kishi imzolaydi, **Imzo** ustuni esa natijani koʻrsatadi: tekshiruvdan oʻtsa — **Imzolangan**, seyf shaxsiy kalitlarga oʻtishidan oldin yozilgan yozuvlar uchun — **Imzolardan oldin**, eng yangi yozuvlaringiz uchun esa seyf saqlanguncha — **Saqlanganda imzolanadi**. Jadval ustidagi qator tekshiruvdan oʻtgan va muammoli yozuvlarni sanaydi, **Faqat muammolar** belgisi esa faqat tekshiruvdan oʻtmagan yozuvlarni sababi bilan qoldiradi, masalan, **Imzolanmagan**, **Imzo mos kelmaydi** yoki **Imzolagan kishining roliga ruxsat berilmagan**.
+
+Yozuv tekshiruvdan oʻtmasa, audit jurnalini oʻqiy oladigan hamma qizil chiziqni koʻradi va Holat tekshiruvi bu haqda xabar beradi. Hech narsa bloklanmaydi. Nima boʻlganini, masalan, birinchi muammodan oldin olingan zaxira nusxa orqali aniqlang; aniqlagach, bu brauzerda kirish oʻsha yozuvlar haqida endi ogohlantirmasligi uchun **Jurnalni boricha qabul qilish** tugmasini bosing.
 
 <a id="health"></a>
 ## Holat tekshiruvi
@@ -657,14 +711,14 @@ Har bir qator qisqa izoh bilan **Joyida**, **Ogohlantirish**, **Muammo bor** yok
 
 | Boʻlim | Tekshiruvlar |
 | --- | --- |
-| **Brauzer imkoniyatlari** | Shifrlash, brauzer maʼlumotlar bazasi, WebAssembly, bir vaqtda bitta varaq, sahifani ajratish, service worker, xavfsiz ulanish, Trusted Types, cookie va sayt maʼlumotlari, maxfiy oyna |
+| **Brauzer imkoniyatlari** | Shifrlash, shaxsiy kalitli seyflar uchun kalitlar, brauzer maʼlumotlar bazasi, WebAssembly, bir vaqtda bitta varaq, sahifani ajratish, service worker, xavfsiz ulanish, Trusted Types, cookie va sayt maʼlumotlari, maxfiy oyna |
 | **Saqlash joyi** | Saqlash joyiga yozish mumkinmi, boʻsh joy, joy kamayganda brauzer maʼlumotlarni saqlab qoladimi, kichik sozlamalar uchun joy, bu yerda seyf saqlanganmi, bu qurilmadagi eng katta seyf |
 | **Ilova va versiya** | Yangiroq versiya chiqqanmi, yigʻma va kerak boʻlganda yuklanadigan sahifalar ishlayotgan versiyaga mosmi |
-| **Seyf** | Maʼlumotlar formati, bu qurilma chegarasiga nisbatan seyf hajmi (kamida 48 MB), saqlash, zaxira nusxa qanchalik eskiligi, oldingi nusxalar, audit jurnalining butunligi, qurilma soati, kirish tekshiruvingiz, parolingiz va odamlar soni |
+| **Seyf** | Maʼlumotlar formati, bu qurilma chegarasiga nisbatan seyf hajmi (kamida 48 MB), saqlash, zaxira nusxa qanchalik eskiligi, oldingi nusxalar, audit jurnalining butunligi va imzolari, qurilma soati, kirish tekshiruvingiz, parolingiz va odamlar soni; shaxsiy kalitlar bilan esa bu brauzer tekshiradigan asoschi kaliti, odamlarning imzolangan roʻyxati, kalitlaringiz himoyasi, seyf kaliti va seyf kaliti oʻzgarishidan oldin olingan zaxira nusxa |
 | **Valyuta kurslari** | Kurslar joriymi va nazorat yigʻindisiga mosmi |
 | **Xavfsizlik** | Kontent xavfsizlik siyosati, boshqa sahifa ichida ishlamaslik va manzil |
 
-**Faqat administrator uchun** deb belgilangan qatorlar faqat administratorlarga koʻrinadi: audit jurnali qatorlari, oldingi nusxalar, odamlar soni va **Hisoblar tartibi** — bu qator kimdir kira olmasa, kod muddati tugagan boʻlsa yoki eski parol nusxasi qolgan boʻlsa ogohlantiradi; unda faqat sonlar koʻrsatiladi. Administratorlar zaxira nusxa sanalari va soat belgilarini ham koʻradi. Boshqalar brauzer va oʻz hisobi haqidagi qisqaroq roʻyxatni koʻradi; zaxira nusxa qatori ularga faqat zaxira nusxalarni administrator olishini eslatadi.
+**Faqat administrator uchun** deb belgilangan qatorlar faqat administratorlarga koʻrinadi: audit jurnali qatorlari, oldingi nusxalar, odamlar soni, 2.0 versiyasidan oldin yaratilgan seyfni oʻtkazish va **Hisoblar tartibi** — bu qator kimdir kira olmasa, kod muddati tugagan boʻlsa yoki eski parol nusxasi qolgan boʻlsa ogohlantiradi; unda faqat sonlar koʻrsatiladi. Administratorlar zaxira nusxa sanalari va soat belgilarini ham koʻradi. Boshqalar brauzer va oʻz hisobi haqidagi qisqaroq roʻyxatni koʻradi; zaxira nusxa qatori ularga faqat zaxira nusxalarni administrator olishini eslatadi.
 
 ![Kuzatuvchi koʻradigan Holat tekshiruvi](../images/uz-Latn/viewer-health.webp)
 
@@ -706,15 +760,50 @@ Jaybining yangi versiyasi chiqqanda **Jaybining yangi versiyasi chiqdi.** degan 
 
 Foydalanayotgan versiyangiz menyuning pastida, kirish ekranida va Holat tekshiruvida koʻrsatiladi. Muammo haqida xabar berganda uni aytib oʻting.
 
+<a id="before-2"></a>
+## 2.0 versiyasidan oldin yaratilgan seyflar
+
+Jaybi 2.0 dan oldin yaratilgan seyf yangilanishdan keyin avvalgidek ishlaydi: hamma avvalgidek kiradi va administrator uni shaxsiy kalitlarga oʻtkazmaguncha hech narsa oʻzgarmaydi. Ungacha:
+
+- Solishtiriladigan asoschi kaliti yoʻq va audit jurnali yozuvlari imzolanmaydi; jurnal hamon yozuvma-yozuv bogʻlangan.
+- Administrator hamon odamni vaqtinchalik parol bilan qoʻsha oladi, parol yangilash kodi esa eski parolni ishlab turgan holda qoldirishi mumkin ([quyida](#temporary-password)).
+- Odamni toʻxtatish seyf kalitini oʻzgartirmaydi: avval saqlangan seyf nusxasi uning eski paroli bilan ochilaveradi.
+- Parol yangilangandan keyin shaxsiy seyflar tiklash kodi bilan ham, oldingi parol bilan ham ochiladi.
+
+<a id="upgrade-offer"></a>
+### Shaxsiy kalitlarga oʻtish
+
+Administrator bunday seyfga kirganda Jaybi **Shaxsiy kalitlarga oʻtish**ni taklif qiladi. Avval uni oʻqing: siz seyf asoschisiga aylanasiz, qolgan hammaga esa sizdan yangi taklif kodi kerak boʻladi, chunki ularning eski parollari ishlamay qoladi. Yozuvlar, tarix va shaxsiy seyflar oʻz holicha qoladi.
+
+![Yangi kod kerak boʻladigan odamlar soni bilan shaxsiy kalitlarga oʻtish taklifi](../images/uz-Latn/upgrade-offer.webp)
+
+1. **Parolingiz**ni kiriting va **Hozir oʻtish** tugmasini bosing. Yoki **Hozir emas** tugmasini bosing: seyf oʻz holicha qoladi va Jaybi keyingi kirishingizda yana soʻraydi.
+2. [Asoschi kalitini](#founder-key) yozib qoʻying.
+3. **Odamlar** sahifasida qolgan hammada **Yangi taklif kerak** deb koʻrinadi. Har biriga yangi kod bering: uning sahifasida **Yangi taklif kodi berish** tugmasini bosing. Ularning yozuvlari va tarixi saqlanadi. Kirish tekshiruvi oʻchiriladi, shaxsiy seyflari esa oldingi parol yoki tiklash kodi bilan yana ochiladi.
+
+**Hozir oʻtish** tugmasini birinchi bosgan administrator asoschi boʻladi. Eski seyf saqlangan boshqa qurilmalar oʻz nusxasini eski parollar bilan ochishda davom etadi; u endi oʻzgarmaydi, shuning uchun hammani yangi zaxira nusxa orqali yangilangan seyfga oʻtkazing.
+
+<a id="undo-upgrade"></a>
+### Orqaga qaytish
+
+Oʻtish seyfni bu brauzerda avvalgi holicha saqlab qoʻyadi: **Zaxira nusxa → Bu brauzerdagi oldingi nusxalar → Yangilanishdan oldin**. Uni tiklash barcha eski parollarni, shundan beri olib tashlangan odamlarnikini ham qaytaradi, oʻtishdan keyin qilingan hamma narsa esa yoʻqoladi.
+
+<a id="temporary-password"></a>
+### Oʻtishdan oldin vaqtinchalik parollar va parol yangilash kodlari
+
+2.0 versiyasidan oldin yaratilgan seyfda **Foydalanuvchi qoʻshish** **Vaqtinchalik parol oʻrnatish**ni ham taklif qiladi: pochta, xohlasangiz ism, vaqtinchalik parol, rol va guruhni kiriting va **Foydalanuvchi qoʻshish** tugmasini bosing. Odam birinchi kirishda parolni almashtirishi kerak. Taklif kodi xavfsizroq, chunki unda parolni faqat uning oʻzi biladi. U yerda **Parol yangilash kodini berish** **Uning joriy parolini hoziroq bekor qilish** kerakmi-yoʻqmi, deb ham soʻraydi (parolni boshqa kimdir bilishi mumkin boʻlsa, shuni tanlang), **Oʻrniga vaqtinchalik parol oʻrnatish** esa parolni yangilashning eskiroq usuli.
+
 <a id="security"></a>
 ## Xavfsizlik boʻyicha maslahatlar
 
-- Boshqa hech qayerda ishlatmaydigan uzun parol tanlang. Seyf nusxalarini faqat u himoya qiladi.
+- Boshqa hech qayerda ishlatmaydigan uzun parol tanlang. Seyfning har bir nusxasidagi kalitlaringizni aynan u himoya qiladi.
 - Umumiy qurilmadan ketishdan oldin seyfni qulflang, shaxsiy seyflaringiz bilan ishingiz tugagach, ularni ham qulflang.
 - Kirish tekshiruvini yoqing va tiklash kodlarini bu qurilmadan uzoqda saqlang.
 - Administratorlar: zaxira nusxani kamida haftada bir marta yuklab oling va uni bu qurilmadan tashqarida saqlang.
 - Bu saytning brauzer maʼlumotlarini tozalamang: bu seyfni brauzerdan oʻchirib yuboradi.
 - Bir martalik kodlardan tezroq foydalaning va kodingizni boshqa kimdir koʻrgan boʻlishi mumkin boʻlsa, administratorga ayting.
+- Yangi brauzerda birinchi marta kirganingizda asoschi kalitini asoschingiz bilan solishtiring.
+- Administratorlar: kimdir ketganda yangi zaxira nusxa yuklab oling va u yeta oladigan eskilarini oʻchiring.
 - Shaxsiy seyflaringiz uchun tiklash kodini yarating va uni oflayn saqlang.
 - Manzilni doim tekshiring: rasmiy manzil — `jaybi.uz`. Jaybi boshqa sayt sahifasi ichida ishlashni rad etadi.
 - Karta PIN-kodlarini hech qachon saqlamang. CVV kodni faqat juda zarur boʻlsa saqlang.
@@ -729,7 +818,12 @@ Foydalanayotgan versiyangiz menyuning pastida, kirish ekranida va Holat tekshiru
 | Nimani koʻryapsiz | Nima qilish kerak |
 | --- | --- |
 | Seyfingiz boʻlsa ham **Seyf yarating** ekrani chiqyapti | Siz boshqa brauzer, profil, maxfiy oyna yoki manzildasiz. Jaybini seyfni yaratgan joyingizda oching yoki zaxira nusxani import qiling. Yangi seyf yaratmang. |
-| «Pochta yoki parol notoʻgʻri» | Ikkalasini ham tekshiring. Bir necha urinishdan keyin teskari sanoq tugashini kuting. Parolni unutgan boʻlsangiz, administratordan parol yangilash kodini soʻrang. |
+| «Pochta yoki parol notoʻgʻri» | Ikkalasini ham tekshiring. Bir necha urinishdan keyin teskari sanoq tugashini kuting. Parolni unutgan boʻlsangiz, administratordan yangi kod soʻrang. |
+| Seyf ochilishidan oldin **Asoschi kalitini solishtiring** | Bu brauzer seyfni avval ochmagan. Kalitni asoschingiz bilan solishtiring, soʻng davom eting. |
+| «Bu seyf asoschisining kaliti bu brauzer avval koʻrgan kalitga mos kelmaydi» | Kirmang. Kalitni administrator bilan solishtiring; [Jaybi seyfni ochmasa](#blocked) boʻlimiga qarang. |
+| «Siz endi bu seyf aʼzosi emassiz» | Administratordan yangi taklif kodini soʻrang. |
+| «Bu brauzer seyfga kerakli kalitlardan (X25519 va Ed25519) foydalana olmaydi» | Brauzerni yangilang yoki Chrome, Edge, Firefox yoki Safarining joriy versiyasidan foydalaning. |
+| «Parolni tekshirish uchun xotira yetmadi» | Boshqa varaqlarni yopib, qayta urinib koʻring. |
 | **Urinishlar juda koʻp** | Teskari sanoq tugashini kuting; sahifani yangilash yordam bermaydi. |
 | **Saqlab boʻlmadi** | Brauzer maʼlumotlarni saqlashni rad etdi. Varaqni ochiq qoldiring, diskda joy boʻshating, soʻng Holat tekshiruvini oʻtkazing. |
 | **Saqlanmadi: boshqa joyda oʻzgartirilgan** | Seyf boshqa varaqda ochiq. Qulflang, qayta kiring va oxirgi oʻzgarishingizni takrorlang. |
@@ -754,7 +848,11 @@ Eski yoki xato yozilgan havola **Sahifa topilmadi** ekranini koʻrsatadi. **Bosh
 
 **Administrator shaxsiy seyflarimni oʻqiy oladimi?** Yoʻq. Seyflar faqat parolingiz yoki tiklash kodingiz ochadigan kalit bilan shifrlangan.
 
-**Parolimni unutdim. Uni kimdir tiklay oladimi?** Uni hech kim koʻra olmaydi, lekin administrator sizga parol yangilash kodini bera oladi. Agar yagona administrator parolini unutsa, uni hech kim yangilab bera olmaydi, shuning uchun ikkita administrator boʻlgani maʼqul.
+**Parolimni unutdim. Uni kimdir tiklay oladimi?** Uni hech kim koʻra ham, tiklay ham olmaydi, lekin administrator sizga yangi taklif kodi bera oladi: siz yangi parol tanlaysiz va yangi kalitlar olasiz, shaxsiy seyflaringizni esa keyin tiklash kodi ochadi. Agar asoschi yagona administrator boʻlsa va parolini unutsa, endi hech kim odamlarni qoʻsha ham, chiqara ham olmaydi, shuning uchun ikkita administrator boʻlgani maʼqul.
+
+**Kimdir ketganda eski zaxira nusxalar bilan nima boʻladi?** Ular yaratilgan paytda seyfda boʻlgan har bir kishiga, jumladan ketgan odamga ham ochiq qoladi. Yangi seyf kaliti faqat undan keyin saqlangan narsalarni himoya qiladi. Yangi zaxira nusxa yuklab oling va u yeta oladigan eski nusxalarni oʻchiring.
+
+**Kuzatuvchi boshqa guruhlarni koʻra oladimi?** Jaybida — yoʻq: rollar va guruhlar har kim ilovada nimani koʻrishi va oʻzgartirishini belgilaydi. Lekin seyf kaliti hamma aʼzolarda bir xil, shuning uchun guruhlar daftarni tartibga soladi, uni dasturchi vositalari bilan seyfni titkilagan odamdan yashirmaydi.
 
 **Jaybi maʼlumotlarimni biror joyga yuboradimi?** Yoʻq. Ilovaning oʻzidan tashqari Jaybi faqat ochiq valyuta kurslarini va eʼlon qilingan versiya raqamini yuklaydi.
 
@@ -769,14 +867,19 @@ Eski yoki xato yozilgan havola **Sahifa topilmadi** ekranini koʻrsatadi. **Bosh
 
 - **Seyf**: daftar, odamlar va ularning shaxsiy seyflari saqlanadigan, bitta brauzerda turadigan shifrlangan fayl.
 - **Asosiy parol**: seyf yaratilganda tanlangan birinchi administrator paroli.
+- **Asoschi**: seyfni yaratgan yoki uni shaxsiy kalitlarga oʻtkazgan administrator.
+- **Asoschi kaliti**: seyfingizni boshqa har qanday seyfdan ajratib turadigan qisqa kod; yangi brauzerda birinchi marta kirganda solishtiriladi.
+- **Shaxsiy kalitlar**: har bir kishining oʻz paroli bilan muhrlangan oʻz kalitlari (2.0 versiyasidan boshlab).
+- **Seyf kaliti**: seyfni shifrlaydigan kalit. Uning nusxasi har bir aʼzoda bor va u boʻlgan kishi ketganda oʻzgaradi.
+- **Odamlarning imzolangan roʻyxati**: seyfga kim qaysi rol, guruh va kalitlar bilan tegishli ekani; uni administrator imzolaydi.
 - **Guruh**: seyfning oʻz yozuvlari va odamlari bor qismi.
 - **Yozuv**: daftardagi bitta daromad yoki xarajat.
 - **Seyf valyutasi**: jami summalar va diagrammalar hisoblanadigan valyuta.
-- **Bir martalik kod**: administrator beradigan, bir marta ishlaydigan va muddati tugaydigan taklif yoki parol yangilash kodi.
+- **Bir martalik kod**: administrator beradigan, bir marta ishlaydigan va muddati tugaydigan taklif yoki parol yangilash kodi. Shaxsiy kalitlar bilan parol yangilash kodi — bu yangi taklif kodi.
 - **Kirish tekshiruvi**: paroldan keyin soʻraladigan, autentifikator ilovasidagi 6 xonali kod.
 - **Tiklash kodlari**: autentifikatorni yoʻqotsangiz, uning oʻrnini bosadigan oʻnta bir martalik kod.
 - **Shaxsiy seyf**: kartalar, obunalar va qaydlar uchun oʻzingizning shifrlangan joyingiz.
 - **Tiklash kodi (seyflar)**: shaxsiy seyflaringizning zaxira kaliti.
 - **Zaxira nusxa**: butun seyf saqlangan shifrlangan `.moliya` fayli.
-- **Audit jurnali**: kim nima va qachon qilganini koʻrsatadigan, administratorga moʻljallangan oʻzaro bogʻlangan roʻyxat.
+- **Audit jurnali**: kim nima va qachon qilganini koʻrsatadigan, administratorga moʻljallangan oʻzaro bogʻlangan roʻyxat; shaxsiy kalitli seyfda har bir yozuvni uni kiritgan kishi imzolaydi.
 - **Holat tekshiruvi**: brauzer, saqlash joyi, versiya, seyf va kurslarni tekshiradigan sahifa.
