@@ -1,6 +1,8 @@
 import { auditSigBody, verifyAuditEntry, type AuditSig } from '../../crypto/audit-sign'
 import { bindingRedeems, readKeyBinding, type KeyBinding, type RosterDoc, type RosterRole } from '../../crypto/roster'
-import { GENESIS_HASH, auditHash, compareAuditHead, readAuditRows, type AuditRow } from '../../db/audit-chain'
+import { bytesToHex } from '../../crypto/encoding'
+import { importSigPub } from '../../crypto/sign'
+import { GENESIS_HASH, auditHashText, compareAuditHead, readAuditRows, type AuditRow } from '../../db/audit-chain'
 import type { SqlDatabase } from '../../db/sqlite'
 import { ForbiddenError } from '../../domain/errors'
 import type { OpenVault } from '../../domain/types'
@@ -76,9 +78,43 @@ type SignerKey = { sigPub: string; role: RosterRole }
 const verifiedOnce = new Set<string>()
 const VERIFIED_ONCE_LIMIT = 200_000
 const BATCH = 64
+/** A check gives the page back this often, so a long log does not freeze it (design 7: no Worker is needed for it). */
+const SLICE_MS = 8
 
-async function inBatches<T>(items: readonly T[], work: (item: T) => Promise<void>): Promise<void> {
-  for (let index = 0; index < items.length; index += BATCH) await Promise.all(items.slice(index, index + BATCH).map(work))
+/** For the bench page and tests: the next check verifies every signature again. */
+export function forgetVerifiedSignatures(): void {
+  verifiedOnce.clear()
+}
+
+function yieldToPage(): Promise<void> {
+  const scheduler = (globalThis as { scheduler?: { yield?: () => Promise<void> } }).scheduler
+  return scheduler?.yield ? scheduler.yield() : new Promise((resolve) => setTimeout(resolve, 0))
+}
+
+/** Runs `work` on every item, `BATCH` at a time, giving the page back whenever a slice of time is used up. */
+async function inSlices<T>(items: readonly T[], work: (item: T) => Promise<void>): Promise<void> {
+  let slice = performance.now()
+  for (let index = 0; index < items.length; index += BATCH) {
+    await Promise.all(items.slice(index, index + BATCH).map(work))
+    if (performance.now() - slice >= SLICE_MS) {
+      await yieldToPage()
+      slice = performance.now()
+    }
+  }
+}
+
+/** Each entry's chain hash recomputed, with Web Crypto rather than the synchronous hash the writes use. */
+async function chainHashes(rows: readonly AuditRow[]): Promise<string[]> {
+  const encoder = new TextEncoder()
+  const hashes = new Array<string>(rows.length)
+  await inSlices(
+    rows.map((row, index) => ({ row, index })),
+    async ({ row, index }) => {
+      const { hash: _stored, ...link } = row
+      hashes[index] = bytesToHex(new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(auditHashText(link)))))
+    },
+  )
+  return hashes
 }
 
 /** The key and role `actor` signs with under roster version `version`, or null when they have none there. */
@@ -124,13 +160,13 @@ export async function checkAuditSignatures(input: AuditCheckInput): Promise<Audi
   let previous = from?.hash ?? GENESIS_HASH
   let expected = (from?.seq ?? 0) + 1
   const linked = new Set<number>()
-  for (const row of rows) {
-    const { hash, ...link } = row
-    if (row.seq !== expected || row.prevHash !== previous || auditHash(link) !== hash) flag(row.seq, 'CHAIN')
+  const recomputed = await chainHashes(rows)
+  rows.forEach((row, index) => {
+    if (row.seq !== expected || row.prevHash !== previous || recomputed[index] !== row.hash) flag(row.seq, 'CHAIN')
     else linked.add(row.seq)
-    previous = hash
+    previous = row.hash
     expected = row.seq + 1
-  }
+  })
 
   const present = new Set(rows.map((row) => row.seq))
   for (const sig of input.sigs) if (!present.has(sig.seq)) flag(sig.seq, 'ORPHAN')
@@ -166,7 +202,16 @@ export async function checkAuditSignatures(input: AuditCheckInput): Promise<Audi
     }
     return pending
   }
-  await inBatches(signed, async ({ row, sig }) => {
+  const imported = new Map<string, Promise<CryptoKey | null>>()
+  const importedKey = (sigPub: string) => {
+    let pending = imported.get(sigPub)
+    if (!pending) {
+      pending = importSigPub(sigPub).catch(() => null)
+      imported.set(sigPub, pending)
+    }
+    return pending
+  }
+  await inSlices(signed, async ({ row, sig }) => {
     const key = await keyOf(sig.actor, sig.rosterVersion)
     if (!key) {
       flag(row.seq, 'SIGNER')
@@ -176,7 +221,8 @@ export async function checkAuditSignatures(input: AuditCheckInput): Promise<Audi
     const memo = linked.has(row.seq) ? `${vaultId}|${row.seq}|${row.hash}|${sig.actor}|${sig.rosterVersion}|${sig.epoch}|${bridge ? 1 : 0}|${key.sigPub}|${sig.sig}` : null
     if (memo === null || !verifiedOnce.has(memo)) {
       const body = auditSigBody(vaultId, row, { actor: sig.actor, rosterVersion: sig.rosterVersion, epoch: sig.epoch }, bridge)
-      if (!(await verifyAuditEntry(body, sig.sig, key.sigPub))) {
+      const publicKey = await importedKey(key.sigPub)
+      if (!publicKey || !(await verifyAuditEntry(body, sig.sig, publicKey))) {
         flag(row.seq, 'SIGNATURE')
         return
       }

@@ -8,6 +8,9 @@ import { exportPub } from '../../src/crypto/sign'
 import { SUITE } from '../../src/crypto/suite'
 import { openChunkedBody, sealChunkedBody } from '../../src/db/chunks'
 import { SqlDatabase } from '../../src/db/sqlite'
+import { auditSigBody, signAuditEntry, type AuditSig } from '../../src/crypto/audit-sign'
+import { GENESIS_HASH, auditHash, type AuditRow } from '../../src/db/audit-chain'
+import { checkAuditSignatures, forgetVerifiedSignatures, type AuditCheckInput } from '../../src/services/v2/audit-check'
 
 /**
  * The bench page of docs/design/v2.0-key-redesign.md, section 7: the per-person-keys operations, timed on the device
@@ -125,7 +128,53 @@ async function rosterChain(versions: number, members: number): Promise<RosterDoc
   return docs
 }
 
-async function bench(settings: { mib: number; count: number; members: number }, report: (result: Result) => void, say: (text: string) => void): Promise<void> {
+/** A log of `count` entries by the founder of a one-version roster, unsigned, as a vault with per-person keys holds it. */
+async function auditLog(count: number): Promise<{ input: AuditCheckInput; founder: IdentityKeys }> {
+  const founder = await identity()
+  const founderId = crypto.randomUUID()
+  const vaultId = crypto.randomUUID()
+  const at = new Date().toISOString()
+  const members: RosterMember[] = [{ id: founderId, email: 'founder@bench.test', role: 'Admin', group: null, status: 'active', encPub: founder.encPub, sigPub: founder.sigPub }]
+  const roster = await signRoster({ type: 'roster', suite: SUITE, vaultId, version: 1, prev: null, epoch: 1, issuedAt: at, issuedBy: founderId, members }, founder.sigPriv)
+  const rows: AuditRow[] = []
+  let prevHash = GENESIS_HASH
+  for (let seq = 1; seq <= count; seq += 1) {
+    const details = JSON.stringify({ type: 'EXPENSE', amountMinor: 1999 + seq, currency: 'USD', date: '2026-10-20', categoryId: 3, groupId: 1, notes: 'bench entry' })
+    const link = { seq, id: crypto.randomUUID(), actorId: founderId, action: 'TRANSACTION_CREATED', entityType: 'transaction', entityId: crypto.randomUUID(), details, createdAt: at, prevHash }
+    prevHash = auditHash(link)
+    rows.push({ ...link, hash: prevHash })
+  }
+  return { input: { vaultId, rows, sigs: [], firstSigned: 1, roster: [roster], bindings: [], redeemed: [] }, founder }
+}
+
+async function signLog(input: AuditCheckInput, sigPriv: CryptoKey): Promise<AuditSig[]> {
+  const signer = { actor: input.roster[0].issuedBy, rosterVersion: 1, epoch: 1 }
+  return Promise.all(input.rows.map(async (row) => ({ seq: row.seq, ...signer, sig: await signAuditEntry(auditSigBody(input.vaultId, row, signer, row.seq === 1), sigPriv) })))
+}
+
+/**
+ * The longest task the main thread ran while `task` ran, as the browser reports long tasks (50 ms or more; 0 when
+ * there was none), so input and rendering were never held up longer. Null where the browser does not report them.
+ */
+async function longestTask(task: () => Promise<unknown>): Promise<number | null> {
+  if (!PerformanceObserver.supportedEntryTypes?.includes('longtask')) {
+    await task()
+    return null
+  }
+  let longest = 0
+  const observer = new PerformanceObserver((list) => {
+    for (const entry of list.getEntries()) longest = Math.max(longest, entry.duration)
+  })
+  observer.observe({ type: 'longtask' })
+  await task()
+  // Long tasks are delivered after they end.
+  await new Promise((resolve) => setTimeout(resolve, 100))
+  for (const entry of observer.takeRecords()) longest = Math.max(longest, entry.duration)
+  observer.disconnect()
+  return longest
+}
+
+async function bench(settings: { mib: number; count: number; members: number; entries: number }, report: (result: Result) => void, say: (text: string) => void): Promise<void> {
   say('Argon2id: starting the Worker…')
   const salt = randomBytes(16)
   const cold = await timed(() => argon2idBits(PASSWORD, salt, ARGON2_DEFAULT))
@@ -174,6 +223,38 @@ async function bench(settings: { mib: number; count: number; members: number }, 
       if ('problem' in chain) throw new Error(`Bench roster does not verify: ${chain.problem}`)
     }),
     notes: `${50 + 2 * settings.members} signatures`,
+  })
+
+  say(`Audit log: ${settings.entries.toLocaleString('en')} entries…`)
+  const log = await auditLog(settings.entries)
+  let sigs: AuditSig[] = []
+  report({
+    name: `Sign ${settings.entries.toLocaleString('en')} audit entries`,
+    ms: await runs(settings.count, async () => {
+      sigs = await signLog(log.input, log.founder.sigPriv)
+    }),
+    notes: 'What saves sign over time; a save signs only the entries since the one before',
+  })
+  const signedInput = { ...log.input, sigs }
+  const check = async () => {
+    const result = await checkAuditSignatures(signedInput)
+    if (result.problems.size > 0 || result.verified !== settings.entries) throw new Error('Bench audit log does not verify')
+  }
+  report({
+    name: `Check every signature of ${settings.entries.toLocaleString('en')} entries`,
+    ms: await runs(settings.count, async () => {
+      forgetVerifiedSignatures()
+      await check()
+    }),
+    notes: 'A first sign-in in a browser, or "Check every entry"; later sign-ins check only what is new',
+  })
+  report({ name: 'Check them again in the same session', ms: await runs(settings.count, check), notes: 'Signatures found valid once are not verified again' })
+  forgetVerifiedSignatures()
+  const longest = await longestTask(check)
+  report({
+    name: 'Longest task during that check',
+    ms: [longest ?? 0],
+    notes: longest === null ? 'This browser does not report long tasks' : 'Long tasks are 50 ms or more, so 0 means none; the check gives the page back every few milliseconds',
   })
 
   say(`Body: building a ${settings.mib} MiB database…`)
@@ -232,6 +313,7 @@ function start(): void {
       mib: Math.min(512, Math.max(1, Number(element<HTMLInputElement>('size').value) || 20)),
       count: Math.min(20, Math.max(1, Number(element<HTMLInputElement>('runs').value) || 3)),
       members: Math.min(256, Math.max(1, Number(element<HTMLInputElement>('members').value) || 20)),
+      entries: Math.min(100_000, Math.max(1, Number(element<HTMLInputElement>('entries').value) || 10_000)),
     }
     const results: Result[] = []
     rows.replaceChildren()

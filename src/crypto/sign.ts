@@ -83,9 +83,20 @@ export async function signPayload(label: string, payload: unknown, sigPriv: Cryp
 
 /** False for any malformed key, signature or payload; never throws. */
 export async function verifyPayload(label: string, payload: unknown, signature: unknown, sigPub: unknown): Promise<boolean> {
-  if (!isBase64(signature, 64) || !isBase64(sigPub, 32)) return false
+  if (!isBase64(sigPub, 32)) return false
+  let key: CryptoKey
   try {
-    const key = await importSigPub(sigPub)
+    key = await importSigPub(sigPub)
+  } catch {
+    return false
+  }
+  return verifyPayloadWith(label, payload, signature, key)
+}
+
+/** {@link verifyPayload} with a key already imported, for checking many signatures by the same people. */
+export async function verifyPayloadWith(label: string, payload: unknown, signature: unknown, key: CryptoKey): Promise<boolean> {
+  if (!isBase64(signature, 64)) return false
+  try {
     return await crypto.subtle.verify({ name: 'Ed25519' }, key, copyToBuffer(base64ToBytes(signature)), copyToBuffer(signedBytes(label, payload)))
   } catch {
     return false

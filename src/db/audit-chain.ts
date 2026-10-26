@@ -15,20 +15,13 @@ export type AuditLink = {
   prevHash: string
 }
 
+/** What an entry's chain hash is the SHA-256 of, as UTF-8. */
+export function auditHashText(link: AuditLink): string {
+  return JSON.stringify([link.seq, link.id, link.actorId, link.action, link.entityType, link.entityId, link.details, link.createdAt, link.prevHash])
+}
+
 export function auditHash(link: AuditLink): string {
-  return sha256Hex(
-    JSON.stringify([
-      link.seq,
-      link.id,
-      link.actorId,
-      link.action,
-      link.entityType,
-      link.entityId,
-      link.details,
-      link.createdAt,
-      link.prevHash,
-    ]),
-  )
+  return sha256Hex(auditHashText(link))
 }
 
 function text(value: SqlValue): string | null {

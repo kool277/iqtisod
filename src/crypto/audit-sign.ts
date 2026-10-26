@@ -1,5 +1,5 @@
 import type { AuditRow } from '../db/audit-chain'
-import { LABELS, signPayload, verifyPayload } from './sign'
+import { LABELS, signPayload, verifyPayloadWith } from './sign'
 import { SUITE, type Suite } from './suite'
 
 /**
@@ -52,6 +52,6 @@ export function signAuditEntry(body: AuditSigBody, sigPriv: CryptoKey): Promise<
 }
 
 /** False for any mismatch or malformed input; never throws. */
-export function verifyAuditEntry(body: AuditSigBody, signature: unknown, sigPub: unknown): Promise<boolean> {
-  return verifyPayload(LABELS.audit, body, signature, sigPub)
+export function verifyAuditEntry(body: AuditSigBody, signature: unknown, key: CryptoKey): Promise<boolean> {
+  return verifyPayloadWith(LABELS.audit, body, signature, key)
 }
