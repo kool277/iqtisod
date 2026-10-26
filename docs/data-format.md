@@ -33,7 +33,7 @@ Three formats are versioned independently of the app version. A change to one do
 
 1.6.0 changes no version number. People details live in `settings` rows (see [People](#people-user_profile)) that earlier releases ignore, so 1.5.0 and earlier open a 1.6.0 vault unchanged; a suspended or former member has no wrap there either.
 
-2.0 (unreleased; the alpha and beta are built only with `VITE_V2_KEYS=1`) adds a second track beside these: record 3, backup 3 and schema 5 for vaults with per-person keys, described in [Record version 3](#record-version-3-per-person-keys-20-draft). It still reads and writes record 2 / schema 4 for every other vault, so 1.x opens a vault that 2.0 has not upgraded.
+2.0 (unreleased; the alpha, beta and release candidate are built only with `VITE_V2_KEYS=1`) adds a second track beside these: record 3, backup 3 and schema 5 for vaults with per-person keys, described in [Record version 3](#record-version-3-per-person-keys-20-draft). It still reads and writes record 2 / schema 4 for every other vault, so 1.x opens a vault that 2.0 has not upgraded.
 
 The constants live in `src/db/versions.ts`. The KDF parameters live in `src/crypto/crypto.service.ts`.
 
@@ -204,7 +204,7 @@ Writes are compare-and-swap: a save only succeeds if `updatedAt` in IndexedDB is
 
 ## Record version 3: per-person keys (2.0, draft)
 
-**Status: draft.** Implemented in the 2.0 alpha, not released. It becomes part of [the guarantee](#the-guarantee) with the 2.0.0 release and may change until then. The reasons behind each choice are in [the 2.0 design](design/v2.0-key-redesign.md).
+**Status: draft.** Implemented in the 2.0 alpha, beta and release candidate, not released. It becomes part of [the guarantee](#the-guarantee) with the 2.0.0 release and may change until then. The reasons behind each choice are in [the 2.0 design](design/v2.0-key-redesign.md).
 
 A 2.0 app writes record 3, backup 3 and schema 5 only for vaults with per-person keys: a vault set up in a build with per-person keys, or a 1.x vault an admin upgraded (the founder upgrade). Every person has their own key pairs, sealed under their own password; the vault key (DEK) is wrapped to each person's public key; the list of people is a hash-chained document signed by an admin; and the record is signed by whoever saved it. 1.x refuses record and backup 3 with `FORMAT_TOO_NEW` and leaves them untouched.
 
@@ -261,12 +261,13 @@ Signed bytes are the label as UTF-8, one zero byte, and the payload in the JCS f
 | Record | `moliya/v2/header` | `version`, `appVersion`, `schemaVersion`, `createdAt`, `updatedAt`, `cipher`, `audit` (when present), `suite`, `vaultId`, `epoch`, `founder`, `roster`, and `body` without `ciphertext` (with `seal`; chunks as IVs). Not `sig`, `identities`, `dekWraps`, `grants`, `format` or `exportedAt`. `sig.by` names the signer, who must be active in the roster. |
 | Roster version | `moliya/v2/roster` | `{ type: "roster", suite, vaultId, version, prev, epoch, issuedAt, issuedBy, members }`. `prev` is null in version 1 and the hash of the version before otherwise; a version's hash is `hex(SHA-256(JCS(version with its sig)))`. |
 | Key binding | `moliya/v2/binding` | `{ type: "binding", suite, vaultId, memberId, rosterVersion, inviteSigPub, encPub, sigPub, at }`, signed twice: `inviteSig` by the invite key, `memberSig` by the new `sigPub`. |
+| Audit entry (from 2.0.0-rc.1) | `moliya/v2/audit` | `{ type: "audit", suite, vaultId, seq, prev, hash, rosterVersion, epoch, at, actor, action }`, plus `bridge: true` on the first signed entry of the vault; see [Signed audit entries](#signed-audit-entries). |
 
 A roster member is `{ id, email, role, group, status }` with `status` `active` (plus `encPub`, `sigPub`, and in the version that admits them a `proof`: the `rosterVersion`, `at`, `inviteSig` and `memberSig` of their binding), `invited` (plus `inviteSigPub`, `inviteExpiresAt`) or `removed` (with the keys they had, if any). Roles are `Admin`, `Manager`, `Viewer`; `group` is a `groups.id` or null.
 
 ### Schema version 5
 
-Migration 5 adds `roster_versions (version, hash, doc)` (append-only, enforced by triggers), `key_bindings (member_id, doc)` and `audit_sigs` (empty until signed audit entries arrive). Every document is stored as its JCS text. `users.password_hash` and `users.salt` are empty for everyone. A person's private safes and sign-in check are keyed from their identity (see [Keys](#keys)); `settings` gains `last_backup_epoch`.
+Migration 5 adds `roster_versions (version, hash, doc)` (append-only, enforced by triggers), `key_bindings (member_id, doc)` and `audit_sigs (seq, actor, roster_version, epoch, sig)` (empty in a vault saved only by a 2.0 build before 2.0.0-rc.1; see [Signed audit entries](#signed-audit-entries)). Every document is stored as its JCS text. `users.password_hash` and `users.salt` are empty for everyone. A person's private safes and sign-in check are keyed from their identity (see [Keys](#keys)); `settings` gains `last_backup_epoch`.
 
 ### Opening a version 3 record
 
@@ -279,12 +280,39 @@ A reader that wants the same guarantees as the app checks, in this order, before
 5. Everyone active has a `users` row with the same email, role and group, not suspended or former.
 6. The person opening is active with the keys their identity holds, and `epoch` is the same in the record, the latest roster version and their DEK wrap.
 7. The roster version is not older than the newest this device saw.
+8. The audit log's signatures check out ([Signed audit entries](#signed-audit-entries)). This step warns and never refuses the vault.
 
 The body is opened (seal, then chunks) before steps 2–6, because the roster lives inside it; the seal and the chunk tags authenticate it first.
 
-**Per browser.** Local storage holds, per vault id, the pinned founder key (`moliya.v2.founder.<vaultId>`, base64 `sigPub`), the newest roster version seen (`moliya.v2.rosterSeen.<vaultId>`, decimal), and the newest signed roster versions seen (`moliya.v2.rosterTail.<vaultId>`, a JSON array of up to 20 roster versions as their JCS text, oldest first). A copy is *behind* what this browser saw when its roster is older than `rosterSeen`, or when any kept version has another hash than the copy's version with the same number (a fork, however high the copy's own numbers go). Step 7 refuses a copy that is behind; an admin may open it anyway, which resets both marks to it.
+**Per browser.** Local storage holds, per vault id, the pinned founder key (`moliya.v2.founder.<vaultId>`, base64 `sigPub`), the newest roster version seen (`moliya.v2.rosterSeen.<vaultId>`, decimal), the newest signed roster versions seen (`moliya.v2.rosterTail.<vaultId>`, a JSON array of up to 20 roster versions as their JCS text, oldest first), and how far the audit log's signatures were checked (`moliya.v2.auditSeen.<vaultId>`, see [Signed audit entries](#signed-audit-entries)). A copy is *behind* what this browser saw when its roster is older than `rosterSeen`, or when any kept version has another hash than the copy's version with the same number (a fork, however high the copy's own numbers go). Step 7 refuses a copy that is behind; an admin may open it anyway, which resets both marks to it.
 
 The app restores a backup with per-person keys over the vault only after the checks above pass with the restoring admin's password. A backup that is behind goes in only when that admin chooses so. The kept versions after the newest one the backup shares with them must reach `rosterSeen` and verify as a continuation of the backup's own chain; they then name everyone whose access in the backup has ended since: anyone holding keys there who is no longer active with the same keys (removed, or given new keys), and any open invite there that is neither still open nor redeemed. In the restored copy the first are suspended again (making a new DEK) and the invites revoked; when the kept versions cannot tell, the admin is told those people may open the copy. The restored copy is then sealed again and becomes the version this browser expects. A 1.x backup over a vault with per-person keys also asks first, since every password it holds works again.
+
+### Signed audit entries
+
+From 2.0.0-rc.1 every audit entry in a vault with per-person keys is signed by the person who made it. The entry is the `audit_logs` row with its chain hash, exactly as in [Audit chain](#audit-chain); its signature is a row of `audit_sigs`:
+
+| Column | Meaning |
+| --- | --- |
+| `seq` | The entry it signs. |
+| `actor` | The signer's member id: the entry's `actor_id`, or for an entry without one (`INVITE_EXPIRED`) whoever's session wrote it. |
+| `roster_version`, `epoch` | The roster version named by the record that first stored the entry, and that version's epoch. |
+| `sig` | Ed25519, base64, over `moliya/v2/audit`, a zero byte, and the JCS form of `{ type: "audit", suite, vaultId, seq, prev, hash, rosterVersion, epoch, at, actor, action }`, where `prev`, `hash`, `at` and `action` are the row's `prev_hash`, `hash`, `created_at` and `action`, and the rest the signature row's values. The first signed entry of the vault also has `bridge: true` in what is signed. |
+
+The app writes entries inside its database transactions and signs them when it saves: each save signs every entry its session wrote since the save before, just before it encrypts the database, so no unsigned entry is ever stored. The first signed entry of a vault is the bridge. Entries before it were written before entries were signed (by 1.x, before the founder upgrade, or by a 2.0 build before 2.0.0-rc.1) and are checked by their chain only. A vault set up from 2.0.0-rc.1 signs from its first entry, and an upgraded one from the first entry of the upgrade, whose `prev` is the hash of the last 1.x entry. When someone redeems an invite or reset code, their `INVITE_ACCEPTED` or `RESET_COMPLETED` entry carries the key binding it made as `details.binding`, so their signatures stay attributable after an admin replaces or removes that invite before any admin save folds the binding into the roster.
+
+**Checking.** For every entry from the bridge on, in order:
+
+1. The chain links, as for every entry.
+2. It has a signature, and its `actor` is the entry's `actor_id` when that is set.
+3. `roster_version` is a stored version, never lower than an earlier entry's, and `epoch` is that version's epoch.
+4. The signer's key: theirs in that roster version if they are active there; if they are invited there, the key of the binding that redeems that invite (stored in `key_bindings`, or carried by their redeeming entry) or of the later version that made them active through it.
+5. The signature verifies under that key.
+6. Their role in that version allows the action: an Admin may write every action, including ones a later release adds; anyone may write `INVITE_ACCEPTED`, `RESET_COMPLETED`, `INVITE_EXPIRED` and `SCHEMA_MIGRATED`; anyone may write `PASSWORD_CHANGED`, `CREDENTIALS_UPGRADED`, `SIGNIN_FAILURES_SEEN`, `TOTP_ENABLED`, `TOTP_DISABLED`, `TOTP_RECOVERY_USED` and `TOTP_CLEARED` about themselves (entity `user`, their own id); a Manager may write `TRANSACTION_CREATED`, `TRANSACTION_UPDATED` and `TRANSACTION_DELETED`; every other action needs an Admin. The person who signed a roster version is judged by their role in the version before it, because an admin who lowers their own role signs that save's entries with the version that does it.
+
+A signature row whose entry is missing is a problem too. Problems warn and refuse nothing: the vault opens, the Audit page marks each entry, and an admin can accept the log as it is (`AUDIT_MARK_RESET` with the warning as details). The open session's own entries are unsigned until its next save, which is not a problem.
+
+**Per browser.** `moliya.v2.auditSeen.<vaultId>` is `{ seq, hash, signedFrom, rosterVersion, sigs }`: the last entry checked with nothing wrong, signed in this browser, or accepted by an admin, its chain hash, the first signed entry this browser saw, the highest roster version named up to there, and `sigs`, the hex SHA-256 of the JSON array of `[seq, actor, roster_version, epoch, sig]` for every signature up to `seq`. A sign-in checks only the entries after `seq` while the log still has that entry with that hash and the same signatures up to it, and every entry otherwise; from `signedFrom` on every entry must be signed, even when its signature row is gone.
 
 ## SQLite database
 
@@ -427,7 +455,7 @@ From 1.4.2 two marks make those two cases visible on a browser that saw the log 
 - The record and backup carry `audit: { seq, hash }`, the head of the chain at the time of sealing.
 - Each browser keeps the furthest head it saw in `localStorage` under `moliya.auditMark.v1` (same shape). It only moves forward after a save and is replaced only when this browser creates a vault, imports a backup, or replaces the vault with one.
 
-At sign-in the app checks the opened database against both heads: if the head's `seq` no longer exists, the log is `SHORTER`; if the row at that `seq` has a different `hash`, the log was `CHANGED`. Admins with the audit log see a warning, and can accept the log as it is now, which writes an `AUDIT_MARK_RESET` entry with the warning as details. Neither mark is secret or signed, so a person who holds the vault key and also edits the record and this browser's storage is not detected; per-person signed entries are planned.
+At sign-in the app checks the opened database against both heads: if the head's `seq` no longer exists, the log is `SHORTER`; if the row at that `seq` has a different `hash`, the log was `CHANGED`. Admins with the audit log see a warning, and can accept the log as it is now, which writes an `AUDIT_MARK_RESET` entry with the warning as details. Neither mark is secret or signed, so a person who holds the vault key and also edits the record and this browser's storage is not detected. In a vault with per-person keys every entry is also signed by its author (from 2.0.0-rc.1, see [Signed audit entries](#signed-audit-entries)).
 
 Audit `details` for records: `TRANSACTION_CREATED` stores a snapshot of the record, `TRANSACTION_UPDATED` stores `{ before, after }`, and `TRANSACTION_DELETED` stores the full snapshot of what was deleted. Snapshots use `type`, `amountMinor`, `currency`, `date`, `categoryId`, `groupId`, and `notes`; receipts are not copied into the log.
 
@@ -696,7 +724,8 @@ Audit actions added in 1.6.0 (entity `user`, entity ID the person's ID):
 | `v2/ledger-v2` | 1.1.0 | Record/backup/schema 2, 600,000-iteration wraps, comma decimals, grouped digits, the largest accepted amount, hash-chained audit log |
 | `v3/safes-household` | 1.2.0 | Record/backup 2 with schema 3, HKDF verifiers, `PASSWORD_CHANGED` and `USER_PASSWORD_RESET` audit entries. Private safes for three people: cards (Visa with CVV, Humo without, Mastercard), subscriptions in USD, UZS, and EUR (monthly, yearly, cancelled, every 30 days with a trial), notes with non-ASCII text, an archived safe, a trashed item, a password-each-time safe, recovery codes, and a Viewer whose safes are stale after an admin reset |
 | `v4/access-household` | 1.3.0 | Record/backup 2 with schema 4 and a `grants[]` entry. A UZS vault with a receipt; a Manager who joined with an invite code (non-ASCII password) and turned on the sign-in check with recovery codes; a Viewer created with a temporary password whose first reset code was revoked and whose second (stopping the old password) was used; one invite still open in the file but expired, so opening the fixture ends it with `INVITE_EXPIRED`. The expected file lists every code, the TOTP secret, and the recovery codes, so the tests check that used, revoked, and expired codes are refused and that the sign-in check still works |
-| `v5/roster-household` | 2.0.0-beta.1 | Record/backup 3 with schema 5 (per-person keys; [draft](#record-version-3-per-person-keys-20-draft) until 2.0.0). A USD vault with a receipt; a founder, a Manager who joined by invite (non-ASCII password) and turned on the sign-in check, and a Viewer who joined after a new household key; a Viewer suspended, which made epoch 2 and revoked an open invite; one invite still open but expired; a private safe; roster version 5; Argon2id at the default parameters; a body in 25 chunks of 16 KiB. The expected file lists the roster, the founder fingerprint and the removed member, so the tests check that the removed member is refused |
+| `v5/roster-household` | 2.0.0-beta.1 | Record/backup 3 with schema 5 (per-person keys; [draft](#record-version-3-per-person-keys-20-draft) until 2.0.0). A USD vault with a receipt; a founder, a Manager who joined by invite (non-ASCII password) and turned on the sign-in check, and a Viewer who joined after a new household key; a Viewer suspended, which made epoch 2 and revoked an open invite; one invite still open but expired; a private safe; roster version 5; Argon2id at the default parameters; a body in 25 chunks of 16 KiB. The expected file lists the roster, the founder fingerprint and the removed member, so the tests check that the removed member is refused. Its 17 audit entries are from before signatures, so a save by a later release starts signing at the first entry it adds |
+| `v5/signed-household` | 2.0.0-rc.1 | Record/backup 3 with schema 5 and [signed audit entries](#signed-audit-entries). A 1.x vault with a custom category and an open 1.x invite, upgraded to per-person keys: four 1.x entries, the bridge at the upgrade's revocation of that invite, and 23 signed entries. A Manager (non-ASCII password, sign-in check) and two Viewers who signed entries before an admin folded their invites in; one of them given a new code at once, so the binding they first signed with survives only in their `INVITE_ACCEPTED` entry; a Manager made Admin who suspended a Viewer (epoch 2, an open invite revoked) and stepped down to Manager in the same save; one invite still open but expired; a private safe; roster version 7; a body in 27 chunks of 16 KiB. The expected file pins the first signed entry, how many are signed, and the head of the log |
 
 ## Exports
 
@@ -769,7 +798,7 @@ The Groups table exports its **Income**, **Expenses**, and **Net** columns as te
 
 ## Recovering data without the app
 
-`tools/moliya-decrypt.mjs` needs only Node.js 22 or newer (22.13+ to blank password material automatically). A backup with per-person keys (format 3) needs Node.js 24.7 or newer for Argon2id; with it the tool also takes `--verify`, which runs the checks of [Opening a version 3 record](#opening-a-version-3-record) on the decrypted database and exits with status 3 if one fails.
+`tools/moliya-decrypt.mjs` needs only Node.js 22 or newer (22.13+ to blank password material automatically). A backup with per-person keys (format 3) needs Node.js 24.7 or newer for Argon2id; with it the tool also takes `--verify`, which runs the checks of [Opening a version 3 record](#opening-a-version-3-record) on the decrypted database and exits with status 3 if one fails. It then checks the [audit signatures](#signed-audit-entries): it reports how many entries are signed and how many come from before signatures, or the entries that do not check out, in which case it still writes the database and exits with status 4.
 
 ```bash
 node tools/moliya-decrypt.mjs backup.moliya --list

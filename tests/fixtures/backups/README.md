@@ -6,6 +6,6 @@ Rules:
 
 1. **Never edit or delete a fixture.** `SHA256SUMS` in each folder pins the bytes, and the test fails if a listed file changes or disappears.
 2. **Every data-format change adds a fixture.** When the backup format, the vault record format, or the SQLite schema version changes, generate a fixture with the new release and add it to `MANIFEST.json`. The test fails if any format version from 1 to the current one has no fixture.
-3. Fixtures are produced by the release's own code, not by hand. The generators live in `tools/fixtures/<version>/` and run with `npm run fixtures:generate -- tools/fixtures/<version>`. A generator refuses to overwrite an existing file.
+3. Fixtures are produced by the release's own code, not by hand. The generators live in `tools/fixtures/<version>/` and run with `npm run fixtures:generate -- tools/fixtures/<version>`, or one file of a folder with several, such as `tools/fixtures/v5/signed-household.gen.ts`. A generator refuses to overwrite an existing file, and one that adds a fixture to a folder that already has one appends its lines to that folder's `SHA256SUMS`.
 
 See [docs/data-format.md](../../../docs/data-format.md) for the formats themselves.

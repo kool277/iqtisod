@@ -104,8 +104,8 @@ it('generates signed-household', async () => {
     advance(5)
   }
 
-  // The founder gives Dave a new code at once: his first binding is dropped without being folded in, and only the
-  // entry he wrote when he joined still carries it.
+  // The founder gives Dave a new code at once: Dave's first binding is dropped without being folded in, and only the
+  // entry Dave wrote on joining still carries it.
   advance(30)
   const admin = await unlockVault(record, founder.email, founder.password)
   const daveReset = await issueReset(admin, daveInvite.id, { validity: '24h', stopOldPassword: true })
@@ -116,8 +116,8 @@ it('generates signed-household', async () => {
   record = (await sealVault(daveVault, { full: true })) as KeysRecord
   daveVault.db.close()
 
-  // Alice becomes an admin; she suspends Bob (a new household key, which also stops Eve's code) and steps down to
-  // Manager in the same save, which she signs as the admin she was.
+  // Alice becomes an admin, suspends Bob (a new household key, which also stops Eve's code) and steps down to Manager
+  // in the same save, signed as the admin Alice was.
   advance(15)
   const promoter = await unlockVault(record, founder.email, founder.password)
   const eveInvite = await createInvite(promoter, { email: 'eve@signed.test', roleName: 'Viewer', groupId, validity: '24h' })
@@ -131,7 +131,7 @@ it('generates signed-household', async () => {
   record = (await sealVault(aliceAdmin, { full: true })) as KeysRecord
   aliceAdmin.db.close()
 
-  // Carol joins with a code for the new key; the founder signs her in, leaves one short invite open, and exports.
+  // Carol joins with a code for the new key; the founder signs Carol in, leaves one short invite open, and exports.
   advance(10)
   const inviter = await unlockVault(record, founder.email, founder.password)
   const carolInvite = await createInvite(inviter, { email: carol.email, roleName: 'Viewer', groupId, validity: '72h' })
