@@ -35,8 +35,10 @@ export type KeysSession = {
   holders: string[]
   /** Made ahead, so that a removal can switch to the next epoch's key at once, before any save. */
   nextDek: CryptoKey | null
-  /** The first audit entry this session wrote: each save signs the entries from here on that have no signature yet. */
+  /** The first audit entry this session wrote. */
   auditFrom: number
+  /** The last audit entry this session signed (`auditFrom - 1` before its first save): each save signs everything after it. */
+  auditSigned: number
   /** From the identity a sign-in just opened, for its sign-in check (design 4.7); used once, and dropped when it ends. */
   signInTotpKey?: CryptoKey
 }

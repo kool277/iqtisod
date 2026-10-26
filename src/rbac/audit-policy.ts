@@ -2,8 +2,11 @@ import { Permission, permissionsForRole, type PermissionName } from './index'
 
 export type AuditRole = 'Admin' | 'Manager' | 'Viewer'
 
-/** `self`: an entry a person writes about themselves (entity `user`, their own id). Any listed rule is enough. */
-type AuditRule = { permission?: PermissionName; self?: true; anyone?: true }
+/**
+ * `self`: an entry a person writes about themselves (entity `user`, their own id). Any listed rule is enough.
+ * `actorless`: the app writes it with no actor, recorded by whoever's session noticed it; no other entry may lack one.
+ */
+type AuditRule = { permission?: PermissionName; self?: true; anyone?: true; actorless?: true }
 
 /**
  * Who may write each audit action, which the signature check of a per-person-keys vault applies with the role the
@@ -49,7 +52,7 @@ export const AUDIT_POLICY = {
   INVITE_ACCEPTED: { anyone: true },
   RESET_COMPLETED: { anyone: true },
   // Ended by whichever session finds the code expired; such an entry has no actor.
-  INVITE_EXPIRED: { anyone: true },
+  INVITE_EXPIRED: { anyone: true, actorless: true },
   PASSWORD_CHANGED: { self: true },
   CREDENTIALS_UPGRADED: { self: true },
   SIGNIN_FAILURES_SEEN: { self: true },
@@ -64,6 +67,11 @@ export type AuditAction = keyof typeof AUDIT_POLICY
 
 export function isAuditAction(action: string): action is AuditAction {
   return Object.hasOwn(AUDIT_POLICY, action)
+}
+
+/** Whether the app writes `action` without an actor. */
+export function actorlessAction(action: string): boolean {
+  return isAuditAction(action) && (AUDIT_POLICY[action] as AuditRule).actorless === true
 }
 
 /**

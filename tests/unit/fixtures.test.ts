@@ -354,7 +354,7 @@ describe.each(keysFixtures.map((fixture) => [fixture.path, fixture] as const))('
 
   it('checks out its signed audit entries, and a save signs everything opening it added', async () => {
     const vault = await unlock(record(), admin)
-    const check = async () => checkAuditSignatures({ ...(await auditCheckInput(vault.db, vault.keys!.vaultId, null))!, pendingFrom: vault.keys!.auditFrom })
+    const check = async () => checkAuditSignatures({ ...(await auditCheckInput(vault.db, vault.keys!.vaultId, null))!, pendingAfter: vault.keys!.auditSigned })
     const signed = keys.audit?.signed ?? 0
     const added = fixture.expected.addedOnOpen?.length ?? 0
     const before = await check()

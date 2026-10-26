@@ -70,6 +70,7 @@ export const keysUzLatn: KeysMessages = {
       ROLE: 'Imzolagan kishining roliga ruxsat berilmagan',
       ORDER: 'Tartibi buzilgan',
       ORPHAN: 'Yozuvi yoʻq imzo',
+      CUT: 'Administrator saqlaganidan keyin oʻchirilgan yoki almashtirilgan',
     },
     summary: 'Imzolar. Tekshiruvdan oʻtgan yozuvlar: {signed}. Muammoli yozuvlar: {problems}.',
     summaryLegacy: 'Yozuvlar imzolana boshlashidan oldin yozilgan yozuvlar: {legacy}.',

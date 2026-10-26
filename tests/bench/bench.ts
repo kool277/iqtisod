@@ -144,7 +144,7 @@ async function auditLog(count: number): Promise<{ input: AuditCheckInput; founde
     prevHash = auditHash(link)
     rows.push({ ...link, hash: prevHash })
   }
-  return { input: { vaultId, rows, sigs: [], firstSigned: 1, roster: [roster], bindings: [], redeemed: [] }, founder }
+  return { input: { vaultId, rows, sigs: [], firstSigned: 1, roster: [roster], bindings: [], redeemed: [], heads: new Map() }, founder }
 }
 
 async function signLog(input: AuditCheckInput, sigPriv: CryptoKey): Promise<AuditSig[]> {

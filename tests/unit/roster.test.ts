@@ -138,6 +138,34 @@ describe('roster chain', () => {
   })
 })
 
+describe('the audit anchor in the roster', () => {
+  const H = (digit: string) => digit.repeat(64)
+
+  async function anchored(first: RosterBody['audit'], second: RosterBody['audit'] | undefined) {
+    const a = await keys()
+    const v1 = await signRoster({ ...bodyOf(1, null, 'a', [active('a', a)]), audit: first }, a.sigPriv)
+    const body = bodyOf(2, await rosterHash(v1), 'a', [active('a', a)])
+    const v2 = await signRoster(second ? { ...body, audit: second } : body, a.sigPriv)
+    return verifyRosterChain([v1, v2], VAULT)
+  }
+
+  it('keeps where the signed log starts, and never lets its recorded end go back', async () => {
+    expect('problem' in (await anchored({ from: 1, through: 3, hash: H('a') }, { from: 1, through: 9, hash: H('b') }))).toBe(false)
+    expect(await anchored({ from: 1, through: 3, hash: H('a') }, undefined)).toEqual({ problem: 'BROKEN' })
+    expect(await anchored({ from: 1, through: 3, hash: H('a') }, { from: 2, through: 9, hash: H('b') })).toEqual({ problem: 'BROKEN' })
+    expect(await anchored({ from: 1, through: 3, hash: H('a') }, { from: 1, through: 2, hash: H('b') })).toEqual({ problem: 'BROKEN' })
+  })
+
+  it('reads only a well-formed anchor', async () => {
+    const a = await keys()
+    const doc = await signRoster({ ...bodyOf(1, null, 'a', [active('a', a)]), audit: { from: 1, through: 1, hash: H('c') } }, a.sigPriv)
+    expect(readRosterDoc(JSON.parse(JSON.stringify(doc)))).toEqual(doc)
+    for (const audit of [{ from: 0, through: 1, hash: H('c') }, { from: 2, through: 1, hash: H('c') }, { from: 1, through: 1, hash: 'xyz' }, { from: 1, through: 1 }, { from: 1, through: 1, hash: H('c'), more: 1 }]) {
+      expect(readRosterDoc({ ...JSON.parse(JSON.stringify(doc)), audit }), JSON.stringify(audit)).toBeNull()
+    }
+  })
+})
+
 describe('effective roster', () => {
   it('adds a redeemed invite with a valid binding and refuses any other binding', async () => {
     const { b, v2, binding } = await household()

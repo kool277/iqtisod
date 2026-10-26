@@ -289,7 +289,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           return
         }
         signaturesRef.current = 'warned'
-        const warning: AuditWarning = { kind: 'SIGNATURES', count: report.problems.size, firstSeq: Math.min(...report.problems.keys()) }
+        let firstSeq = Number.MAX_SAFE_INTEGER
+        for (const seq of report.problems.keys()) if (seq < firstSeq) firstSeq = seq
+        const warning: AuditWarning = { kind: 'SIGNATURES', count: report.problems.size, firstSeq }
         setAuditWarning((current) => {
           if (current === null) return warning
           signatureWarningRef.current = warning
@@ -876,7 +878,12 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
   const clearWeakPassword = useCallback(() => setWeakPassword(false), [])
   const clearRecoveryNotice = useCallback(() => setRecoveryLeft(null), [])
-  const dismissAuditWarning = useCallback(() => setAuditWarning(null), [])
+  // Signature problems found while another warning showed come next.
+  const dismissAuditWarning = useCallback(() => {
+    const next = auditWarning?.kind === 'SIGNATURES' ? null : signatureWarningRef.current
+    signatureWarningRef.current = null
+    setAuditWarning(next)
+  }, [auditWarning])
 
   const acceptAuditLog = useCallback(async () => {
     const warning = auditWarning

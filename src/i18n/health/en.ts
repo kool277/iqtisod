@@ -277,7 +277,7 @@ export const healthEn = {
       ok: 'Every signed entry checks out: signed by the person it names, who was allowed to do what it records.',
       none: 'No audit entry is signed yet. From the next save on, every entry is signed by the person who made it.',
       problems: 'Some entries do not check out: a signature is missing or does not match, or an entry records something its signer was not allowed to do.',
-      fix: 'Open the audit log and turn on “Show problems only” to see those entries and who signed them. A backup from before the first problem still has the log as it was. Once you know what happened, accept the log as it is from the warning at the top.',
+      fix: 'Open the audit log and turn on “Show problems only” to see those entries and who signed them. A backup from before the first problem still has the log as it was. The problems stay part of the log, so this row and the audit log keep showing them; once you know what happened, accept the log as it is from the warning at the top, so that signing in on this browser no longer warns about them.',
     },
     clock: {
       title: 'Device clock',

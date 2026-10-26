@@ -69,6 +69,7 @@ export const keysEn = {
       ROLE: 'Not allowed for their role',
       ORDER: 'Out of order',
       ORPHAN: 'Signature without its entry',
+      CUT: 'Removed or replaced after an admin saved',
     },
     summary: 'Signatures: {signed} entries check out, {problems} have a problem.',
     summaryLegacy: '{legacy} earlier entries were written before entries were signed.',

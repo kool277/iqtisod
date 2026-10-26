@@ -8,18 +8,20 @@ import { ForbiddenError } from '../../domain/errors'
 import type { OpenVault } from '../../domain/types'
 import { parseJsonSafely } from '../../lib/safe-json'
 import { Permission, canUser } from '../../rbac'
-import { auditActionAllowed } from '../../rbac/audit-policy'
-import { readAuditSeen, sigOf, sigsDigest, sigsUpTo, type AuditCheckpoint, type KeptCheckpoint } from './audit-seen'
+import { actorlessAction, auditActionAllowed } from '../../rbac/audit-policy'
+import { readAuditSeen, sigOf, type AuditCheckpoint } from './audit-seen'
 import { readBindings, readRosterDocs } from './roster-store'
 import type { KeysSession } from './session'
 
 export type { AuditCheckpoint }
 
 /**
- * The signature check of the audit log (docs/design/v2.0-key-redesign.md, 3.8 step 6). From the first signed entry on,
- * every entry must be signed by its actor, with the key the roster version it names gives them, and their role there
- * must allow the action. A problem warns and blocks nothing: the log only records what the app did, and an admin can
- * still look into it. Entries before the first signed one were written before signatures (1.x, or 2.0 before its RC).
+ * The signature check of the audit log (docs/design/v2.0-key-redesign.md, 3.8 step 6). From the start of the signed
+ * log on, every entry must be signed by its actor, with the key the roster version it names gives them, and their role
+ * there must allow the action. The start is anchored by the admin-signed roster (from 2.0.0-rc.2), so stripping
+ * signatures cannot turn signed entries into ones from before signatures. A problem warns and blocks nothing: the log
+ * only records what the app did, and an admin can still look into it. Entries before the start were written before
+ * signatures (1.x, or 2.0 before its RC).
  */
 
 export type AuditSigProblem =
@@ -38,6 +40,8 @@ export type AuditSigProblem =
   | 'ORDER'
   /** A signature for an entry that is not in the log. */
   | 'ORPHAN'
+  /** A roster version recorded this entry as the end of the log its save stored, and it is gone or changed. */
+  | 'CUT'
 
 export type AuditCheckInput = {
   vaultId: string
@@ -45,7 +49,7 @@ export type AuditCheckInput = {
   rows: readonly AuditRow[]
   /** The signatures of those entries and of any later seq. */
   sigs: readonly AuditSig[]
-  /** The lowest seq with a signature anywhere in the log, which is the bridge; null when nothing is signed. */
+  /** The lowest seq with a signature anywhere in the log; null when nothing is signed. */
   firstSigned: number | null
   /** The vault's roster chain as the sign-in checks verified it, version 1 first. */
   roster: readonly RosterDoc[]
@@ -53,10 +57,12 @@ export type AuditCheckInput = {
   /** The key bindings the log's `INVITE_ACCEPTED` and `RESET_COMPLETED` entries carry, from the whole log. */
   redeemed: readonly KeyBinding[]
   from?: AuditCheckpoint
-  /** The first signed entry this browser saw in this log before: from there on every entry must be signed. */
+  /** The first signed entry this browser saw in this log before, for a log whose roster anchors no start. */
   seenSignedFrom?: number | null
-  /** The open session's own entries start here; its next save signs them, so one still unsigned is pending. */
-  pendingFrom?: number
+  /** The open session signed the entries up to here; its next save signs every later one, so those are pending. */
+  pendingAfter?: number
+  /** The chain hash the log holds at each end a roster version recorded (`audit.through`), or null when it has none. */
+  heads: ReadonlyMap<number, string | null>
 }
 
 export type AuditCheckReport = {
@@ -69,7 +75,7 @@ export type AuditCheckReport = {
   legacy: number
   /** Signed entries with nothing wrong. */
   verified: number
-  /** The open session's entries its next save signs (see `pendingFrom`). */
+  /** The open session's entries its next save signs (see `pendingAfter`). */
   pending: number
   problems: Map<number, AuditSigProblem[]>
   /** Where this check ends: before the first pending entry, which is not checked yet. */
@@ -121,6 +127,21 @@ async function chainHashes(rows: readonly AuditRow[]): Promise<string[]> {
   return hashes
 }
 
+function lowest(values: readonly (number | null | undefined)[]): number | null {
+  let low: number | null = null
+  for (const value of values) if (value !== null && value !== undefined && (low === null || value < low)) low = value
+  return low
+}
+
+/** The start of the signed log as the admin-signed roster anchors it; every version that names one names the same. */
+export function anchoredFrom(roster: readonly RosterDoc[]): number | null {
+  for (let index = roster.length - 1; index >= 0; index -= 1) {
+    const audit = roster[index].audit
+    if (audit) return audit.from
+  }
+  return null
+}
+
 /** The key and role `actor` signs with under roster version `version`, or null when they have none there. */
 async function keyAt(input: AuditCheckInput, actor: string, version: number): Promise<SignerKey | null> {
   const { roster } = input
@@ -146,9 +167,9 @@ async function keyAt(input: AuditCheckInput, actor: string, version: number): Pr
 }
 
 /**
- * Checks `input` and reports every problem by seq. Each entry names the roster version of the record that first stored
- * it; an admin who signs a version that lowers their own role signs their entries of that save with it, so the issuer
- * of a version is judged by their role in the version before.
+ * Checks `input` and reports every problem by seq. Each entry names the roster version of the save that signed it; an
+ * admin who signs a version that lowers their own role signs that save's entries with it, so the issuer of a version is
+ * judged by their role in the version before, for the entries up to the end of the log that save stored.
  */
 export async function checkAuditSignatures(input: AuditCheckInput): Promise<AuditCheckReport> {
   const { rows, roster, vaultId, from } = input
@@ -158,8 +179,16 @@ export async function checkAuditSignatures(input: AuditCheckInput): Promise<Audi
     if (!list.includes(problem)) list.push(problem)
     problems.set(seq, list)
   }
-  const starts = [input.firstSigned, from?.signedFrom ?? null, input.seenSignedFrom ?? null].filter((value): value is number => value !== null)
-  const signedFrom = starts.length > 0 ? Math.min(...starts) : null
+  // Anchored by the roster when it has one; otherwise the first signature in the log or seen here before.
+  const anchor = anchoredFrom(roster)
+  const signedFrom = anchor ?? lowest([input.firstSigned, from?.signedFrom, input.seenSignedFrom])
+  const bridgeSeq = anchor ?? input.firstSigned
+
+  // Every end of the log a roster version recorded must still be there, unchanged. From a checkpoint, the ones up to it
+  // were checked with it.
+  for (const doc of roster) {
+    if (doc.audit && doc.audit.through > (from?.seq ?? 0) && input.heads.get(doc.audit.through) !== doc.audit.hash) flag(doc.audit.through, 'CUT')
+  }
 
   let previous = from?.hash ?? GENESIS_HASH
   let expected = (from?.seq ?? 0) + 1
@@ -181,10 +210,9 @@ export async function checkAuditSignatures(input: AuditCheckInput): Promise<Audi
   let pending = 0
   let firstPending: number | null = null
   let lastVersion = from?.rosterVersion ?? 0
-  let checkedVersion = lastVersion
   for (const row of rows) {
-    const sig = sigs.get(row.seq)
-    if (!sig && input.pendingFrom !== undefined && row.seq >= input.pendingFrom) {
+    // The session's own: a signature row already there was left by entries cut off the log, and is replaced.
+    if (input.pendingAfter !== undefined && row.seq > input.pendingAfter) {
       pending += 1
       firstPending ??= row.seq
       continue
@@ -193,16 +221,17 @@ export async function checkAuditSignatures(input: AuditCheckInput): Promise<Audi
       legacy += 1
       continue
     }
+    const sig = sigs.get(row.seq)
     if (!sig) {
       flag(row.seq, 'UNSIGNED')
       continue
     }
-    if (row.actorId !== null && row.actorId !== sig.actor) flag(row.seq, 'ACTOR')
+    if (row.actorId === null ? !actorlessAction(row.action) : row.actorId !== sig.actor) flag(row.seq, 'ACTOR')
     const doc = roster[sig.rosterVersion - 1]
     if (!doc || sig.rosterVersion < lastVersion || sig.epoch !== doc.epoch) flag(row.seq, 'ORDER')
+    if (!doc) continue
     lastVersion = Math.max(lastVersion, sig.rosterVersion)
-    if (firstPending === null) checkedVersion = lastVersion
-    if (doc) signed.push({ row, sig })
+    signed.push({ row, sig })
   }
 
   const keys = new Map<string, Promise<SignerKey | null>>()
@@ -230,7 +259,7 @@ export async function checkAuditSignatures(input: AuditCheckInput): Promise<Audi
       flag(row.seq, 'SIGNER')
       return
     }
-    const bridge = row.seq === input.firstSigned
+    const bridge = row.seq === bridgeSeq
     const memo = linked.has(row.seq) ? `${vaultId}|${row.seq}|${row.hash}|${sig.actor}|${sig.rosterVersion}|${sig.epoch}|${bridge ? 1 : 0}|${key.sigPub}|${sig.sig}` : null
     if (memo === null || !verifiedOnce.has(memo)) {
       const body = auditSigBody(vaultId, row, { actor: sig.actor, rosterVersion: sig.rosterVersion, epoch: sig.epoch }, bridge)
@@ -247,7 +276,9 @@ export async function checkAuditSignatures(input: AuditCheckInput): Promise<Audi
     const entry = { action: row.action, actor: sig.actor, entityType: row.entityType, entityId: row.entityId }
     if (auditActionAllowed(key.role, entry)) return
     const doc = roster[sig.rosterVersion - 1]
-    const before = sig.rosterVersion > 1 && doc.issuedBy === sig.actor ? roster[sig.rosterVersion - 2].members.find((item) => item.id === sig.actor) : undefined
+    // Only the save that signed the version: a version from before 2.0.0-rc.2 does not say where that save ended.
+    const ofThatSave = doc.audit === undefined || row.seq <= doc.audit.through
+    const before = ofThatSave && sig.rosterVersion > 1 && doc.issuedBy === sig.actor ? roster[sig.rosterVersion - 2].members.find((item) => item.id === sig.actor) : undefined
     if (before?.status !== 'removed' && before?.role === 'Admin') return
     flag(row.seq, 'ROLE')
   })
@@ -255,7 +286,7 @@ export async function checkAuditSignatures(input: AuditCheckInput): Promise<Audi
   const verified = signed.filter(({ row }) => !problems.has(row.seq)).length
   const last = firstPending === null ? rows.at(-1) : rows.filter((row) => row.seq < firstPending).at(-1)
   const checkpoint: AuditCheckpoint = last
-    ? { seq: last.seq, hash: last.hash, signedFrom, rosterVersion: checkedVersion > 0 ? checkedVersion : null }
+    ? { seq: last.seq, hash: last.hash, signedFrom, rosterVersion: lastVersion > 0 ? lastVersion : null }
     : (from ?? { seq: 0, hash: GENESIS_HASH, signedFrom, rosterVersion: null })
   return { start: (from?.seq ?? 0) + 1, checked: rows.length, signedFrom, legacy, verified, pending, problems, checkpoint }
 }
@@ -273,27 +304,40 @@ function redeemedBindings(db: SqlDatabase): KeyBinding[] {
   })
 }
 
+/** The chain hash the log holds at each end of the log a roster version recorded. */
+function recordedHeads(db: SqlDatabase): Map<number, string | null> {
+  const ends = db.query(
+    "SELECT DISTINCT json_extract(doc, '$.audit.through') AS through FROM roster_versions WHERE json_valid(doc) AND json_type(doc, '$.audit.through') = 'integer'",
+  )
+  return new Map(
+    ends.map((row) => {
+      const seq = Number(row.through)
+      const hash = db.queryValue('SELECT hash FROM audit_logs WHERE seq = ?', [seq])
+      return [seq, hash == null ? null : String(hash)]
+    }),
+  )
+}
+
 /**
- * What {@link checkAuditSignatures} needs from an open vault. It starts after `kept` when the log still reaches it
- * with the same entries and signatures, and from the first entry otherwise (or with `full`). Everything is read before
- * the first await, so the check sees one state even if a save runs meanwhile. Null when the roster cannot be read,
- * which the sign-in checks refuse.
+ * What {@link checkAuditSignatures} needs from an open vault. It starts after `kept` when the log still has that
+ * entry with that chain hash, so nothing up to it changed since it was checked, and from the first entry otherwise
+ * (or with `full`). Everything is read before the first await, so the check sees one state even if a save runs
+ * meanwhile. Null when the roster cannot be read, which the sign-in checks refuse.
  */
-export async function auditCheckInput(db: SqlDatabase, vaultId: string, kept: KeptCheckpoint | null, options: { full?: boolean } = {}): Promise<AuditCheckInput | null> {
-  const reaches = !options.full && kept !== null && kept.seq > 0 && compareAuditHead(db, kept) === null && sigsDigest(sigsUpTo(db, kept.seq)) === kept.sigs
+export async function auditCheckInput(db: SqlDatabase, vaultId: string, kept: AuditCheckpoint | null, options: { full?: boolean } = {}): Promise<AuditCheckInput | null> {
+  const reaches = !options.full && kept !== null && kept.seq > 0 && compareAuditHead(db, kept) === null
   const after = reaches ? kept.seq : 0
   const rows = readAuditRows(db, after)
   const sigs = db.query('SELECT seq, actor, roster_version, epoch, sig FROM audit_sigs WHERE seq > ? ORDER BY seq', [after]).map(sigOf)
   const first = db.queryValue('SELECT MIN(seq) FROM audit_sigs')
   const bindings = readBindings(db) ?? []
   const redeemed = redeemedBindings(db)
+  const heads = recordedHeads(db)
   // Reads its rows before it awaits.
   const roster = await readRosterDocs(db)
   if (!roster) return null
-  const input: AuditCheckInput = { vaultId, rows, sigs, firstSigned: first == null ? null : Number(first), roster, bindings, redeemed, seenSignedFrom: kept?.signedFrom ?? null }
-  if (!reaches) return input
-  const { sigs: _digest, ...from } = kept
-  return { ...input, from }
+  const input: AuditCheckInput = { vaultId, rows, sigs, firstSigned: first == null ? null : Number(first), roster, bindings, redeemed, heads, seenSignedFrom: kept?.signedFrom ?? null }
+  return reaches ? { ...input, from: kept } : input
 }
 
 /**
@@ -303,5 +347,5 @@ export async function auditCheckInput(db: SqlDatabase, vaultId: string, kept: Ke
 export async function checkVaultAudit(vault: OpenVault & { keys: KeysSession }, options: { full?: boolean } = {}): Promise<AuditCheckReport | null> {
   if (!canUser(vault.user, Permission.READ_AUDIT)) throw new ForbiddenError()
   const input = await auditCheckInput(vault.db, vault.keys.vaultId, readAuditSeen(vault.keys.vaultId), options)
-  return input ? checkAuditSignatures({ ...input, pendingFrom: vault.keys.auditFrom }) : null
+  return input ? checkAuditSignatures({ ...input, pendingAfter: vault.keys.auditSigned }) : null
 }

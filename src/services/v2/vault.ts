@@ -5,7 +5,7 @@ import { IDENTITY_SALT_BYTES, generateIdentitySecret, importIdentity, openIdenti
 import { ARGON2_DEFAULT } from '../../crypto/kdf'
 import { canonicalize } from '../../crypto/canonical'
 import { bytesToBase64 } from '../../crypto/encoding'
-import { bindingRedeems, nextRosterMembers, rosterHash, signRoster, type KeyBinding, type RosterCandidate, type RosterDoc, type RosterInvite, type RosterMember, type RosterRole } from '../../crypto/roster'
+import { bindingRedeems, nextRosterMembers, rosterHash, signRoster, type KeyBinding, type RosterAudit, type RosterCandidate, type RosterDoc, type RosterInvite, type RosterMember, type RosterRole } from '../../crypto/roster'
 import { fingerprintOf, isBase64 } from '../../crypto/sign'
 import { SUITE, assertSuite } from '../../crypto/suite'
 import { auditHead } from '../../db/audit-chain'
@@ -28,7 +28,7 @@ import { APP_VERSION } from '../../lib/version'
 import { writeAudit } from '../audit.service'
 import { assertDisplayName, buildOpenVault, compactIfSparse, loadUserById, type SetupInput } from '../auth.service'
 import { openGrantRows, recordClock } from '../grant-store'
-import { auditSigningCurrent, signAuditEntries, storeAuditSigning } from './audit-signing'
+import { auditBridge, auditPending, auditSigningCurrent, signAuditEntries, storeAuditSigning } from './audit-signing'
 import { appendRosterDoc, deleteBinding, latestRosterDoc, readBindings, readPeople } from './roster-store'
 import { rememberSealed, type KeysSession } from './session'
 import { verifyKeysVault } from './verify'
@@ -77,13 +77,14 @@ function rosterInvites(db: SqlDatabase): RosterInvite[] {
   })
 }
 
-type RosterPlan = {
-  doc: RosterDoc
-  hash: string
+/** The members a new roster version names, and the bindings they were derived from. */
+type RosterDraft = {
   /** Everything the plan was derived from, so it can be checked against the database right before it is applied. */
   members: RosterMember[]
   bindings: Map<string, KeyBinding>
 }
+
+type RosterPlan = RosterDraft & { doc: RosterDoc; hash: string }
 
 /** `wrapping` names people whose wrap of this epoch's DEK the save is about to store: they count as holding one. */
 function rosterCandidates(db: SqlDatabase, keys: KeysSession, wrapping: ReadonlySet<string> = new Set()): RosterCandidate[] {
@@ -121,17 +122,19 @@ async function maySignRoster(vault: OpenVault & { keys: KeysSession }, latest: R
 
 /**
  * The members the next roster version should name, or null when nothing changed. A new epoch is always signed, even
- * when the people are the same: the roster names the epoch the header and every DEK wrap must match.
+ * when the people are the same: the roster names the epoch the header and every DEK wrap must match. So is a version
+ * that is `forced` to anchor the signed audit log.
  */
 function plannedMembers(
   vault: OpenVault & { keys: KeysSession },
   latest: RosterDoc,
   bindings: ReadonlyMap<string, KeyBinding>,
   wrapping?: ReadonlySet<string>,
+  forced = false,
 ): RosterMember[] | null {
   const { db, keys } = vault
   const members = nextRosterMembers({ latest, bindings, people: rosterCandidates(db, keys, wrapping), invites: rosterInvites(db) })
-  if (members || latest.epoch === keys.epoch) return members
+  if (members || (latest.epoch === keys.epoch && !forced)) return members
   // Same people in a new epoch: everyone active keeps their keys, so no entry carries a proof.
   return latest.members.map((member) => {
     if (member.status !== 'active') return member
@@ -141,24 +144,42 @@ function plannedMembers(
 }
 
 /**
- * The roster version a save should sign, if the people, their roles, groups or access changed since `latest`, folding
- * in redeemed invites, or if the epoch moved on. Signing is asynchronous, so the plan is applied only if the database
- * still derives the same members ({@link applyRosterPlan}).
+ * The members of the roster version a save should sign, if the people, their roles, groups or access changed since
+ * `latest`, folding in redeemed invites, if the epoch moved on, or if the version is `forced`; null otherwise.
  */
-async function planRoster(vault: OpenVault & { keys: KeysSession }, latest: RosterDoc, now: string, wrapping: ReadonlySet<string>): Promise<RosterPlan | null> {
+async function draftRoster(vault: OpenVault & { keys: KeysSession }, latest: RosterDoc, wrapping: ReadonlySet<string>, forced: boolean): Promise<RosterDraft | null> {
   const { db, keys } = vault
   const bindings = new Map<string, KeyBinding>()
   for (const binding of readBindings(db) ?? []) {
     const invited = latest.members.find((member) => member.id === binding.memberId)
     if (await bindingRedeems(binding, invited, keys.vaultId)) bindings.set(binding.memberId, binding)
   }
-  const members = plannedMembers(vault, latest, bindings, wrapping)
-  if (!members) return null
+  const members = plannedMembers(vault, latest, bindings, wrapping, forced)
+  return members ? { members, bindings } : null
+}
+
+/**
+ * Signs the drafted version, with where the audit log stands for the record the save stores. Signing is asynchronous,
+ * so the plan is applied only if the database still derives the same members ({@link applyRosterPlan}).
+ */
+async function signDraft(vault: OpenVault & { keys: KeysSession }, latest: RosterDoc, draft: RosterDraft, now: string, audit: RosterAudit | undefined): Promise<RosterPlan> {
+  const { keys } = vault
   const doc = await signRoster(
-    { type: 'roster', suite: SUITE, vaultId: keys.vaultId, version: latest.version + 1, prev: keys.roster.hash, epoch: keys.epoch, issuedAt: now, issuedBy: keys.memberId, members },
+    {
+      type: 'roster',
+      suite: SUITE,
+      vaultId: keys.vaultId,
+      version: latest.version + 1,
+      prev: keys.roster.hash,
+      epoch: keys.epoch,
+      issuedAt: now,
+      issuedBy: keys.memberId,
+      members: draft.members,
+      ...(audit ? { audit } : {}),
+    },
     keys.identity.sigPriv,
   )
-  return { doc, hash: await rosterHash(doc), members, bindings }
+  return { ...draft, doc, hash: await rosterHash(doc) }
 }
 
 /**
@@ -166,12 +187,12 @@ async function planRoster(vault: OpenVault & { keys: KeysSession }, latest: Rost
  * returns false when the people changed while the plan was signed. Deletes the bindings the new version folded in or
  * no longer names.
  */
-function applyRosterPlan(vault: OpenVault & { keys: KeysSession }, plan: RosterPlan | null, latest: RosterDoc): boolean {
+function applyRosterPlan(vault: OpenVault & { keys: KeysSession }, plan: RosterPlan | null, latest: RosterDoc, forced: boolean): boolean {
   const { db, keys } = vault
   // Another save may have signed a version meanwhile; the plan must then be made again on top of it.
   if (Number(db.queryValue('SELECT MAX(version) FROM roster_versions')) !== latest.version) return false
   if (plan !== null && plan.doc.epoch !== keys.epoch) return false
-  const members = plannedMembers(vault, latest, plan?.bindings ?? new Map())
+  const members = plannedMembers(vault, latest, plan?.bindings ?? new Map(), undefined, forced)
   if (plan === null ? members !== null : members === null || canonicalize(members) !== canonicalize(plan.members)) return false
   const current = plan?.doc.members ?? latest.members
   const stale = (readBindings(db) ?? []).filter(
@@ -241,10 +262,16 @@ export async function sealKeysVault(vault: OpenVault & { keys: KeysSession }, op
       return []
     })
     const signer = await maySignRoster(vault, latest)
+    // The entries this save signs, read once: one written later makes the attempt start again.
+    const pending = auditPending(vault)
+    const bridge = auditBridge(db, latest, pending)
+    // The first version an admin signs once the log has a signed part anchors where it starts (from 2.0.0-rc.2).
+    const anchoring = !latest.audit && bridge !== null
     // Planned with the wraps this attempt made, which are stored before the plan is checked again.
-    const plan = signer ? await planRoster(vault, latest, updatedAt, new Set(wraps.map((wrap) => wrap.memberId))) : null
-    // The entries this session wrote name the roster version and epoch of the record this save stores.
-    const signing = await signAuditEntries(vault, plan ? { rosterVersion: plan.doc.version, epoch: plan.doc.epoch } : { rosterVersion: latest.version, epoch: latest.epoch })
+    const draft = signer ? await draftRoster(vault, latest, new Set(wraps.map((wrap) => wrap.memberId)), anchoring) : null
+    // The entries name the roster version and epoch of this save.
+    const signing = await signAuditEntries(vault, pending, draft ? { rosterVersion: latest.version + 1, epoch: keys.epoch } : { rosterVersion: latest.version, epoch: latest.epoch }, bridge)
+    const plan = draft ? await signDraft(vault, latest, draft, updatedAt, bridge === null ? undefined : { from: bridge, through: signing.head.seq, hash: signing.head.hash }) : null
     // From here to the image copy nothing awaits, so the roster, the image, the audit head and everything the header
     // names describe one state, even if the app or another save changes the session while this one encrypts.
     if (vault.dek !== dek || keys.epoch !== epoch) continue
@@ -256,10 +283,10 @@ export async function sealKeysVault(vault: OpenVault & { keys: KeysSession }, op
       resigned += 1
       continue
     }
-    if (signer && !applyRosterPlan(vault, plan, latest)) continue
+    if (signer && !applyRosterPlan(vault, plan, latest, anchoring)) continue
     // A header whose epoch no roster version names would block the vault for everyone.
     if ((signer && plan ? plan.doc.epoch : latest.epoch) !== keys.epoch) throw new CorruptRecordError()
-    storeAuditSigning(db, signing)
+    storeAuditSigning(vault, signing)
     for (const id of Object.keys(keys.dekWraps)) if (!keys.holders.includes(id)) keys.holders.push(id)
     compactIfSparse(db)
     snapshot = {
@@ -319,20 +346,6 @@ export async function createKeysVault(input: SetupInput): Promise<{ vault: OpenV
     const wrap = await wrapDekTo(dek, identity.encPub, { vaultId, epoch: 1, memberId })
     const createdAt = new Date().toISOString()
     const founder = { memberId, sigPub: identity.sigPub, fingerprint: await fingerprintOf(identity.sigPub) }
-    const roster = await signRoster(
-      {
-        type: 'roster',
-        suite: SUITE,
-        vaultId,
-        version: 1,
-        prev: null,
-        epoch: 1,
-        issuedAt: createdAt,
-        issuedBy: memberId,
-        members: [{ id: memberId, email, role: 'Admin', group: null, status: 'active', encPub: identity.encPub, sigPub: identity.sigPub }],
-      },
-      identity.sigPriv,
-    )
     let rosterHash = ''
     const auditFrom = auditHead(db).seq + 1
     db.exec('BEGIN')
@@ -345,8 +358,25 @@ export async function createKeysVault(input: SetupInput): Promise<{ vault: OpenV
       setSetting(db, 'currency', input.currency)
       setSetting(db, 'vault_name', displayName)
       setSetting(db, 'vault_created_at', createdAt)
-      rosterHash = await appendRosterDoc(db, roster)
       writeAudit(db, memberId, 'VAULT_CREATED', 'vault', 'primary', { email, appVersion: APP_VERSION, keys: true, founderFingerprint: founder.fingerprint })
+      // Version 1 anchors the signed log at its first entry.
+      const head = auditHead(db)
+      const roster = await signRoster(
+        {
+          type: 'roster',
+          suite: SUITE,
+          vaultId,
+          version: 1,
+          prev: null,
+          epoch: 1,
+          issuedAt: createdAt,
+          issuedBy: memberId,
+          members: [{ id: memberId, email, role: 'Admin', group: null, status: 'active', encPub: identity.encPub, sigPub: identity.sigPub }],
+          audit: { from: auditFrom, through: head.seq, hash: head.hash },
+        },
+        identity.sigPriv,
+      )
+      rosterHash = await appendRosterDoc(db, roster)
       db.exec('COMMIT')
     } catch (error) {
       db.exec('ROLLBACK')
@@ -369,6 +399,7 @@ export async function createKeysVault(input: SetupInput): Promise<{ vault: OpenV
       holders: [memberId],
       nextDek: await generateDek(),
       auditFrom,
+      auditSigned: auditFrom - 1,
     }
     const vault: OpenVault & { keys: KeysSession } = {
       db,
@@ -464,6 +495,7 @@ export async function unlockKeysVault(record: KeysRecord, email: string, passwor
       nextDek: await generateDek(),
       signInTotpKey,
       auditFrom: auditHead(db).seq + 1,
+      auditSigned: auditHead(db).seq,
     }
     const vault = buildOpenVault(record, { db, dek, wraps: [], user, needsSave: false }, now)
     vault.keys = session

@@ -54,20 +54,6 @@ export async function upgradeToKeys(vault: OpenVault, password: string): Promise
   const wrap = await wrapDekTo(dek, identity.encPub, { vaultId, epoch: 1, memberId })
   const founder = { memberId, sigPub: identity.sigPub, fingerprint: await fingerprintOf(identity.sigPub) }
   const at = new Date().toISOString()
-  const roster = await signRoster(
-    {
-      type: 'roster',
-      suite: SUITE,
-      vaultId,
-      version: 1,
-      prev: null,
-      epoch: 1,
-      issuedAt: at,
-      issuedBy: memberId,
-      members: [{ id: memberId, email: vault.user.email, role: 'Admin', group: vault.user.groupId, status: 'active', encPub: identity.encPub, sigPub: identity.sigPub }],
-    },
-    identity.sigPriv,
-  )
   const reinvite = upgradeReinvites(vault)
   migrate(db, { appVersion: APP_VERSION, migrations: KEYS_MIGRATIONS })
   await assertKnownSchema(db, readSchemaVersion(db), KEYS_SCHEMA_VERSION)
@@ -82,7 +68,6 @@ export async function upgradeToKeys(vault: OpenVault, password: string): Promise
     }
     // No 1.x password check value remains: a password alone no longer opens anything in the upgraded vault.
     db.exec("UPDATE users SET password_hash = '', salt = ''")
-    rosterHash = await appendRosterDoc(db, roster)
     writeAudit(db, memberId, 'VAULT_UPGRADED', 'vault', 'primary', {
       fromRecord: RECORD_VERSION,
       toRecord: KEYS_RECORD_VERSION,
@@ -90,6 +75,24 @@ export async function upgradeToKeys(vault: OpenVault, password: string): Promise
       reinvite,
       appVersion: APP_VERSION,
     })
+    // Version 1 anchors the signed log at the upgrade's first entry: everything before it stays as 1.x wrote it.
+    const head = auditHead(db)
+    const roster = await signRoster(
+      {
+        type: 'roster',
+        suite: SUITE,
+        vaultId,
+        version: 1,
+        prev: null,
+        epoch: 1,
+        issuedAt: at,
+        issuedBy: memberId,
+        members: [{ id: memberId, email: vault.user.email, role: 'Admin', group: vault.user.groupId, status: 'active', encPub: identity.encPub, sigPub: identity.sigPub }],
+        audit: { from: auditFrom, through: head.seq, hash: head.hash },
+      },
+      identity.sigPriv,
+    )
+    rosterHash = await appendRosterDoc(db, roster)
     db.exec('COMMIT')
   } catch (error) {
     db.exec('ROLLBACK')
@@ -109,6 +112,7 @@ export async function upgradeToKeys(vault: OpenVault, password: string): Promise
     holders: [memberId],
     nextDek: await generateDek(),
     auditFrom,
+    auditSigned: auditFrom - 1,
   }
   const upgraded = vault as OpenVault & { keys: KeysSession }
   upgraded.dek = dek

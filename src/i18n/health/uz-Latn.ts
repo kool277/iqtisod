@@ -279,7 +279,7 @@ export const healthUzLatn: HealthMessages = {
       ok: 'Har bir imzolangan yozuv tekshiruvdan oʻtadi: uni yozuvda koʻrsatilgan kishi imzolagan va unga yozuv qayd etgan ishni qilishga ruxsat berilgan edi.',
       none: 'Hali birorta audit yozuvi imzolanmagan. Keyingi saqlashdan boshlab har bir yozuvni uni qilgan kishi imzolaydi.',
       problems: 'Baʼzi yozuvlar tekshiruvdan oʻtmaydi: imzo yoʻq yoki mos kelmaydi, yoki yozuv uni imzolagan kishiga ruxsat berilmagan ishni qayd etadi.',
-      fix: 'Audit jurnalini oching va qaysi yozuvlar ekanini hamda ularni kim imzolaganini koʻrish uchun «Faqat muammolar»ni yoqing. Birinchi muammodan oldin olingan zaxira nusxada jurnal avvalgidek qolgan. Nima boʻlganini aniqlagach, yuqoridagi ogohlantirishda jurnalni boricha qabul qiling.',
+      fix: 'Audit jurnalini oching va qaysi yozuvlar ekanini hamda ularni kim imzolaganini koʻrish uchun «Faqat muammolar»ni yoqing. Birinchi muammodan oldin olingan zaxira nusxada jurnal avvalgidek qolgan. Muammolar jurnalning bir qismi boʻlib qoladi, shuning uchun bu qator va audit jurnali ularni koʻrsatishda davom etadi; nima boʻlganini aniqlagach, bu brauzerda kirishda ular haqida boshqa ogohlantirilmasligi uchun yuqoridagi ogohlantirishda jurnalni boricha qabul qiling.',
     },
     clock: {
       title: 'Qurilma soati',

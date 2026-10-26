@@ -26,6 +26,14 @@ export type InvitedMember = MemberBase & { status: 'invited'; inviteSigPub: stri
 export type RemovedMember = MemberBase & { status: 'removed'; encPub?: string; sigPub?: string }
 export type RosterMember = ActiveMember | InvitedMember | RemovedMember
 
+/**
+ * Where the audit log stood for the save that signed a version (from 2.0.0-rc.2): `from` is the first entry that must
+ * be signed, which never changes once a version names it, and `through` and `hash` are the last entry of the log that
+ * save stored, with its chain hash. Admin-signed, so a member who edits the database cannot move the start of the
+ * signed log or cut entries up to there unnoticed (design 3.7 as built).
+ */
+export type RosterAudit = { from: number; through: number; hash: string }
+
 export type RosterBody = {
   type: 'roster'
   suite: Suite
@@ -36,6 +44,7 @@ export type RosterBody = {
   issuedAt: string
   issuedBy: string
   members: RosterMember[]
+  audit?: RosterAudit
 }
 
 export type RosterDoc = RosterBody & { sig: string }
@@ -114,10 +123,23 @@ function isMember(value: unknown): value is RosterMember {
   }
 }
 
+function isRosterAudit(value: unknown): value is RosterAudit {
+  return (
+    isPlain(value) &&
+    hasExactly(value, ['from', 'through', 'hash']) &&
+    isPositive(value.from) &&
+    Number.isSafeInteger(value.through) &&
+    (value.through as number) >= (value.from as number) &&
+    typeof value.hash === 'string' &&
+    HEX64.test(value.hash)
+  )
+}
+
 /** A roster version as stored, or null when anything about its shape is off. Signatures are checked separately. */
 export function readRosterDoc(value: unknown): RosterDoc | null {
   if (!isPlain(value)) return null
-  if (!hasExactly(value, ['type', 'suite', 'vaultId', 'version', 'prev', 'epoch', 'issuedAt', 'issuedBy', 'members', 'sig'])) return null
+  if (!hasExactly(value, ['type', 'suite', 'vaultId', 'version', 'prev', 'epoch', 'issuedAt', 'issuedBy', 'members', 'sig'], ['audit'])) return null
+  if (value.audit !== undefined && !isRosterAudit(value.audit)) return null
   if (value.type !== 'roster' || value.suite !== SUITE || typeof value.vaultId !== 'string' || !ID.test(value.vaultId)) return null
   if (!isPositive(value.version) || !isPositive(value.epoch)) return null
   if (value.version === 1 ? value.prev !== null : typeof value.prev !== 'string' || !HEX64.test(value.prev)) return null
@@ -255,6 +277,8 @@ export async function verifyRosterChain(docs: readonly RosterDoc[], vaultId: str
     } else {
       const before = docs[index - 1]
       if (doc.epoch < before.epoch) return { problem: 'BROKEN' }
+      // Once a version anchors the audit log, every later one keeps its start and never goes back on its end.
+      if (before.audit && (!doc.audit || doc.audit.from !== before.audit.from || doc.audit.through < before.audit.through)) return { problem: 'BROKEN' }
       const key = signerKey(doc, before)
       if (!key || !(await verifyPayload(LABELS.roster, body(doc), doc.sig, key))) return { problem: 'BROKEN' }
       if (!(await keysAccountedFor(doc, before))) return { problem: 'BROKEN' }

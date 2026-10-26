@@ -22,8 +22,9 @@ async function auditSignatureFacts(vault: VaultAccess, full: boolean): Promise<A
     return keys ? checkVaultAudit(open as OpenVault & { keys: typeof keys }, { full }) : null
   })
   if (!report) return null
-  const problems = [...report.problems.keys()]
-  return { checkedFrom: report.start, signed: report.verified, problems: problems.length, firstProblem: problems.length > 0 ? Math.min(...problems) : null, signedFrom: report.signedFrom }
+  let firstProblem: number | null = null
+  for (const seq of report.problems.keys()) if (firstProblem === null || seq < firstProblem) firstProblem = seq
+  return { checkedFrom: report.start, signed: report.verified, problems: report.problems.size, firstProblem, signedFrom: report.signedFrom }
 }
 
 export type VaultAccess = {

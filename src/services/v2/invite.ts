@@ -178,6 +178,7 @@ export async function redeemKeysInvite(record: KeysRecord, input: KeysRedeemInpu
       holders: [...new Set([...verified.holders, memberId])].sort(),
       nextDek: await generateDek(),
       auditFrom,
+      auditSigned: auditFrom - 1,
     }
     const vault = buildOpenVault(record, { db, dek, wraps: [], user, needsSave: true }, now)
     vault.grants = vault.grants.filter((item) => item.id !== grant.id)

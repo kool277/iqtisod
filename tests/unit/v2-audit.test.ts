@@ -1,4 +1,10 @@
 import 'fake-indexeddb/auto'
+import * as nodeCrypto from 'node:crypto'
+import { execFile } from 'node:child_process'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
+import { promisify } from 'node:util'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { KeysRecord } from '../../src/db/envelope'
 import { readVault, writeVault } from '../../src/db/storage'
@@ -10,7 +16,10 @@ import { createTransaction, listCategories } from '../../src/services/finance.se
 import { createInvite, redeemGrant } from '../../src/services/grant.service'
 import { createGroup, listGroups } from '../../src/services/group.service'
 import { auditSigBody, signAuditEntry, type AuditSig } from '../../src/crypto/audit-sign'
-import { auditHash, type AuditRow } from '../../src/db/audit-chain'
+import { auditHash, auditRowOf, type AuditRow } from '../../src/db/audit-chain'
+import { acknowledgeAuditWarning } from '../../src/services/audit.service'
+import { backupFileText, parseBackup } from '../../src/services/backup.service'
+import { fixtureByPath } from '../support/fixtures'
 import { issueReset } from '../../src/services/grant.service'
 import { suspendUser, updateUser } from '../../src/services/user.service'
 import { auditCheckInput, checkAuditSignatures, checkVaultAudit, type AuditCheckInput, type AuditCheckReport } from '../../src/services/v2/audit-check'
@@ -373,13 +382,25 @@ describe('tampering with the signed log (design 8.2)', () => {
     }
   })
 
-  it('flags a deleted signature, and a deleted bridge on the entry that would replace it', async () => {
+  it('flags a deleted signature, the bridge\'s included, where the roster anchors the signed log', async () => {
     const { founder } = await household()
     const input = await inputOf(founder)
+    expect(input.roster[0].audit).toMatchObject({ from: 1, through: 1 })
     const middle = input.rows[4].seq
     expect(problems(await checkAuditSignatures({ ...input, sigs: input.sigs.filter((sig) => sig.seq !== middle) }))).toEqual({ [middle]: ['UNSIGNED'] })
+    // The anchor says the log is signed from its first entry, so the bridge's entry is unsigned, however many go.
+    expect(problems(await checkAuditSignatures({ ...input, sigs: input.sigs.slice(1), firstSigned: input.sigs[1].seq }))).toEqual({ 1: ['UNSIGNED'] })
+    const stripped = await checkAuditSignatures({ ...input, sigs: [], firstSigned: null })
+    expect(stripped.problems.size).toBe(input.rows.length)
+    expect(new Set([...stripped.problems.values()].map((list) => list.join()))).toEqual(new Set(['UNSIGNED']))
+  })
+
+  it('finds the bridge by the first signature in a log whose roster anchors nothing (a vault from before 2.0.0-rc.2)', async () => {
+    const { founder } = await household()
+    const input = await inputOf(founder)
+    const unanchored = { ...input, roster: input.roster.map(({ audit: _audit, ...doc }) => doc) }
     // Without the bridge's signature the next entry becomes the first signed one, and was not signed as the bridge.
-    const withoutBridge = { ...input, sigs: input.sigs.slice(1), firstSigned: input.sigs[1].seq }
+    const withoutBridge = { ...unanchored, sigs: input.sigs.slice(1), firstSigned: input.sigs[1].seq }
     expect(problems(await checkAuditSignatures(withoutBridge))).toEqual({ [input.sigs[1].seq]: ['SIGNATURE'] })
     // A browser that saw the bridge where it was also flags the entries left without a signature before it.
     expect(problems(await checkAuditSignatures({ ...withoutBridge, seenSignedFrom: 1 }))).toEqual({ 1: ['UNSIGNED'], [input.sigs[1].seq]: ['SIGNATURE'] })
@@ -423,7 +444,7 @@ describe('tampering with the signed log (design 8.2)', () => {
 })
 
 describe('the checkpoint this browser keeps', () => {
-  it('checks only the entries after it, until an entry or a signature up to it changes', async () => {
+  it('checks only the entries after it, until the entry it names changes', async () => {
     const { founder, at } = await household()
     const vaultId = founder.keys.vaultId
     const head = entries(founder)
@@ -437,11 +458,13 @@ describe('the checkpoint this browser keeps', () => {
     expect(problems(tail!)).toEqual({})
     expect(await checkVaultAudit(founder, { full: true })).toMatchObject({ start: 1, checked: head + 1, verified: head + 1 })
 
-    // A signature up to the checkpoint deleted: everything is checked again, and the gap shows.
+    // A signature up to the checkpoint deleted later: the entries it covers cannot have changed, as the chain shows,
+    // so the next sign-in does not look again; checking every entry does show the gap.
     founder.db.exec('DELETE FROM audit_sigs WHERE seq = 3')
-    const again = await checkVaultAudit(founder)
-    expect(again).toMatchObject({ start: 1, checked: head + 1 })
-    expect(problems(again!)).toEqual({ 3: ['UNSIGNED'] })
+    const later = await checkVaultAudit(founder)
+    expect(later).toMatchObject({ start: head + 1, checked: 1 })
+    expect(problems(later!)).toEqual({})
+    expect(problems((await checkVaultAudit(founder, { full: true }))!)).toEqual({ 3: ['UNSIGNED'] })
   })
 
   it('starts again from the first entry when the log no longer reaches it, and forgets it on request', async () => {
@@ -452,7 +475,7 @@ describe('the checkpoint this browser keeps', () => {
     const kept = readAuditSeen(vaultId)!
     localStorage.setItem(`moliya.v2.auditSeen.${vaultId}`, JSON.stringify({ ...kept, hash: 'f'.repeat(64) }))
     expect(await checkVaultAudit(founder)).toMatchObject({ start: 1, checked: head })
-    localStorage.setItem(`moliya.v2.auditSeen.${vaultId}`, JSON.stringify({ ...kept, sigs: 'nope' }))
+    localStorage.setItem(`moliya.v2.auditSeen.${vaultId}`, JSON.stringify({ ...kept, hash: 'nope' }))
     expect(readAuditSeen(vaultId)).toBeNull()
     forgetAuditSeen(vaultId)
     expect(localStorage.getItem(`moliya.v2.auditSeen.${vaultId}`)).toBeNull()
@@ -506,5 +529,162 @@ describe('the health check row', () => {
     const context = { saveState: 'saved' as const, weak: false, archives: 0, deviceMark: null, recordedHead: null, signatures }
     expect(collectVaultFacts(founder, context).signatures).toEqual(signatures)
     expect(collectVaultFacts(alice, context).signatures).toBeNull()
+  })
+})
+
+type Db = OpenVault['db']
+
+/** Runs `change` with the append-only triggers of audit_logs dropped, then puts them back, as SQLite tools could. */
+function withoutAuditTriggers(db: Db, change: () => void): void {
+  const triggers = db.query("SELECT name, sql FROM sqlite_master WHERE type = 'trigger' AND tbl_name = 'audit_logs'")
+  for (const trigger of triggers) db.exec(`DROP TRIGGER ${String(trigger.name)}`)
+  try {
+    change()
+  } finally {
+    for (const trigger of triggers) db.exec(String(trigger.sql))
+  }
+}
+
+/** Every entry from `fromSeq` on with its chain hash recomputed. */
+function rechain(db: Db, fromSeq: number): void {
+  let previous = fromSeq === 1 ? '0'.repeat(64) : String(db.queryValue('SELECT hash FROM audit_logs WHERE seq = ?', [fromSeq - 1]))
+  for (const row of db.query('SELECT seq, id, actor_id, action, entity_type, entity_id, details, created_at, prev_hash, hash FROM audit_logs WHERE seq >= ? ORDER BY seq', [fromSeq])) {
+    const { hash: _hash, ...link } = auditRowOf(row)
+    const hash = auditHash({ ...link, prevHash: previous })
+    db.exec('UPDATE audit_logs SET prev_hash = ?, hash = ? WHERE seq = ?', [previous, hash, link.seq])
+    previous = hash
+  }
+}
+
+const argon2Sync = (nodeCrypto as unknown as { argon2Sync?: unknown }).argon2Sync
+const CLI = resolve(__dirname, '../../tools/moliya-decrypt.mjs')
+
+describe('findings of the RC review', () => {
+  it('reports a log stripped of its signatures and rewritten, on a browser that never saw it', async () => {
+    const { founder, at: start, group } = await household()
+    let at = start
+    const food = listCategories(founder).find((category) => category.nameEn === 'Food')!.id
+    createTransaction(founder, { type: 'EXPENSE', amount: '12.00', currency: 'USD', categoryId: food, groupId: group.id, date: '2026-10-20', notes: 'real', receiptData: null })
+    at = await save(founder, at)
+    // An entry from before the end of the log the founder's last roster version recorded.
+    const target = Number(founder.db.queryValue("SELECT MIN(seq) FROM audit_logs WHERE action = 'INVITE_CREATED'"))
+    // Bob, a Viewer holding the vault key, rewrites the founder's entry, deletes every signature, and saves one of his own.
+    const bob = await signIn(BOB)
+    withoutAuditTriggers(bob.db, () => {
+      bob.db.exec("UPDATE audit_logs SET details = '{\"notes\":\"forged\"}' WHERE seq = ?", [target])
+      rechain(bob.db, target)
+    })
+    bob.db.exec('DELETE FROM audit_sigs')
+    writeAudit(bob.db, bob.user.id, 'SIGNIN_FAILURES_SEEN', 'user', bob.user.id, { failures: 0 })
+    at = await save(bob, at)
+
+    vi.stubGlobal('localStorage', memoryStorage())
+    const fresh = await signIn(FOUNDER)
+    const result = await report(fresh)
+    const head = entries(fresh)
+    // Signed from the first entry, as roster version 1 says: every entry before Bob's is now unsigned.
+    expect(result.signedFrom).toBe(1)
+    for (let seq = 1; seq < head; seq += 1) expect(result.problems.get(seq), `entry ${seq}`).toContain('UNSIGNED')
+    // And the log no longer has the end the founder's save recorded, as it was.
+    const recorded = JSON.parse(String(fresh.db.queryValue('SELECT doc FROM roster_versions ORDER BY version DESC LIMIT 1'))).audit.through
+    expect(result.problems.get(recorded)).toContain('CUT')
+
+    if (!argon2Sync) return
+    const dir = mkdtempSync(join(tmpdir(), 'moliya-audit-'))
+    try {
+      const file = join(dir, 'forged.moliya')
+      writeFileSync(file, backupFileText(await stored()))
+      const failed = await promisify(execFile)(process.execPath, [CLI, file, '--email', FOUNDER.email, '--out', join(dir, 'forged.sqlite'), '--verify'], {
+        env: { ...process.env, MOLIYA_PASSWORD: FOUNDER.password },
+      }).then(
+        () => null,
+        (error: { code: number; stderr: string }) => error,
+      )
+      expect(failed?.code).toBe(4)
+      expect(failed?.stderr).toContain('warning:')
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('judges an admin who stepped down by their old role only for the entries of the save that did it', async () => {
+    const { founder, at: start, aliceId } = await household()
+    let at = start
+    updateUser(founder, aliceId, { roleName: 'Admin', groupId: null })
+    at = await save(founder, at)
+    const admin = await signIn(ALICE)
+    updateUser(admin, aliceId, { roleName: 'Viewer', groupId: listGroups(admin)[0].id })
+    at = await save(admin, at)
+    expect(problems(await report(admin))).toEqual({})
+    // Later, as the Viewer she is, she records what only an admin may; her save still names the version she signed.
+    const viewer = await signIn(ALICE)
+    writeAudit(viewer.db, aliceId, 'SETTINGS_UPDATED', 'vault', 'primary', { currency: 'EUR' })
+    await save(viewer, at)
+    expect(problems(await report(viewer))).toEqual({ [entries(viewer)]: ['ROLE'] })
+  })
+
+  it('signs the entries that take the place of ones cut off the log, and reports the cut', async () => {
+    const { at: start } = await household()
+    let at = start
+    const bob = await signIn(BOB)
+    const head = entries(bob)
+    // Bob cuts the last two entries but leaves their signatures.
+    withoutAuditTriggers(bob.db, () => bob.db.exec('DELETE FROM audit_logs WHERE seq > ?', [head - 2]))
+    at = await save(bob, at)
+    const founder = await signIn(FOUNDER)
+    const cut = await report(founder)
+    expect(cut.problems.get(head - 1)).toEqual(['ORPHAN'])
+    expect(cut.problems.get(head)).toEqual(expect.arrayContaining(['ORPHAN', 'CUT']))
+    acknowledgeAuditWarning(founder, { kind: 'SIGNATURES', count: cut.problems.size, firstSeq: head - 1 })
+    createGroup(founder, 'After the cut')
+    await save(founder, at)
+    // The acceptance and the next entry took those places and are the founder's, signed; only the cut itself stays.
+    expect(founder.db.query('SELECT actor FROM audit_sigs WHERE seq > ?', [head - 2]).map((row) => row.actor)).toEqual([founder.user.id, founder.user.id])
+    expect(problems(await report(founder))).toEqual({ [head]: ['CUT'] })
+  })
+
+  it('reports an entry naming a roster version that does not exist, and never the honest ones after it', async () => {
+    const { at: start } = await household()
+    let at = start
+    const bob = await signIn(BOB)
+    writeAudit(bob.db, bob.user.id, 'SIGNIN_FAILURES_SEEN', 'user', bob.user.id, { failures: 0 })
+    at = await save(bob, at)
+    const poisoned = entries(bob)
+    bob.db.exec('UPDATE audit_sigs SET roster_version = 1000 WHERE seq = ?', [poisoned])
+    at = await save(bob, at)
+    const founder = await signIn(FOUNDER)
+    createGroup(founder, 'One')
+    at = await save(founder, at)
+    expect(problems(await report(founder))).toEqual({ [poisoned]: ['ORDER'] })
+    // Accepted: this browser's checkpoint names only versions that exist, so later entries stay clean.
+    keepAuditSeen(founder.db, founder.keys.vaultId, entries(founder), { reset: true })
+    expect(readAuditSeen(founder.keys.vaultId)?.rosterVersion).toBe(founder.keys.roster.version)
+    createGroup(founder, 'Two')
+    await save(founder, at)
+    expect(problems((await checkVaultAudit(founder))!)).toEqual({})
+  })
+
+  it('reports an entry with no actor unless it is one the app writes so', async () => {
+    const { at: start } = await household()
+    const alice = await signIn(ALICE)
+    writeAudit(alice.db, null, 'TRANSACTION_DELETED', 'transaction', 'someone-elses', { amountMinor: 120_000 })
+    writeAudit(alice.db, null, 'INVITE_EXPIRED', 'grant', 'an-old-code', { kind: 'INVITE' })
+    await save(alice, start)
+    const head = entries(alice)
+    expect(problems(await report(alice))).toEqual({ [head - 1]: ['ACTOR'] })
+  })
+
+  it('anchors the signed log of a vault from before the anchor at the next version an admin signs', async () => {
+    const fixture = fixtureByPath('v5/signed-household')
+    const record = parseBackup(fixture.text).record as KeysRecord
+    const founderUser = fixture.expected.users.find((user) => user.role === 'Admin')!
+    await writeVault(record, { expectedStamp: null })
+    const opened = await signIn(founderUser)
+    expect(opened.db.query("SELECT doc FROM roster_versions WHERE json_type(doc, '$.audit') IS NOT NULL")).toEqual([])
+    // Opening it ended an expired code; the founder's save signs that entry and a version anchoring the log.
+    await save(opened, record.updatedAt)
+    const latest = JSON.parse(String(opened.db.queryValue('SELECT doc FROM roster_versions ORDER BY version DESC LIMIT 1')))
+    expect(latest.audit).toEqual({ from: fixture.expected.keys!.audit!.signedFrom, through: entries(opened), hash: opened.db.queryValue('SELECT hash FROM audit_logs ORDER BY seq DESC LIMIT 1') })
+    expect(problems(await report(opened))).toEqual({})
   })
 })

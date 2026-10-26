@@ -626,7 +626,7 @@ export const AUDIT_POLICY = {
   CLOCK_FLOOR_RESET: MANAGE_USERS,
   INVITE_ACCEPTED: { anyone: true },
   RESET_COMPLETED: { anyone: true },
-  INVITE_EXPIRED: { anyone: true },
+  INVITE_EXPIRED: { anyone: true, actorless: true },
   PASSWORD_CHANGED: { self: true },
   CREDENTIALS_UPGRADED: { self: true },
   SIGNIN_FAILURES_SEEN: { self: true },
@@ -658,7 +658,13 @@ function auditHash(row) {
 async function checkAuditLog(backup, docs, bindings, rows, sigRows) {
   const problems = new Map()
   const flag = (seq, kind) => problems.set(seq, [...new Set([...(problems.get(seq) ?? []), kind])])
-  const firstSigned = sigRows.length > 0 ? Math.min(...sigRows.map((sig) => sig.seq)) : null
+  let firstSigned = null
+  for (const sig of sigRows) if (firstSigned === null || sig.seq < firstSigned) firstSigned = sig.seq
+  // From 2.0.0-rc.2 the admin-signed roster anchors where the signed log starts, and records where each save left it.
+  const anchor = docs.findLast((doc) => doc.audit)?.audit.from ?? null
+  const bridgeSeq = anchor ?? firstSigned
+  const byHash = new Map(rows.map((row) => [row.seq, row.hash]))
+  for (const doc of docs) if (doc.audit && byHash.get(doc.audit.through) !== doc.audit.hash) flag(doc.audit.through, 'CUT')
   let previous = '0'.repeat(64)
   let expected = 1
   for (const row of rows) {
@@ -700,7 +706,7 @@ async function checkAuditLog(backup, docs, bindings, rows, sigRows) {
   let verified = 0
   let lastVersion = 0
   for (const row of rows) {
-    if (firstSigned === null || row.seq < firstSigned) {
+    if (bridgeSeq === null || row.seq < bridgeSeq) {
       legacy += 1
       continue
     }
@@ -709,11 +715,12 @@ async function checkAuditLog(backup, docs, bindings, rows, sigRows) {
       flag(row.seq, 'UNSIGNED')
       continue
     }
-    if (row.actor_id !== null && row.actor_id !== sig.actor) flag(row.seq, 'ACTOR')
+    const actorless = Object.hasOwn(AUDIT_POLICY, row.action) && AUDIT_POLICY[row.action].actorless === true
+    if (row.actor_id === null ? !actorless : row.actor_id !== sig.actor) flag(row.seq, 'ACTOR')
     const doc = docs[sig.roster_version - 1]
     if (!doc || sig.roster_version < lastVersion || sig.epoch !== doc.epoch) flag(row.seq, 'ORDER')
-    lastVersion = Math.max(lastVersion, sig.roster_version)
     if (!doc) continue
+    lastVersion = Math.max(lastVersion, sig.roster_version)
     const key = await keyAt(sig.actor, sig.roster_version)
     if (!key) {
       flag(row.seq, 'SIGNER')
@@ -731,14 +738,16 @@ async function checkAuditLog(backup, docs, bindings, rows, sigRows) {
       at: row.created_at,
       actor: sig.actor,
       action: row.action,
-      ...(row.seq === firstSigned ? { bridge: true } : {}),
+      ...(row.seq === bridgeSeq ? { bridge: true } : {}),
     }
     if (!(await verifySignature(LABELS.audit, body, sig.sig, key.sigPub))) {
       flag(row.seq, 'SIGNATURE')
       continue
     }
-    // The admin who signed a roster version that lowers their own role signed the entries of that save with it.
-    const before = sig.roster_version > 1 && doc.issuedBy === sig.actor ? docs[sig.roster_version - 2].members.find((item) => item.id === sig.actor) : undefined
+    // The admin who signed a roster version that lowers their own role signed the entries of that save with it, up to
+    // the end of the log that save stored (unknown for a version from before 2.0.0-rc.2).
+    const ofThatSave = doc.audit === undefined || row.seq <= doc.audit.through
+    const before = ofThatSave && sig.roster_version > 1 && doc.issuedBy === sig.actor ? docs[sig.roster_version - 2].members.find((item) => item.id === sig.actor) : undefined
     if (!auditAllowed(key.role, row, sig.actor) && !(before && before.status !== 'removed' && before.role === 'Admin')) flag(row.seq, 'ROLE')
     if (!problems.has(row.seq)) verified += 1
   }
@@ -792,6 +801,10 @@ export async function verifyKeysBackup(backup, plain) {
     if (doc.members.some((member) => !['active', 'invited', 'removed'].includes(member.status) || !['Admin', 'Manager', 'Viewer'].includes(member.role))) {
       return blocked(`roster version ${doc.version} has an unknown status or role`)
     }
+    const audit = doc.audit
+    if (audit !== undefined && !(Number.isSafeInteger(audit?.from) && audit.from >= 1 && Number.isSafeInteger(audit.through) && audit.through >= audit.from && /^[0-9a-f]{64}$/.test(audit.hash))) {
+      return blocked(`roster version ${doc.version} has a malformed audit anchor`)
+    }
   }
   let previous = null
   let founder = null
@@ -807,6 +820,8 @@ export async function verifyKeysBackup(backup, plain) {
       founder = first
     } else {
       if (doc.epoch < docs[index - 1].epoch) return blocked(`roster version ${doc.version} goes back to an older vault key`)
+      const anchored = docs[index - 1].audit
+      if (anchored && (!doc.audit || doc.audit.from !== anchored.from || doc.audit.through < anchored.through)) return blocked(`roster version ${doc.version} moves where the signed audit log starts or ends`)
       const before = new Map(docs[index - 1].members.map((member) => [member.id, member]))
       const was = before.get(doc.issuedBy)
       const now = members.get(doc.issuedBy)
