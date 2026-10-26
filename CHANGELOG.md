@@ -55,7 +55,7 @@ On `feature/v2-rc`, versions 2.0.0-rc.1 and 2.0.0-rc.2; built only with `VITE_V2
 #### Known limitations
 
 - Signatures show who wrote each entry and whether they were allowed to; they cannot stop someone who holds the vault key from removing the entries written since an admin last saved a change to the list of people, which only a browser that saw them notices, as in 1.x.
-- The first download is about 15 KB (gzip) larger than 1.7.4's, more than the design allows; most of it came with the alpha and beta and is open work before 2.0.0.
+- The first download is about 13 KB (gzip) larger than 1.7.4's, more than the design allows: reading any stored vault goes through the parser of the new format. Splitting it out is open work before 2.0.0.
 
 ## [1.7.4] - 2026-10-17
 
