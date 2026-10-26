@@ -1,0 +1,78 @@
+{
+  "schema": 1,
+  "generatedAt": "2026-10-26T20:45:29.425Z",
+  "quotes": [
+    {
+      "base": "USD",
+      "quote": "UZS",
+      "rate": "11965.51",
+      "date": "2026-10-22",
+      "source": "CBU",
+      "method": "official",
+      "legs": null,
+      "previous": {
+        "rate": "12012.30",
+        "date": "2026-10-21"
+      }
+    },
+    {
+      "base": "USD",
+      "quote": "KRW",
+      "rate": "1325.27708259",
+      "date": "2026-10-26",
+      "source": "ECB",
+      "method": "cross",
+      "legs": [
+        {
+          "pair": "EUR/KRW",
+          "rate": "1482.72"
+        },
+        {
+          "pair": "EUR/USD",
+          "rate": "1.1188"
+        }
+      ],
+      "previous": {
+        "rate": "1324.45278299",
+        "date": "2026-10-23"
+      }
+    },
+    {
+      "base": "USD",
+      "quote": "ILS",
+      "rate": "3.078",
+      "date": "2026-10-26",
+      "source": "BOI",
+      "method": "official",
+      "legs": null,
+      "previous": {
+        "rate": "3.112",
+        "date": "2026-10-23"
+      }
+    }
+  ],
+  "fetches": [
+    {
+      "source": "ECB",
+      "url": "https://data-api.ecb.europa.eu/service/data/EXR/D.USD+KRW+ILS.EUR.SP00.A?lastNObservations=2&detail=dataonly&format=csvdata",
+      "fetchedAt": "2026-10-26T20:45:29.425Z",
+      "sha256": "0e1bdb4e399305f3be5cca1e7dc5cacfc6ab250ad9977e186e4c06a14467304e"
+    },
+    {
+      "source": "BOI",
+      "url": "https://edge.boi.gov.il/FusionEdgeServer/sdmx/v2/data/dataflow/BOI.STATISTICS/EXR/1.0/RER_USD_ILS?lastNObservations=2&format=csv",
+      "fetchedAt": "2026-10-26T20:45:29.425Z",
+      "sha256": "c04058597cffd48a706bdcdacf3dcbae973642deaf6457beae8ad1b0e1040361"
+    }
+  ],
+  "checks": [
+    {
+      "subject": "USD/ILS BOI official",
+      "reference": "ECB cross via EUR (2026-10-26)",
+      "deviationPercent": "0.0619",
+      "tolerancePercent": "1.5",
+      "passed": true
+    }
+  ],
+  "digest": "eab1cdf6fb664646da24e9e695e41e6d4a34c2fa82d2224a436e0e5b24f0e850"
+}
