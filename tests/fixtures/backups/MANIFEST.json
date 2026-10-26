@@ -48,6 +48,13 @@
       "backupFormat": 3,
       "recordFormat": 3,
       "schemaVersion": 5
+    },
+    {
+      "path": "v5/anchored-household",
+      "producedBy": "2.0.0-rc.2",
+      "backupFormat": 3,
+      "recordFormat": 3,
+      "schemaVersion": 5
     }
   ]
 }

@@ -163,11 +163,11 @@ describe('moliya-decrypt on a backup with per-person keys (format 3)', () => {
     expect(gone.stderr).toBe(`moliya-decrypt: no user ${removed.email} in this backup\n`)
   })
 
-  it.skipIf(!argon2Sync)('verifies the audit signatures of the golden v5 backup that has them', async () => {
-    const fixture = fixtureByPath('v5/signed-household')
-    const golden = resolve(FIXTURE_ROOT, 'v5/signed-household.moliya')
+  it.skipIf(!argon2Sync).each(['v5/signed-household', 'v5/anchored-household'])('verifies the audit signatures of the golden backup %s', async (path) => {
+    const fixture = fixtureByPath(path)
+    const golden = resolve(FIXTURE_ROOT, `${path}.moliya`)
     const [, manager] = fixture.expected.users
-    const { stderr } = await cli([golden, '--email', manager.email, '--out', join(work, 'signed.sqlite'), '--verify'], manager.password)
+    const { stderr } = await cli([golden, '--email', manager.email, '--out', join(work, `${path.replace('/', '-')}.sqlite`), '--verify'], manager.password)
     const audit = fixture.expected.keys!.audit!
     expect(stderr).toContain(`audit log verified: ${audit.signed} signed entries, and ${audit.signedFrom - 1} from before entries were signed`)
   })

@@ -1,0 +1,240 @@
+{
+  "description": "Produced by Jaybi 2.0.0-rc.2 services: vault record v3, backup v3, schema v5 (a 1.x vault upgraded to per-person keys, signed audit entries from the upgrade on, anchored in every roster version, one new household key after a suspension, and a body in 16 KiB chunks).",
+  "producedBy": {
+    "appVersion": "2.0.0-rc.2",
+    "commit": "84f900345fda"
+  },
+  "format": {
+    "backup": 3,
+    "record": 3,
+    "schema": 5
+  },
+  "vaultName": "Anchored Home",
+  "currency": "USD",
+  "users": [
+    {
+      "email": "founder@anchored.test",
+      "password": "Founder anchored lantern v5",
+      "role": "Admin",
+      "group": null
+    },
+    {
+      "email": "alice@anchored.test",
+      "password": "Alice anchored · v5 · Олма",
+      "role": "Manager",
+      "group": "Anchored Home"
+    },
+    {
+      "email": "carol@anchored.test",
+      "password": "Carol anchored harbour v5",
+      "role": "Viewer",
+      "group": "Anchored Home"
+    },
+    {
+      "email": "dave@anchored.test",
+      "password": "Dave anchored meadow v5",
+      "role": "Viewer",
+      "group": "Anchored Home"
+    }
+  ],
+  "groups": [
+    "Anchored Home"
+  ],
+  "categoryCount": 15,
+  "transactions": [
+    {
+      "id": "d8101f7c-56ac-423a-a8b2-acecb51f1934",
+      "type": "INCOME",
+      "amountMinor": 510000,
+      "currency": "USD",
+      "category": "Salary",
+      "group": "Anchored Home",
+      "date": "2026-10-01",
+      "notes": null,
+      "hasReceipt": false,
+      "userEmail": "founder@anchored.test"
+    },
+    {
+      "id": "c5e66382-b336-4ff2-a654-e0371a4c5ed3",
+      "type": "EXPENSE",
+      "amountMinor": 6420,
+      "currency": "USD",
+      "category": "Food",
+      "group": "Anchored Home",
+      "date": "2026-10-04",
+      "notes": "bazaar",
+      "hasReceipt": false,
+      "userEmail": "founder@anchored.test"
+    },
+    {
+      "id": "a0795dcf-3c33-4a7f-bbba-6fd57d3c12cf",
+      "type": "EXPENSE",
+      "amountMinor": 2350,
+      "currency": "USD",
+      "category": "Food",
+      "group": "Anchored Home",
+      "date": "2026-10-06",
+      "notes": "bread and tea",
+      "hasReceipt": false,
+      "userEmail": "alice@anchored.test"
+    }
+  ],
+  "totals": {
+    "range": {
+      "start": "2026-10-01",
+      "end": "2026-10-31"
+    },
+    "admin": {
+      "incomeMinor": 510000,
+      "expenseMinor": 8770,
+      "netMinor": 501230,
+      "savingsRate": 98.3
+    }
+  },
+  "auditActions": [
+    "VAULT_CREATED",
+    "CATEGORY_CREATED",
+    "TRANSACTION_CREATED",
+    "INVITE_CREATED",
+    "INVITE_REVOKED",
+    "VAULT_UPGRADED",
+    "TRANSACTION_CREATED",
+    "INVITE_CREATED",
+    "INVITE_CREATED",
+    "INVITE_CREATED",
+    "INVITE_ACCEPTED",
+    "TOTP_ENABLED",
+    "TRANSACTION_CREATED",
+    "INVITE_ACCEPTED",
+    "INVITE_ACCEPTED",
+    "RESET_ISSUED",
+    "RESET_COMPLETED",
+    "INVITE_CREATED",
+    "USER_UPDATED",
+    "USER_SUSPENDED",
+    "INVITE_REVOKED",
+    "EPOCH_ROTATED",
+    "USER_UPDATED",
+    "INVITE_CREATED",
+    "INVITE_ACCEPTED",
+    "INVITE_CREATED",
+    "BACKUP_EXPORTED"
+  ],
+  "addedOnOpen": [
+    "INVITE_EXPIRED"
+  ],
+  "keys": {
+    "epoch": 2,
+    "roster": {
+      "version": 7,
+      "hash": "f2340e24c3437a8af092d410ce26a9227a101eede388aac9c57557ee772d4259"
+    },
+    "founder": {
+      "email": "founder@anchored.test",
+      "fingerprint": "81E6 898A CD68 1021 0DCF 9778"
+    },
+    "removed": [
+      {
+        "email": "bob@anchored.test",
+        "password": "Bob anchored compass v5"
+      }
+    ],
+    "chunkSize": 16384,
+    "chunks": 27,
+    "audit": {
+      "signedFrom": 5,
+      "signed": 23,
+      "head": {
+        "seq": 27,
+        "hash": "e8d41b73e77048b914a3bf22c8d1e79178ebce17cf02deca2d6dbb2809c186d3"
+      }
+    }
+  },
+  "grants": {
+    "pending": [
+      {
+        "kind": "INVITE",
+        "email": "frank@anchored.test",
+        "code": "X867-97CN-C13F-RHC5-2TJC-SC23-VMA4",
+        "expiresAt": "2026-10-25T11:20:00.000Z"
+      }
+    ],
+    "used": [
+      {
+        "kind": "INVITE",
+        "email": "alice@anchored.test",
+        "code": "XN4P-MAG3-JZ0F-EF23-JE9W-E5JK-HYTQ"
+      },
+      {
+        "kind": "INVITE",
+        "email": "bob@anchored.test",
+        "code": "B9GV-T7S9-P89P-QD08-WPYN-C2SZ-C4SJ"
+      },
+      {
+        "kind": "RESET",
+        "email": "dave@anchored.test",
+        "code": "XXRN-RBVT-08ZC-HH6X-RZY8-SCRZ-VDPN"
+      },
+      {
+        "kind": "INVITE",
+        "email": "carol@anchored.test",
+        "code": "2CEN-4JK2-7XTC-D9PR-8QWS-V1MF-T4DC"
+      }
+    ],
+    "revoked": [
+      {
+        "kind": "INVITE",
+        "email": "eve@anchored.test",
+        "code": "HTA7-8Y8M-VBCC-KE9Z-AV01-E7RV-DMRV"
+      }
+    ]
+  },
+  "safes": {
+    "summaryDate": "2026-10-25",
+    "owners": [
+      {
+        "email": "founder@anchored.test",
+        "state": "OPEN",
+        "recoveryCode": "XMGCQ-ZZZED-9Z2CX-H452K-KKYGT",
+        "safes": [
+          {
+            "id": "029755a1-34d4-45c0-be23-263ba46b09d2",
+            "name": "Main",
+            "archived": false,
+            "requirePassword": false,
+            "isDefault": true,
+            "items": [
+              {
+                "v": 1,
+                "kind": "NOTE",
+                "title": "Spare key",
+                "body": "With the neighbour at number 7",
+                "favorite": false,
+                "id": "1161a638-92b0-4e78-b433-d795c8607f3a",
+                "safeId": "029755a1-34d4-45c0-be23-263ba46b09d2",
+                "deletedAt": null
+              }
+            ]
+          }
+        ],
+        "totals": []
+      }
+    ]
+  },
+  "signInCheck": {
+    "email": "alice@anchored.test",
+    "secret": "OYNBPXQMOT4XJZGLNFQRK7EVFXQHBCOL",
+    "recoveryCodes": [
+      "0N0Z-S3Z1-1AJ5-Z944",
+      "9H1B-7ZMR-FGEC-2END",
+      "EVFV-50E2-4J3J-ZG1H",
+      "1AC5-RCQ9-C8J8-D48W",
+      "T4QX-MAPQ-MHJV-A22K",
+      "1ANX-CZRY-NFV4-SR76",
+      "9WKY-7HT6-X36B-QT7G",
+      "KDDR-AYHN-H0XY-JT26",
+      "00K4-2P63-RPG2-SCKY",
+      "HMQP-VCT0-V6G4-CE8E"
+    ]
+  }
+}
