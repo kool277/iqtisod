@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import { watchViolations } from '../support/csp'
+import { finishSetup, KEYS_BUILD } from '../support/keys'
+import { invite, join } from '../support/people'
 
 const ADMIN = { email: 'admin@example.com', password: 'Correct horse lantern 7' }
 const MANAGER = { email: 'mira@example.com', renamed: 'mira.k@example.com', name: 'Mira Karimova', temporary: 'Temp maple kettle 101', password: 'Own orchard lantern 11' }
@@ -12,7 +14,7 @@ async function createVault(page: Page) {
   await page.getByTestId('setup-password').fill(ADMIN.password)
   await page.getByTestId('setup-confirm').fill(ADMIN.password)
   await page.getByTestId('setup-submit').click()
-  await expect(page.getByTestId('kpi-net')).toBeVisible({ timeout: 30_000 })
+  await finishSetup(page)
 }
 
 async function signIn(page: Page, email: string, password: string) {
@@ -52,6 +54,7 @@ async function openPerson(page: Page, email: string) {
 }
 
 test('an admin adds, edits, bulk-changes, suspends, reactivates and deletes people; a manager only reads', async ({ page }) => {
+  test.skip(KEYS_BUILD, 'temporary passwords exist only in 1.x vaults')
   test.setTimeout(240_000)
   const violations = await watchViolations(page)
   await createVault(page)
@@ -102,6 +105,8 @@ test('an admin adds, edits, bulk-changes, suspends, reactivates and deletes peop
   // The manager signs in with the new email, records something, and sees their group read-only.
   await signIn(page, MANAGER.renamed, MANAGER.temporary)
   await expect(page.getByTestId('must-change-banner')).toBeVisible({ timeout: 30_000 })
+  // Until they choose their own password, the menu offers nothing but Account.
+  for (const item of ['nav-dashboard', 'nav-health', 'header-help']) await expect(page.getByTestId(item), item).toHaveCount(0)
   await page.getByTestId('account-current').fill(MANAGER.temporary)
   await page.getByTestId('account-new').fill(MANAGER.password)
   await page.getByTestId('account-confirm').fill(MANAGER.password)
@@ -170,5 +175,124 @@ test('an admin adds, edits, bulk-changes, suspends, reactivates and deletes peop
   await expect(page.getByRole('cell', { name: 'Record added', exact: true }).first()).toBeVisible()
   await expect(page.getByRole('row').filter({ hasText: 'Record added' }).filter({ hasText: MANAGER.renamed })).toHaveCount(1)
 
+  expect(await violations()).toEqual([])
+})
+
+test('with per-person keys an admin invites, edits, bulk-changes, suspends, reactivates and deletes people', async ({ page }) => {
+  test.skip(!KEYS_BUILD, 'a build made with VITE_V2_KEYS=0 creates 1.x vaults')
+  test.setTimeout(300_000)
+  const violations = await watchViolations(page)
+  const manager = { email: MANAGER.email, password: MANAGER.password, role: 'Manager' } as const
+  const viewer = { email: VIEWER.email, password: 'Own birch window 202', role: 'Viewer' } as const
+  await createVault(page)
+  await page.getByTestId('nav-groups').click()
+  await page.getByTestId('group-name').fill('Field team')
+  await page.getByTestId('group-save').click()
+  await expect(page.getByTestId('group-row')).toHaveCount(2)
+
+  // Invite only: nobody else ever knows a password, so the admin never knows anyone's keys.
+  await page.getByTestId('nav-users').click()
+  await page.getByTestId('user-add').click()
+  await expect(page.getByTestId('advanced-temp-toggle')).toHaveCount(0)
+  await page.keyboard.press('Escape')
+  await expect(page.getByTestId('add-user-dialog')).toHaveCount(0)
+  const managerCode = await invite(page, manager)
+  const viewerCode = await invite(page, viewer)
+  await lockVault(page)
+  await join(page, manager, managerCode)
+  await lockVault(page)
+  await join(page, viewer, viewerCode)
+  await lockVault(page)
+
+  // The admin's next save signs both into the list of people; an email change keeps the person's keys.
+  await signIn(page, ADMIN.email, ADMIN.password)
+  await expect(page.getByTestId('app-shell')).toBeVisible({ timeout: 60_000 })
+  await page.getByTestId('nav-users').click()
+  await expect(page.getByTestId('overview-members')).toContainText('3')
+  await openPerson(page, MANAGER.email)
+  await expect(page.getByTestId('user-detail-access')).toHaveText('Has keys')
+  await page.getByTestId('user-action-edit').click()
+  await page.getByTestId('edit-email').fill(MANAGER.renamed)
+  await page.getByTestId('edit-save').click()
+  await expect(page.getByTestId('user-edit-dialog')).toHaveCount(0, { timeout: 30_000 })
+  await expect(page.getByTestId('user-detail-email')).toHaveText(MANAGER.renamed)
+
+  await page.getByTestId('user-back').click()
+  await row(page, MANAGER.renamed).getByTestId('users-select').check()
+  await row(page, VIEWER.email).getByTestId('users-select').check()
+  await page.getByTestId('bulk-role').selectOption('Manager')
+  await page.getByTestId('bulk-group').selectOption({ label: 'Home' })
+  await page.getByTestId('bulk-apply').click()
+  await page.getByTestId('bulk-confirm').click()
+  await expect(page.getByRole('status').filter({ hasText: 'People updated: 2.' })).toBeVisible({ timeout: 30_000 })
+  await expect(row(page, VIEWER.email).locator('[data-column="role"]')).toHaveText('Manager')
+  await lockVault(page)
+
+  await signIn(page, MANAGER.renamed, MANAGER.password)
+  await expect(page.getByTestId('app-shell')).toBeVisible({ timeout: 60_000 })
+  await page.getByTestId('nav-transactions').click()
+  await page.getByTestId('add-transaction').click()
+  await page.getByTestId('tx-type').selectOption('EXPENSE')
+  await page.getByTestId('tx-amount').fill('70')
+  await page.getByTestId('tx-save').click()
+  await expect(page.locator('[data-testid="tx-row"][data-amount="70"]')).toBeVisible()
+  await page.getByTestId('nav-users').click()
+  await expect(page.getByTestId('users-read-only')).toBeVisible()
+  await expect(page.getByTestId('user-add')).toHaveCount(0)
+  await expect(page.getByTestId('user-issue-reset')).toHaveCount(0)
+  await lockVault(page)
+
+  // Suspending someone who holds the household key makes a new one; reactivating gives them a new code.
+  await signIn(page, ADMIN.email, ADMIN.password)
+  await expect(page.getByTestId('app-shell')).toBeVisible({ timeout: 60_000 })
+  await openPerson(page, VIEWER.email)
+  await page.getByTestId('user-action-suspend').click()
+  await expect(page.getByTestId('removal-new-key')).toBeVisible()
+  await page.getByTestId('user-suspend-dialog-confirm').click()
+  await expect(page.getByTestId('user-detail')).toHaveAttribute('data-status', 'SUSPENDED', { timeout: 30_000 })
+  await lockVault(page)
+  await signIn(page, VIEWER.email, viewer.password)
+  await expect(page.getByTestId('form-error')).toBeVisible({ timeout: 60_000 })
+  await expect(page.getByTestId('app-shell')).toHaveCount(0)
+  await signIn(page, ADMIN.email, ADMIN.password)
+  await expect(page.getByTestId('app-shell')).toBeVisible({ timeout: 60_000 })
+  await openPerson(page, VIEWER.email)
+  await page.getByTestId('user-action-reactivate').click()
+  await page.getByTestId('user-reactivate-dialog-confirm').click()
+  const comeback = (await page.getByTestId('issued-code').textContent({ timeout: 60_000 }))!.trim()
+  await expect(page.getByTestId('user-detail')).toHaveAttribute('data-status', 'ACTIVE')
+  await page.getByTestId('code-done').click()
+  await lockVault(page)
+  await page.getByTestId('reset-link').click()
+  await page.getByTestId('register-email').fill(VIEWER.email)
+  await page.getByTestId('register-code').fill(comeback)
+  await page.getByTestId('register-password').fill('Viewer comes back lantern 3')
+  await page.getByTestId('register-confirm').fill('Viewer comes back lantern 3')
+  await page.getByTestId('register-submit').click()
+  await expect(page.getByTestId('app-shell')).toBeVisible({ timeout: 60_000 })
+  await lockVault(page)
+
+  await signIn(page, ADMIN.email, ADMIN.password)
+  await expect(page.getByTestId('app-shell')).toBeVisible({ timeout: 60_000 })
+  await openPerson(page, MANAGER.renamed)
+  await expect(page.getByTestId('user-records')).toHaveAttribute('data-count', '1')
+  await page.getByTestId('user-action-delete').click()
+  await expect(page.getByTestId('removal-new-key')).toBeVisible()
+  await page.getByTestId('delete-reassign').check()
+  await page.getByTestId('delete-reassign-to').selectOption({ label: ADMIN.email })
+  await page.getByTestId('delete-confirm-email').fill(MANAGER.renamed)
+  await page.getByTestId('delete-confirm').click()
+  await expect(page.getByRole('status').filter({ hasText: 'Person deleted.' })).toBeVisible({ timeout: 30_000 })
+  await expect(row(page, MANAGER.renamed)).toHaveCount(0)
+  await page.getByTestId('nav-transactions').click()
+  await expect(page.locator('[data-testid="tx-row"][data-amount="70"]')).toBeVisible()
+  await expect(page.getByTestId('save-state')).toHaveText('Saved', { timeout: 60_000 })
+
+  // Every entry is signed by the person who made it, the departed manager's included.
+  await page.getByTestId('nav-audit').click()
+  await expect(page.getByRole('cell', { name: 'Records moved to another person', exact: true })).toHaveCount(1)
+  await expect(page.getByRole('cell', { name: 'New household key after someone left', exact: true })).toHaveCount(2)
+  await expect(page.getByTestId('audit-signatures')).toHaveAttribute('data-state', 'ready', { timeout: 30_000 })
+  await expect(page.getByTestId('audit-signatures')).toHaveAttribute('data-problems', '0')
   expect(await violations()).toEqual([])
 })

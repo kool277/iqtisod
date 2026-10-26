@@ -558,7 +558,7 @@ function ResetDialog({ person, onClose, onIssued }: { person: VaultUser; onClose
 
 function ReactivateDialog({ person, onClose, onIssued }: { person: VaultUser; onClose: () => void; onIssued: (grant: IssuedGrant) => void }) {
   const { t } = useI18n()
-  const { run } = useVault()
+  const { run, keysInfo } = useVault()
   const { error, working, guard } = useGuard()
   const [validity, setValidity] = useState<GrantValidity>(DEFAULT_GRANT_VALIDITY)
   const submit = (event: FormEvent) => {
@@ -568,7 +568,7 @@ function ReactivateDialog({ person, onClose, onIssued }: { person: VaultUser; on
   return (
     <Dialog title={t('people.actions.reactivateTitle')} onClose={onClose} testId="user-reactivate-dialog">
       <form className="grid gap-3" onSubmit={submit}>
-        <p className="text-sm">{t('people.actions.reactivateBody')}</p>
+        <p className="text-sm">{keysInfo ? t('people.keys.reactivateBody') : t('people.actions.reactivateBody')}</p>
         {error ? <Notice>{error}</Notice> : null}
         <ValiditySelect testId="reactivate-validity" value={validity} onChange={setValidity} />
         <div className="flex flex-wrap gap-2">

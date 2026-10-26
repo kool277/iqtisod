@@ -3,6 +3,7 @@ import { resolve } from 'node:path'
 import { expect, test, type Page } from '@playwright/test'
 import { addDays, sealSnapshot, type FxSnapshot } from '../../src/domain/fx'
 import { watchViolations } from '../support/csp'
+import { finishSetup } from '../support/keys'
 
 // Release screenshots only: set RELEASE_SCREENS to the output directory to run this file.
 const DIR = process.env.RELEASE_SCREENS
@@ -56,7 +57,7 @@ test('release screenshots: groups with summaries, ledger from a group link, dash
   await page.getByTestId('setup-password').fill('Correct horse lantern 7')
   await page.getByTestId('setup-confirm').fill('Correct horse lantern 7')
   await page.getByTestId('setup-submit').click()
-  await expect(page.getByTestId('kpi-net')).toBeVisible({ timeout: 30_000 })
+  await finishSetup(page)
 
   await page.getByTestId('nav-groups').click()
   for (const name of ['Field team', 'Shop']) {

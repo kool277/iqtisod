@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { expect, test, type Page } from '@playwright/test'
+import { skipUpgradeOffer } from '../support/keys'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const FIXTURES = resolve(here, '../fixtures/backups')
@@ -151,6 +152,7 @@ test('upgrades a vault stored by 1.0.0 in this browser without losing anything',
   await expect(page.getByText(`v${packageVersion}`).filter({ visible: true })).toHaveCount(1)
 
   await login(page, 'admin@golden.test', 'golden-admin-v1')
+  await skipUpgradeOffer(page)
   await expect(page.getByTestId('save-state')).toHaveText('Saved', { timeout: 30_000 })
   const stored = await storedSummary(page)
   expect(stored).toMatchObject({ version: 2, schemaVersion: 4, appVersion: packageVersion, hasBody: true, hasPayload: false })
@@ -209,6 +211,7 @@ test('imports a 1.0.0 backup file into a fresh browser', async ({ page }) => {
   await page.getByTestId('import-file').setInputFiles(businessFile)
   await page.getByTestId('confirm-import').click()
   await login(page, 'owner@business.test', 'пароль-oʻzbek-🔐-v1')
+  await skipUpgradeOffer(page)
   await showRange(page, '2026-06-01', '2026-06-30')
   await expectKpis(page, { income: '12500000.75', expense: '350000.5', net: '12150000.25', savings: '97.2' })
   await expect(page.getByTestId('save-state')).toHaveText('Saved', { timeout: 30_000 })
@@ -240,6 +243,7 @@ test('allows only one unlocked session per browser', async ({ page, context }) =
   await injectV1Record(page, household)
   await page.reload()
   await login(page, 'admin@golden.test', 'golden-admin-v1')
+  await skipUpgradeOffer(page)
   const second = await context.newPage()
   await second.goto('/')
   await second.getByTestId('login-email').fill('manager@golden.test')

@@ -6,6 +6,7 @@ import { DatabaseSync } from 'node:sqlite'
 import { fileURLToPath } from 'node:url'
 import { expect, test, type Page } from '@playwright/test'
 import { watchViolations } from '../support/csp'
+import { skipUpgradeOffer } from '../support/keys'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const FIXTURE = resolve(here, '../fixtures/backups/v4/access-household.moliya')
@@ -96,6 +97,7 @@ async function login(page: Page) {
   await page.getByTestId('login-password').fill(ADMIN.password)
   await page.getByTestId('login-submit').click()
   await expect(page.getByTestId('kpi-net')).toBeVisible({ timeout: 60_000 })
+  await skipUpgradeOffer(page)
 }
 
 async function expectTotals(page: Page, copies = COPIES) {

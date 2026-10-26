@@ -1,11 +1,13 @@
 import { expect, test, type Page } from '@playwright/test'
 import { watchViolations } from '../support/csp'
 import { escapeRegExp } from '../support/regexp'
+import { finishSetup } from '../support/keys'
+import { invite, join } from '../support/people'
 
 const TARGET = process.env.E2E_TARGET === 'preview' ? 'preview' : 'dev'
 
 const ADMIN = { email: 'admin@example.com', password: 'Correct horse lantern 7' }
-const MEMBER = { email: 'viewer@example.com', temporary: 'Temp birch window 101', password: 'Own willow harbor 11' }
+const MEMBER = { email: 'viewer@example.com', password: 'Own willow harbor 11', role: 'Viewer' } as const
 
 const APP_ROUTES = [
   '/app',
@@ -49,7 +51,7 @@ async function createVault(page: Page) {
   await page.getByTestId('setup-password').fill(ADMIN.password)
   await page.getByTestId('setup-confirm').fill(ADMIN.password)
   await page.getByTestId('setup-submit').click()
-  await expect(page.getByTestId('kpi-net')).toBeVisible({ timeout: 30_000 })
+  await finishSetup(page)
 }
 
 async function signIn(page: Page, email: string, password: string) {
@@ -155,14 +157,7 @@ test('every route renders for an admin and for a member, and unknown routes say 
   const errors = watchErrors(page)
   await createVault(page)
 
-  await page.getByTestId('nav-users').click()
-  await page.getByTestId('user-add').click()
-  await page.getByTestId('advanced-temp-toggle').click()
-  await page.getByTestId('user-email').fill(MEMBER.email)
-  await page.getByTestId('user-password').fill(MEMBER.temporary)
-  await page.getByTestId('user-role').selectOption('Viewer')
-  await page.getByTestId('user-save').click()
-  await expect(page.getByText(MEMBER.email)).toBeVisible({ timeout: 30_000 })
+  const code = await invite(page, MEMBER)
 
   await visitEveryRoute(page)
 
@@ -196,15 +191,7 @@ test('every route renders for an admin and for a member, and unknown routes say 
   await lockVault(page)
   await expect(page).toHaveURL(endsWithHash('/login'))
 
-  await page.getByTestId('login-email').fill(MEMBER.email)
-  await page.getByTestId('login-password').fill(MEMBER.temporary)
-  await page.getByTestId('login-submit').click()
-  await expect(page.getByTestId('must-change-banner')).toBeVisible({ timeout: 30_000 })
-  await page.getByTestId('account-current').fill(MEMBER.temporary)
-  await page.getByTestId('account-new').fill(MEMBER.password)
-  await page.getByTestId('account-confirm').fill(MEMBER.password)
-  await page.getByTestId('account-save').click()
-  await expect(page.getByTestId('must-change-banner')).toHaveCount(0, { timeout: 30_000 })
+  await join(page, MEMBER, code)
 
   await visitEveryRoute(page)
   for (const route of ['/app/users', '/app/audit', '/app/backup', '/app/settings']) {

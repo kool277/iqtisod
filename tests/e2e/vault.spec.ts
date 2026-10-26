@@ -1,4 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
+import { confirmFounderKey, finishSetup, KEYS_BUILD } from '../support/keys'
+import { invite, join } from '../support/people'
 
 async function createVault(page: Page) {
   await page.goto('/')
@@ -7,7 +9,7 @@ async function createVault(page: Page) {
   await page.getByTestId('setup-password').fill('Correct horse lantern 7')
   await page.getByTestId('setup-confirm').fill('Correct horse lantern 7')
   await page.getByTestId('setup-submit').click()
-  await expect(page.getByTestId('kpi-net')).toBeVisible({ timeout: 30_000 })
+  await finishSetup(page)
 }
 
 async function addRecord(page: Page, type: 'INCOME' | 'EXPENSE', amount: string) {
@@ -141,38 +143,16 @@ test('admin changes vault settings, adds a category, and collapses the sidebar',
   await expectHeaderHeight(page)
 })
 
-test('admin creates a manager and a viewer, and the viewer stays read-only', async ({ page }) => {
+test('admin invites a manager and a viewer, and the viewer stays read-only', async ({ page }) => {
   await createVault(page)
   await addRecord(page, 'EXPENSE', '40')
-  await page.getByTestId('nav-users').click()
-  await page.getByTestId('user-add').click()
-  await page.getByTestId('advanced-temp-toggle').click()
+  await invite(page, { email: 'manager@example.com', password: 'Maple kettle orbit 31', role: 'Manager' })
+  const viewer = { email: 'viewer@example.com', password: 'Viewer quiet river lamp 5', role: 'Viewer' } as const
+  const code = await invite(page, viewer)
 
-  await page.getByTestId('user-email').fill('manager@example.com')
-  await page.getByTestId('user-password').fill('Maple kettle orbit 31')
-  await page.getByTestId('user-role').selectOption('Manager')
-  await page.getByTestId('user-save').click()
-  await expect(page.getByText('manager@example.com')).toBeVisible({ timeout: 30_000 })
-
-  await page.getByTestId('user-add').click()
-  await page.getByTestId('advanced-temp-toggle').click()
-  await page.getByTestId('user-email').fill('viewer@example.com')
-  await page.getByTestId('user-password').fill('Temporary lamp words 22')
-  await page.getByTestId('user-role').selectOption('Viewer')
-  await page.getByTestId('user-save').click()
-  await expect(page.getByText('viewer@example.com')).toBeVisible({ timeout: 30_000 })
-
+  await expect(page.getByTestId('save-state')).toHaveText('Saved', { timeout: 30_000 })
   await page.getByTestId('lock-vault').click()
-  await page.getByTestId('login-email').fill('viewer@example.com')
-  await page.getByTestId('login-password').fill('Temporary lamp words 22')
-  await page.getByTestId('login-submit').click()
-  await expect(page.getByTestId('must-change-banner')).toBeVisible({ timeout: 30_000 })
-  await expect(page.getByTestId('nav-dashboard')).toHaveCount(0)
-  await page.getByTestId('account-current').fill('Temporary lamp words 22')
-  await page.getByTestId('account-new').fill('Viewer quiet river lamp 5')
-  await page.getByTestId('account-confirm').fill('Viewer quiet river lamp 5')
-  await page.getByTestId('account-save').click()
-  await expect(page.getByTestId('must-change-banner')).toHaveCount(0, { timeout: 30_000 })
+  await join(page, viewer, code)
   await page.getByTestId('nav-dashboard').click()
   await expect(page.getByTestId('kpi-expense')).toHaveAttribute('data-amount', '40', { timeout: 30_000 })
   await expect(page.getByTestId('nav-users')).toHaveCount(0)
@@ -200,6 +180,7 @@ test('exports an encrypted backup and imports it into a fresh browser', async ({
   await fresh.getByTestId('login-email').fill('admin@example.com')
   await fresh.getByTestId('login-password').fill('Correct horse lantern 7')
   await fresh.getByTestId('login-submit').click()
+  if (KEYS_BUILD) await confirmFounderKey(fresh)
   await expect(fresh.getByTestId('kpi-net')).toHaveAttribute('data-amount', '800', { timeout: 30_000 })
   await context.close()
 })

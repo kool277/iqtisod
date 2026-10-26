@@ -349,8 +349,10 @@ describe('vault checks', () => {
     const adminFacts = collectVaultFacts(admin, { saveState: 'saved', weak: false, archives: 1, deviceMark: auditHead(admin.db), recordedHead: null })
     expect(adminFacts).toMatchObject({ canReadAudit: true, canManageUsers: true, members: 3, archives: 1, chain: { ok: true } })
     const adminResults = vaultChecks(adminFacts, stored, NOW)
-    expect(adminResults.filter((item) => item.adminOnly).map((item) => item.id).sort()).toEqual(['archives', 'auditChain', 'auditHead', 'members', 'userHygiene'])
+    expect(adminResults.filter((item) => item.adminOnly).map((item) => item.id).sort()).toEqual(['archives', 'auditChain', 'auditHead', 'keysUpgrade', 'members', 'userHygiene'])
     expect(byId(adminResults, 'auditHead')).toMatchObject({ status: 'pass', detail: 'ok' })
+    // Per-person keys are the default, so the admin of a 1.x vault is told an upgrade is there to take.
+    expect(byId(adminResults, 'keysUpgrade')).toMatchObject({ status: 'info', detail: 'offer', adminOnly: true })
     expect(adminFacts.hygiene).toMatchObject({ noAccess: 0, expiredCodes: 0, legacyWraps: 0 })
     expect(byId(adminResults, 'userHygiene')).toMatchObject({ status: 'pass', detail: 'ok', adminOnly: true })
     expect(byId(adminResults, 'backup')).toMatchObject({ status: 'info', detail: 'never' })

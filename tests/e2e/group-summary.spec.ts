@@ -3,6 +3,8 @@ import { resolve } from 'node:path'
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { watchViolations } from '../support/csp'
 import { escapeRegExp } from '../support/regexp'
+import { finishSetup } from '../support/keys'
+import { invite, join } from '../support/people'
 
 const TARGET = process.env.E2E_TARGET === 'preview' ? 'preview' : 'dev'
 const SCREENS = resolve(process.env.GROUP_SUMMARY_SCREENS ?? `/tmp/moliya-group-summary-screens/${TARGET}`)
@@ -14,7 +16,7 @@ async function createVault(page: Page) {
   await page.getByTestId('setup-password').fill('Correct horse lantern 7')
   await page.getByTestId('setup-confirm').fill('Correct horse lantern 7')
   await page.getByTestId('setup-submit').click()
-  await expect(page.getByTestId('kpi-net')).toBeVisible({ timeout: 30_000 })
+  await finishSetup(page)
 }
 
 async function addRecord(page: Page, group: string, type: 'INCOME' | 'EXPENSE', amount: string, currency = 'USD') {
@@ -123,26 +125,10 @@ test('groups page shows income, expenses and net per group and currency, scoped 
   })
   await expect.poll(() => ledgerAmounts(page)).toHaveLength(5)
 
-  await page.getByTestId('nav-users').click()
-  await page.getByTestId('user-add').click()
-  await page.getByTestId('advanced-temp-toggle').click()
-  await page.getByTestId('user-email').fill('manager@example.com')
-  await page.getByTestId('user-password').fill('Temp maple kettle 101')
-  await page.getByTestId('user-role').selectOption('Manager')
-  await page.getByTestId('user-group').selectOption({ label: 'Field team' })
-  await page.getByTestId('user-save').click()
-  await expect(page.getByText('manager@example.com')).toBeVisible({ timeout: 30_000 })
+  const manager = { email: 'manager@example.com', password: 'Own orchard lantern 11', role: 'Manager', group: 'Field team' } as const
+  const code = await invite(page, manager)
   await lockVault(page)
-
-  await page.getByTestId('login-email').fill('manager@example.com')
-  await page.getByTestId('login-password').fill('Temp maple kettle 101')
-  await page.getByTestId('login-submit').click()
-  await expect(page.getByTestId('must-change-banner')).toBeVisible({ timeout: 30_000 })
-  await page.getByTestId('account-current').fill('Temp maple kettle 101')
-  await page.getByTestId('account-new').fill('Own orchard lantern 11')
-  await page.getByTestId('account-confirm').fill('Own orchard lantern 11')
-  await page.getByTestId('account-save').click()
-  await expect(page.getByTestId('must-change-banner')).toHaveCount(0, { timeout: 30_000 })
+  await join(page, manager, code)
 
   await page.getByTestId('nav-groups').click()
   await page.getByTestId('period-month').click()

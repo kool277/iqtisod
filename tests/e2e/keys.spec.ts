@@ -6,10 +6,10 @@ import { expect, test, type Page } from '@playwright/test'
 import { watchViolations } from '../support/csp'
 
 /**
- * Per-person keys (2.0 alpha). Setup creates such vaults and admins are offered the upgrade only in a build made with
- * VITE_V2_KEYS=1, so this file runs only against one: `VITE_V2_KEYS=1 E2E_TARGET=preview npx playwright test keys`.
+ * Per-person keys (2.0). A build made with VITE_V2_KEYS=0 creates 1.x vaults and offers no upgrade, so this file
+ * skips itself against one.
  */
-test.skip(process.env.VITE_V2_KEYS !== '1', 'needs a build with VITE_V2_KEYS=1')
+test.skip(process.env.VITE_V2_KEYS === '0', 'needs a build that creates vaults with per-person keys')
 
 const here = dirname(fileURLToPath(import.meta.url))
 const V4 = resolve(here, '../fixtures/backups/v4/access-household.moliya')
@@ -307,6 +307,33 @@ test('an admin upgrades a 1.x vault: they become the founder and everyone else n
   await expect(page.getByTestId('audit-signatures')).toHaveAttribute('data-problems', '0', { timeout: 30_000 })
   await expect(page.locator('[data-testid="audit-signature"][data-signature="legacy"]').first()).toBeVisible()
   await expect(page.getByTestId('audit-signatures')).toContainText('written before entries were signed')
+  expect(await violations()).toEqual([])
+})
+
+test('an admin who says Not now keeps a working 1.x vault and is asked again next time; nobody else is asked', async ({ page }) => {
+  test.setTimeout(240_000)
+  const violations = await watchViolations(page)
+  await page.goto('/')
+  await page.getByTestId('import-file').setInputFiles(V4)
+  await page.getByTestId('confirm-import').click()
+  await signIn(page, 'admin@access.test', 'Plum orchard admin v4')
+  await expect(page.getByTestId('upgrade-offer')).toBeVisible({ timeout: 60_000 })
+  await page.getByTestId('upgrade-later').click()
+  await expect(page.getByTestId('upgrade-offer')).toHaveCount(0)
+  // Still a 1.x vault: temporary passwords are there, and the Health check says an upgrade can be made.
+  await page.getByTestId('nav-users').click()
+  await page.getByTestId('user-add').click()
+  await expect(page.getByTestId('advanced-temp-toggle')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await page.getByTestId('nav-health').click()
+  await expect(page.locator('[data-testid="health-check"][data-id="keysUpgrade"]')).toHaveAttribute('data-status', 'info', { timeout: 60_000 })
+  await lock(page)
+  await signIn(page, 'viewer@access.test', 'Viewer after reset code v4')
+  await expect(page.getByTestId('kpi-net')).toBeVisible({ timeout: 60_000 })
+  await expect(page.getByTestId('upgrade-offer')).toHaveCount(0)
+  await lock(page)
+  await signIn(page, 'admin@access.test', 'Plum orchard admin v4')
+  await expect(page.getByTestId('upgrade-offer')).toBeVisible({ timeout: 60_000 })
   expect(await violations()).toEqual([])
 })
 

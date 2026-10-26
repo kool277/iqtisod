@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { expect, test, type Page } from '@playwright/test'
+import { finishSetup } from '../support/keys'
 
 const TARGET = process.env.E2E_TARGET === 'preview' ? 'preview' : 'dev'
 const SCREENS = resolve(process.env.SCREENSHOT_DIR ?? `/tmp/jaybi-brand-screens/${TARGET}`)
@@ -45,7 +46,7 @@ async function createVault(page: Page) {
   await page.getByTestId('setup-password').fill(ADMIN.password)
   await page.getByTestId('setup-confirm').fill(ADMIN.password)
   await page.getByTestId('setup-submit').click()
-  await expect(page.getByTestId('kpi-net')).toBeVisible({ timeout: 30_000 })
+  await finishSetup(page)
 }
 
 test('the old address asks people to back up and move to jaybi.uz', async ({ page }) => {

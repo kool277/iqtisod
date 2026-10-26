@@ -143,7 +143,8 @@ export const peopleEn = {
     },
     noAccessNote: 'They have no keys and no open invite, so they cannot sign in. Give them a new invite code.',
     reset: 'Give a new invite code',
-    resetHelp: 'Their keys stop working at once. With the code they choose a password and get new keys; private safes open again with the same password as before or with their recovery code.',
+    resetHelp: 'Their keys stop working at once. With the code they choose a password and get new keys. Private safes they have opened since the vault got per-person keys open again only with their recovery code.',
+    reactivateBody: 'They get a new invite code: with it they choose a password and get new keys.',
     inviteOnly: 'In this vault people join with an invite code, so the admin never knows anyone’s keys.',
     rotation: {
       body: 'Everyone who stays gets a new household key. This person keeps whatever they already copied, such as old backups, but nothing saved from now on opens for them.',

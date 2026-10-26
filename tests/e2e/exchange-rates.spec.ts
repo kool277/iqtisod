@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { expect, test, type Page, type Route } from '@playwright/test'
 import { addDays, sealSnapshot, type FxSnapshot } from '../../src/domain/fx'
 import { watchViolations } from '../support/csp'
+import { finishSetup } from '../support/keys'
 
 const RECORDED = JSON.parse(readFileSync(new URL('../fixtures/fx/snapshot.json', import.meta.url), 'utf8')) as FxSnapshot
 
@@ -41,7 +42,7 @@ async function createVault(page: Page) {
   await page.getByTestId('setup-password').fill('Correct horse lantern 7')
   await page.getByTestId('setup-confirm').fill('Correct horse lantern 7')
   await page.getByTestId('setup-submit').click()
-  await expect(page.getByTestId('kpi-net')).toBeVisible({ timeout: 30_000 })
+  await finishSetup(page)
 }
 
 async function convert(page: Page, direction: string, amount: string) {

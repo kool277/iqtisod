@@ -9,6 +9,7 @@ import readXlsxFile from 'read-excel-file/node'
 import { extractText, getDocumentProxy } from 'unpdf'
 import { watchViolations } from '../support/csp'
 import { escapeRegExp } from '../support/regexp'
+import { skipUpgradeOffer } from '../support/keys'
 
 configure({ useWebWorkers: false })
 
@@ -18,7 +19,7 @@ const FORMATS = ['csv', 'json', 'jsonl', 'xlsx', 'pdf', 'sqlite'] as const
 const LAZY = /jspdf|write-excel-file|@zip(\.|_+)js|export-(pdf|xlsx|zip)-|fflate|NotoSans|services\/export\/(?!options|password)/i
 const NAME = (suffix: string) => new RegExp(`^jaybi-Ledger-Two-\\d{4}-\\d{2}-\\d{2}${escapeRegExp(suffix)}$`)
 
-async function importLedger(page: Page, email: string, password: string) {
+async function importLedger(page: Page, email: string, password: string, admin = false) {
   await page.goto('/')
   await page.getByTestId('import-file').setInputFiles(LEDGER)
   await page.getByTestId('confirm-import').click()
@@ -26,6 +27,7 @@ async function importLedger(page: Page, email: string, password: string) {
   await page.getByTestId('login-password').fill(password)
   await page.getByTestId('login-submit').click()
   await expect(page.getByTestId('kpi-net')).toBeVisible({ timeout: 30_000 })
+  if (admin) await skipUpgradeOffer(page)
 }
 
 async function chooseFormats(page: Page, wanted: readonly string[]) {
@@ -115,7 +117,7 @@ test('admin exports every format, encrypted and plain, and the files read back',
   const lazy = () => requests.filter((url) => LAZY.test(url))
   const violations = await watchViolations(page)
 
-  await importLedger(page, 'admin@ledger.test', 'ledger-admin-v2')
+  await importLedger(page, 'admin@ledger.test', 'ledger-admin-v2', true)
   expect(lazy(), 'export code is not loaded at sign-in or on the dashboard').toEqual([])
   await page.getByTestId('nav-backup').click()
   await expect(page.getByTestId('export-panel')).toBeVisible()

@@ -1,15 +1,10 @@
 import { expect, test, type Page } from '@playwright/test'
 import { watchViolations } from '../support/csp'
+import { finishSetup } from '../support/keys'
+import { invite, join } from '../support/people'
 
 const ADMIN = { email: 'admin@example.com', password: 'Correct horse lantern 7', vault: 'Lantern household' }
-const VIEWER = { email: 'viewer@example.com', temporary: 'Temp birch window 101', password: 'Own willow harbor 11' }
-
-async function signIn(page: Page, email: string, password: string) {
-  await page.getByTestId('login-email').fill(email)
-  await page.getByTestId('login-password').fill(password)
-  await page.getByTestId('login-submit').click()
-  await expect(page.getByTestId('app-shell')).toBeVisible({ timeout: 30_000 })
-}
+const VIEWER = { email: 'viewer@example.com', password: 'Own willow harbor 11', role: 'Viewer' } as const
 
 async function lock(page: Page) {
   await expect(page.getByTestId('save-state')).toHaveText('Saved', { timeout: 30_000 })
@@ -46,7 +41,7 @@ test('the health check runs before sign-in, for an admin and for a viewer, and i
   await page.getByTestId('setup-password').fill(ADMIN.password)
   await page.getByTestId('setup-confirm').fill(ADMIN.password)
   await page.getByTestId('setup-submit').click()
-  await expect(page.getByTestId('kpi-net')).toBeVisible({ timeout: 30_000 })
+  await finishSetup(page)
 
   await page.getByTestId('nav-health').click()
   await healthDone(page)
@@ -77,25 +72,9 @@ test('the health check runs before sign-in, for an admin and for a viewer, and i
   await check(page, 'totp').getByTestId('health-action').click()
   await expect(page).toHaveURL(/#\/app\/account$/)
 
-  await page.getByTestId('nav-users').click()
-  await page.getByTestId('user-add').click()
-  await page.getByTestId('advanced-temp-toggle').click()
-  await page.getByTestId('user-email').fill(VIEWER.email)
-  await page.getByTestId('user-password').fill(VIEWER.temporary)
-  await page.getByTestId('user-role').selectOption('Viewer')
-  await page.getByTestId('user-save').click()
-  await expect(page.getByText(VIEWER.email)).toBeVisible({ timeout: 30_000 })
+  const code = await invite(page, VIEWER)
   await lock(page)
-
-  await signIn(page, VIEWER.email, VIEWER.temporary)
-  await expect(page.getByTestId('must-change-banner')).toBeVisible({ timeout: 30_000 })
-  await expect(page.getByTestId('nav-health')).toHaveCount(0)
-  await expect(page.getByTestId('header-help')).toHaveCount(0)
-  await page.getByTestId('account-current').fill(VIEWER.temporary)
-  await page.getByTestId('account-new').fill(VIEWER.password)
-  await page.getByTestId('account-confirm').fill(VIEWER.password)
-  await page.getByTestId('account-save').click()
-  await expect(page.getByTestId('must-change-banner')).toHaveCount(0, { timeout: 30_000 })
+  await join(page, VIEWER, code)
 
   await page.getByTestId('nav-health').click()
   await healthDone(page)
@@ -145,7 +124,7 @@ test('help searches the guide, opens screens and the section for the current pag
   await page.getByTestId('setup-password').fill(ADMIN.password)
   await page.getByTestId('setup-confirm').fill(ADMIN.password)
   await page.getByTestId('setup-submit').click()
-  await expect(page.getByTestId('kpi-net')).toBeVisible({ timeout: 30_000 })
+  await finishSetup(page)
 
   await page.getByTestId('nav-safes').click()
   await expect(page.getByTestId('header-help')).toHaveAttribute('data-section', 'safes')

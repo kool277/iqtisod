@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs'
 import { expect, test, type Page } from '@playwright/test'
 import { watchViolations } from '../support/csp'
+import { finishSetup, KEYS_BUILD } from '../support/keys'
+import { invite, join } from '../support/people'
 
 const ADMIN = { email: 'admin@example.com', password: 'Correct horse lantern 7' }
 
@@ -11,7 +13,7 @@ async function createVault(page: Page) {
   await page.getByTestId('setup-password').fill(ADMIN.password)
   await page.getByTestId('setup-confirm').fill(ADMIN.password)
   await page.getByTestId('setup-submit').click()
-  await expect(page.getByTestId('kpi-net')).toBeVisible({ timeout: 30_000 })
+  await finishSetup(page)
 }
 
 async function signIn(page: Page, email: string, password: string) {
@@ -126,7 +128,7 @@ test('the ledger table sorts, searches, remembers hidden columns, edits inline a
 
 test('admin tables keep their actions and a member only sees their own group in the dashboard filter', async ({ page }) => {
   const violations = await watchViolations(page)
-  const member = { email: 'member@example.com', temporary: 'Temporary lamp words 22', next: 'Member picks own words 4' }
+  const member = { email: 'member@example.com', password: 'Member picks own words 4', role: 'Manager', group: 'Business' } as const
   await createVault(page)
 
   await page.getByTestId('nav-groups').click()
@@ -147,14 +149,16 @@ test('admin tables keep their actions and a member only sees their own group in 
   await signIn(page, ADMIN.email, ADMIN.password)
   await expect(page.getByTestId('dashboard-group').locator('option:checked')).toHaveText('Travel')
 
+  const code = await invite(page, member)
+  await lock(page)
+  await join(page, member, code)
+  await page.getByTestId('nav-dashboard').click()
+  await expect(page.getByTestId('dashboard-group').locator('option')).toHaveText(['All groups', 'Business'])
+  await expect(page.getByTestId('dashboard-group').locator('option:checked')).toHaveText('All groups')
+  await lock(page)
+
+  await signIn(page, ADMIN.email, ADMIN.password)
   await page.getByTestId('nav-users').click()
-  await page.getByTestId('user-add').click()
-  await page.getByTestId('advanced-temp-toggle').click()
-  await page.getByTestId('user-email').fill(member.email)
-  await page.getByTestId('user-password').fill(member.temporary)
-  await page.getByTestId('user-role').selectOption('Manager')
-  await page.getByTestId('user-group').selectOption({ label: 'Business' })
-  await page.getByTestId('user-save').click()
   const row = page.getByTestId('person-row').filter({ hasText: member.email })
   await expect(row).toBeVisible({ timeout: 30_000 })
   await page.getByTestId('users-filters-toggle').click()
@@ -163,20 +167,11 @@ test('admin tables keep their actions and a member only sees their own group in 
   await page.keyboard.press('Escape')
   await expect(page.getByTestId('person-row')).toHaveCount(1)
   await row.getByTestId('user-issue-reset').click()
-  await expect(row.getByTestId('reset-stop-old')).toBeChecked()
+  await expect(row.getByTestId('reset-issue-save')).toBeVisible()
+  // A new code always ends keys someone may know, so only a 1.x vault asks whether to stop the old password.
+  if (KEYS_BUILD) await expect(row.getByTestId('reset-stop-old')).toHaveCount(0)
+  else await expect(row.getByTestId('reset-stop-old')).toBeChecked()
   await row.getByTestId('user-issue-reset').click()
-  await expect(row.getByTestId('reset-stop-old')).toHaveCount(0)
-  await lock(page)
-
-  await signIn(page, member.email, member.temporary)
-  await expect(page.getByTestId('must-change-banner')).toBeVisible({ timeout: 30_000 })
-  await page.getByTestId('account-current').fill(member.temporary)
-  await page.getByTestId('account-new').fill(member.next)
-  await page.getByTestId('account-confirm').fill(member.next)
-  await page.getByTestId('account-save').click()
-  await expect(page.getByTestId('must-change-banner')).toHaveCount(0, { timeout: 30_000 })
-  await page.getByTestId('nav-dashboard').click()
-  await expect(page.getByTestId('dashboard-group').locator('option')).toHaveText(['All groups', 'Business'])
-  await expect(page.getByTestId('dashboard-group').locator('option:checked')).toHaveText('All groups')
+  await expect(row.getByTestId('reset-issue-save')).toHaveCount(0)
   expect(await violations()).toEqual([])
 })

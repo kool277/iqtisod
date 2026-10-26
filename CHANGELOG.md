@@ -41,7 +41,7 @@ On `feature/v2-beta`, version 2.0.0-beta.1; built only with `VITE_V2_KEYS=1` and
 
 ### 2.0 release candidate: signed audit entries (in development, not released)
 
-On `feature/v2-rc`, versions 2.0.0-rc.1 and 2.0.0-rc.2; built only with `VITE_V2_KEYS=1` and never deployed. It reads and writes the same versions as the beta: backup and record versions 1–3 and schema versions 1–5, writing record 3, backup 3 and schema 5 only for vaults with per-person keys. Record 3 is still a draft; the RC fills the `audit_sigs` table that the beta left empty, records a key binding in the entry that redeems a code, and (rc.2) adds an `audit` anchor to the signed list of people. An earlier 2.0 build still opens an RC vault, but the entries it writes are not signed, so the RC reports them; the alpha, beta and rc.1 refuse a vault whose list of people has the anchor.
+On `feature/v2-rc`, versions 2.0.0-rc.1 to 2.0.0-rc.3, never deployed; rc.1 and rc.2 were built only with `VITE_V2_KEYS=1`, and from rc.3 per-person keys are the default. It reads and writes the same versions as the beta: backup and record versions 1–3 and schema versions 1–5, writing record 3, backup 3 and schema 5 only for vaults with per-person keys. Record 3 is still a draft; the RC fills the `audit_sigs` table that the beta left empty, records a key binding in the entry that redeems a code, and (rc.2) adds an `audit` anchor to the signed list of people. An earlier 2.0 build still opens an RC vault, but the entries it writes are not signed, so the RC reports them; the alpha, beta and rc.1 refuse a vault whose list of people has the anchor.
 
 #### Added
 
@@ -49,8 +49,14 @@ On `feature/v2-rc`, versions 2.0.0-rc.1 and 2.0.0-rc.2; built only with `VITE_V2
 - **Anchored in the signed list of people (rc.2).** Each version of the list that an admin signs records where the signed log starts and where that admin's save left it. Deleting signatures, or cutting or rewriting the log up to an admin's save, is reported on every browser, not only on one that had checked the log before.
 - **Checked at sign-in, on the Audit page and in the Health check.** People who can read the audit log are warned when an entry is not signed, its signature does not match, it is signed by someone other than the person it names or by someone who was not a member then, or it records something the signer's role did not allow. Nothing is blocked, and an admin can accept the log as it is. The Audit page shows each entry's signature and can show only the problems. The Health check has a row for the signatures, and checks every entry on request; a sign-in checks only what is new since this browser last checked.
 - The recovery tool's `--verify` checks the audit signatures too: it still writes the database when some entries do not check out, says which, and exits with status 4.
-- A golden backup with signed audit entries (`v5/signed-household`, rc.1), from a 1.x vault upgraded to per-person keys, which every later release must open and check.
+- Golden backups with signed audit entries, which every later release must open and check: `v5/signed-household` (rc.1), a 1.x vault upgraded to per-person keys, and `v5/anchored-household` (rc.2), the same household with a list of people that anchors the log.
 - For developers: the bench page times signing and checking an audit log.
+
+#### Changed (rc.3)
+
+- **Per-person keys by default.** Setup creates vaults with per-person keys, and an admin who signs in to a 1.x vault is offered the upgrade each time until they take it. A 1.x vault keeps working as one until then. A build made with `VITE_V2_KEYS=0` sets up 1.x vaults and offers no upgrade, as before.
+- Giving someone a new code in a vault with per-person keys now says that the private safes they opened since then open again only with their recovery code; it said their previous password would do. Reactivating someone there says they get a new invite code rather than a reset code.
+- For developers: CI runs the browser tests twice, against the default build and against one made with `VITE_V2_KEYS=0`.
 
 #### Known limitations
 

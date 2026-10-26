@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { base32Decode, importTotpKey, totpAt } from '../../src/lib/totp'
+import { finishSetup, KEYS_BUILD } from '../support/keys'
 
 const TARGET = process.env.E2E_TARGET === 'preview' ? 'preview' : 'dev'
 const SCREENS = resolve(process.env.SCREENSHOT_DIR ?? `/tmp/moliya-security-screens/${TARGET}`)
@@ -36,7 +37,7 @@ async function createVault(page: Page) {
   await page.getByTestId('setup-password').fill(ADMIN.password)
   await page.getByTestId('setup-confirm').fill(ADMIN.password)
   await page.getByTestId('setup-submit').click()
-  await expect(page.getByTestId('kpi-net')).toBeVisible({ timeout: 30_000 })
+  await finishSetup(page)
 }
 
 async function signIn(page: Page, email: string, password: string) {
@@ -292,18 +293,24 @@ test('the sign-in check asks for an authenticator code and accepts each recovery
 
 test('a reset code replaces a password that someone else may know', async ({ page }) => {
   const watcher = await watch(page)
-  const member = { email: 'member@example.com', temporary: 'Temporary lamp words 22', next: 'Member picks own words 4' }
+  const member = { email: 'member@example.com', password: 'Member first words 21', next: 'Member picks own words 4' }
   await createVault(page)
+  const invited = await issueInvite(page, member.email)
+  await page.getByTestId('code-done').click()
+  await lock(page)
+  await page.getByTestId('join-link').click()
+  await register(page, { email: member.email, code: invited, password: member.password })
+  await expect(page.getByTestId('app-shell')).toBeVisible({ timeout: 60_000 })
+  await lock(page)
+  await signIn(page, ADMIN.email, ADMIN.password)
+  await expect(page.getByTestId('app-shell')).toBeVisible({ timeout: 60_000 })
   await page.getByTestId('nav-users').click()
-  await page.getByTestId('user-add').click()
-  await page.getByTestId('advanced-temp-toggle').click()
-  await page.getByTestId('user-email').fill(member.email)
-  await page.getByTestId('user-password').fill(member.temporary)
-  await page.getByTestId('user-save').click()
   const row = page.getByTestId('person-row').filter({ hasText: member.email })
   await expect(row).toBeVisible({ timeout: 30_000 })
   await row.getByTestId('user-issue-reset').click()
-  await expect(row.getByTestId('reset-stop-old')).toBeChecked()
+  // With per-person keys a new code always ends the old keys; a 1.x vault asks, stopping the old password by default.
+  if (KEYS_BUILD) await expect(row.getByTestId('reset-stop-old')).toHaveCount(0)
+  else await expect(row.getByTestId('reset-stop-old')).toBeChecked()
   await row.getByTestId('reset-validity').selectOption('1h')
   await row.getByTestId('reset-issue-save').click()
   const code = (await page.getByTestId('issued-code').textContent({ timeout: 30_000 }))!.trim()
@@ -312,8 +319,8 @@ test('a reset code replaces a password that someone else may know', async ({ pag
   await expect(page.getByTestId('grant-row')).toContainText(member.email)
   await lock(page)
 
-  await signIn(page, member.email, member.temporary)
-  await expect(page.getByTestId('form-error')).toBeVisible({ timeout: 30_000 })
+  await signIn(page, member.email, member.password)
+  await expect(page.getByTestId('form-error')).toBeVisible({ timeout: 60_000 })
   await page.getByTestId('reset-link').click()
   await register(page, { email: member.email, code, password: member.next })
   await expect(page.getByTestId('app-shell')).toBeVisible({ timeout: 30_000 })
@@ -356,7 +363,12 @@ test('replacing a vault with a backup needs the password and the vault name', as
   await panel.getByTestId('replace-password').fill(ADMIN.password)
   await panel.getByTestId('replace-name').fill(vaultName.toUpperCase())
   await panel.getByTestId('confirm-import').click()
-  await expect(page.getByTestId('login-email')).toBeVisible({ timeout: 30_000 })
+  if (KEYS_BUILD) {
+    // The invite signed a new version of the list of people, so the backup from before it is an older copy.
+    await expect(panel.getByTestId('replace-older')).toBeVisible({ timeout: 60_000 })
+    await panel.getByTestId('replace-older-confirm').click()
+  }
+  await expect(page.getByTestId('login-email')).toBeVisible({ timeout: 60_000 })
   await signIn(page, ADMIN.email, ADMIN.password)
   await expect(page.getByTestId('app-shell')).toBeVisible({ timeout: 30_000 })
   await page.getByTestId('nav-backup').click()
@@ -373,9 +385,13 @@ test('replacing a vault with a backup needs the password and the vault name', as
       request.onerror = () => reject(request.error)
     })
     db.close()
-    return values.map((entry) => ({ hasGrants: 'grants' in entry.raw, wraps: Array.isArray(entry.raw.wraps) }))
+    return values.map((entry) => {
+      const raw = entry.raw as { wraps?: unknown[]; identities?: Record<string, unknown> }
+      // A 1.x copy opens through its password wraps, one with per-person keys through its sealed identities.
+      return { hasGrants: 'grants' in entry.raw, opens: (raw.wraps?.length ?? 0) > 0 || Object.keys(raw.identities ?? {}).length > 0 }
+    })
   })
-  expect(archived).toEqual([{ hasGrants: false, wraps: true }])
+  expect(archived).toEqual([{ hasGrants: false, opens: true }])
   expect(await watcher.violations()).toEqual([])
 })
 

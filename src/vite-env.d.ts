@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  /** `1` builds the per-person-keys setup and upgrade (2.0 alpha); anything else leaves them out. */
+  /** `0` leaves the per-person-keys setup and upgrade offer out of the build; anything else keeps them. */
   readonly VITE_V2_KEYS?: string
 }
 

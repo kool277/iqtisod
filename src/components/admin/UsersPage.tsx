@@ -571,6 +571,7 @@ type RowMode = 'idle' | 'reset' | 'temp' | 'clear'
 
 function PersonActions({ person, self, mode, setMode }: { person: VaultUser; self: boolean; mode: RowMode; setMode: (mode: RowMode) => void }) {
   const { t } = useI18n()
+  const keys = useVault().keysInfo !== null
   const toggle = (next: RowMode) => setMode(mode === next ? 'idle' : next)
   return (
     <>
@@ -581,7 +582,7 @@ function PersonActions({ person, self, mode, setMode }: { person: VaultUser; sel
       ) : person.status === 'ACTIVE' ? (
         <>
           <Button variant="quiet" aria-expanded={mode === 'reset' || mode === 'temp'} onClick={() => toggle('reset')} data-testid="user-issue-reset">
-            {t('invites.issueReset')}
+            {keys ? t('people.keys.reset') : t('invites.issueReset')}
           </Button>
           {person.signInCheck ? (
             <Button variant="quiet" aria-expanded={mode === 'clear'} onClick={() => toggle('clear')} data-testid="user-clear-check">

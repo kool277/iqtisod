@@ -1,6 +1,8 @@
 import { mkdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { expect, test, type Page } from '@playwright/test'
+import { finishSetup, KEYS_BUILD } from '../support/keys'
+import { invite, join } from '../support/people'
 
 const TARGET = process.env.E2E_TARGET === 'preview' ? 'preview' : 'dev'
 const SCREENS = resolve(process.env.SCREENSHOT_DIR ?? `/tmp/moliya-safes-screens/${TARGET}`)
@@ -17,7 +19,7 @@ async function createVault(page: Page) {
   await page.getByTestId('setup-password').fill('Correct horse lantern 7')
   await page.getByTestId('setup-confirm').fill('Correct horse lantern 7')
   await page.getByTestId('setup-submit').click()
-  await expect(page.getByTestId('kpi-net')).toBeVisible({ timeout: 30_000 })
+  await finishSetup(page)
 }
 
 async function loginAs(page: Page, email: string, password: string) {
@@ -62,6 +64,27 @@ async function adminResets(page: Page, email: string, temporary: string) {
   await row.getByTestId('user-reset-password').fill(temporary)
   await row.getByTestId('user-reset-save').click()
   await expect(row.getByTestId('user-reset-password')).toHaveCount(0, { timeout: 30_000 })
+}
+
+/** A reset code, which in a vault with per-person keys is a new invite code: the person comes back with new keys. */
+async function adminIssuesCode(page: Page, email: string): Promise<string> {
+  await page.getByTestId('nav-users').click()
+  const row = page.getByTestId('person-row').filter({ hasText: email })
+  await row.getByTestId('user-issue-reset').click()
+  await row.getByTestId('reset-issue-save').click()
+  const code = (await page.getByTestId('issued-code').textContent({ timeout: 60_000 }))!.trim()
+  await page.getByTestId('code-done').click()
+  return code
+}
+
+async function redeemCode(page: Page, email: string, code: string, password: string) {
+  await page.getByTestId('reset-link').click()
+  await page.getByTestId('register-email').fill(email)
+  await page.getByTestId('register-code').fill(code)
+  await page.getByTestId('register-password').fill(password)
+  await page.getByTestId('register-confirm').fill(password)
+  await page.getByTestId('register-submit').click()
+  await expect(page.getByTestId('app-shell')).toBeVisible({ timeout: 60_000 })
 }
 
 async function setUpSafes(page: Page, password: string, recovery: boolean): Promise<string | null> {
@@ -290,6 +313,7 @@ test('keeps cards, subscriptions and notes in a private safe with masked secrets
 })
 
 test('a member without a recovery code gets their safes back with the previous password after an admin reset', async ({ page }) => {
+  test.skip(KEYS_BUILD, 'safes reopen with the previous password only in 1.x vaults')
   await createVault(page)
   await createMember(page, 'manager@example.com', 'Temp maple kettle 101', 'Manager')
   await lockVault(page)
@@ -326,28 +350,29 @@ test('a member without a recovery code gets their safes back with the previous p
   await expect(page.getByTestId('note-body-value')).toHaveText('Locker code 5591')
 })
 
-test('a member with a recovery code gets their safes back with it after an admin reset', async ({ page }) => {
+test('a member with a recovery code gets their safes back with it after a reset code', async ({ page }) => {
   await createVault(page)
-  await createMember(page, 'viewer@example.com', 'Temp birch window 101', 'Viewer')
+  const viewer = { email: 'viewer@example.com', password: 'Own willow harbor 11', role: 'Viewer' } as const
+  const invited = await invite(page, viewer)
   await lockVault(page)
 
-  await loginAs(page, 'viewer@example.com', 'Temp birch window 101')
-  await changeOwnPassword(page, 'Temp birch window 101', 'Own willow harbor 11')
-  const code = await setUpSafes(page, 'Own willow harbor 11', true)
+  await join(page, viewer, invited)
+  const code = await setUpSafes(page, viewer.password, true)
   expect(code).toBeTruthy()
   await openFirstSafe(page)
   await addNote(page, 'Passport', 'AA 1234567')
   await lockVault(page)
 
   await loginAs(page, 'admin@example.com', 'Correct horse lantern 7')
-  await adminResets(page, 'viewer@example.com', 'Temp birch window 202')
+  const reset = await adminIssuesCode(page, viewer.email)
   await lockVault(page)
 
-  await loginAs(page, 'viewer@example.com', 'Temp birch window 202')
-  await changeOwnPassword(page, 'Temp birch window 202', 'Own willow harbor 22')
+  await redeemCode(page, viewer.email, reset, 'Own willow harbor 22')
   await page.getByTestId('nav-safes').click()
   await expect(page.getByTestId('safes-stale')).toBeVisible()
-  await page.getByTestId('stale-switch').click()
+  // New keys leave nothing the previous password could open, so the recovery code is asked for straight away.
+  if (KEYS_BUILD) await expect(page.getByTestId('stale-switch')).toHaveCount(0)
+  else await page.getByTestId('stale-switch').click()
   await page.getByTestId('stale-recovery-code').fill(code!.toLowerCase())
   await page.getByTestId('stale-current').fill('Own willow harbor 22')
   await page.getByTestId('stale-submit').click()
@@ -355,4 +380,28 @@ test('a member with a recovery code gets their safes back with it after an admin
   await openFirstSafe(page)
   await page.getByTestId('safe-item').filter({ hasText: 'Passport' }).click()
   await expect(page.getByTestId('note-body-value')).toHaveText('AA 1234567')
+})
+
+test('with per-person keys, safes without a recovery code stay closed after a new invite code', async ({ page }) => {
+  test.skip(!KEYS_BUILD, 'a build made with VITE_V2_KEYS=0 creates 1.x vaults')
+  await createVault(page)
+  const manager = { email: 'manager@example.com', password: 'Own orchard lantern 11', role: 'Manager' } as const
+  const invited = await invite(page, manager)
+  await lockVault(page)
+
+  await join(page, manager, invited)
+  await setUpSafes(page, manager.password, false)
+  await openFirstSafe(page)
+  await addNote(page, 'Gym', 'Locker code 5591')
+  await lockVault(page)
+
+  await loginAs(page, 'admin@example.com', 'Correct horse lantern 7')
+  const code = await adminIssuesCode(page, manager.email)
+  await lockVault(page)
+
+  await redeemCode(page, manager.email, code, 'Own orchard lantern 22')
+  await page.getByTestId('nav-safes').click()
+  await expect(page.getByTestId('safes-stale')).toBeVisible()
+  await expect(page.getByTestId('stale-no-recovery')).toContainText('cannot be opened any more')
+  for (const field of ['stale-previous', 'stale-recovery-code', 'stale-current', 'stale-submit']) await expect(page.getByTestId(field), field).toHaveCount(0)
 })
