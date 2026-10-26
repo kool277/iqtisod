@@ -280,6 +280,27 @@ test('an admin upgrades a 1.x vault: they become the founder and everyone else n
   await expect(page.getByTestId('kpi-net')).toBeVisible({ timeout: 60_000 })
   await expect(page.getByTestId('upgrade-offer')).toHaveCount(0)
 
+  // A member given a new invite code signs in with new keys; one who was not still cannot.
+  await page.getByTestId('nav-users').click()
+  await page.getByRole('link', { name: 'Open: viewer@access.test' }).click()
+  await page.getByTestId('user-action-reset').click()
+  await page.getByTestId('detail-reset-issue').click()
+  const code = (await page.getByTestId('issued-code').textContent({ timeout: 60_000 }))!.trim()
+  await page.getByTestId('code-done').click()
+  await lock(page)
+  await page.getByTestId('reset-link').click()
+  await page.getByTestId('register-email').fill('viewer@access.test')
+  await page.getByTestId('register-code').fill(code)
+  await page.getByTestId('register-password').fill('Viewer keys after upgrade 7')
+  await page.getByTestId('register-confirm').fill('Viewer keys after upgrade 7')
+  await page.getByTestId('register-submit').click()
+  await expect(page.getByTestId('kpi-net')).toBeVisible({ timeout: 60_000 })
+  await lock(page)
+  await signIn(page, 'manager@access.test', 'Joined by invite · v4 · Олма')
+  await expect(page.getByText('Email or password is incorrect.')).toBeVisible({ timeout: 60_000 })
+  await signIn(page, 'admin@access.test', 'Plum orchard admin v4')
+  await expect(page.getByTestId('kpi-net')).toBeVisible({ timeout: 60_000 })
+
   // Signing starts at the upgrade: the 1.x entries before it are shown as written before signatures.
   await page.getByTestId('nav-audit').click()
   await expect(page.getByTestId('audit-signatures')).toHaveAttribute('data-problems', '0', { timeout: 30_000 })

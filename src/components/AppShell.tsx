@@ -14,7 +14,7 @@ import {
   Users,
   Vault,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { Suspense, lazy, useMemo, useState } from 'react'
 import { Link, Navigate, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { PeriodProvider } from '../context/PeriodContext'
 import { SafeProvider } from '../context/SafeContext'
@@ -28,10 +28,13 @@ import { Permission, canUser, seesMembers } from '../rbac'
 import { backupReminder } from '../services/backup.service'
 import { upgradeReinvites } from '../services/v2/reinvites'
 import { BrandMark } from './Brand'
-import { FingerprintNotice, UpgradeOffer } from './keys/KeysDialogs'
 import { KeysCatalog } from './keys/KeysCatalog'
 import { HelpLink, type HelpSectionId } from './help/HelpLink'
 import { Preferences } from './Preferences'
+
+// Only for a vault with per-person keys, or an admin offered the upgrade to them.
+const FingerprintNotice = lazy(() => import('./keys/KeysDialogs').then((module) => ({ default: module.FingerprintNotice })))
+const UpgradeOffer = lazy(() => import('./keys/KeysDialogs').then((module) => ({ default: module.UpgradeOffer })))
 
 const SIDEBAR_KEY = 'moliya.sidebar'
 
@@ -97,6 +100,7 @@ export function AppShell() {
     dismissAuditWarning,
     acceptAuditLog,
     upgradeOffered,
+    fingerprintNotice,
   } = useVault()
   const [collapsed, setCollapsed] = useState(() => readPreference(SIDEBAR_KEY) === 'collapsed')
   const [reminderDismissed, setReminderDismissed] = useState(false)
@@ -310,8 +314,16 @@ export function AppShell() {
           ) : null}
           <SafeProvider>{forced && location.pathname !== ACCOUNT_PATH ? <Navigate to={ACCOUNT_PATH} replace /> : <Outlet />}</SafeProvider>
         </main>
-        <FingerprintNotice />
-        {forced ? null : <UpgradeOffer reinvites={upgradeOffered ? query((vault) => upgradeReinvites(vault)) : 0} />}
+        {fingerprintNotice ? (
+          <Suspense fallback={null}>
+            <FingerprintNotice />
+          </Suspense>
+        ) : null}
+        {forced || !upgradeOffered ? null : (
+          <Suspense fallback={null}>
+            <UpgradeOffer reinvites={query((vault) => upgradeReinvites(vault))} />
+          </Suspense>
+        )}
       </div>
     </PeriodProvider>
   )

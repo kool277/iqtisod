@@ -5,7 +5,6 @@ import { KEYS_RECORD_VERSION, RECORD_VERSION, SCHEMA_VERSION } from '../db/versi
 import type { OpenVault, SessionUser } from '../domain/types'
 import { AppError, AuthError, ConflictError, ForbiddenError, KeysBlockedError, OlderBackupError, ValidationError, VaultInUseError } from '../domain/errors'
 import { keysEnabled } from '../lib/flags'
-import { commitSealed, confirmKeysSession, pinnedFounder, rotationOf } from '../services/v2/session'
 import { observeClock } from '../lib/device-clock'
 import { readIdleMinutes, storeIdleMinutes, watchIdle, type IdleMinutes } from '../lib/idle'
 import { advanceAuditMark, readAuditMark, resetAuditMark } from '../lib/audit-mark'
@@ -147,6 +146,11 @@ function offersUpgrade(vault: OpenVault): boolean {
 /** Refusals that happen before the founder upgrade changes anything, so the open session is still the 1.x one. */
 function upgradeRefusedEarly(error: unknown): boolean {
   return error instanceof AuthError || error instanceof ForbiddenError || (error instanceof ValidationError && ['V2_UNSUPPORTED_BROWSER', 'ALREADY_UPGRADED', 'SCHEMA_UNKNOWN', 'KDF_MEMORY'].includes(error.code))
+}
+
+/** The session helpers of a per-person-keys vault, loaded only for such a vault. */
+function keysSession(): Promise<typeof import('../services/v2/session')> {
+  return import('../services/v2/session')
 }
 
 /** The audit checkpoint of a per-person-keys vault, loaded only for such a vault. */
@@ -344,12 +348,13 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     try {
       const record = await sealVault(vault)
       const archive = archiveRef.current
+      const session = vault.keys ? await keysSession() : null
       await writeVault(record, {
         expectedStamp: stampRef.current,
         archive: archive === null ? undefined : { reason: 'upgrade', raw: archive },
-        rotation: rotationOf(vault, record),
+        rotation: session?.rotationOf(vault, record),
       })
-      commitSealed(vault, record)
+      session?.commitSealed(vault, record)
       archiveRef.current = null
       stampRef.current = record.updatedAt
       markSaved(record.audit)
@@ -423,8 +428,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           created.vault.db.close()
           throw error
         }
-        commitSealed(created.vault, created.record)
-        confirmKeysSession(created.vault)
+        if (created.vault.keys) {
+          const session = await keysSession()
+          session.commitSealed(created.vault, created.record)
+          session.confirmKeysSession(created.vault)
+        }
         if (created.vault.keys) setFingerprintNotice(created.vault.keys.founder.fingerprint)
         resetAuditMark(created.record.audit ?? null)
         releaseRef.current = release
@@ -455,7 +463,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       }
       if (noteSignIn(vault.db, vault.user.id)) vault.needsSave = true
       // Only now, with everything passed: pin the founder on a first sign-in and raise this browser's roster mark.
-      confirmKeysSession(vault)
+      if (vault.keys) (await keysSession()).confirmKeysSession(vault)
       observeAuditLog(vault, loaded.record.audit)
       releaseRef.current = release
       publish(vault, stampOf(loaded.raw))
@@ -640,10 +648,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         noteSignIn(vault.db, vault.user.id)
         const record = await sealVault(vault)
         await writeVault(record, { expectedStamp: stampOf(loaded.raw) })
-        commitSealed(vault, record)
+        const session = vault.keys ? await keysSession() : null
+        session?.commitSealed(vault, record)
         // The code has been used up and saved, so there is nothing to cancel: the founder key is shown to compare.
         if (vault.keys?.firstSeen) setFingerprintNotice(vault.keys.founder.fingerprint)
-        confirmKeysSession(vault)
+        session?.confirmKeysSession(vault)
         markSaved(record.audit)
         vault.needsSave = false
         throttle.succeed('code', input.email)
@@ -739,7 +748,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       if (backup.record.version === KEYS_RECORD_VERSION) {
         // It must come from the household this browser knows, if it knows one by that id: there is no override, since
         // a vault id is random and the same id with another founder is a forgery or damage.
-        const pinned = pinnedFounder(backup.record.keys.vaultId)
+        const pinned = (await keysSession()).pinnedFounder(backup.record.keys.vaultId)
         if (pinned !== null && pinned !== backup.record.keys.founder.sigPub) throw new KeysBlockedError('KEYS_FOUNDER_MISMATCH')
         // Every check of a sign-in, as the person restoring it (design 4.9).
         const restore = await import('../services/v2/restore')
@@ -844,8 +853,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         if (discarded) void lock()
         throw error
       }
-      commitSealed(vault, upgraded.record)
-      confirmKeysSession(vault)
+      const session = await keysSession()
+      session.commitSealed(vault, upgraded.record)
+      session.confirmKeysSession(vault)
       stampRef.current = upgraded.record.updatedAt
       markSaved(upgraded.record.audit)
       trustOwnLog(vault, upgraded.record.audit)

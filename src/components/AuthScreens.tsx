@@ -1,9 +1,7 @@
 import { Suspense, lazy, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { PasswordHint, ThrottleNotice } from './auth/AuthBits'
-import { BlockedEscape } from './auth/BlockedEscape'
 import { SignInCheckStep } from './auth/SignInCheckStep'
-import { TrustStep } from './auth/TrustStep'
 import { KeysCatalog } from './keys/KeysCatalog'
 import { BrandLockup } from './Brand'
 import { Preferences } from './Preferences'
@@ -22,6 +20,9 @@ import type { ParsedBackup } from '../services/backup.service'
 import { BackupTooLargeError, budgetText, tooLargeText, useBackupImport } from './backup-import'
 
 const HealthPage = lazy(() => import('./health/HealthPage').then((module) => ({ default: module.HealthPage })))
+// Only for a vault with per-person keys.
+const TrustStep = lazy(() => import('./auth/TrustStep').then((module) => ({ default: module.TrustStep })))
+const BlockedEscape = lazy(() => import('./auth/BlockedEscape').then((module) => ({ default: module.BlockedEscape })))
 
 /** Help and the health check, for people who cannot get in. */
 function SupportLinks() {
@@ -296,7 +297,9 @@ export function LoginPage() {
     return (
       <AuthFrame>
         <BrandLockup className="lg:hidden" />
-        <TrustStep />
+        <Suspense fallback={<div role="status" aria-busy="true" className="min-h-40" />}>
+          <TrustStep />
+        </Suspense>
       </AuthFrame>
     )
   }
@@ -314,7 +317,11 @@ export function LoginPage() {
         ) : null}
         {error ? <Notice>{error}</Notice> : null}
         {rollback ? <RollbackOverride disabled={pending} onConfirm={() => void signIn(true)} /> : null}
-        {blocked ? <BlockedEscape /> : null}
+        {blocked ? (
+          <Suspense fallback={null}>
+            <BlockedEscape />
+          </Suspense>
+        ) : null}
         <ThrottleNotice remaining={countdown.remaining} />
         <Field label={t('login.email')}>
           <input data-testid="login-email" type="email" autoComplete="username" className={controlClass} maxLength={LIMITS.emailChars} value={email} onChange={(event) => setEmail(event.target.value)} required />
