@@ -16,7 +16,8 @@ import { listCategories, listTransactions, loadDashboard } from '../../src/servi
 import { listGrants, redeemGrant } from '../../src/services/grant.service'
 import { listGroups } from '../../src/services/group.service'
 import { completeTotpChallenge, hasSignInCheck, openTotpChallenge } from '../../src/services/totp.service'
-import { auditCheckInput, checkAuditSignatures } from '../../src/services/v2/audit-check'
+import { anchoredFrom, auditCheckInput, checkAuditSignatures } from '../../src/services/v2/audit-check'
+import { readRosterDocs } from '../../src/services/v2/roster-store'
 import { formatFingerprint } from '../../src/crypto/sign'
 import { base32Decode, importTotpKey, totpAt } from '../../src/lib/totp'
 import { DecryptError, SAFE_KEY_USAGES, aad, unwrapWithAad } from '../../src/crypto/safe-crypto'
@@ -362,6 +363,9 @@ describe.each(keysFixtures.map((fixture) => [fixture.path, fixture] as const))('
     // What opening it added is signed by the next save.
     expect({ signedFrom: before.signedFrom, verified: before.verified, pending: before.pending }).toEqual({ signedFrom: keys.audit?.signedFrom ?? null, verified: signed, pending: added })
     if (keys.audit) expect(vault.db.queryOne('SELECT seq, hash FROM audit_logs ORDER BY seq DESC LIMIT 1 OFFSET ?', [fixture.expected.addedOnOpen?.length ?? 0])).toEqual(keys.audit.head)
+    // From 2.0.0-rc.2 the signed list of people anchors where the signed log starts.
+    const anchor = anchoredFrom((await readRosterDocs(vault.db))!)
+    if (anchor !== null) expect(anchor).toBe(keys.audit?.signedFrom)
     await sealVault(vault)
     const after = await check()
     expect(after.pending).toBe(0)
