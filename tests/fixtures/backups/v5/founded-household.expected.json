@@ -1,0 +1,235 @@
+{
+  "description": "Produced by Jaybi 2.0.0 services: vault record v3, backup v3, schema v5 (a vault set up with per-person keys, signed audit entries anchored in every roster version from the first entry, a new code before an admin save folded the first redeem in, one new household key after a suspension, and a body in 16 KiB chunks).",
+  "producedBy": {
+    "appVersion": "2.0.0",
+    "commit": "c38bda292003"
+  },
+  "format": {
+    "backup": 3,
+    "record": 3,
+    "schema": 5
+  },
+  "vaultName": "Founded Home",
+  "currency": "USD",
+  "users": [
+    {
+      "email": "founder@founded.test",
+      "password": "Founder founded lantern v5",
+      "role": "Admin",
+      "group": null
+    },
+    {
+      "email": "alice@founded.test",
+      "password": "Alice founded · v5 · Олма",
+      "role": "Manager",
+      "group": "Founded Home"
+    },
+    {
+      "email": "carol@founded.test",
+      "password": "Carol founded harbour v5",
+      "role": "Viewer",
+      "group": "Founded Home"
+    },
+    {
+      "email": "dave@founded.test",
+      "password": "Dave founded meadow v5",
+      "role": "Viewer",
+      "group": "Founded Home"
+    }
+  ],
+  "groups": [
+    "Founded Home"
+  ],
+  "categoryCount": 15,
+  "transactions": [
+    {
+      "id": "4583fd61-74e4-4d93-974b-bba1509d506d",
+      "type": "INCOME",
+      "amountMinor": 480000,
+      "currency": "USD",
+      "category": "Salary",
+      "group": "Founded Home",
+      "date": "2026-10-01",
+      "notes": null,
+      "hasReceipt": false,
+      "userEmail": "founder@founded.test"
+    },
+    {
+      "id": "46e40584-1c53-4e45-b26f-643d5b5cca66",
+      "type": "EXPENSE",
+      "amountMinor": 5830,
+      "currency": "USD",
+      "category": "Food",
+      "group": "Founded Home",
+      "date": "2026-10-04",
+      "notes": "bazaar",
+      "hasReceipt": false,
+      "userEmail": "founder@founded.test"
+    },
+    {
+      "id": "894d0815-3056-4e00-93ed-95f5fe97c9a6",
+      "type": "EXPENSE",
+      "amountMinor": 1780,
+      "currency": "USD",
+      "category": "Food",
+      "group": "Founded Home",
+      "date": "2026-10-06",
+      "notes": "bread and tea",
+      "hasReceipt": false,
+      "userEmail": "alice@founded.test"
+    }
+  ],
+  "totals": {
+    "range": {
+      "start": "2026-10-01",
+      "end": "2026-10-31"
+    },
+    "admin": {
+      "incomeMinor": 480000,
+      "expenseMinor": 7610,
+      "netMinor": 472390,
+      "savingsRate": 98.4
+    }
+  },
+  "auditActions": [
+    "VAULT_CREATED",
+    "CATEGORY_CREATED",
+    "TRANSACTION_CREATED",
+    "TRANSACTION_CREATED",
+    "INVITE_CREATED",
+    "INVITE_CREATED",
+    "INVITE_CREATED",
+    "INVITE_ACCEPTED",
+    "TOTP_ENABLED",
+    "TRANSACTION_CREATED",
+    "INVITE_ACCEPTED",
+    "INVITE_ACCEPTED",
+    "RESET_ISSUED",
+    "RESET_COMPLETED",
+    "INVITE_CREATED",
+    "USER_SUSPENDED",
+    "INVITE_REVOKED",
+    "EPOCH_ROTATED",
+    "INVITE_CREATED",
+    "INVITE_ACCEPTED",
+    "INVITE_CREATED",
+    "BACKUP_EXPORTED"
+  ],
+  "addedOnOpen": [
+    "INVITE_EXPIRED"
+  ],
+  "keys": {
+    "epoch": 2,
+    "roster": {
+      "version": 5,
+      "hash": "f42ce359ac332ac50526a37dab4b90627c5ceded3bc971bf64aaa0b4da502f7e"
+    },
+    "founder": {
+      "email": "founder@founded.test",
+      "fingerprint": "A132 8BAF 8002 0674 F387 31EA"
+    },
+    "removed": [
+      {
+        "email": "bob@founded.test",
+        "password": "Bob founded compass v5"
+      }
+    ],
+    "chunkSize": 16384,
+    "chunks": 27,
+    "audit": {
+      "signedFrom": 1,
+      "signed": 22,
+      "head": {
+        "seq": 22,
+        "hash": "eab1fc7fa4cb9a142e0a0909a3b2b94c6d861906980463e42a2e21f08ddac546"
+      }
+    }
+  },
+  "grants": {
+    "pending": [
+      {
+        "kind": "INVITE",
+        "email": "frank@founded.test",
+        "code": "G9EF-NRB5-W9E4-D7W4-JAT4-FVTY-TAK1",
+        "expiresAt": "2026-10-26T10:55:00.000Z"
+      }
+    ],
+    "used": [
+      {
+        "kind": "INVITE",
+        "email": "alice@founded.test",
+        "code": "KTMG-HJDE-G8EZ-V08Z-EV3G-4W8V-ADA~"
+      },
+      {
+        "kind": "INVITE",
+        "email": "bob@founded.test",
+        "code": "YZ4T-SF6R-7KFB-A4KY-5QHQ-0KA8-WY1C"
+      },
+      {
+        "kind": "RESET",
+        "email": "dave@founded.test",
+        "code": "D4ZM-SBGB-RHAP-WT9T-X9P6-TCZ6-ED57"
+      },
+      {
+        "kind": "INVITE",
+        "email": "carol@founded.test",
+        "code": "Q2V3-KE1V-BWKT-Q4BT-VDDR-T393-81SC"
+      }
+    ],
+    "revoked": [
+      {
+        "kind": "INVITE",
+        "email": "eve@founded.test",
+        "code": "8XRN-Q1T8-BRQ7-0ECK-58HK-AZAV-BKFJ"
+      }
+    ]
+  },
+  "safes": {
+    "summaryDate": "2026-10-26",
+    "owners": [
+      {
+        "email": "founder@founded.test",
+        "state": "OPEN",
+        "recoveryCode": "1DT3Q-N5JQA-6Z7S2-X3WB2-NNT12",
+        "safes": [
+          {
+            "id": "113ab0ba-ff8b-4b68-92a2-7b79884bf95e",
+            "name": "Main",
+            "archived": false,
+            "requirePassword": false,
+            "isDefault": true,
+            "items": [
+              {
+                "v": 1,
+                "kind": "NOTE",
+                "title": "Spare key",
+                "body": "With the neighbour at number 9",
+                "favorite": false,
+                "id": "95941726-2e27-46c2-b972-1b5c81f6781e",
+                "safeId": "113ab0ba-ff8b-4b68-92a2-7b79884bf95e",
+                "deletedAt": null
+              }
+            ]
+          }
+        ],
+        "totals": []
+      }
+    ]
+  },
+  "signInCheck": {
+    "email": "alice@founded.test",
+    "secret": "MC3RT6765CT4Z36NBHHFN5VF7JCQ62Q5",
+    "recoveryCodes": [
+      "NX66-JYR8-4W59-WEX8",
+      "X5HA-4PQ6-PWAY-Z4WT",
+      "ZWN3-K8TG-EDS5-5X11",
+      "B34X-GAKW-X8BE-2HMT",
+      "PTH0-G8QC-QKGJ-X4C1",
+      "HRBH-FSFF-XBWN-9CZN",
+      "450G-DSAK-8090-8BPA",
+      "B2D4-R3YD-XJW1-NJWN",
+      "PSW3-E1GW-82MV-6KXQ",
+      "45TD-HB70-Z0GF-NHQV"
+    ]
+  }
+}
