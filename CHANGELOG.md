@@ -6,76 +6,41 @@ Data formats are versioned separately from the app. Each release lists the forma
 
 ## [Unreleased]
 
-### 2.0 alpha: per-person keys (in development, not released)
+## [2.0.0] - 2026-10-27
 
-Built only with `VITE_V2_KEYS=1` and never deployed; it becomes 2.0.0 after the Beta (key rotation) and RC (signed audit entries) phases of the [2.0 design](docs/design/v2.0-key-redesign.md). Such a build reads backup and record versions 1–3 and schema versions 1–5. It writes record 3, backup 3 and schema 5 only for vaults with per-person keys, and record 2, backup 2 and schema 4 for every other vault, so 1.x keeps opening a vault that 2.0 has not upgraded. 1.x refuses record and backup 3 with `FORMAT_TOO_NEW` and leaves them untouched. The record 3 format is a draft until 2.0.0 ([data format](docs/data-format.md#record-version-3-per-person-keys-20-draft)).
+Reads backup and record versions 1–3 and schema versions 1–5. Writes record 3, backup 3 and schema 5 for vaults with per-person keys (every vault set up with 2.0, and a 1.x vault once an admin upgrades it), and record 2, backup 2 and schema 4 for every other vault, as 1.7.5 does, so 1.7.5 keeps opening a vault that 2.0 has not upgraded. 1.x refuses record and backup 3 as made by a newer version (`FORMAT_TOO_NEW`) and leaves them untouched. Export format 1 is unchanged. The new formats are specified in [docs/data-format.md](docs/data-format.md#record-version-3-per-person-keys-20) and the design in [docs/design/v2.0-key-redesign.md](docs/design/v2.0-key-redesign.md).
 
-#### Added
+### Added
 
-- **Per-person keys.** Everyone has their own X25519 and Ed25519 keys, sealed under their password with Argon2id (64 MiB, in a background worker; WebAssembly needs no change to the content security policy). The vault key is wrapped to each person's public key, and no password check value is stored for anyone.
-- **A signed list of people.** Who may sign in, with which role and group and which keys, is a hash-chained document signed by an admin and rooted in the founder's key. A role or group changed outside Jaybi, a member added without an invite, or an edited signature blocks the vault instead of opening it. Every saved record is signed by the person who saved it.
-- **The founder key.** The first sign-in to a vault in a browser shows its founder key to compare with the admin before the vault opens; the browser then refuses a vault with another founder, and an older copy than it has seen unless an admin chooses to open it (written to the audit log).
-- **The founder upgrade.** An admin of a 1.x vault is offered to upgrade it and becomes its founder. The vault gets a new vault key, every open 1.x code ends, and everyone else needs a new invite code; their records, history and safes stay. The 1.x vault is kept in the browser as the way back.
-- **Invites only.** People join, and come back after losing their password, with an invite code that carries a signing key the admin's next save names; there are no temporary passwords, so the admin never knows anyone's keys.
-- **The vault in sealed chunks.** Record 3 stores the database as 1 MiB encrypted chunks, each its own IndexedDB value, with the list of chunks sealed under the vault key. Saves write only the chunks that changed, archives cost no copy, and Chromium's 126 MiB limit on a single value no longer applies.
-- Health check rows for the keys, the signed list of people and the upgrade, and the recovery tool reads format 3 (Node.js 24.7+) with `--verify`.
-- **A way out of a blocked vault.** When a vault fails a check that blocks it, the sign-in screen shows the reason and offers to download the vault as a file, exactly as the browser stores it and still encrypted, without open invite codes, so it can be kept for the admin or the recovery tool.
-- For developers: a bench page (`npm run bench`, dev server only) times Argon2id, the key operations, the roster check and the chunked saves on the device that opens it.
+- **Per-person keys.** Everyone has their own X25519 and Ed25519 keys, sealed under their password with Argon2id (64 MiB, in a background worker). The household key that encrypts the vault is wrapped to each person's public key, and no password check value is stored for anyone. Every vault set up with 2.0 uses them. A browser without X25519 and Ed25519 in Web Crypto (Chrome and Edge before 137, Firefox before 130, Safari before 17) cannot set up, sign in to, join or restore such a vault, and says so; there is no weaker fallback.
+- **The founder key.** The admin who sets up the vault, or upgrades it, is its founder. The first sign-in to the vault in a browser shows the founder key to compare with them before the vault opens; the browser then refuses a vault with another founder, and a copy older than it has seen unless an admin chooses to open it (written to the audit log).
+- **A signed list of people.** Who may sign in, with which role, group and keys, is a hash-chained document signed by an admin and rooted in the founder's key. A role or group changed outside Jaybi, a member added without an invite, or an edited signature blocks the vault instead of opening it. Every saved record is signed by the person who saved it.
+- **Invites only.** People join, and come back after losing their password, with an invite code; there are no temporary passwords in a vault with per-person keys, so the admin never knows anyone's keys.
+- **A new household key when someone leaves.** Suspending or removing someone who held the household key makes a new one for everyone who stays: the next save gives each of them a copy, signs the new key into the list of people, and encrypts the whole vault again. Open invite codes stop, because each holds the old key; the dialog says how many. Nothing saved from then on opens for the person who left; copies they already had still do. The copy of the vault the browser keeps from just before does not open for them, and the older copies there, **Before upgrade** included, are deleted.
+- **Signed audit entries.** Every audit entry is signed by the person who made it, anchored in the signed list of people, and checked at sign-in, on the Audit page (a signature column and **Show problems only**) and in the Health check. Problems warn the people who can read the log and block nothing. Entries written before (by 1.x, or before the upgrade) stay as they were.
+- **Safes and the sign-in check on your own keys.** Private safes and the sign-in check are keyed from your sealed identity, so no weaker password-derived copy of their keys remains. After a new invite code (new keys) safes open with the recovery code. Safes from 1.x move over the first time they open.
+- **Backups checked before they replace the vault.** A backup with per-person keys replaces the vault only once you can sign in to it and it passes the same checks as a sign-in. One from another founder is refused. One older than this browser has seen is restored only if an admin chooses so, with everyone whose access ended since then suspended again and a new household key. Putting a 1.x backup back over an upgraded vault asks first, since every old password works again in it.
+- **The vault in sealed chunks.** Record 3 stores the database as 1 MiB encrypted chunks, each its own IndexedDB value, so saves write only what changed and Chromium's 126 MiB limit on a single value no longer applies.
+- **A way out of a blocked vault.** When a vault fails a check that blocks it, the sign-in screen says why and offers to download the vault as a file, still encrypted and without open invite codes.
+- Health check rows for the keys, the founder key, the signed list of people, the household key, the last backup after a new household key, the audit signatures, and the upgrade.
+- The recovery tool reads format 3 (Node.js 24.7 or later). `--verify` checks the signed list of people, the record and that whoever opened the file is an active member with the keys that opened it (exit status 3), and the audit signatures (exit status 4).
+- Golden backups with per-person keys, which every later release must open and check: `v5/roster-household`, `v5/signed-household` and `v5/anchored-household`, 1.x vaults upgraded by the 2.0 release candidates, and `v5/founded-household`, a vault set up with 2.0.0.
 
-### 2.0 beta: a new household key when someone leaves (in development, not released)
+### Changed
 
-On `feature/v2-beta`, version 2.0.0-beta.1; built only with `VITE_V2_KEYS=1` and never deployed. It reads and writes the same versions as the alpha. Record 3 is still a draft; the beta changes it (the sealed identity carries a seed; safe keys and the sign-in check are keyed from it; a new archive reason) and adds its golden fixture.
+- **Vaults created before 2.0 keep working as they are.** An admin who signs in to one is offered the upgrade to per-person keys each time until they take it: they become the founder, the vault gets a fresh key, every open code ends and everyone else needs a new invite code; records, history and private safes stay. **Not now** keeps the 1.x vault. The 1.x vault is kept in the browser as **Before upgrade**, the way back, until the first new household key deletes it: download it from the Backup page before then if you may need it.
+- A one-time code works from either link on the sign-in screen: **Have a one-time code? Join the vault** also takes a reset code, and **Have a reset code?** an invite code, because the vault knows which kind each code is.
+- The user guides (in all four languages, with new pictures) and the admin guide describe per-person keys.
+- For developers: `VITE_V2_KEYS=0` builds a version that sets up 1.x vaults and offers no upgrade; CI runs the browser tests against both builds. `npm run bench` (dev server only) times the key operations on the device that opens it.
 
-#### Added
+### Known limitations
 
-- **A new household key when someone leaves.** Suspending or removing someone who held the vault key makes a new one for everyone who stays: the next save gives each of them a copy, signs the new key into the list of people, and encrypts the whole vault again. Every open invite code stops, because each holds the old key; the dialog says how many, and new codes work with the new key. The person keeps whatever they had already copied, but nothing saved from then on opens for them. The copy of the vault kept in the browser from just before does not open for them, and older copies there are deleted.
-- **Safes and the sign-in check on your own keys.** Private safes and the sign-in check are keyed from your sealed identity, so no weaker password-derived copy of their keys remains, and a new password no longer has to re-protect them. After a new invite code (new keys) safes open with the recovery code. Ones from 1.x move over the first time they open.
-- **Backups checked before they replace the vault.** A backup with per-person keys replaces the vault only once you can sign in to it and it passes the same checks as a sign-in. One from another founder is refused. One older than this browser has seen, or different from it, is restored only if you choose so, with everyone whose access ended since then (removed, or given new keys) suspended again and a new household key; if the browser cannot tell who they were, it says so. A copy that differs from what the browser saw is caught even when its version numbers are higher, at sign-in too. Putting a 1.x backup back over an upgraded vault asks first, since every old password works again in it.
-- Health check rows for the household key, and for a last backup that is older than the household key.
-- A golden backup with per-person keys (`v5/roster-household`), which every later release must open, and which the recovery tool decrypts and verifies.
-
-#### Known limitations
-
-- Audit entries are not signed yet (RC); the audit log is hash-chained and checked as in 1.x.
-- A new household key cannot reach other browsers or old backups: anyone who kept a copy from before can still open that copy.
-
-### 2.0 release candidate: signed audit entries (in development, not released)
-
-On `feature/v2-rc`, versions 2.0.0-rc.1 to 2.0.0-rc.3, never deployed; rc.1 and rc.2 were built only with `VITE_V2_KEYS=1`, and from rc.3 per-person keys are the default. It reads and writes the same versions as the beta: backup and record versions 1–3 and schema versions 1–5, writing record 3, backup 3 and schema 5 only for vaults with per-person keys. Record 3 is still a draft; the RC fills the `audit_sigs` table that the beta left empty, records a key binding in the entry that redeems a code, and (rc.2) adds an `audit` anchor to the signed list of people. An earlier 2.0 build still opens an RC vault, but the entries it writes are not signed, so the RC reports them; the alpha, beta and rc.1 refuse a vault whose list of people has the anchor.
-
-#### Added
-
-- **Signed audit entries.** In a vault with per-person keys every audit entry is signed by the person who made it. Entries written before (by 1.x, before the upgrade, or by an earlier 2.0 build) stay as they were; signing starts with the first entry saved after them.
-- **Anchored in the signed list of people (rc.2).** Each version of the list that an admin signs records where the signed log starts and where that admin's save left it. Deleting signatures, or cutting or rewriting the log up to an admin's save, is reported on every browser, not only on one that had checked the log before.
-- **Checked at sign-in, on the Audit page and in the Health check.** People who can read the audit log are warned when an entry is not signed, its signature does not match, it is signed by someone other than the person it names or by someone who was not a member then, or it records something the signer's role did not allow. Nothing is blocked, and an admin can accept the log as it is. The Audit page shows each entry's signature and can show only the problems. The Health check has a row for the signatures, and checks every entry on request; a sign-in checks only what is new since this browser last checked.
-- The recovery tool's `--verify` checks the audit signatures too: it still writes the database when some entries do not check out, says which, and exits with status 4.
-- Golden backups with signed audit entries, which every later release must open and check: `v5/signed-household` (rc.1), a 1.x vault upgraded to per-person keys, and `v5/anchored-household` (rc.2), the same household with a list of people that anchors the log.
-- For developers: the bench page times signing and checking an audit log.
-
-#### Changed (rc.3)
-
-- **Per-person keys by default.** Setup creates vaults with per-person keys, and an admin who signs in to a 1.x vault is offered the upgrade each time until they take it. A 1.x vault keeps working as one until then. A build made with `VITE_V2_KEYS=0` sets up 1.x vaults and offers no upgrade, as before.
-- Giving someone a new code in a vault with per-person keys now says that the private safes they opened since then open again only with their recovery code; it said their previous password would do. Reactivating someone there says they get a new invite code rather than a reset code.
-- The user guides (in all four languages, with new pictures) and the admin guide describe per-person keys: the founder key and its comparison in a new browser, invites only, a new household key when someone leaves, new codes and private safes, restoring older backups, signed audit entries, the upgrade of a vault created before 2.0, and the browsers that can use them.
-- For developers: CI runs the browser tests twice, against the default build and against one made with `VITE_V2_KEYS=0`.
-
-#### Fixed (rc.3, from the final review)
-
-- Someone who redeemed an invite and was given a new code before any admin save added them to the signed list of people now counts as holding the household key, so removing them later makes a new one.
-- A browser without X25519 and Ed25519 says so when signing in to, joining or restoring a vault with per-person keys, instead of reporting a wrong password and counting it towards the sign-in limit. Setup says so before the form is filled in, and the upgrade is not offered there.
-- A backup file that declares far more data than it holds is refused before memory is set aside for it.
-- A suite, identity or wrap version, or KDF that a later release may add is reported as made by a newer version, not as damage.
-- The signature check no longer reports as unsigned the entries a save signs while it runs, and only an admin is offered to open an older copy anyway.
-- A code works from either page, so someone told they have a new invite code can use **Have a one-time code? Join the vault**; the panel showing such a code calls it a new invite code.
-- The recovery tool's `--verify` also checks that whoever opened the file is an active member with the keys that opened it.
-- Reactivating someone says what happens to their private safes; the list shown before restoring an older backup names everyone whose access it takes away, people added only in that copy included; the earlier copies say that a new household key deletes the older ones.
-- The guides say that the way back after the upgrade must be downloaded before the first new household key deletes it, where a new code is entered, that Chromium's 126 MB limit applies only to vaults created before 2.0, how to show the Access column, and what a new password does not protect.
-- For developers: a test runs the founder upgrade on every 1.x golden backup.
-
-#### Known limitations
-
-- Signatures show who wrote each entry and whether they were allowed to; they cannot stop someone who holds the vault key from removing the entries written since an admin last saved a change to the list of people, which only a browser that saw them notices, as in 1.x.
-- The first download is about 13 KB (gzip) larger than 1.7.4's, more than the design allows: reading any stored vault goes through the parser of the new format. Splitting it out is open work before 2.0.0.
+- A new household key cannot reach copies that already exist: anyone who kept a backup, an export or a copy of the browser storage can still open that copy.
+- Everyone in a vault holds the same household key, so roles and groups limit what people change in Jaybi, not what someone with technical tools could read.
+- Signatures detect changes made outside Jaybi; they cannot prevent them, and the entries written since an admin last saved a change to the list of people can be removed unnoticed except by a browser that saw them.
+- The first sign-in in a browser trusts the founder key it sees; compare it with the founder.
+- Rolling back to 1.7.x is not possible for a vault set up with 2.0 or upgraded to per-person keys: 1.7.x refuses it ([rollback](docs/devops-guide.md#rollback)).
+- The first download is about 14 KB (gzip) larger than 1.7.5's, because reading any stored vault goes through the parser of the new format.
 
 ## [1.7.5] - 2026-10-27
 
@@ -487,7 +452,8 @@ Writes backup, record, and schema version 1.
 - Audit log, encrypted `.moliya` backups, day and night themes, and a collapsible sidebar.
 - Deployment to GitHub Pages.
 
-[Unreleased]: https://github.com/kool277/iqtisod/compare/v1.7.5...HEAD
+[Unreleased]: https://github.com/kool277/iqtisod/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/kool277/iqtisod/compare/v1.7.5...v2.0.0
 [1.7.5]: https://github.com/kool277/iqtisod/compare/v1.7.4...v1.7.5
 [1.7.4]: https://github.com/kool277/iqtisod/compare/v1.7.3...v1.7.4
 [1.7.3]: https://github.com/kool277/iqtisod/compare/v1.7.2...v1.7.3
