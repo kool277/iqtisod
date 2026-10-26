@@ -6,7 +6,7 @@ This guide is for the person who owns a Jaybi vault. Admins can do everything in
 
 - **A vault is one encrypted database in one browser.** It lives in that browser's storage for that website address. A different browser, device, browser profile, or website address starts with no vault.
 - **Every person has their own password and, since 2.0, their own keys.** In a vault with per-person keys (every vault created with 2.0, and an older one once an Admin [upgrades](#upgrading-to-200) it) each password seals that person's keys, which open the vault's **household key**. Removing someone who held the household key makes a new one for everyone who stays. A vault created before 2.0 keeps one key that every password unlocks until it is upgraded.
-- **The founder key anchors trust.** The Admin who creates the vault, or upgrades it, is its founder. Every browser compares the founder key at its first sign-in and refuses a vault with another one. An Admin signs the list of people, and every audit entry is signed by the person who made it.
+- **The founder key anchors trust.** The Admin who creates the vault, or upgrades it, is its founder. Every browser compares the founder key at its first sign-in and refuses a vault with another one. In a vault with per-person keys an Admin signs the list of people, and every audit entry is signed by the person who made it.
 - **Nobody can recover a lost password**, including the developers, and nobody can give a person keys except through an invite code they redeem themselves. Keep at least two Admin accounts, and keep a recent backup.
 - **Private safes are not yours to see.** Every person, Admins included, can keep private safes for cards, subscriptions, and notes. They are encrypted with keys only their owner holds. As Admin you cannot see them, list them, open them, or recover them, even with the decrypted database, a backup, or the recovery tool. See [Private safes and Admins](#private-safes-and-admins).
 
@@ -60,7 +60,7 @@ Open **Users** (the page is titled **People**). Managers see the page too, read-
 
 Sign-ins are recorded from 1.6.0 on, at most once every 10 minutes per person, inside the encrypted vault.
 
-The **Access** column says how each person gets in: **Has keys**, **Invited** (a code is waiting for them), or **Needs a new invite**. In a vault created before 2.0 it says **Password**, **Waiting for a code**, or **No way to sign in**.
+The **Access** column (hidden at first: turn it on under **Columns**; each person's page shows it too) says how each person gets in: **Has keys**, **Invited** (a code is waiting for them), or **Needs a new invite**. In a vault created before 2.0 it says **Password**, **Waiting for a code**, or **No way to sign in**.
 
 ### Inviting a person
 
@@ -123,7 +123,7 @@ The form always warns about private safes, whether or not the person has any, so
 
 If you set a temporary password, tell the person not to type it as their "previous password".
 
-You cannot reset your own password from **Users**. Use **Account → Change password**, which needs your current password and also moves your own safes to the new one. If you have forgotten your password, another Admin must reset it.
+You cannot reset your own password from **Users**. Use **Account → Change password**, which needs your current password and also moves your own safes to the new one. If you have forgotten your password, another Admin gives you a new invite code (before 2.0, a reset code).
 
 ### Turning off someone's sign-in check
 
@@ -265,7 +265,7 @@ Importing **replaces** the vault in the current browser. It does not merge. Ther
 
 A backup with per-person keys replaces the vault only once you can sign in to it, with the same checks as a sign-in. If your password was different when it was made, enter it under **Your password in this backup**. A backup whose founder key differs from the one this browser knows is refused, with no override; a genuine copy opens in a browser that never saw the other key. A backup that is behind the vault this browser has seen (an older version of the signed list of people, for example from before an invite or a removal) shows the people removed or given new keys since, who are suspended again in the restored copy (making a new household key), and the invite codes revoked since, which are revoked again; choose **Restore this older copy**. Without the history this browser keeps, Jaybi says it cannot tell who was removed: suspend or delete them again afterwards. A 1.x backup over a vault with per-person keys asks for a second confirmation, because every password it holds works again, including those of people removed since; this is also the way back from the upgrade.
 
-Only Admins can replace a vault. Backups from any earlier version can be imported. A backup made by a newer version is refused until the page is reloaded with the newer version. Under the file picker, Jaybi shows the largest backup this device can restore and what limits it: free storage in this browser, the device's memory, or what this browser can save (Chrome, Edge and other Chromium browsers save vaults of up to 126 MB, a backup of about 168 MB; Firefox and Safari save larger ones). Every device accepts at least 72 MB, the fixed limit before 1.7.0. A larger file is refused before it is read, with its size, the limit, and what to try: free up disk space or allow Jaybi to keep its data (on the **Health check** page), restore it in Firefox or Safari, or use a computer with more memory. Jaybi also refuses files that are malformed.
+Only Admins can replace a vault. Backups from any earlier version can be imported. A backup made by a newer version is refused until the page is reloaded with the newer version. Under the file picker, Jaybi shows the largest backup this device can restore and what limits it: free storage in this browser, the device's memory, or what this browser can save (Chrome, Edge and other Chromium browsers save a vault created before 2.0 of up to 126 MB, a backup of about 168 MB; a vault with per-person keys is stored in 1 MiB pieces and has no such limit; Firefox and Safari save larger ones of either kind). Every device accepts at least 72 MB, the fixed limit before 1.7.0. A larger file is refused before it is read, with its size, the limit, and what to try: free up disk space or allow Jaybi to keep its data (on the **Health check** page), restore it in Firefox or Safari, or use a computer with more memory. Jaybi also refuses files that are malformed.
 
 Only import backups you made yourself or got from someone you trust. A backup is a whole vault: whoever made it chose its people and passwords. Jaybi checks the file's structure and the database inside it when you sign in, and refuses anything it did not create.
 
@@ -282,11 +282,11 @@ How large a vault can grow depends on the device: at least 48 MB everywhere, and
 
 Jaybi keeps up to three earlier copies of the vault in the browser:
 
-- **Before upgrade**: when a new version changes the data format, the vault exactly as the previous version stored it.
+- **Before upgrade**: when a new version changes the data format, or an Admin upgrades the vault to per-person keys, the vault exactly as it was stored before.
 - **Before import**: the vault that an import replaced, including the "Vault replaced by a backup" audit entry.
 - **Before a new household key**: the vault just before a removal made a new household key, without the keys of the people who left. Saving that change deletes every older copy.
 
-Each copy shows when it was taken and which version saved it. **Download** turns it into a normal backup file you can import (in this or an older version) or keep.
+Each copy shows when it was taken and which version saved it. **Download** turns it into a normal backup file you can import or keep: a copy of a vault created before 2.0 also in 1.7 or older, a copy with per-person keys only in 2.0 or later. A new household key deletes the older copies, so download one you may need.
 
 ### Export data
 
@@ -317,7 +317,7 @@ Transactions, People, Open codes, Groups, Audit log, Categories, and the earlier
 
 Only Admins see the button, and only on pages they can open. Each download is written to the audit log as **Data exported**, with the table, the column ids, whether the rows were filtered, the row counts, and for Transactions the period. It never contains the rows themselves. CSV and Excel files protect text that looks like a formula, and amounts come out exact, with the currency in its own column. The PDF lists at most 10,000 rows. Private safe tables have no export.
 
-People, Open codes, Groups, and Categories keep their buttons (**Issue reset code**, **Revoke**, **Remove**, **Edit**) at the end of each row. Search, filters, and column choices only change what you see; they never change who can see what.
+People, Open codes, Groups, and Categories keep their buttons (**Give a new invite code**, or **Issue reset code** before 2.0, **Revoke**, **Remove**, **Edit**) at the end of each row. Search, filters, and column choices only change what you see; they never change who can see what.
 
 ### Moving to another device
 
@@ -369,11 +369,11 @@ The first sign-in of each person after upgrading to 1.1.0 also strengthens their
 
 1. When an Admin signs in to a 1.x vault, Jaybi offers **Upgrade to per-person keys**, with the number of people who will need a new invite code. **Not now** keeps the vault as it is and asks again at the next Admin sign-in.
 2. **Upgrade now** (with your password) makes you the founder. Jaybi gives the vault a fresh key, ends every open code, removes every 1.x password copy, signs the first list of people with you alone, records "Vault upgraded to per-person keys", and keeps the vault as it was as **Before upgrade**. Write down your founder key.
-3. Everyone else shows **Needs a new invite** on **People**. Give each of them a new code with **Give a new invite code**. They keep their records and history; their sign-in check is turned off, and their private safes open with their previous password or their recovery code.
+3. Everyone else shows **Needs a new invite** on **People** (in the **Access** column and on their page), and the overview counts them under **Cannot sign in**. Give each of them a new code with **Give a new invite code**. They enter it under **Have a reset code?** on **Unlock vault**, or open the link from **Copy link**. They keep their records and history; their sign-in check is turned off, and their private safes open with their previous password or their recovery code.
 
 Things to know:
 
-- **Jaybi 1.7 and older refuse an upgraded vault**, and any backup of it, as made by a newer version. To go back, download the **Before upgrade** copy and restore it: every old password works again, including those of people removed since, and everything done after the upgrade is lost.
+- **Jaybi 1.7 and older refuse an upgraded vault**, and any backup of it, as made by a newer version. The way back is the **Before upgrade** copy: download it soon and keep the file, because the first new household key deletes every earlier copy in this browser and only three are kept anyway. To go back, choose that file under **Replace this vault with a backup** and confirm: every old password works again, including those of people removed since, and everything done after the upgrade is lost. 1.7 imports the same file on its setup screen once the site's data is cleared.
 - **Other devices** that still hold the 1.x vault keep opening their own copy with the old passwords. Move everyone to the upgraded vault with a new backup, and treat the old copies as readable by everyone who had a password then.
 - **Browsers.** A vault with per-person keys needs Chrome or Edge 137, Firefox 130, or Safari 17 or later.
 - **Recovery tool.** Use the 2.0 tool, on Node.js 24.7 or newer, for backups with per-person keys.
@@ -425,7 +425,7 @@ Versions 1.0.0 and 1.1.0 stored, for every person, a value in the database that 
 | "This vault’s founder key is not the one this browser saw before" | Do not sign in. Compare the key with the one the founder wrote down. The sign-in screen offers **Download this vault as a file** for whoever looks into it; restore a backup you trust |
 | "The signed list of people in this vault does not check out", or its signed details do not | Someone changed the vault outside Jaybi, or the file is damaged. Download it as a file, restore a backup from before the change, and find out who had a password |
 | "This copy of the vault is older than the one this browser has seen" | The stored vault was put back to an older copy. An Admin can choose **Open this older copy anyway**, which is recorded; people removed since may be back in it, so check **People** |
-| "You are no longer a member of this vault" | They were suspended or removed. Give them a new code if they should be back |
+| "You are no longer a member of this vault" | They were suspended or removed. Give them a new code if they should be back. A suspended person usually sees "Email or password is incorrect" instead, as does anyone signing in with a password from before the upgrade or a new code |
 | "Some audit log entries do not check out" | See [Signed entries](#signed-entries) |
 | "This browser cannot use the keys this vault needs" | Update the browser to Chrome or Edge 137, Firefox 130, or Safari 17 or later |
 | "There was not enough memory to check the password" | Argon2id needs 64 MiB. Close other tabs and try again |
@@ -436,7 +436,7 @@ Versions 1.0.0 and 1.1.0 stored, for every person, a value in the database that 
 | Someone lost their authenticator app and their sign-in recovery codes | Confirm who they are, then **Turn off sign-in check** on their row. They can set it up again |
 | "Too many attempts. Try again in" with a countdown | Wait. The wait doubles with each wrong try, up to 15 minutes. If you did not cause it, someone is guessing at this device: check the "Failed sign-in attempts seen" entries in the audit log |
 | Someone cannot open their private safes after a reset, and has neither their previous password nor their recovery code | Nobody can open those safes. They can use **Account → Reset private safes** to destroy them and start again |
-| You forgot your admin password, and another Admin exists | Ask them to reset yours |
+| You forgot your admin password, and another Admin exists | Ask them for a new invite code (before 2.0, a reset code). With per-person keys your private safes then open with your recovery code |
 | You want to change your own admin password | **Account → Change password**. **Users** does not allow resetting your own |
 | You forgot the only admin password | The vault cannot be opened as Admin. A Manager or Viewer can still sign in and read their group, but with per-person keys nobody can add or remove people any more. Keep a second Admin account to avoid this |
 | Browser data was cleared, or the device was lost | Import your latest backup on a new browser |
@@ -471,6 +471,8 @@ Jaybi protects data at rest well. It is important to understand what it does **n
 15. **The unencrypted parts of a vault file are protected differently by version.** With per-person keys the header (versions, the list of people's version, the household key's number, who can open it) is signed and checked at every sign-in. In a vault created before 2.0 it is checked piece by piece, not sealed as a whole: Jaybi binds each password copy to its person and each code to its email and expiry, but someone could still change, for example, the creation date shown in the app.
 16. **The first sign-in in a browser trusts the founder key it sees.** A substituted vault on a brand-new browser is accepted unless the key is compared with the founder in person or by phone. A browser that has seen the vault refuses another founder key and an older list of people.
 17. **Losing the founder's password with no other Admin freezes the list of people.** Members can still sign in, read and record, but nobody can add, remove or change people. Keep a second Admin.
+18. **A new password keeps a person's keys.** Changing a password seals the same keys again. Copies made before (backups, and the earlier copies in a browser) still open them with the old password, and with per-person keys those keys also open the household key of later copies, until the person gets new keys. If someone else may know a password and could have an old copy, give the person a new code (new keys), and if they held the household key, suspend and reactivate them as well (a new household key).
+19. **The signed list of people has a size limit.** Each version is at most 262,144 characters and keeps every removed person and expired invite, so roughly a thousand removals with keys, or two thousand expired invites, would stop Admin saves that sign a new version. No household should get near it; a later release will trim old entries.
 
 ## Checklist for a new vault
 

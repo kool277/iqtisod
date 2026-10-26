@@ -59,6 +59,19 @@ On `feature/v2-rc`, versions 2.0.0-rc.1 to 2.0.0-rc.3, never deployed; rc.1 and 
 - The user guides (in all four languages, with new pictures) and the admin guide describe per-person keys: the founder key and its comparison in a new browser, invites only, a new household key when someone leaves, new codes and private safes, restoring older backups, signed audit entries, the upgrade of a vault created before 2.0, and the browsers that can use them.
 - For developers: CI runs the browser tests twice, against the default build and against one made with `VITE_V2_KEYS=0`.
 
+#### Fixed (rc.3, from the final review)
+
+- Someone who redeemed an invite and was given a new code before any admin save added them to the signed list of people now counts as holding the household key, so removing them later makes a new one.
+- A browser without X25519 and Ed25519 says so when signing in to, joining or restoring a vault with per-person keys, instead of reporting a wrong password and counting it towards the sign-in limit. Setup says so before the form is filled in, and the upgrade is not offered there.
+- A backup file that declares far more data than it holds is refused before memory is set aside for it.
+- A suite, identity or wrap version, or KDF that a later release may add is reported as made by a newer version, not as damage.
+- The signature check no longer reports as unsigned the entries a save signs while it runs, and only an admin is offered to open an older copy anyway.
+- A code works from either page, so someone told they have a new invite code can use **Have a one-time code? Join the vault**; the panel showing such a code calls it a new invite code.
+- The recovery tool's `--verify` also checks that whoever opened the file is an active member with the keys that opened it.
+- Reactivating someone says what happens to their private safes; the list shown before restoring an older backup names everyone whose access it takes away, people added only in that copy included; the earlier copies say that a new household key deletes the older ones.
+- The guides say that the way back after the upgrade must be downloaded before the first new household key deletes it, where a new code is entered, that Chromium's 126 MB limit applies only to vaults created before 2.0, how to show the Access column, and what a new password does not protect.
+- For developers: a test runs the founder upgrade on every 1.x golden backup.
+
 #### Known limitations
 
 - Signatures show who wrote each entry and whether they were allowed to; they cannot stop someone who holds the vault key from removing the entries written since an admin last saved a change to the list of people, which only a browser that saw them notices, as in 1.x.

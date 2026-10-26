@@ -801,7 +801,7 @@ The Groups table exports its **Income**, **Expenses**, and **Net** columns as te
 
 ## Recovering data without the app
 
-`tools/moliya-decrypt.mjs` needs only Node.js 22 or newer (22.13+ to blank password material automatically). A backup with per-person keys (format 3) needs Node.js 24.7 or newer for Argon2id; with it the tool also takes `--verify`, which runs the checks of [Opening a version 3 record](#opening-a-version-3-record) on the decrypted database and exits with status 3 if one fails. It then checks the [audit signatures](#signed-audit-entries): it reports how many entries are signed and how many come from before signatures, or the entries that do not check out, in which case it still writes the database and exits with status 4.
+`tools/moliya-decrypt.mjs` needs only Node.js 22 or newer (22.13+ to blank password material automatically). A backup with per-person keys (format 3) needs Node.js 24.7 or newer for Argon2id; with it the tool also takes `--verify`, which runs the checks of [Opening a version 3 record](#opening-a-version-3-record) on the decrypted database (the founder and record signatures, the roster chain with its proofs and audit anchor, the roster against the `users` table, and that the person who opened the file is active with the keys that opened it) and exits with status 3 if one fails. It checks the shape of each document less strictly than the app, so a file the app refuses for a malformed field can still pass; the app's checks are the reference. It then checks the [audit signatures](#signed-audit-entries): it reports how many entries are signed and how many come from before signatures, or the entries that do not check out, in which case it still writes the database and exits with status 4.
 
 ```bash
 node tools/moliya-decrypt.mjs backup.moliya --list
@@ -811,7 +811,9 @@ sqlite3 ledger.sqlite "SELECT transaction_date, type, amount_minor / 100.0, curr
 
 The password comes from `MOLIYA_PASSWORD`, or the tool prompts for it. A wrong password and a damaged wrap or body give the same message, `wrong email or password, or the backup is damaged` (from 1.4.2). Without `--out` the output is the backup's name with `.sqlite`; an existing file is only replaced with `--force`. The output is always created new with mode 0600 and never through a symbolic link (from 1.4.2). `--help` prints the usage. Exit code 2 means bad arguments.
 
-For schema version 1 files the amount column is `amount` instead of `amount_minor`. The tool is about 240 lines of dependency-free JavaScript and doubles as a reference implementation of this document. Any language with PBKDF2 and AES-GCM can do the same in three steps: derive the KEK, decrypt `wrappedDek` to get the DEK, decrypt `body.ciphertext`.
+The tool reads the whole file into memory as one string, so it opens backups up to about 500 MB (Node.js caps a string at 2^29 characters), a vault of about 380 MB. A larger backup restores in the app, which reads it in slices; the release zip of that version serves the app offline.
+
+For schema version 1 files the amount column is `amount` instead of `amount_minor`. The tool is dependency-free JavaScript and doubles as a reference implementation of this document. Any language with PBKDF2 and AES-GCM can open a 1.x backup the same way in three steps: derive the KEK, decrypt `wrappedDek` to get the DEK, decrypt `body.ciphertext`.
 
 With Node.js 22.13 or newer, the tool blanks `users.password_hash` and `users.salt`, deletes every row of `safe_events`, `secure_items`, `safes`, `user_keys`, and `user_totp`, and blanks `access_grants.code_verifier` before vacuuming (with `secure_delete` on). From 1.4.2 it does this on a copy in a fresh `0700` temporary directory, which it overwrites and removes afterwards, so the output path only ever receives the scrubbed database; until 1.4.1 it wrote the full plaintext to the output first and scrubbed it in place. `--keep-keys` skips this step, which keeps the verifiers, salts, the private safe rows, and the sign-in check rows, still encrypted with each owner's keys. On older Node.js versions without `node:sqlite` nothing is removed and the tool prints a warning.
 
@@ -853,6 +855,6 @@ Readers also reject rates outside plausible bounds (UZS 1,000–100,000, KRW 100
 ## Changing a format
 
 1. Bump the relevant constant in `src/db/versions.ts`. Add a migration file for schema changes (`src/db/migrations/000N-name.ts`, or `.sql` imported with `?raw`) and append it to `MIGRATIONS`.
-2. Add a reader branch for the new record or backup version; keep every existing branch.
+2. Add a reader branch for the new record or backup version; keep every existing branch. A version 3 record is checked strictly, down to its signed documents (header, identities, wraps, roster versions, key bindings, audit signatures): any change to one of them, such as a new suite, a new `v`, a new KDF or an extra field, needs a new `KEYS_RECORD_VERSION`, so that 2.0 refuses it as made by a newer version (`FORMAT_TOO_NEW`) instead of reporting it as damage. 2.0 already reports a header that names an unknown suite, identity or wrap version, or KDF as newer.
 3. Release, then generate a fixture with the released code (`tools/fixtures/<version>/generate.gen.ts`, run with `npm run fixtures:generate -- tools/fixtures/<version>`), add it to `MANIFEST.json`, and commit it with its `SHA256SUMS`.
 4. Update the version matrix and the relevant sections above, and the CHANGELOG.
