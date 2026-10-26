@@ -470,6 +470,19 @@ describe('the checkpoint this browser keeps', () => {
     expect(readAuditSeen(vaultId)?.signedFrom).toBe(2)
   })
 
+  it('counts the open session\'s unsaved entries as pending, and stops before them', async () => {
+    const { at } = await household()
+    const founder = await signIn(FOUNDER)
+    const before = entries(founder)
+    createGroup(founder, 'Not saved yet')
+    createGroup(founder, 'Nor this')
+    const open = await checkVaultAudit(founder, { full: true })
+    expect(problems(open!)).toEqual({})
+    expect(open).toMatchObject({ pending: 2, verified: before, checkpoint: { seq: before } })
+    await save(founder, at)
+    expect(await checkVaultAudit(founder, { full: true })).toMatchObject({ pending: 0, verified: before + 2, checkpoint: { seq: before + 2 } })
+  })
+
   it('is read only by people who may read the audit log', async () => {
     await household()
     const alice = await signIn(ALICE)

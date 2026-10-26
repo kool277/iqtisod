@@ -59,6 +59,7 @@ export const keysRu: KeysMessages = {
     column: 'Подпись',
     signed: 'Подписана',
     legacy: 'До подписей',
+    pending: 'Подпишется при сохранении',
     checking: 'Проверка…',
     problem: {
       CHAIN: 'Изменена вне Джайби',

@@ -168,8 +168,14 @@ test('suspending a member makes a new household key for everyone who stays, and 
 
   await signIn(page, MEMBER.email, MEMBER.password)
   await expect(page.getByText('Email or password is incorrect.')).toBeVisible({ timeout: 60_000 })
+  // A failed attempt first: the sign-in after it writes an entry that only its save signs, which is no problem.
+  await signIn(page, FOUNDER.email, `${FOUNDER.password} wrong`)
+  await expect(page.getByText('Email or password is incorrect.')).toBeVisible({ timeout: 60_000 })
   await signIn(page, FOUNDER.email, FOUNDER.password)
   await expect(page.getByTestId('kpi-net')).toBeVisible({ timeout: 60_000 })
+  await expect(page.getByTestId('failures-seen-banner')).toBeVisible()
+  await expect(page.getByTestId('save-state')).toHaveText('Saved', { timeout: 60_000 })
+  await expect(page.getByTestId('audit-warning')).toHaveCount(0)
   // The copy from just before the new key is the one earlier copy kept.
   await page.getByTestId('nav-backup').click()
   await expect(page.getByText('Before a new household key')).toBeVisible()

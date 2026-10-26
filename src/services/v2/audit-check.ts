@@ -55,6 +55,8 @@ export type AuditCheckInput = {
   from?: AuditCheckpoint
   /** The first signed entry this browser saw in this log before: from there on every entry must be signed. */
   seenSignedFrom?: number | null
+  /** The open session's own entries start here; its next save signs them, so one still unsigned is pending. */
+  pendingFrom?: number
 }
 
 export type AuditCheckReport = {
@@ -67,8 +69,10 @@ export type AuditCheckReport = {
   legacy: number
   /** Signed entries with nothing wrong. */
   verified: number
+  /** The open session's entries its next save signs (see `pendingFrom`). */
+  pending: number
   problems: Map<number, AuditSigProblem[]>
-  /** Where this check ends. */
+  /** Where this check ends: before the first pending entry, which is not checked yet. */
   checkpoint: AuditCheckpoint
 }
 
@@ -174,13 +178,21 @@ export async function checkAuditSignatures(input: AuditCheckInput): Promise<Audi
   const sigs = new Map(input.sigs.map((sig) => [sig.seq, sig]))
   const signed: { row: AuditRow; sig: AuditSig }[] = []
   let legacy = 0
+  let pending = 0
+  let firstPending: number | null = null
   let lastVersion = from?.rosterVersion ?? 0
+  let checkedVersion = lastVersion
   for (const row of rows) {
+    const sig = sigs.get(row.seq)
+    if (!sig && input.pendingFrom !== undefined && row.seq >= input.pendingFrom) {
+      pending += 1
+      firstPending ??= row.seq
+      continue
+    }
     if (signedFrom === null || row.seq < signedFrom) {
       legacy += 1
       continue
     }
-    const sig = sigs.get(row.seq)
     if (!sig) {
       flag(row.seq, 'UNSIGNED')
       continue
@@ -189,6 +201,7 @@ export async function checkAuditSignatures(input: AuditCheckInput): Promise<Audi
     const doc = roster[sig.rosterVersion - 1]
     if (!doc || sig.rosterVersion < lastVersion || sig.epoch !== doc.epoch) flag(row.seq, 'ORDER')
     lastVersion = Math.max(lastVersion, sig.rosterVersion)
+    if (firstPending === null) checkedVersion = lastVersion
     if (doc) signed.push({ row, sig })
   }
 
@@ -240,11 +253,11 @@ export async function checkAuditSignatures(input: AuditCheckInput): Promise<Audi
   })
 
   const verified = signed.filter(({ row }) => !problems.has(row.seq)).length
-  const last = rows.at(-1)
+  const last = firstPending === null ? rows.at(-1) : rows.filter((row) => row.seq < firstPending).at(-1)
   const checkpoint: AuditCheckpoint = last
-    ? { seq: last.seq, hash: last.hash, signedFrom, rosterVersion: lastVersion > 0 ? lastVersion : null }
+    ? { seq: last.seq, hash: last.hash, signedFrom, rosterVersion: checkedVersion > 0 ? checkedVersion : null }
     : (from ?? { seq: 0, hash: GENESIS_HASH, signedFrom, rosterVersion: null })
-  return { start: (from?.seq ?? 0) + 1, checked: rows.length, signedFrom, legacy, verified, problems, checkpoint }
+  return { start: (from?.seq ?? 0) + 1, checked: rows.length, signedFrom, legacy, verified, pending, problems, checkpoint }
 }
 
 function redeemedBindings(db: SqlDatabase): KeyBinding[] {
@@ -290,5 +303,5 @@ export async function auditCheckInput(db: SqlDatabase, vaultId: string, kept: Ke
 export async function checkVaultAudit(vault: OpenVault & { keys: KeysSession }, options: { full?: boolean } = {}): Promise<AuditCheckReport | null> {
   if (!canUser(vault.user, Permission.READ_AUDIT)) throw new ForbiddenError()
   const input = await auditCheckInput(vault.db, vault.keys.vaultId, readAuditSeen(vault.keys.vaultId), options)
-  return input ? checkAuditSignatures(input) : null
+  return input ? checkAuditSignatures({ ...input, pendingFrom: vault.keys.auditFrom }) : null
 }

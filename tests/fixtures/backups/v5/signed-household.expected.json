@@ -1,0 +1,240 @@
+{
+  "description": "Produced by Jaybi 2.0.0-rc.1 services: vault record v3, backup v3, schema v5 (a 1.x vault upgraded to per-person keys, signed audit entries from the upgrade on, one new household key after a suspension, and a body in 16 KiB chunks).",
+  "producedBy": {
+    "appVersion": "2.0.0-rc.1",
+    "commit": "291a9f4139c1"
+  },
+  "format": {
+    "backup": 3,
+    "record": 3,
+    "schema": 5
+  },
+  "vaultName": "Signed Home",
+  "currency": "USD",
+  "users": [
+    {
+      "email": "founder@signed.test",
+      "password": "Founder signed lantern v5",
+      "role": "Admin",
+      "group": null
+    },
+    {
+      "email": "alice@signed.test",
+      "password": "Alice signed · v5 · Олма",
+      "role": "Manager",
+      "group": "Signed Home"
+    },
+    {
+      "email": "carol@signed.test",
+      "password": "Carol signed harbour v5",
+      "role": "Viewer",
+      "group": "Signed Home"
+    },
+    {
+      "email": "dave@signed.test",
+      "password": "Dave signed meadow v5",
+      "role": "Viewer",
+      "group": "Signed Home"
+    }
+  ],
+  "groups": [
+    "Signed Home"
+  ],
+  "categoryCount": 15,
+  "transactions": [
+    {
+      "id": "aedbc271-5f59-43ca-98b0-42d1ce742d06",
+      "type": "INCOME",
+      "amountMinor": 510000,
+      "currency": "USD",
+      "category": "Salary",
+      "group": "Signed Home",
+      "date": "2026-10-01",
+      "notes": null,
+      "hasReceipt": false,
+      "userEmail": "founder@signed.test"
+    },
+    {
+      "id": "2913d583-f54c-4fc8-8036-21093a791693",
+      "type": "EXPENSE",
+      "amountMinor": 6420,
+      "currency": "USD",
+      "category": "Food",
+      "group": "Signed Home",
+      "date": "2026-10-04",
+      "notes": "bazaar",
+      "hasReceipt": false,
+      "userEmail": "founder@signed.test"
+    },
+    {
+      "id": "22321cb5-5de4-471c-9cb8-fad25dcf4868",
+      "type": "EXPENSE",
+      "amountMinor": 2350,
+      "currency": "USD",
+      "category": "Food",
+      "group": "Signed Home",
+      "date": "2026-10-06",
+      "notes": "bread and tea",
+      "hasReceipt": false,
+      "userEmail": "alice@signed.test"
+    }
+  ],
+  "totals": {
+    "range": {
+      "start": "2026-10-01",
+      "end": "2026-10-31"
+    },
+    "admin": {
+      "incomeMinor": 510000,
+      "expenseMinor": 8770,
+      "netMinor": 501230,
+      "savingsRate": 98.3
+    }
+  },
+  "auditActions": [
+    "VAULT_CREATED",
+    "CATEGORY_CREATED",
+    "TRANSACTION_CREATED",
+    "INVITE_CREATED",
+    "INVITE_REVOKED",
+    "VAULT_UPGRADED",
+    "TRANSACTION_CREATED",
+    "INVITE_CREATED",
+    "INVITE_CREATED",
+    "INVITE_CREATED",
+    "INVITE_ACCEPTED",
+    "TOTP_ENABLED",
+    "TRANSACTION_CREATED",
+    "INVITE_ACCEPTED",
+    "INVITE_ACCEPTED",
+    "RESET_ISSUED",
+    "RESET_COMPLETED",
+    "INVITE_CREATED",
+    "USER_UPDATED",
+    "USER_SUSPENDED",
+    "INVITE_REVOKED",
+    "EPOCH_ROTATED",
+    "USER_UPDATED",
+    "INVITE_CREATED",
+    "INVITE_ACCEPTED",
+    "INVITE_CREATED",
+    "BACKUP_EXPORTED"
+  ],
+  "addedOnOpen": [
+    "INVITE_EXPIRED"
+  ],
+  "keys": {
+    "epoch": 2,
+    "roster": {
+      "version": 7,
+      "hash": "fde11cbba26c595ca4761026cc9ec282e5dd278cc983a9f1ec6e7f7285c9656a"
+    },
+    "founder": {
+      "email": "founder@signed.test",
+      "fingerprint": "664C 2084 8B44 1062 5092 7816"
+    },
+    "removed": [
+      {
+        "email": "bob@signed.test",
+        "password": "Bob signed compass v5"
+      }
+    ],
+    "chunkSize": 16384,
+    "chunks": 27,
+    "audit": {
+      "signedFrom": 5,
+      "signed": 23,
+      "head": {
+        "seq": 27,
+        "hash": "133760253ec252d256f61c70e8d59b702de8198b47d36d841bece022f9804450"
+      }
+    }
+  },
+  "grants": {
+    "pending": [
+      {
+        "kind": "INVITE",
+        "email": "frank@signed.test",
+        "code": "ZNM4-K2E8-8TS6-0FW7-AYC1-73Z2-M23K",
+        "expiresAt": "2026-10-26T11:20:00.000Z"
+      }
+    ],
+    "used": [
+      {
+        "kind": "INVITE",
+        "email": "alice@signed.test",
+        "code": "72QJ-DVED-S4T8-5KT0-21QP-6D3J-E6WX"
+      },
+      {
+        "kind": "INVITE",
+        "email": "bob@signed.test",
+        "code": "XXM3-MK2B-HAZS-P5P0-4WQ3-F4ET-B5JK"
+      },
+      {
+        "kind": "RESET",
+        "email": "dave@signed.test",
+        "code": "QMET-G3MZ-9RHA-021X-3QEF-S76C-D7WH"
+      },
+      {
+        "kind": "INVITE",
+        "email": "carol@signed.test",
+        "code": "W5MG-NK0S-2QCM-GB4J-3V8F-7FG4-X1JR"
+      }
+    ],
+    "revoked": [
+      {
+        "kind": "INVITE",
+        "email": "eve@signed.test",
+        "code": "D4DQ-Q7AC-MQ5E-98XP-2JHW-H8T1-FDRV"
+      }
+    ]
+  },
+  "safes": {
+    "summaryDate": "2026-10-26",
+    "owners": [
+      {
+        "email": "founder@signed.test",
+        "state": "OPEN",
+        "recoveryCode": "VPPVJ-ZMRG9-X79RY-TARGF-QEW08",
+        "safes": [
+          {
+            "id": "7d2a9050-46f4-469d-98ac-a483f11f1c93",
+            "name": "Main",
+            "archived": false,
+            "requirePassword": false,
+            "isDefault": true,
+            "items": [
+              {
+                "v": 1,
+                "kind": "NOTE",
+                "title": "Spare key",
+                "body": "With the neighbour at number 7",
+                "favorite": false,
+                "id": "bf73dbc9-510e-4e12-b7b3-6c44bcecbc70",
+                "safeId": "7d2a9050-46f4-469d-98ac-a483f11f1c93",
+                "deletedAt": null
+              }
+            ]
+          }
+        ],
+        "totals": []
+      }
+    ]
+  },
+  "signInCheck": {
+    "email": "alice@signed.test",
+    "secret": "KWTPAL4GTVZHQZDVUGTBU32WFSOBNDAZ",
+    "recoveryCodes": [
+      "GBM2-DWAX-5YWA-AMST",
+      "ZAZ0-5J9B-16VP-9RQD",
+      "CH5D-8E6J-42QB-61TZ",
+      "51G4-MP98-4Q8K-867Q",
+      "QZ63-BWJZ-KFD2-K4T6",
+      "94GV-VZ58-18S8-4B4V",
+      "7CAA-V42G-AKN2-VYTB",
+      "D37S-H125-MXYZ-377Z",
+      "AS25-RS30-EYX7-9CTZ",
+      "SZA8-TQ5V-MBST-QHY3"
+    ]
+  }
+}

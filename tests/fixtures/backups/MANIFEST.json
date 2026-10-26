@@ -41,6 +41,13 @@
       "backupFormat": 3,
       "recordFormat": 3,
       "schemaVersion": 5
+    },
+    {
+      "path": "v5/signed-household",
+      "producedBy": "2.0.0-rc.1",
+      "backupFormat": 3,
+      "recordFormat": 3,
+      "schemaVersion": 5
     }
   ]
 }

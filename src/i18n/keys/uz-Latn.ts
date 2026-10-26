@@ -59,6 +59,7 @@ export const keysUzLatn: KeysMessages = {
     column: 'Imzo',
     signed: 'Imzolangan',
     legacy: 'Imzolardan oldin',
+    pending: 'Saqlanganda imzolanadi',
     checking: 'Tekshirilmoqda…',
     problem: {
       CHAIN: 'Jaybidan tashqarida oʻzgartirilgan',

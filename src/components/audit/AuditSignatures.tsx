@@ -9,15 +9,17 @@ import type { AuditCheckReport, AuditSigProblem } from '../../services/v2/audit-
 
 export type SignatureState = { status: 'off' } | { status: 'checking' } | { status: 'failed' } | { status: 'ready'; report: AuditCheckReport }
 
-/** One entry's signature: checked out, written before signatures, its problems, or still being checked. */
-export type RowSignature = 'signed' | 'legacy' | 'checking' | AuditSigProblem[]
+/** One entry's signature: checked out, written before signatures, signed by the next save, its problems, or still being checked. */
+export type RowSignature = 'signed' | 'legacy' | 'pending' | 'checking' | AuditSigProblem[]
 
 /**
  * Checks every signature of an open vault with per-person keys whenever its data changes. Badges stay as they were
  * while a new check runs; the check keeps what it verified for the page's life, so a recheck costs only the new entries.
  */
 export function useAuditSignatures(enabled: boolean): SignatureState {
-  const { query, revision } = useVault()
+  const { query, revision, saveState } = useVault()
+  // A save signs the entries written since the one before, so the check runs again once it is done.
+  const saved = saveState === 'saved'
   const [state, setState] = useState<SignatureState>({ status: enabled ? 'checking' : 'off' })
   useEffect(() => {
     if (!enabled) return
@@ -40,20 +42,23 @@ export function useAuditSignatures(enabled: boolean): SignatureState {
     return () => {
       cancelled = true
     }
-  }, [enabled, query, revision])
+  }, [enabled, query, revision, saved])
   return enabled ? state : { status: 'off' }
 }
 
 export function signatureOf(state: SignatureState, seq: number): RowSignature {
   if (state.status !== 'ready') return 'checking'
-  const problems = state.report.problems.get(seq)
+  const { report } = state
+  const problems = report.problems.get(seq)
   if (problems) return problems
-  return state.report.signedFrom === null || seq < state.report.signedFrom ? 'legacy' : 'signed'
+  if (report.pending > 0 && seq > report.checkpoint.seq) return 'pending'
+  return report.signedFrom === null || seq < report.signedFrom ? 'legacy' : 'signed'
 }
 
 export function signatureText(value: RowSignature, t: (key: MessageKey) => string): string {
   if (value === 'signed') return t('keys.audit.signed')
   if (value === 'legacy') return t('keys.audit.legacy')
+  if (value === 'pending') return t('keys.audit.pending')
   if (value === 'checking') return t('keys.audit.checking')
   return value.map((problem) => t(`keys.audit.problem.${problem}`)).join(' · ')
 }

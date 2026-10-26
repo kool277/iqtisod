@@ -58,6 +58,7 @@ export const keysEn = {
     column: 'Signature',
     signed: 'Signed',
     legacy: 'Before signatures',
+    pending: 'Signed when saved',
     checking: 'Checking…',
     problem: {
       CHAIN: 'Changed outside Jaybi',

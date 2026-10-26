@@ -59,6 +59,7 @@ export const keysUzCyrl: KeysMessages = {
     column: 'Имзо',
     signed: 'Имзоланган',
     legacy: 'Имзолардан олдин',
+    pending: 'Сақланганда имзоланади',
     checking: 'Текширилмоқда…',
     problem: {
       CHAIN: 'Жайбидан ташқарида ўзгартирилган',
