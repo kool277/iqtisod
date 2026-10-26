@@ -6,6 +6,19 @@ Data formats are versioned separately from the app. Each release lists the forma
 
 ## [Unreleased]
 
+## [1.7.5] - 2026-10-27
+
+Reads backup and record versions 1–2 and schema versions 1–4. Writes backup 2, record 2, schema 4, and export format 1, the same as 1.7.4. No stored format changed, so 1.7.4 opens everything 1.7.5 saves.
+
+### Security
+
+- DOMPurify 3.4.17 fixes three advisories (GHSA-cg2g-xh64-v4q7, GHSA-mrv2-3pqr-j5jr, GHSA-c6gr-qvv4-5v3f). jsPDF lists it for its HTML rendering, which Jaybi never calls, so the build replaces it with an empty module and it was never part of the app.
+- Development tools: `fast-uri` 3.1.9 (used by Ajv in the export-format tests) fixes four advisories (GHSA-w74x-v6f9-j3xg, GHSA-xhq7-xmqj-769h, GHSA-wjr9-j795-jxcr, GHSA-333x-w4r6-6crp). It was never part of the app. `npm audit` reports no known vulnerabilities.
+
+### Changed
+
+- Updated React (19.3.1), zip.js (2.24.0), jsPDF-AutoTable (5.0.9) and Lucide icons (1.59.0), the development tools (Vitest 5.0.5, Playwright 1.64.1, fake-indexeddb 6.2.6, unpdf 1.9.0), and the GitHub Actions the workflows run.
+
 ## [1.7.4] - 2026-10-17
 
 Reads backup and record versions 1–2 and schema versions 1–4. Writes backup 2, record 2, schema 4, and export format 1, the same as 1.7.3. No stored format changed, so 1.7.3 opens everything 1.7.4 saves.
@@ -403,7 +416,8 @@ Writes backup, record, and schema version 1.
 - Audit log, encrypted `.moliya` backups, day and night themes, and a collapsible sidebar.
 - Deployment to GitHub Pages.
 
-[Unreleased]: https://github.com/kool277/iqtisod/compare/v1.7.4...HEAD
+[Unreleased]: https://github.com/kool277/iqtisod/compare/v1.7.5...HEAD
+[1.7.5]: https://github.com/kool277/iqtisod/compare/v1.7.4...v1.7.5
 [1.7.4]: https://github.com/kool277/iqtisod/compare/v1.7.3...v1.7.4
 [1.7.3]: https://github.com/kool277/iqtisod/compare/v1.7.2...v1.7.3
 [1.7.2]: https://github.com/kool277/iqtisod/compare/v1.7.1...v1.7.2
