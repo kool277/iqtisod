@@ -1,0 +1,1 @@
+import{bt as e,xt as t}from"./vault-core-CKtm37x0.js";import{a as n,o as r,r as i}from"./identity-Cb_48K4D.js";async function a(a,o,s){let c=a.keys,l=c?.identities[c.memberId];if(!c||!l)throw new t;let u;try{u=await i(l,c.vaultId,o)}catch(n){throw n instanceof e?n:new t}try{return await n(u.seed,s)}finally{r(u)}}export{a as identityKey};

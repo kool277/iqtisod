@@ -1,0 +1,1 @@
+var e={version:`2.0.0`,commit:`c95d99317301`,builtAt:`2026-10-27T16:45:29.000Z`},t=e.version;export{e as n,t};

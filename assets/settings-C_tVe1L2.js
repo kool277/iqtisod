@@ -1,0 +1,2 @@
+function e(e,t){let n=e.queryValue(`SELECT value FROM settings WHERE key = ?`,[t]);return n==null?null:String(n)}function t(e,t,n){e.exec(`INSERT INTO settings (key, value) VALUES (?, ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value`,[t,n])}export{t as n,e as t};
