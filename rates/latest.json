@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generatedAt": "2026-10-26T20:45:29.425Z",
+  "generatedAt": "2026-10-27T20:15:05.306Z",
   "quotes": [
     {
       "base": "USD",
@@ -18,23 +18,23 @@
     {
       "base": "USD",
       "quote": "KRW",
-      "rate": "1325.27708259",
-      "date": "2026-10-26",
+      "rate": "1327.74887892",
+      "date": "2026-10-27",
       "source": "ECB",
       "method": "cross",
       "legs": [
         {
           "pair": "EUR/KRW",
-          "rate": "1482.72"
+          "rate": "1480.44"
         },
         {
           "pair": "EUR/USD",
-          "rate": "1.1188"
+          "rate": "1.115"
         }
       ],
       "previous": {
-        "rate": "1324.45278299",
-        "date": "2026-10-23"
+        "rate": "1325.27708259",
+        "date": "2026-10-26"
       }
     },
     {
@@ -55,24 +55,24 @@
     {
       "source": "ECB",
       "url": "https://data-api.ecb.europa.eu/service/data/EXR/D.USD+KRW+ILS.EUR.SP00.A?lastNObservations=2&detail=dataonly&format=csvdata",
-      "fetchedAt": "2026-10-26T20:45:29.425Z",
-      "sha256": "0e1bdb4e399305f3be5cca1e7dc5cacfc6ab250ad9977e186e4c06a14467304e"
+      "fetchedAt": "2026-10-27T20:15:05.306Z",
+      "sha256": "ec190d3ed41f5fe3aef22f8b7f24e5d2a11deb8a71546dee46b08234f3c4353d"
     },
     {
       "source": "BOI",
       "url": "https://edge.boi.gov.il/FusionEdgeServer/sdmx/v2/data/dataflow/BOI.STATISTICS/EXR/1.0/RER_USD_ILS?lastNObservations=2&format=csv",
-      "fetchedAt": "2026-10-26T20:45:29.425Z",
+      "fetchedAt": "2026-10-27T20:15:05.306Z",
       "sha256": "c04058597cffd48a706bdcdacf3dcbae973642deaf6457beae8ad1b0e1040361"
     }
   ],
   "checks": [
     {
       "subject": "USD/ILS BOI official",
-      "reference": "ECB cross via EUR (2026-10-26)",
-      "deviationPercent": "0.0619",
+      "reference": "ECB cross via EUR (2026-10-27)",
+      "deviationPercent": "0.9314",
       "tolerancePercent": "1.5",
       "passed": true
     }
   ],
-  "digest": "eab1cdf6fb664646da24e9e695e41e6d4a34c2fa82d2224a436e0e5b24f0e850"
+  "digest": "d2bc436ce2d96e4e48a3fc891e477d0b5713ae6bdb2fea6d0ce38d25e125a540"
 }
