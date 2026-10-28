@@ -94,8 +94,9 @@ jobs:
           user_name: github-actions[bot]
           user_email: 41898282+github-actions[bot]@users.noreply.github.com
 
-      - name: Fail loudly on degraded sources
-        if: steps.fetch.outputs.degraded == 'true'
+      # A fallback source only warns: the published rates are still fresh.
+      - name: Fail loudly when a pair kept its previous rate
+        if: steps.fetch.outputs.stale == 'true'
         run: |
-          echo "::error::At least one official source failed. Rates were published from fallback sources or carried forward; see the warnings above."
+          echo "::error::No source had a rate for at least one pair, so it keeps its previous rate and date; see the warnings above."
           exit 1

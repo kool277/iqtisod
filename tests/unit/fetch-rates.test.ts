@@ -7,8 +7,8 @@ import { promisify } from 'node:util'
 import { afterAll, describe, expect, it } from 'vitest'
 import { parseSnapshot, sealSnapshot, type FxSnapshot } from '../../src/domain/fx'
 import { sha256Hex } from '../../src/lib/sha256'
-import { FxBuildError, buildSnapshot, collect, commandMessage, type Fetcher } from '../../tools/fetch-rates'
-import { RAW_FILES, type RawKey } from '../../tools/fx-sources'
+import { FxBuildError, buildSnapshot, collect, commandMessage, fetchError, type Fetcher } from '../../tools/fetch-rates'
+import { BOI_URL, CBR_URL, ECB_URL, RAW_FILES, type RawKey } from '../../tools/fx-sources'
 
 const run = promisify(execFile)
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
@@ -41,7 +41,7 @@ function withQuote(quote: 'UZS' | 'KRW' | 'ILS', patch: Partial<FxSnapshot['quot
 describe('buildSnapshot', () => {
   it('reproduces the recorded snapshot byte for byte from the recorded responses', async () => {
     const result = await build()
-    expect(result).toMatchObject({ changed: true, degraded: false, warnings: [] })
+    expect(result).toMatchObject({ changed: true, degraded: false, stale: false, warnings: [] })
     expect(`${JSON.stringify(result.snapshot, null, 2)}\n`).toBe(GOLDEN)
     expect(result.snapshot.fetches.map((item) => item.sha256)).toEqual(
       (['cbu-latest', 'cbu-previous', 'ecb', 'boi'] as RawKey[]).map((key) => sha256Hex(readFileSync(join(FIXTURES, RAW_FILES[key]), 'utf8'))),
@@ -72,6 +72,45 @@ describe('buildSnapshot', () => {
     expect(result.snapshot.checks.map((check) => check.reference)).toEqual(['CBU cross via UZS (2026-09-29)'])
   })
 
+  it('falls back to the Bank of Russia cross for UZS when the CBU cannot be reached', async () => {
+    const result = await build({ 'cbu-latest': new Error('fetch failed (UND_ERR_CONNECT_TIMEOUT)') })
+    expect(result.snapshot.quotes[0]).toEqual({
+      base: 'USD',
+      quote: 'UZS',
+      rate: '11825.4058318',
+      date: '2026-09-29',
+      source: 'CBR',
+      method: 'cross',
+      legs: [
+        { pair: 'USD/RUB', rate: '84.4075' },
+        { pair: 'UZS/RUB', rate: '0.00713781' },
+      ],
+      previous: { rate: '11830.8638183', date: '2026-09-26' },
+    })
+    expect(result).toMatchObject({ changed: true, degraded: true, stale: false })
+    expect(result.warnings).toEqual(['cbu-latest: fetch failed (UND_ERR_CONNECT_TIMEOUT)', 'USD/UZS: primary source unavailable; using CBR cross via RUB'])
+    expect(result.snapshot.fetches.map((item) => item.url)).toEqual([ECB_URL, BOI_URL, CBR_URL, `${CBR_URL}?date_req=28/09/2026`])
+  })
+
+  it('asks the Bank of Russia only when the CBU table is unusable', async () => {
+    expect((await build()).snapshot.fetches.map((item) => item.source)).not.toContain('CBR')
+    const garbled = await build({ 'cbu-latest': '<html>blocked</html>' })
+    expect(garbled.snapshot.quotes[0]).toMatchObject({ source: 'CBR', rate: '11825.4058318' })
+    expect(garbled.warnings[0]).toMatch(/^cbu-latest: CBU: /)
+  })
+
+  it('never lets a fallback replace a published rate that is as new', async () => {
+    const boiDown = await build({ boi: new Error('HTTP 503') }, parseSnapshot(GOLDEN))
+    expect(boiDown).toMatchObject({ changed: false, degraded: true, stale: false })
+    expect(boiDown.warnings).toEqual([
+      'boi: HTTP 503',
+      'USD/ILS: primary source unavailable; keeping the 2026-09-28 rate from BOI, as ECB cross via EUR is not newer (2026-09-28)',
+    ])
+    expect((await build({ 'cbu-latest': new Error('down') }, parseSnapshot(GOLDEN))).snapshot.quotes[0]).toMatchObject({ source: 'CBU', rate: '11806.97' })
+    const older = withQuote('UZS', { rate: '11825.40', date: '2026-09-26', previous: null })
+    expect((await build({ 'cbu-latest': new Error('down') }, older)).snapshot.quotes[0]).toMatchObject({ source: 'CBR', date: '2026-09-29' })
+  })
+
   it('treats a garbled response like an outage', async () => {
     const result = await build({ boi: '<html>maintenance</html>' })
     expect(result.snapshot.quotes[2].source).toBe('ECB')
@@ -79,10 +118,13 @@ describe('buildSnapshot', () => {
   })
 
   it('keeps the previous rate when every source is down, and refuses to invent one', async () => {
-    const down = { 'cbu-latest': new Error('down'), ecb: new Error('down'), boi: new Error('down') }
+    const down = { 'cbu-latest': new Error('down'), ecb: new Error('down'), boi: new Error('down'), cbr: new Error('down') }
     const result = await build(down, parseSnapshot(GOLDEN))
-    expect(result).toMatchObject({ changed: false, degraded: true })
+    expect(result).toMatchObject({ changed: false, degraded: true, stale: true })
     await expect(build(down)).rejects.toThrow(/no source is available/)
+    const uzsDown = await build({ 'cbu-latest': new Error('down'), cbr: new Error('down') }, parseSnapshot(GOLDEN))
+    expect(uzsDown).toMatchObject({ changed: false, stale: true })
+    expect(uzsDown.warnings).toContain('USD/UZS: no source is available; keeping the 2026-09-29 rate from CBU')
   })
 
   it('refuses to publish when official sources disagree', async () => {
@@ -103,8 +145,19 @@ describe('buildSnapshot', () => {
   })
 })
 
+describe('fetchError', () => {
+  it('names the network reason that Node keeps in the cause', () => {
+    const timeout = new TypeError('fetch failed', { cause: Object.assign(new Error('Connect Timeout Error'), { code: 'UND_ERR_CONNECT_TIMEOUT' }) })
+    expect(fetchError(timeout).message).toBe('fetch failed (UND_ERR_CONNECT_TIMEOUT)')
+    expect(fetchError(new Error('HTTP 503')).message).toBe('HTTP 503')
+    expect(fetchError(new TypeError('fetch failed', { cause: { code: 'X\n::error::forged' } })).message).toBe('fetch failed')
+    expect(fetchError('down').message).toBe('down')
+  })
+})
+
 describe('fetch-rates CLI', () => {
-  const cli = (args: string[]) => run(process.execPath, ['--experimental-strip-types', CLI, ...args, '--now', NOW.toISOString()])
+  const cli = (args: string[], env: Record<string, string> = {}) =>
+    run(process.execPath, ['--experimental-strip-types', CLI, ...args, '--now', NOW.toISOString()], { env: { ...process.env, ...env } })
 
   it('writes latest, history, and the raw archive, then reports unchanged on a rerun', async () => {
     const out = join(work, 'data')
@@ -112,9 +165,10 @@ describe('fetch-rates CLI', () => {
     expect(first.stdout).toContain('Exchange rates updated')
     expect(readFileSync(join(out, 'rates/latest.json'), 'utf8')).toBe(GOLDEN)
     expect(readFileSync(join(out, 'rates/history/2026-09-29.json'), 'utf8')).toBe(GOLDEN)
-    for (const file of Object.values(RAW_FILES)) {
-      expect(readFileSync(join(out, 'archive/2026-09-29', file))).toEqual(readFileSync(join(FIXTURES, file)))
+    for (const key of ['cbu-latest', 'cbu-previous', 'ecb', 'boi'] as RawKey[]) {
+      expect(readFileSync(join(out, 'archive/2026-09-29', RAW_FILES[key]))).toEqual(readFileSync(join(FIXTURES, RAW_FILES[key])))
     }
+    expect(existsSync(join(out, 'archive/2026-09-29', RAW_FILES.cbr))).toBe(false)
     const second = await cli(['--out', out, '--replay', FIXTURES])
     expect(second.stdout).toContain('Exchange rates unchanged')
     expect(second.stdout).not.toContain('wrote ')
@@ -143,6 +197,24 @@ describe('fetch-rates CLI', () => {
     expect(commands.length).toBeGreaterThan(0)
     for (const line of commands) expect(line, line).toMatch(/^::(warning|error)::/)
     expect(output).not.toMatch(/^::error title=forged::/m)
+  })
+
+  it('tells the workflow when a fallback was used, and when a pair kept its previous rate', async () => {
+    const raw = join(work, 'cbu-blocked')
+    cpSync(FIXTURES, raw, { recursive: true })
+    writeFileSync(join(raw, 'cbu-latest.json'), '<html>blocked</html>')
+    const outputs = join(work, 'github-output')
+    const env = { GITHUB_OUTPUT: outputs, GITHUB_STEP_SUMMARY: join(work, 'github-summary') }
+    const out = join(work, 'fallback')
+    const fallback = await cli(['--out', out, '--replay', raw], env)
+    expect(fallback.stdout).toContain('### Exchange rates updated (degraded)')
+    expect(readFileSync(join(out, 'archive/2026-09-29', RAW_FILES.cbr))).toEqual(readFileSync(join(FIXTURES, RAW_FILES.cbr)))
+    rmSync(join(raw, RAW_FILES.cbr))
+    const stale = await cli(['--out', out, '--replay', raw], env)
+    expect(stale.stdout).toContain('### Exchange rates unchanged (stale)')
+    expect(readFileSync(outputs, 'utf8')).toMatch(
+      /^changed=true\ndegraded=true\nstale=false\ndigest=[0-9a-f]{64}\nchanged=false\ndegraded=true\nstale=true\ndigest=[0-9a-f]{64}\n$/,
+    )
   })
 
   it('prints usage without --out', async () => {

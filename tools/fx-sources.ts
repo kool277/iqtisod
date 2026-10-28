@@ -1,7 +1,7 @@
 import { Decimal } from '../src/lib/decimal.ts'
 import { isIsoDate, parseRate, type FxObservation, type FxSourceId } from '../src/domain/fx.ts'
 
-export type RawKey = 'cbu-latest' | 'cbu-previous' | 'ecb' | 'boi'
+export type RawKey = 'cbu-latest' | 'cbu-previous' | 'ecb' | 'boi' | 'cbr' | 'cbr-previous'
 
 export type RawResponse = { key: RawKey; source: FxSourceId; url: string; body: Uint8Array; fetchedAt: string }
 
@@ -10,6 +10,8 @@ export const RAW_FILES: Readonly<Record<RawKey, string>> = {
   'cbu-previous': 'cbu-previous.json',
   ecb: 'ecb.csv',
   boi: 'boi.csv',
+  cbr: 'cbr.xml',
+  'cbr-previous': 'cbr-previous.xml',
 }
 
 export const RAW_SOURCES: Readonly<Record<RawKey, FxSourceId>> = {
@@ -17,6 +19,8 @@ export const RAW_SOURCES: Readonly<Record<RawKey, FxSourceId>> = {
   'cbu-previous': 'CBU',
   ecb: 'ECB',
   boi: 'BOI',
+  cbr: 'CBR',
+  'cbr-previous': 'CBR',
 }
 
 export const CBU_LATEST_URL = 'https://cbu.uz/uz/arkhiv-kursov-valyut/json/'
@@ -24,9 +28,24 @@ export const ECB_URL =
   'https://data-api.ecb.europa.eu/service/data/EXR/D.USD+KRW+ILS.EUR.SP00.A?lastNObservations=2&detail=dataonly&format=csvdata'
 export const BOI_URL =
   'https://edge.boi.gov.il/FusionEdgeServer/sdmx/v2/data/dataflow/BOI.STATISTICS/EXR/1.0/RER_USD_ILS?lastNObservations=2&format=csv'
+export const CBR_URL = 'https://www.cbr.ru/scripts/XML_daily_eng.asp'
 
 export function cbuDateUrl(date: string): string {
   return `https://cbu.uz/uz/arkhiv-kursov-valyut/json/all/${date}/`
+}
+
+/** The Bank of Russia answers with the table in force on that day, which may be dated earlier. */
+export function cbrDateUrl(date: string): string {
+  const [year, month, day] = date.split('-')
+  return `${CBR_URL}?date_req=${day}/${month}/${year}`
+}
+
+const utf8 = new TextDecoder('utf-8', { fatal: true })
+const windows1251 = new TextDecoder('windows-1251', { fatal: true })
+
+/** The Bank of Russia serves windows-1251 (its English table is ASCII); every other source serves UTF-8. */
+export function decodeRaw(key: RawKey, body: Uint8Array): string {
+  return (RAW_SOURCES[key] === 'CBR' ? windows1251 : utf8).decode(body)
 }
 
 export class SourceFormatError extends Error {
@@ -88,6 +107,37 @@ export function parseCbu(text: string): CbuTable {
     rates.set(Ccy, perUnit(rate(Rate, `CBU ${Ccy}`), Nominal.length - 1))
   }
   if (date === null || !rates.has('USD')) fail('CBU: USD rate is missing')
+  return { date, rates }
+}
+
+export type CbrTable = CbuTable
+
+const CBR_CURRENCIES = ['USD', 'UZS']
+
+function element(block: string, name: string): string | null {
+  const match = new RegExp(`<${name}>([^<]*)</${name}>`).exec(block)
+  return match ? match[1] : null
+}
+
+/** RUB per unit from the Bank of Russia's daily XML, which writes decimals with a comma. */
+export function parseCbr(text: string): CbrTable {
+  const header = /<ValCurs\s+Date="([^"]*)"/.exec(text)
+  const match = header ? /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(header[1]) : null
+  const date = match ? `${match[3]}-${match[2]}-${match[1]}` : null
+  if (!isIsoDate(date)) fail(`CBR: invalid date ${shown(header ? header[1] : '')}`)
+  const rates = new Map<string, Decimal>()
+  for (const [, block] of text.matchAll(/<Valute\b[^>]*>([\s\S]*?)<\/Valute>/g)) {
+    const code = element(block, 'CharCode')
+    if (code === null || !/^[A-Z]{3}$/.test(code)) fail('CBR: invalid currency code')
+    if (!CBR_CURRENCIES.includes(code)) continue
+    if (rates.has(code)) fail(`CBR ${code}: listed twice`)
+    const nominal = element(block, 'Nominal')
+    if (nominal === null || !/^10*$/.test(nominal)) fail(`CBR ${code}: nominal ${shown(nominal ?? '')} is not a power of ten`)
+    const value = element(block, 'Value')
+    if (value === null || !/^\d+(?:,\d+)?$/.test(value)) fail(`CBR ${code}: value ${shown(value ?? '')} is not a decimal`)
+    rates.set(code, perUnit(rate(value.replace(',', '.'), `CBR ${code}`), nominal.length - 1))
+  }
+  for (const code of CBR_CURRENCIES) if (!rates.has(code)) fail(`CBR: ${code} rate is missing`)
   return { date, rates }
 }
 

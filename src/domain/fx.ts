@@ -4,7 +4,7 @@ import { sha256Hex } from '../lib/sha256.ts'
 export const FX_SCHEMA = 1
 export const FX_BASE = 'USD'
 export const FX_QUOTES = ['UZS', 'KRW', 'ILS'] as const
-export const FX_SOURCES = ['CBU', 'ECB', 'BOI'] as const
+export const FX_SOURCES = ['CBU', 'ECB', 'BOI', 'CBR'] as const
 
 export type FxQuoteCurrency = (typeof FX_QUOTES)[number]
 export type FxCurrency = typeof FX_BASE | FxQuoteCurrency
@@ -16,6 +16,7 @@ export const FX_SOURCE_PAGES: Readonly<Record<FxSourceId, string>> = {
   CBU: 'https://cbu.uz/en/arkhiv-kursov-valyut/',
   ECB: 'https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html',
   BOI: 'https://www.boi.org.il/en/economic-roles/financial-markets/exchange-rates/',
+  CBR: 'https://www.cbr.ru/eng/currency_base/daily/',
 }
 
 export const FX_BOUNDS: Readonly<Record<FxQuoteCurrency, readonly [string, string]>> = {

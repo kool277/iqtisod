@@ -179,11 +179,11 @@ Why a scheduled job instead of calling the banks from the browser: the Bank of I
 
 | Pair | Primary source | Fallbacks |
 | --- | --- | --- |
-| USD/UZS | [Central Bank of Uzbekistan](https://cbu.uz/en/arkhiv-kursov-valyut/) JSON, official rate | none (a missing rate is carried forward) |
+| USD/UZS | [Central Bank of Uzbekistan](https://cbu.uz/en/arkhiv-kursov-valyut/) JSON, official rate | [Bank of Russia](https://www.cbr.ru/eng/currency_base/daily/) cross: USD/RUB ÷ UZS/RUB, fetched only when the CBU's table cannot be fetched or read. Its soʻm rate (six significant digits) follows the CBU's rate of the previous business day. cbu.uz does not answer connections from outside Uzbekistan since 23 October 2026, so the job on GitHub's runners uses it while that lasts |
 | USD/KRW | [ECB](https://data-api.ecb.europa.eu/) cross: EUR/KRW ÷ EUR/USD | CBU cross: USD/UZS ÷ KRW/UZS (CBU publishes KRW to 2 decimals only) |
 | USD/ILS | [Bank of Israel](https://www.boi.org.il/en/economic-roles/financial-markets/exchange-rates/) SDMX, representative rate `RER_USD_ILS` | ECB cross, then CBU cross |
 
-The publisher refuses to write a snapshot (and the job fails) when a response does not parse, a rate is outside `FX_BOUNDS`, the primary and an independent reference disagree by more than 1.5% (ECB/BOI) or 2% (CBU cross, and CBU's implied EUR/USD against the ECB's), or a rate moves more than 10% against the published one without `--allow-large-moves`. A source that is down is replaced by its fallback, or by the previous quote with its old date, and the run is marked degraded. The snapshot format is in [data-format.md](data-format.md#published-exchange-rate-snapshot).
+The publisher refuses to write a snapshot (and the job fails) when a response does not parse, a rate is outside `FX_BOUNDS`, the primary and an independent reference disagree by more than 1.5% (ECB/BOI) or 2% (CBU cross, and CBU's implied EUR/USD against the ECB's), or a rate moves more than 10% against the published one without `--allow-large-moves`. A source that is down is replaced by its fallback, unless the published quote is as new as the fallback's, and the run is marked degraded, which only warns. A pair no source has keeps the previous quote with its old date; the run is then marked stale, and the job fails after publishing whatever changed. The snapshot format is in [data-format.md](data-format.md#published-exchange-rate-snapshot).
 
 Decimal policy:
 
@@ -304,7 +304,7 @@ src/
   services/                    business logic
 tests/
   fixtures/backups/            golden backups from every release (immutable, SHA-256 pinned)
-  fixtures/fx/                 recorded CBU, ECB, and BOI responses and the snapshot they produce
+  fixtures/fx/                 recorded CBU, ECB, BOI, and Bank of Russia responses and the snapshot they produce
   support/                     fixture helpers shared by tests; access.ts builds a household for code and sign-in check tests
   unit/                        Vitest
   e2e/                         Playwright
@@ -312,7 +312,7 @@ tools/
   build-info.ts                version, commit, and build date for the bundle
   help-markdown.ts             parses the user guides for in-app help
   fetch-rates.ts               exchange-rate publisher (npm run rates:fetch)
-  fx-sources.ts                CBU, ECB, and BOI URLs and parsers
+  fx-sources.ts                CBU, ECB, BOI, and Bank of Russia URLs and parsers
   fixtures/<version>/          generators that produced each fixture set
   moliya-decrypt.mjs           dependency-free recovery CLI
 ```

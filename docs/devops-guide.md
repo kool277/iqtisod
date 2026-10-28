@@ -287,13 +287,16 @@ The dashboard shows official USD rates for UZS, KRW, and ILS. They are fetched s
 | Central Bank of Uzbekistan | `https://cbu.uz/uz/arkhiv-kursov-valyut/json/` (and `json/all/<date>/` for the previous rate) | USD/UZS; fallback cross for KRW and ILS; EUR/USD cross-check |
 | European Central Bank | `https://data-api.ecb.europa.eu/service/data/EXR/D.USD+KRW+ILS.EUR.SP00.A` (CSV) | USD/KRW (cross via EUR); USD/ILS fallback and cross-check |
 | Bank of Israel | `https://edge.boi.gov.il/FusionEdgeServer/sdmx/v2/data/dataflow/BOI.STATISTICS/EXR/1.0/RER_USD_ILS` (CSV) | USD/ILS representative rate |
+| Bank of Russia | `https://www.cbr.ru/scripts/XML_daily_eng.asp` (XML, and `?date_req=DD/MM/YYYY` for the previous rate) | USD/UZS fallback (cross via RUB), asked only when the CBU's table cannot be fetched or read |
 
-Schedule: the CBU publishes the next day's rate in the afternoon Tashkent time, the ECB at about 16:00 CET, and the Bank of Israel at about 15:30 Israel time. The 15:47 UTC weekday run picks up all three the same day; the 03:17 UTC daily run is a safety net. GitHub may start scheduled runs late or skip them under load, which the 2-business-day stale threshold absorbs.
+Schedule: the CBU publishes the next day's rate in the afternoon Tashkent time, the ECB at about 16:00 CET, the Bank of Israel at about 15:30 Israel time, and the Bank of Russia the next day's rates at about 15:30 Moscow time. The 15:47 UTC weekday run picks them up the same day; the 03:17 UTC daily run is a safety net. GitHub may start scheduled runs late or skip them under load, which the 2-business-day stale threshold absorbs.
+
+**cbu.uz does not answer connections from outside Uzbekistan** (since 23 October 2026; from abroad the connection times out). GitHub's runners are abroad, so every run warns `cbu-latest: fetch failed (UND_ERR_CONNECT_TIMEOUT)` and takes USD/UZS from the Bank of Russia, whose soʻm rate follows the CBU's rate of the previous business day. Nothing needs doing; the CBU is used again as soon as it answers. A run from a computer in Uzbekistan reaches the CBU.
 
 Each run:
 
 1. Clones `fx-data` (an orphan branch holding only data) or starts it.
-2. `npm run rates:fetch -- --out fx-data` fetches the three sources (3 attempts each, 20-second timeout), parses them strictly, cross-checks them, and compares with the last published snapshot.
+2. `npm run rates:fetch -- --out fx-data` fetches the sources (3 attempts each, 20-second timeout), parses them strictly, cross-checks them, and compares with the last published snapshot.
 3. If the official rates changed, writes `rates/latest.json`, `rates/history/YYYY-MM-DD.json`, and the raw responses in `archive/YYYY-MM-DD/`, commits them to `fx-data`, and publishes `rates/` to `gh-pages` (only the `rates/` folder is replaced). If nothing changed, nothing is committed or published.
 
 `deploy.yml` copies `fx-data/rates` into `dist/rates/` before each deploy, because a deploy replaces the whole `gh-pages` branch. Browsers fetch `rates/latest.json` with `cache: 'no-cache'`, verify it, and keep the last good copy in local storage.
@@ -302,7 +305,8 @@ Each run:
 
 | Situation | What happens | What to do |
 | --- | --- | --- |
-| One source is down or returns something unparseable | The pair uses its fallback source, or keeps its previous rate and date. The snapshot is published, then the run fails with "At least one official source failed" | Nothing, if the next run is green. If it persists, check the source's page and endpoint |
+| One source is down or returns something unparseable | The pair uses its fallback source, and the run passes with warnings. A fallback never replaces a published rate that is as new as its own | Nothing. If the warnings persist, check the source's page and endpoint |
+| No source has a rate for a pair | The pair keeps its previous rate and date, any other pair that changed is still published, then the run fails with "No source had a rate for at least one pair" | Nothing, if the next run is green. If it persists, check the sources' pages and endpoints |
 | Sources disagree beyond tolerance, a rate is outside its plausible range, or all sources for a pair are down with no previous rate | The run fails and publishes nothing. The site keeps the previous rates | Read the error, compare with the central banks' pages. Fix the parser if a format changed |
 | A rate moved more than 10% since the last snapshot | The run fails and publishes nothing | After confirming the move on the official page, run the workflow manually with **allow_large_moves** |
 | `rates/` missing from the site (for example after resetting `gh-pages`) | The panel shows cached rates as stale, or "unavailable" for new visitors | Run the workflow manually with **republish**, or re-run the deploy |
@@ -354,6 +358,7 @@ Running apps notice the new `version.json` within 30 minutes, or when the tab be
   Prefer rolling forward with a fix. For 1.3.0 in particular, a rollback also loses every invite, reset code, and sign-in check set up since the upgrade.
 
 - **2.0.x → 1.7.x.** 1.7.x refuses every vault set up in 2.0 and every vault an Admin upgraded to per-person keys ("saved by a newer version"): no sign-in, Backup page or import. Vaults 2.0 never upgraded stay record 2 / schema 4 and open in 1.7.x unchanged. A vault set up in 2.0 has no 1.x form: only rolling forward, or `npm run decrypt` on Node.js 24.7 or newer, gets its data out. An upgraded vault's 1.x copy is **Before upgrade** on the Backup page: download it with 2.0 first (the first new household key deletes it, and only three earlier copies are kept anyway); 1.7.x imports it on its setup screen once the site's data has been cleared, with every old password working again, removed people's included, and nothing done since the upgrade. Prefer rolling forward.
+- **2.0.1 → 2.0.0.** No stored format changed. 2.0.0, like every older release, refuses an exchange-rate snapshot that names the Bank of Russia, so while the CBU cannot be reached its panel shows the last rates saved in the browser ("Could not refresh the rates"), or none for a new visitor.
 - **1.7.x → 1.6.x.** No format version changes, but 1.6.0 caps the ciphertext at 64 MiB and backup files at 72 MB. A vault that grew past that under 1.7.x is shown by 1.6.0 as "The vault stored in this browser is damaged and cannot be opened". It is not damaged, and 1.6.0 changes nothing: do not clear the site's data. Roll forward again, or download a backup with 1.7.x first.
 - **1.4.2 → 1.4.1.** No version number changes, so 1.4.1 opens a vault 1.4.2 saved, but it cannot use wraps or codes that 1.4.2 wrote: people added, invited, or given a new or reset password under 1.4.2 (and anyone whose password protection was upgraded at sign-in) get "wrong password", and codes issued under 1.4.2 are refused. Another Admin whose wrap is older can sign in and reset them. 1.4.1 shows no audit-log warnings and drops the `audit` head when it saves; rolling forward again picks the check up without false warnings, because the log only grew. Prefer rolling forward.
 

@@ -193,6 +193,29 @@ test('flags rates older than two business days as stale', async ({ page }) => {
   await expect(page.getByTestId('fx-pair').first()).toHaveAttribute('data-stale', 'true')
 })
 
+test('shows the Bank of Russia cross for UZS when the CBU could not be reached', async ({ page }) => {
+  const { digest: _digest, ...body } = JSON.parse(snapshotAged(0)) as FxSnapshot
+  body.quotes[0] = {
+    ...body.quotes[0],
+    rate: '11825.4058318',
+    source: 'CBR',
+    method: 'cross',
+    legs: [
+      { pair: 'USD/RUB', rate: '84.4075' },
+      { pair: 'UZS/RUB', rate: '0.00713781' },
+    ],
+    previous: null,
+  }
+  await serveRates(page, { body: JSON.stringify(sealSnapshot(body)) })
+  await createVault(page)
+  const card = page.getByTestId('fx-pair').first()
+  await expect(card.getByTestId('fx-source')).toHaveText('Bank of Russia')
+  await expect(card.getByTestId('fx-source')).toHaveAttribute('href', 'https://www.cbr.ru/eng/currency_base/daily/')
+  await expect(card).toContainText('Cross rate via RUB')
+  await expect(card.getByTestId('fx-rate-USD-UZS')).toHaveAttribute('data-rate', '11825.4')
+  await expect(page.getByTestId('fx-result')).toHaveAttribute('data-amount', '1182540.58')
+})
+
 test('never blocks the dashboard: error, retry, cached fallback, and offline states', async ({ page }) => {
   await serveRates(page, { status: 503 })
   await createVault(page)

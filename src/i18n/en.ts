@@ -340,6 +340,7 @@ export const en = {
       CBU: 'Central Bank of Uzbekistan',
       ECB: 'European Central Bank',
       BOI: 'Bank of Israel',
+      CBR: 'Bank of Russia',
     },
     currencies: {
       USD: 'US dollar',

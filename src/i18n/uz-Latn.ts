@@ -335,6 +335,7 @@ export const uzLatn: CoreMessages = {
       CBU: 'Oʻzbekiston Respublikasi Markaziy banki',
       ECB: 'Yevropa Markaziy banki',
       BOI: 'Isroil banki',
+      CBR: 'Rossiya banki',
     },
     currencies: {
       USD: 'AQSH dollari',

@@ -22,14 +22,19 @@ import {
 } from '../src/domain/fx.ts'
 import {
   BOI_URL,
+  CBR_URL,
   CBU_LATEST_URL,
   ECB_URL,
   RAW_FILES,
   RAW_SOURCES,
+  cbrDateUrl,
   cbuDateUrl,
+  decodeRaw,
   parseBoi,
+  parseCbr,
   parseCbu,
   parseEcb,
+  type CbrTable,
   type CbuTable,
   type RawKey,
   type RawResponse,
@@ -38,7 +43,7 @@ import {
 export const MAX_DAILY_MOVE_PERCENT = '10'
 export const MAX_CHECK_GAP_DAYS = 7
 
-const TOLERANCE: Readonly<Record<FxSourceId, string>> = { CBU: '2', ECB: '1.5', BOI: '1.5' }
+const TOLERANCE: Readonly<Record<FxSourceId, string>> = { CBU: '2', ECB: '1.5', BOI: '1.5', CBR: '2' }
 
 export class FxBuildError extends Error {
   constructor(message: string) {
@@ -57,16 +62,17 @@ export type BuildInput = {
   allowLargeMoves?: boolean
 }
 
-export type BuildResult = { snapshot: FxSnapshot; changed: boolean; degraded: boolean; warnings: string[] }
+/** `stale`: some pair had no source at all and keeps its previous rate and date. */
+export type BuildResult = { snapshot: FxSnapshot; changed: boolean; degraded: boolean; stale: boolean; warnings: string[] }
 
 type Parsed = {
   cbu: CbuTable | null
   cbuPrevious: CbuTable | null
   ecb: Map<string, FxObservation[]> | null
   boi: FxObservation[] | null
+  cbr: CbrTable | null
+  cbrPrevious: CbrTable | null
 }
-
-const decoder = new TextDecoder('utf-8', { fatal: true })
 
 function hex(bytes: Uint8Array): string {
   return [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('')
@@ -81,19 +87,22 @@ function dayGap(a: string, b: string): number {
 }
 
 function parseAll(responses: RawResponse[], warnings: string[]): Parsed {
-  const parsed: Parsed = { cbu: null, cbuPrevious: null, ecb: null, boi: null }
+  const parsed: Parsed = { cbu: null, cbuPrevious: null, ecb: null, boi: null, cbr: null, cbrPrevious: null }
   for (const response of responses) {
     try {
-      const text = decoder.decode(response.body)
+      const text = decodeRaw(response.key, response.body)
       if (response.key === 'cbu-latest') parsed.cbu = parseCbu(text)
       else if (response.key === 'cbu-previous') parsed.cbuPrevious = parseCbu(text)
       else if (response.key === 'ecb') parsed.ecb = parseEcb(text)
-      else parsed.boi = parseBoi(text)
+      else if (response.key === 'boi') parsed.boi = parseBoi(text)
+      else if (response.key === 'cbr') parsed.cbr = parseCbr(text)
+      else parsed.cbrPrevious = parseCbr(text)
     } catch (error) {
       warnings.push(`${response.key}: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
   if (parsed.cbu && parsed.cbuPrevious && parsed.cbuPrevious.date >= parsed.cbu.date) parsed.cbuPrevious = null
+  if (parsed.cbr && parsed.cbrPrevious && parsed.cbrPrevious.date >= parsed.cbr.date) parsed.cbrPrevious = null
   return parsed
 }
 
@@ -148,8 +157,18 @@ function boiOfficial({ boi }: Parsed): Candidate | null {
   return official('BOI', boi[boi.length - 1], boi.length > 1 ? boi[boi.length - 2] : null)
 }
 
+function cbrCross({ cbr, cbrPrevious }: Parsed): Candidate | null {
+  const usd = cbr?.rates.get('USD')
+  const uzs = cbr?.rates.get('UZS')
+  if (!cbr || !usd || !uzs) return null
+  const beforeUsd = cbrPrevious?.rates.get('USD')
+  const beforeUzs = cbrPrevious?.rates.get('UZS')
+  const previous = cbrPrevious && beforeUsd && beforeUzs ? { rate: crossRate(beforeUsd, beforeUzs).toString(), date: cbrPrevious.date } : null
+  return cross('CBR', cbr.date, ['USD/RUB', usd], ['UZS/RUB', uzs], previous)
+}
+
 function candidatesFor(parsed: Parsed, quote: FxQuoteCurrency): (Candidate | null)[] {
-  if (quote === 'UZS') return [cbuOfficial(parsed)]
+  if (quote === 'UZS') return [cbuOfficial(parsed), cbrCross(parsed)]
   if (quote === 'KRW') return [ecbCross(parsed, 'KRW'), cbuCross(parsed, 'KRW')]
   return [boiOfficial(parsed), ecbCross(parsed, 'ILS'), cbuCross(parsed, 'ILS')]
 }
@@ -189,24 +208,29 @@ export function buildSnapshot({ now, responses, failures, previous, allowLargeMo
   const warnings = failures.map((failure) => `${failure.key}: ${failure.error}`)
   const parsed = parseAll(responses, warnings)
   let degraded = warnings.length > 0
+  let stale = false
   const checks: FxCheck[] = [...cbuConsistency(parsed)]
   const quotes = FX_QUOTES.map((quote): FxQuote => {
     const candidates = candidatesFor(parsed, quote)
     const available = candidates.filter((candidate): candidate is Candidate => candidate !== null)
     const chosen = available[0]
+    const before = previous?.quotes.find((item) => item.quote === quote)
     if (!chosen) {
-      const carried = previous?.quotes.find((item) => item.quote === quote)
-      if (!carried) throw new FxBuildError(`USD/${quote}: no source is available and there is no previous snapshot`)
-      warnings.push(`USD/${quote}: no source is available; keeping the ${carried.date} rate from ${carried.source}`)
+      if (!before) throw new FxBuildError(`USD/${quote}: no source is available and there is no previous snapshot`)
+      warnings.push(`USD/${quote}: no source is available; keeping the ${before.date} rate from ${before.source}`)
       degraded = true
-      return carried
+      stale = true
+      return before
     }
     if (chosen !== candidates[0]) {
-      warnings.push(`USD/${quote}: primary source unavailable; using ${describe(chosen)}`)
       degraded = true
+      if (before && before.date >= chosen.date) {
+        warnings.push(`USD/${quote}: primary source unavailable; keeping the ${before.date} rate from ${before.source}, as ${describe(chosen)} is not newer (${chosen.date})`)
+        return before
+      }
+      warnings.push(`USD/${quote}: primary source unavailable; using ${describe(chosen)}`)
     }
     checks.push(...crossChecks(quote, chosen, available))
-    const before = previous?.quotes.find((item) => item.quote === quote)
     if (before && before.date !== chosen.date) {
       const move = deviationPercent(Decimal.parse(chosen.rate), Decimal.parse(before.rate))
       if (move.compareTo(Decimal.parse(MAX_DAILY_MOVE_PERCENT)) > 0 && !allowLargeMoves) {
@@ -224,7 +248,7 @@ export function buildSnapshot({ now, responses, failures, previous, allowLargeMo
     )
   }
   if (previous && JSON.stringify(previous.quotes) === JSON.stringify(quotes)) {
-    return { snapshot: previous, changed: false, degraded, warnings }
+    return { snapshot: previous, changed: false, degraded, stale, warnings }
   }
   const fetches: FxFetch[] = responses.map((response) => ({
     source: response.source,
@@ -233,10 +257,21 @@ export function buildSnapshot({ now, responses, failures, previous, allowLargeMo
     sha256: hex(sha256(response.body)),
   }))
   const snapshot = parseSnapshot(JSON.stringify(sealSnapshot({ schema: FX_SCHEMA, generatedAt: now.toISOString(), quotes, fetches, checks })))
-  return { snapshot, changed: true, degraded, warnings }
+  return { snapshot, changed: true, degraded, stale, warnings }
 }
 
 export type Fetcher = (key: RawKey, url: string) => Promise<Uint8Array>
+
+/** Node's fetch reports every network error as "fetch failed" and keeps the reason, such as a connect timeout, in `cause.code`. */
+export function fetchError(error: unknown): Error {
+  if (!(error instanceof Error)) return new Error(String(error))
+  const cause: unknown = error.cause
+  const code =
+    typeof cause === 'object' && cause !== null && 'code' in cause && typeof cause.code === 'string' && /^[A-Z][A-Z0-9_]{0,39}$/.test(cause.code)
+      ? cause.code
+      : null
+  return code && !error.message.includes(code) ? new Error(`${error.message} (${code})`) : error
+}
 
 export async function httpFetcher(_key: RawKey, url: string): Promise<Uint8Array> {
   let lastError: unknown
@@ -253,7 +288,7 @@ export async function httpFetcher(_key: RawKey, url: string): Promise<Uint8Array
       if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, attempt * 2_000))
     }
   }
-  throw lastError instanceof Error ? lastError : new Error(String(lastError))
+  throw fetchError(lastError)
 }
 
 export function replayFetcher(dir: string): Fetcher {
@@ -273,16 +308,23 @@ export async function collect(fetcher: Fetcher, now: Date): Promise<Pick<BuildIn
       return null
     }
   }
-  const [cbu] = await Promise.all([get('cbu-latest', CBU_LATEST_URL), get('ecb', ECB_URL), get('boi', BOI_URL)])
-  if (cbu) {
+  const tableDate = (key: RawKey, body: Uint8Array | null, parse: (text: string) => { date: string }): string | null => {
     try {
-      const { date } = parseCbu(decoder.decode(cbu))
-      await get('cbu-previous', cbuDateUrl(addDays(date, -1)))
+      return body ? parse(decodeRaw(key, body)).date : null
     } catch {
-      /* the builder reports the parse failure */
+      return null /* the builder reports the parse failure */
     }
   }
-  const order: RawKey[] = ['cbu-latest', 'cbu-previous', 'ecb', 'boi']
+  const [cbu] = await Promise.all([get('cbu-latest', CBU_LATEST_URL), get('ecb', ECB_URL), get('boi', BOI_URL)])
+  const cbuDate = tableDate('cbu-latest', cbu, parseCbu)
+  if (cbuDate) {
+    await get('cbu-previous', cbuDateUrl(addDays(cbuDate, -1)))
+  } else {
+    // Only without a CBU table: the Bank of Russia's UZS rate is the CBU's rate of the previous business day.
+    const cbrDate = tableDate('cbr', await get('cbr', CBR_URL), parseCbr)
+    if (cbrDate) await get('cbr-previous', cbrDateUrl(addDays(cbrDate, -1)))
+  }
+  const order: RawKey[] = ['cbu-latest', 'cbu-previous', 'ecb', 'boi', 'cbr', 'cbr-previous']
   responses.sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key))
   return { responses, failures }
 }
@@ -322,7 +364,7 @@ function report(result: BuildResult): void {
     (quote) => `| USD/${quote.quote} | ${quote.rate} | ${quote.date} | ${quote.source} ${quote.method} | ${quote.previous?.rate ?? '—'} |`,
   )
   const summary = [
-    `### Exchange rates ${result.changed ? 'updated' : 'unchanged'}${result.degraded ? ' (degraded)' : ''}`,
+    `### Exchange rates ${result.changed ? 'updated' : 'unchanged'}${result.stale ? ' (stale)' : result.degraded ? ' (degraded)' : ''}`,
     '',
     '| Pair | Rate | Date | Source | Previous |',
     '| --- | --- | --- | --- | --- |',
@@ -336,7 +378,7 @@ function report(result: BuildResult): void {
   if (process.env.GITHUB_OUTPUT) {
     appendFileSync(
       process.env.GITHUB_OUTPUT,
-      `changed=${result.changed}\ndegraded=${result.degraded}\ndigest=${result.snapshot.digest}\n`,
+      `changed=${result.changed}\ndegraded=${result.degraded}\nstale=${result.stale}\ndigest=${result.snapshot.digest}\n`,
     )
   }
 }

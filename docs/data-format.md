@@ -846,7 +846,7 @@ The dashboard's exchange rates are public data, not part of the vault. They are 
 | `quotes[]` | Exactly three, in the order UZS, KRW, ILS. Each is units of `quote` per 1 `base` (`USD`). |
 | `quotes[].rate` | Decimal string, digits and at most one dot, no exponent. Official rates exactly as the source published them; cross rates to 12 significant digits, half-even. |
 | `quotes[].date` | `YYYY-MM-DD` the source says the rate is valid for. |
-| `quotes[].source`, `method` | `CBU`, `ECB`, or `BOI`; `official` or `cross`. |
+| `quotes[].source`, `method` | `CBU`, `ECB`, `BOI`, or `CBR` (the Bank of Russia, from 2.0.1; earlier readers refuse a snapshot that names it here or in `fetches[]`); `official` or `cross`. |
 | `quotes[].legs` | For `cross`: the two official rates `[numerator, denominator]` it was computed from, such as EUR/KRW and EUR/USD. `null` for `official`. The reader recomputes the cross rate and rejects a mismatch. |
 | `quotes[].previous` | The previous official rate and its earlier date, or `null`. Used for the change figure. |
 | `fetches[]` | Each upstream request: `source`, `url` (https), `fetchedAt`, and `sha256` of the exact response bytes. The bytes are kept on the `fx-data` branch under `archive/YYYY-MM-DD/`. |
