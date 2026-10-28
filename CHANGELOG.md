@@ -6,6 +6,22 @@ Data formats are versioned separately from the app. Each release lists the forma
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-10-28
+
+Reads backup and record versions 1–3 and schema versions 1–5. Writes the same formats as 2.0.0 (record 3, backup 3 and schema 5 for vaults with per-person keys; record 2, backup 2 and schema 4 for every other vault), so 2.0.0 opens everything 2.0.1 saves. The published exchange-rate snapshot keeps schema 1 but may now name the Bank of Russia (`CBR`) as a source, which 2.0.0 and older refuse: they keep showing their last saved rates ([data-format.md](docs/data-format.md#published-exchange-rate-snapshot)).
+
+### Fixed
+
+- **The soʻm rate stopped updating.** Since 23 October 2026 the Central Bank of Uzbekistan's site does not answer connections from outside Uzbekistan, so the job that publishes the rates could not reach it and kept the 22 October USD/UZS rate. When the CBU's table cannot be fetched or read, USD/UZS now comes from the Bank of Russia: its rouble rates for the dollar and the soʻm give a cross rate that follows the CBU's rate of the previous business day. The panel names the Bank of Russia as the source and says it is a cross rate via RUB. The CBU stays the first choice and is used again as soon as it answers.
+
+### Changed
+
+- The rates job fails only when a pair could not be updated from any source; using a fallback source is a warning. A fallback no longer replaces a published rate that is as new as its own, so a Bank of Israel rate is not swapped for the ECB's cross of the same day. Fetch errors name their cause, such as a connect timeout.
+
+### Known limitations
+
+- While the CBU cannot be reached, USD/UZS is one business day behind it and shown, like every cross rate, to six significant digits.
+
 ## [2.0.0] - 2026-10-27
 
 Reads backup and record versions 1–3 and schema versions 1–5. Writes record 3, backup 3 and schema 5 for vaults with per-person keys (every vault set up with 2.0, and a 1.x vault once an admin upgrades it), and record 2, backup 2 and schema 4 for every other vault, as 1.7.5 does, so 1.7.5 keeps opening a vault that 2.0 has not upgraded. 1.x refuses record and backup 3 as made by a newer version (`FORMAT_TOO_NEW`) and leaves them untouched. Export format 1 is unchanged. The new formats are specified in [docs/data-format.md](docs/data-format.md#record-version-3-per-person-keys-20) and the design in [docs/design/v2.0-key-redesign.md](docs/design/v2.0-key-redesign.md).
@@ -452,7 +468,8 @@ Writes backup, record, and schema version 1.
 - Audit log, encrypted `.moliya` backups, day and night themes, and a collapsible sidebar.
 - Deployment to GitHub Pages.
 
-[Unreleased]: https://github.com/kool277/iqtisod/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/kool277/iqtisod/compare/v2.0.1...HEAD
+[2.0.1]: https://github.com/kool277/iqtisod/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/kool277/iqtisod/compare/v1.7.5...v2.0.0
 [1.7.5]: https://github.com/kool277/iqtisod/compare/v1.7.4...v1.7.5
 [1.7.4]: https://github.com/kool277/iqtisod/compare/v1.7.3...v1.7.4
