@@ -6,6 +6,15 @@ Data formats are versioned separately from the app. Each release lists the forma
 
 ## [Unreleased]
 
+## [2.0.2] - 2026-10-29
+
+Reads backup and record versions 1–3 and schema versions 1–5, and writes the same formats as 2.0.1, so 2.0.1 opens everything 2.0.2 saves. The app is the same as 2.0.1's. The `v2.0.1` tag has no GitHub release: a test that stopped passing on 29 October (below) failed its release run, so 2.0.2 is the release of 2.0.1's changes.
+
+### Fixed
+
+- **A large market move no longer stops the rates job.** Cross-checks held rates from different market days to the limits meant for the same day. The CBU sets each table from the markets of the business day before its date, so on 28 October, when the shekel moved 2.5%, the CBU's USD/ILS was 2.44% from the Bank of Israel's, and any run that reached the CBU published nothing (the job on GitHub cannot reach it at present). Rates from different market days may now differ by up to 5%; rates from the same day keep their limits (1.5% between the ECB and the Bank of Israel, 2% against the CBU).
+- For developers: the golden-backup test opens private safes as of the day the backup was written. Opening safes empties what has been in the trash for over 30 days, so from 29 October the trashed note in `v3/safes-household` was gone and every CI run failed.
+
 ## [2.0.1] - 2026-10-28
 
 Reads backup and record versions 1–3 and schema versions 1–5. Writes the same formats as 2.0.0 (record 3, backup 3 and schema 5 for vaults with per-person keys; record 2, backup 2 and schema 4 for every other vault), so 2.0.0 opens everything 2.0.1 saves. The published exchange-rate snapshot keeps schema 1 but may now name the Bank of Russia (`CBR`) as a source, which 2.0.0 and older refuse: they keep showing their last saved rates ([data-format.md](docs/data-format.md#published-exchange-rate-snapshot)).
@@ -468,7 +477,8 @@ Writes backup, record, and schema version 1.
 - Audit log, encrypted `.moliya` backups, day and night themes, and a collapsible sidebar.
 - Deployment to GitHub Pages.
 
-[Unreleased]: https://github.com/kool277/iqtisod/compare/v2.0.1...HEAD
+[Unreleased]: https://github.com/kool277/iqtisod/compare/v2.0.2...HEAD
+[2.0.2]: https://github.com/kool277/iqtisod/compare/v2.0.1...v2.0.2
 [2.0.1]: https://github.com/kool277/iqtisod/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/kool277/iqtisod/compare/v1.7.5...v2.0.0
 [1.7.5]: https://github.com/kool277/iqtisod/compare/v1.7.4...v1.7.5
