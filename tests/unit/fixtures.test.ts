@@ -109,6 +109,11 @@ async function expectFixtureContents(record: VaultRecord, fixture: Fixture) {
   }
 }
 
+/** Opening safes purges what has been in the trash for over `TRASH_DAYS`, so a fixture's safes are opened as of the day it was written. */
+function safesOpenedOn(summaryDate: string): Date {
+  return new Date(`${summaryDate}T12:00:00.000Z`)
+}
+
 async function expectSafes(vault: OpenVault, keyring: SafeKeyring, owner: ExpectedSafeOwner, password: string, summaryDate: string) {
   const listed = await listSafes(vault, keyring)
   expect(
@@ -227,14 +232,14 @@ describe.each(legacyFixtures.map((fixture) => [fixture.path, fixture] as const))
       let keyring: SafeKeyring
       if (owner.state === 'STALE') {
         expect(getSafeStatus(vault)).toMatchObject({ initialized: true, stale: true, hasRecovery: owner.recoveryCode !== null })
-        await expect(unlockSafes(vault, { kind: 'password', password: user.password })).rejects.toMatchObject({ code: 'SAFES_STALE' })
+        await expect(unlockSafes(vault, { kind: 'password', password: user.password }, safesOpenedOn(safes.summaryDate))).rejects.toMatchObject({ code: 'SAFES_STALE' })
         const viaCode = await unlock(record, user)
-        const recovered = await unlockSafes(viaCode, { kind: 'recoveryCode', code: owner.recoveryCode!, current: user.password })
+        const recovered = await unlockSafes(viaCode, { kind: 'recoveryCode', code: owner.recoveryCode!, current: user.password }, safesOpenedOn(safes.summaryDate))
         await expectSafes(viaCode, recovered.keyring, owner, user.password, safes.summaryDate)
-        keyring = (await unlockSafes(vault, { kind: 'previousPassword', previous: owner.previousPassword!, current: user.password })).keyring
+        keyring = (await unlockSafes(vault, { kind: 'previousPassword', previous: owner.previousPassword!, current: user.password }, safesOpenedOn(safes.summaryDate))).keyring
       } else {
         expect(getSafeStatus(vault)).toMatchObject({ initialized: true, stale: false, hasRecovery: owner.recoveryCode !== null })
-        keyring = (await unlockSafes(vault, { kind: 'password', password: user.password })).keyring
+        keyring = (await unlockSafes(vault, { kind: 'password', password: user.password }, safesOpenedOn(safes.summaryDate))).keyring
       }
       await expectSafes(vault, keyring, owner, user.password, safes.summaryDate)
       unlocked.set(owner.email, { vault, keyring })
@@ -392,7 +397,7 @@ describe.each(keysFixtures.map((fixture) => [fixture.path, fixture] as const))('
       const user = fixture.expected.users.find((item) => item.email === owner.email)!
       const vault = await unlock(record(), user)
       expect(getSafeStatus(vault)).toMatchObject({ initialized: true, stale: false, hasRecovery: owner.recoveryCode !== null })
-      const { keyring } = await unlockSafes(vault, { kind: 'password', password: user.password })
+      const { keyring } = await unlockSafes(vault, { kind: 'password', password: user.password }, safesOpenedOn(safes.summaryDate))
       await expectSafes(vault, keyring, owner, user.password, safes.summaryDate)
       for (const other of fixture.expected.users.filter((item) => item.email !== owner.email)) {
         const someone = await unlock(record(), other)
