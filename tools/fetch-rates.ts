@@ -44,6 +44,8 @@ export const MAX_DAILY_MOVE_PERCENT = '10'
 export const MAX_CHECK_GAP_DAYS = 7
 
 const TOLERANCE: Readonly<Record<FxSourceId, string>> = { CBU: '2', ECB: '1.5', BOI: '1.5', CBR: '2' }
+/** For rates observed on different market days, whose gap can hold a move larger than any same-day tolerance. */
+export const OTHER_DAY_TOLERANCE = '5'
 
 export class FxBuildError extends Error {
   constructor(message: string) {
@@ -188,11 +190,29 @@ function compare(subject: string, value: Decimal, reference: string, against: De
   }
 }
 
+/** The CBU sets each table from the markets of the business day before the date it takes effect. */
+export function marketDay(source: FxSourceId, date: string): string {
+  if (source !== 'CBU') return date
+  let day = addDays(date, -1)
+  while ([0, 6].includes(new Date(`${day}T00:00:00Z`).getUTCDay())) day = addDays(day, -1)
+  return day
+}
+
+function tolerance(subject: { source: FxSourceId; date: string }, reference: { source: FxSourceId; date: string }, sameDay: string): string {
+  return marketDay(subject.source, subject.date) === marketDay(reference.source, reference.date) ? sameDay : OTHER_DAY_TOLERANCE
+}
+
 function crossChecks(quote: FxQuoteCurrency, chosen: Candidate, alternatives: Candidate[]): FxCheck[] {
   return alternatives
     .filter((other) => other !== chosen && dayGap(other.date, chosen.date) <= MAX_CHECK_GAP_DAYS)
     .map((other) =>
-      compare(`USD/${quote} ${describe(chosen)}`, Decimal.parse(chosen.rate), `${describe(other)} (${other.date})`, Decimal.parse(other.rate), TOLERANCE[other.source]),
+      compare(
+        `USD/${quote} ${describe(chosen)}`,
+        Decimal.parse(chosen.rate),
+        `${describe(other)} (${other.date})`,
+        Decimal.parse(other.rate),
+        tolerance(chosen, other, TOLERANCE[other.source]),
+      ),
     )
 }
 
@@ -201,7 +221,8 @@ function cbuConsistency({ cbu, ecb }: Parsed): FxCheck[] {
   const eur = cbu?.rates.get('EUR')
   const ecbUsd = ecb?.get('USD')?.at(-1)
   if (!cbu || !usd || !eur || !ecbUsd || dayGap(cbu.date, ecbUsd.date) > MAX_CHECK_GAP_DAYS) return []
-  return [compare('EUR/USD implied by CBU', crossRate(eur, usd), `ECB EUR/USD (${ecbUsd.date})`, Decimal.parse(ecbUsd.rate), TOLERANCE.CBU)]
+  const limit = tolerance({ source: 'CBU', date: cbu.date }, { source: 'ECB', date: ecbUsd.date }, TOLERANCE.CBU)
+  return [compare('EUR/USD implied by CBU', crossRate(eur, usd), `ECB EUR/USD (${ecbUsd.date})`, Decimal.parse(ecbUsd.rate), limit)]
 }
 
 export function buildSnapshot({ now, responses, failures, previous, allowLargeMoves = false }: BuildInput): BuildResult {

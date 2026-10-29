@@ -7,7 +7,7 @@ import { promisify } from 'node:util'
 import { afterAll, describe, expect, it } from 'vitest'
 import { parseSnapshot, sealSnapshot, type FxSnapshot } from '../../src/domain/fx'
 import { sha256Hex } from '../../src/lib/sha256'
-import { FxBuildError, buildSnapshot, collect, commandMessage, fetchError, type Fetcher } from '../../tools/fetch-rates'
+import { FxBuildError, buildSnapshot, collect, commandMessage, fetchError, marketDay, type Fetcher } from '../../tools/fetch-rates'
 import { BOI_URL, CBR_URL, ECB_URL, RAW_FILES, type RawKey } from '../../tools/fx-sources'
 
 const run = promisify(execFile)
@@ -131,6 +131,37 @@ describe('buildSnapshot', () => {
     const skewed = readFileSync(join(FIXTURES, 'boi.csv'), 'utf8').replace('2026-09-28,3.066', '2026-09-28,3.366')
     await expect(build({ boi: skewed })).rejects.toThrow(FxBuildError)
     await expect(build({ boi: skewed })).rejects.toThrow(/USD\/ILS BOI official deviates 9\.8\d+% from ECB cross/)
+  })
+
+  it('holds rates of one market day to the source tolerance, and rates of different days to 5%', async () => {
+    const cbu = (ilsRate: string, date: string) =>
+      readFileSync(join(FIXTURES, 'cbu-latest.json'), 'utf8').replace('"Rate":"3849.05"', `"Rate":"${ilsRate}"`).replaceAll('29.09.2026', date)
+    // The CBU set its 29 September table from the markets of the 28th, the day of the BOI and ECB rates, and its 30 September table on the 29th.
+    await expect(build({ 'cbu-latest': cbu('3760.00', '29.09.2026') })).rejects.toThrow(
+      /USD\/ILS BOI official deviates 2\.3614% from CBU cross via UZS \(2026-09-29\) \(limit 2%\)/,
+    )
+    const cbuNextDay = await build({ 'cbu-latest': cbu('3760.00', '30.09.2026') })
+    expect(cbuNextDay.snapshot.checks.find((check) => check.subject.startsWith('USD/ILS') && check.reference.startsWith('CBU'))).toMatchObject({
+      reference: 'CBU cross via UZS (2026-09-30)',
+      tolerancePercent: '5',
+      passed: true,
+    })
+
+    const boi = readFileSync(join(FIXTURES, 'boi.csv'), 'utf8')
+    await expect(build({ boi: boi.replace('2026-09-28,3.066', '2026-09-28,3.128') })).rejects.toThrow(
+      /USD\/ILS BOI official deviates 2\.11\d+% from ECB cross via EUR \(2026-09-28\) \(limit 1\.5%\)/,
+    )
+    const boiNextDay = await build({ boi: `${boi.trimEnd()}\nRER_USD_ILS,D,USD,ILS,ILS,OF00,BOI_MRKT,V,F,Y,0,,2026-09-29,3.128,YP\n` })
+    expect(boiNextDay.snapshot.quotes[2]).toMatchObject({ source: 'BOI', rate: '3.128', date: '2026-09-29' })
+    expect(boiNextDay.snapshot.checks.find((check) => check.reference === 'ECB cross via EUR (2026-09-28)')).toMatchObject({ tolerancePercent: '5', passed: true })
+  })
+
+  it('dates a CBU table to the business day it was set', () => {
+    expect(marketDay('CBU', '2026-09-29')).toBe('2026-09-28')
+    expect(marketDay('CBU', '2026-09-26')).toBe('2026-09-25')
+    expect(marketDay('CBU', '2026-09-28')).toBe('2026-09-25')
+    expect(marketDay('ECB', '2026-09-28')).toBe('2026-09-28')
+    expect(marketDay('BOI', '2026-09-28')).toBe('2026-09-28')
   })
 
   it('holds back a large day-over-day move until a person confirms it', async () => {
