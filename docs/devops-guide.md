@@ -46,7 +46,7 @@ Builds are reproducible: the build date comes from `SOURCE_DATE_EPOCH` or the co
   - `Cross-Origin-Opener-Policy: same-origin`
   - `Cross-Origin-Embedder-Policy: require-corp`
 
-  Vite sets them for `npm run dev` and `npm run preview`. On hosts that cannot set headers, `coi-serviceworker.js` adds them in the browser. That causes one automatic reload on a visitor's first load. If the host already sends both headers, the service worker does not register. Inside a frame it never registers.
+  Vite sets them for `npm run dev` and `npm run preview`. On hosts that cannot set headers, `coi-serviceworker.js` adds them in the browser. That causes one automatic reload on a visitor's first load, which `coi-config.js` holds until the worker is active (before 2.0.3 it came too early, and the first visit stayed without isolation until the next reload). If the host already sends both headers, the service worker does not register. Inside a frame it never registers.
 - **Web Locks and IndexedDB** are required. Every supported browser has both.
 - The app loads nothing from third-party origins. Exchange rates are read from `rates/latest.json` on the same site.
 

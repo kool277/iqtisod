@@ -31,6 +31,45 @@ function startWorker() {
   }
 }
 
+/** Runs coi-config.js against a stand-in page whose isolation worker becomes active when `activate` is called. */
+function startConfig({ serviceWorker = true, framed = false } = {}) {
+  let reloads = 0
+  let activate = () => {}
+  const ready = new Promise<void>((resolve) => (activate = resolve))
+  const window: Record<string, unknown> = { location: { reload: () => (reloads += 1) } }
+  window.self = window
+  window.top = framed ? {} : window
+  const context = createContext({ window, document: { baseURI: `${ORIGIN}/` }, navigator: serviceWorker ? { serviceWorker: { ready } } : {} })
+  runInContext(readFileSync(join(ROOT, 'public/coi-config.js'), 'utf8'), context)
+  return { coi: window.coi as { doReload: () => void; shouldRegister?: () => boolean }, reloads: () => reloads, activate }
+}
+
+const settle = () => new Promise((resolve) => setTimeout(resolve, 0))
+
+describe('coi-config', () => {
+  it('reloads for the isolation worker only once it is active, so the reloaded page is isolated', async () => {
+    const page = startConfig()
+    page.coi.doReload()
+    await settle()
+    expect(page.reloads()).toBe(0)
+    page.activate()
+    await settle()
+    expect(page.reloads()).toBe(1)
+  })
+
+  it('reloads at once without service workers, and never registers inside a frame', async () => {
+    const page = startConfig({ serviceWorker: false })
+    page.coi.doReload()
+    expect(page.reloads()).toBe(1)
+    const framed = startConfig({ framed: true })
+    expect(framed.coi.shouldRegister?.()).toBe(false)
+    framed.activate()
+    framed.coi.doReload()
+    await settle()
+    expect(framed.reloads()).toBe(1)
+  })
+})
+
 describe('coi-serviceworker', () => {
   it('follows messages from pages of its own origin', () => {
     const worker = startWorker()
