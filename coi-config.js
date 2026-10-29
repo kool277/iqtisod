@@ -25,12 +25,23 @@
     })
   }
 
+  // coi-serviceworker reloads as soon as a new worker starts installing, but a page loaded before the worker
+  // is active is not controlled by it: on a first visit that reload kept the page without isolation until the
+  // next one. `ready` resolves once a worker is active, which is at once when one already is.
+  function reloadWhenActive() {
+    if (!navigator.serviceWorker) return window.location.reload()
+    navigator.serviceWorker.ready.then(function () {
+      window.location.reload()
+    })
+  }
+
   window.coi = framed
     ? {
         quiet: true,
+        doReload: reloadWhenActive,
         shouldRegister: function () {
           return false
         },
       }
-    : { quiet: true }
+    : { quiet: true, doReload: reloadWhenActive }
 })()
