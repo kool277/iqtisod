@@ -12,7 +12,7 @@ Reads backup and record versions 1–3 and schema versions 1–5, and writes the
 
 ### Fixed
 
-- **A large market move no longer stops the rates job.** Cross-checks held rates from different market days to the limits meant for the same day. The CBU sets each table from the markets of the business day before its date, so on 28 October, when the shekel moved 2.5%, the CBU's USD/ILS was 2.44% from the Bank of Israel's, and any run that reached the CBU published nothing (the job on GitHub cannot reach it at present). Rates from different market days may now differ by up to 5%; rates from the same day keep their limits (1.5% between the ECB and the Bank of Israel, 2% against the CBU).
+- **A large market move no longer stops the rates job.** Cross-checks held rates from different market days to the limits meant for the same day. The CBU sets each table on its business day before the table's date, so on 28 October, when the shekel moved 2.5%, the CBU's USD/ILS was 2.44% from the Bank of Israel's, and any run that reached the CBU published nothing (the job on GitHub cannot reach it at present). A check now compares rates of the same market day where the job has them, the reference's previous rate included, at the same limits as before (1.5% between the ECB and the Bank of Israel, 2% against the CBU), and allows 5% between rates of different days, or when the day a CBU table was set cannot be told (after a weekend or a holiday).
 - For developers: the golden-backup test opens private safes as of the day the backup was written. Opening safes empties what has been in the trash for over 30 days, so from 29 October the trashed note in `v3/safes-household` was gone and every CI run failed.
 
 ## [2.0.1] - 2026-10-28

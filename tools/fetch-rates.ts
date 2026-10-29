@@ -190,39 +190,60 @@ function compare(subject: string, value: Decimal, reference: string, against: De
   }
 }
 
-/** The CBU sets each table from the markets of the business day before the date it takes effect. */
-export function marketDay(source: FxSourceId, date: string): string {
-  if (source !== 'CBU') return date
-  let day = addDays(date, -1)
-  while ([0, 6].includes(new Date(`${day}T00:00:00Z`).getUTCDay())) day = addDays(day, -1)
-  return day
+/**
+ * The day whose markets the CBU set a table from, or null when that cannot be told. The CBU sets each table on its
+ * business day before the table's date, which is the day before only when the table in force that day is dated that
+ * day: after a weekend or a holiday it is an earlier day (its 24 March 2026 table was set on 19 March).
+ */
+export function cbuMarketDay(date: string, previousTableDate: string | null): string | null {
+  const before = addDays(date, -1)
+  return previousTableDate === before ? before : null
 }
 
-function tolerance(subject: { source: FxSourceId; date: string }, reference: { source: FxSourceId; date: string }, sameDay: string): string {
-  return marketDay(subject.source, subject.date) === marketDay(reference.source, reference.date) ? sameDay : OTHER_DAY_TOLERANCE
+/** The ECB and the BOI fix their rates on the day they are dated. */
+function marketDay(parsed: Parsed, source: FxSourceId, date: string): string | null {
+  if (source === 'ECB' || source === 'BOI') return date
+  if (source === 'CBU' && parsed.cbu?.date === date) return cbuMarketDay(date, parsed.cbuPrevious?.date ?? null)
+  return null
 }
 
-function crossChecks(quote: FxQuoteCurrency, chosen: Candidate, alternatives: Candidate[]): FxCheck[] {
+/** Against the reference's rate of the same market day, its latest or the one before, else its latest at `OTHER_DAY_TOLERANCE`. */
+function crossChecks(parsed: Parsed, quote: FxQuoteCurrency, chosen: Candidate, alternatives: Candidate[]): FxCheck[] {
+  const day = marketDay(parsed, chosen.source, chosen.date)
   return alternatives
     .filter((other) => other !== chosen && dayGap(other.date, chosen.date) <= MAX_CHECK_GAP_DAYS)
-    .map((other) =>
-      compare(
+    .map((other) => {
+      const sameDay = day === null ? undefined : [other, other.previous].find((item) => item && marketDay(parsed, other.source, item.date) === day)
+      const reference = sameDay ?? other
+      return compare(
         `USD/${quote} ${describe(chosen)}`,
         Decimal.parse(chosen.rate),
-        `${describe(other)} (${other.date})`,
-        Decimal.parse(other.rate),
-        tolerance(chosen, other, TOLERANCE[other.source]),
-      ),
-    )
+        `${describe(other)} (${reference.date})`,
+        Decimal.parse(reference.rate),
+        sameDay ? TOLERANCE[other.source] : OTHER_DAY_TOLERANCE,
+      )
+    })
 }
 
-function cbuConsistency({ cbu, ecb }: Parsed): FxCheck[] {
+function cbuConsistency(parsed: Parsed): FxCheck[] {
+  const { cbu, ecb } = parsed
   const usd = cbu?.rates.get('USD')
   const eur = cbu?.rates.get('EUR')
-  const ecbUsd = ecb?.get('USD')?.at(-1)
-  if (!cbu || !usd || !eur || !ecbUsd || dayGap(cbu.date, ecbUsd.date) > MAX_CHECK_GAP_DAYS) return []
-  const limit = tolerance({ source: 'CBU', date: cbu.date }, { source: 'ECB', date: ecbUsd.date }, TOLERANCE.CBU)
-  return [compare('EUR/USD implied by CBU', crossRate(eur, usd), `ECB EUR/USD (${ecbUsd.date})`, Decimal.parse(ecbUsd.rate), limit)]
+  const series = ecb?.get('USD') ?? []
+  const latest = series.at(-1)
+  if (!cbu || !usd || !eur || !latest || dayGap(cbu.date, latest.date) > MAX_CHECK_GAP_DAYS) return []
+  const day = marketDay(parsed, 'CBU', cbu.date)
+  const sameDay = series.find((item) => item.date === day)
+  const reference = sameDay ?? latest
+  return [
+    compare(
+      'EUR/USD implied by CBU',
+      crossRate(eur, usd),
+      `ECB EUR/USD (${reference.date})`,
+      Decimal.parse(reference.rate),
+      sameDay ? TOLERANCE.CBU : OTHER_DAY_TOLERANCE,
+    ),
+  ]
 }
 
 export function buildSnapshot({ now, responses, failures, previous, allowLargeMoves = false }: BuildInput): BuildResult {
@@ -251,7 +272,7 @@ export function buildSnapshot({ now, responses, failures, previous, allowLargeMo
       }
       warnings.push(`USD/${quote}: primary source unavailable; using ${describe(chosen)}`)
     }
-    checks.push(...crossChecks(quote, chosen, available))
+    checks.push(...crossChecks(parsed, quote, chosen, available))
     if (before && before.date !== chosen.date) {
       const move = deviationPercent(Decimal.parse(chosen.rate), Decimal.parse(before.rate))
       if (move.compareTo(Decimal.parse(MAX_DAILY_MOVE_PERCENT)) > 0 && !allowLargeMoves) {

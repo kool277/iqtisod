@@ -7,7 +7,7 @@ import { promisify } from 'node:util'
 import { afterAll, describe, expect, it } from 'vitest'
 import { parseSnapshot, sealSnapshot, type FxSnapshot } from '../../src/domain/fx'
 import { sha256Hex } from '../../src/lib/sha256'
-import { FxBuildError, buildSnapshot, collect, commandMessage, fetchError, marketDay, type Fetcher } from '../../tools/fetch-rates'
+import { FxBuildError, buildSnapshot, collect, commandMessage, cbuMarketDay, fetchError, type Fetcher } from '../../tools/fetch-rates'
 import { BOI_URL, CBR_URL, ECB_URL, RAW_FILES, type RawKey } from '../../tools/fx-sources'
 
 const run = promisify(execFile)
@@ -134,15 +134,16 @@ describe('buildSnapshot', () => {
   })
 
   it('holds rates of one market day to the source tolerance, and rates of different days to 5%', async () => {
-    const cbu = (ilsRate: string, date: string) =>
-      readFileSync(join(FIXTURES, 'cbu-latest.json'), 'utf8').replace('"Rate":"3849.05"', `"Rate":"${ilsRate}"`).replaceAll('29.09.2026', date)
-    // The CBU set its 29 September table from the markets of the 28th, the day of the BOI and ECB rates, and its 30 September table on the 29th.
-    await expect(build({ 'cbu-latest': cbu('3760.00', '29.09.2026') })).rejects.toThrow(
+    const cbuLatest = readFileSync(join(FIXTURES, 'cbu-latest.json'), 'utf8').replace('"Rate":"3849.05"', '"Rate":"3760.00"')
+    // With the table before it dated the 28th, the 29 September table was set from the markets of the 28th, the day of the BOI and ECB rates.
+    const cbuPrevious = readFileSync(join(FIXTURES, 'cbu-previous.json'), 'utf8').replaceAll('26.09.2026', '28.09.2026')
+    await expect(build({ 'cbu-latest': cbuLatest, 'cbu-previous': cbuPrevious })).rejects.toThrow(
       /USD\/ILS BOI official deviates 2\.3614% from CBU cross via UZS \(2026-09-29\) \(limit 2%\)/,
     )
-    const cbuNextDay = await build({ 'cbu-latest': cbu('3760.00', '30.09.2026') })
-    expect(cbuNextDay.snapshot.checks.find((check) => check.subject.startsWith('USD/ILS') && check.reference.startsWith('CBU'))).toMatchObject({
-      reference: 'CBU cross via UZS (2026-09-30)',
+    // After the weekend (the table before it is dated the 26th), the day it was set from cannot be told.
+    const afterWeekend = await build({ 'cbu-latest': cbuLatest })
+    expect(afterWeekend.snapshot.checks.find((check) => check.subject.startsWith('USD/ILS') && check.reference.startsWith('CBU'))).toMatchObject({
+      reference: 'CBU cross via UZS (2026-09-29)',
       tolerancePercent: '5',
       passed: true,
     })
@@ -156,12 +157,26 @@ describe('buildSnapshot', () => {
     expect(boiNextDay.snapshot.checks.find((check) => check.reference === 'ECB cross via EUR (2026-09-28)')).toMatchObject({ tolerancePercent: '5', passed: true })
   })
 
-  it('dates a CBU table to the business day it was set', () => {
-    expect(marketDay('CBU', '2026-09-29')).toBe('2026-09-28')
-    expect(marketDay('CBU', '2026-09-26')).toBe('2026-09-25')
-    expect(marketDay('CBU', '2026-09-28')).toBe('2026-09-25')
-    expect(marketDay('ECB', '2026-09-28')).toBe('2026-09-28')
-    expect(marketDay('BOI', '2026-09-28')).toBe('2026-09-28')
+  it('checks a rate a day behind its reference against the reference of the same day', async () => {
+    const [header, first] = readFileSync(join(FIXTURES, 'boi.csv'), 'utf8').trimEnd().split(/\r?\n/)
+    const behind = await build({ boi: `${header}\n${first}\n` })
+    expect(behind.snapshot.quotes[2]).toMatchObject({ source: 'BOI', rate: '3.033', date: '2026-09-25' })
+    expect(behind.snapshot.checks.find((check) => check.subject.startsWith('USD/ILS') && check.reference.startsWith('ECB'))).toMatchObject({
+      reference: 'ECB cross via EUR (2026-09-25)',
+      tolerancePercent: '1.5',
+      passed: true,
+    })
+    // 1.0% from the ECB's latest rate, of the 28th, but 1.99% from its rate of the same day.
+    await expect(build({ boi: `${header}\n${first.replace('3.033', '3.094')}\n` })).rejects.toThrow(
+      /USD\/ILS BOI official deviates 1\.98\d+% from ECB cross via EUR \(2026-09-25\) \(limit 1\.5%\)/,
+    )
+  })
+
+  it('tells the day a CBU table was set from only when the table before it is dated the day before', () => {
+    expect(cbuMarketDay('2026-09-30', '2026-09-29')).toBe('2026-09-29')
+    expect(cbuMarketDay('2026-09-29', '2026-09-26')).toBeNull()
+    expect(cbuMarketDay('2026-03-24', '2026-03-19')).toBeNull()
+    expect(cbuMarketDay('2026-09-30', null)).toBeNull()
   })
 
   it('holds back a large day-over-day move until a person confirms it', async () => {

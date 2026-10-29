@@ -82,14 +82,14 @@
       "subject": "EUR/USD implied by CBU",
       "reference": "ECB EUR/USD (2026-09-28)",
       "deviationPercent": "0.0264",
-      "tolerancePercent": "2",
+      "tolerancePercent": "5",
       "passed": true
     },
     {
       "subject": "USD/KRW ECB cross via EUR",
       "reference": "CBU cross via UZS (2026-09-29)",
       "deviationPercent": "0.1707",
-      "tolerancePercent": "2",
+      "tolerancePercent": "5",
       "passed": true
     },
     {
@@ -103,9 +103,9 @@
       "subject": "USD/ILS BOI official",
       "reference": "CBU cross via UZS (2026-09-29)",
       "deviationPercent": "0.0490",
-      "tolerancePercent": "2",
+      "tolerancePercent": "5",
       "passed": true
     }
   ],
-  "digest": "5d132bfd67524809d68d127cfad97304e5a4792af7c84a64cb3661f094f3e888"
+  "digest": "196b4820f5c456da7700b25574ba0bbe561ba9f45bf14f65da5a82ba2bcc849c"
 }
