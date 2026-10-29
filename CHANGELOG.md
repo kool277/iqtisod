@@ -6,6 +6,14 @@ Data formats are versioned separately from the app. Each release lists the forma
 
 ## [Unreleased]
 
+## [2.0.3] - 2026-10-29
+
+Reads backup and record versions 1–3 and schema versions 1–5, and writes the same formats as 2.0.2, so 2.0.2 opens everything 2.0.3 saves.
+
+### Fixed
+
+- **The first visit is isolated from other sites.** On jaybi.uz a service worker adds the cross-origin isolation headers, so the page reloads once on a first visit to be served by it. That reload came while the worker was still being installed, so the reloaded page was not served by it and stayed without isolation until the next reload (Health check: "Page isolation"). The reload now waits until the worker is active. Nothing in Jaybi needs isolation yet, so nothing else changes.
+
 ## [2.0.2] - 2026-10-29
 
 Reads backup and record versions 1–3 and schema versions 1–5, and writes the same formats as 2.0.1, so 2.0.1 opens everything 2.0.2 saves. The app is the same as 2.0.1's. The `v2.0.1` tag has no GitHub release: a test that stopped passing on 29 October (below) failed its release run, so 2.0.2 is the release of 2.0.1's changes.
@@ -477,7 +485,8 @@ Writes backup, record, and schema version 1.
 - Audit log, encrypted `.moliya` backups, day and night themes, and a collapsible sidebar.
 - Deployment to GitHub Pages.
 
-[Unreleased]: https://github.com/kool277/iqtisod/compare/v2.0.2...HEAD
+[Unreleased]: https://github.com/kool277/iqtisod/compare/v2.0.3...HEAD
+[2.0.3]: https://github.com/kool277/iqtisod/compare/v2.0.2...v2.0.3
 [2.0.2]: https://github.com/kool277/iqtisod/compare/v2.0.1...v2.0.2
 [2.0.1]: https://github.com/kool277/iqtisod/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/kool277/iqtisod/compare/v1.7.5...v2.0.0
