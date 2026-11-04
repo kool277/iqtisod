@@ -1,0 +1,99 @@
+{
+  "schema": 1,
+  "generatedAt": "2026-11-04T21:31:16.614Z",
+  "quotes": [
+    {
+      "base": "USD",
+      "quote": "UZS",
+      "rate": "11941.6500465",
+      "date": "2026-11-04",
+      "source": "CBR",
+      "method": "cross",
+      "legs": [
+        {
+          "pair": "USD/RUB",
+          "rate": "81.6699"
+        },
+        {
+          "pair": "UZS/RUB",
+          "rate": "0.00683908"
+        }
+      ],
+      "previous": {
+        "rate": "12023.4549240",
+        "date": "2026-11-03"
+      }
+    },
+    {
+      "base": "USD",
+      "quote": "KRW",
+      "rate": "1338.58169877",
+      "date": "2026-11-04",
+      "source": "ECB",
+      "method": "cross",
+      "legs": [
+        {
+          "pair": "EUR/KRW",
+          "rate": "1508.18"
+        },
+        {
+          "pair": "EUR/USD",
+          "rate": "1.1267"
+        }
+      ],
+      "previous": {
+        "rate": "1344.59253958",
+        "date": "2026-11-03"
+      }
+    },
+    {
+      "base": "USD",
+      "quote": "ILS",
+      "rate": "3.157",
+      "date": "2026-11-04",
+      "source": "BOI",
+      "method": "official",
+      "legs": null,
+      "previous": {
+        "rate": "3.157",
+        "date": "2026-11-03"
+      }
+    }
+  ],
+  "fetches": [
+    {
+      "source": "ECB",
+      "url": "https://data-api.ecb.europa.eu/service/data/EXR/D.USD+KRW+ILS.EUR.SP00.A?lastNObservations=2&detail=dataonly&format=csvdata",
+      "fetchedAt": "2026-11-04T21:31:16.614Z",
+      "sha256": "244a28adec576b04b0688019896e32d2e83c74de4bc67a86f5104c97aa9b4fb7"
+    },
+    {
+      "source": "BOI",
+      "url": "https://edge.boi.gov.il/FusionEdgeServer/sdmx/v2/data/dataflow/BOI.STATISTICS/EXR/1.0/RER_USD_ILS?lastNObservations=2&format=csv",
+      "fetchedAt": "2026-11-04T21:31:16.614Z",
+      "sha256": "d1b89b7641f6df47bab6bffce1278b347aac0a7f9de659e394f30353744f5394"
+    },
+    {
+      "source": "CBR",
+      "url": "https://www.cbr.ru/scripts/XML_daily_eng.asp",
+      "fetchedAt": "2026-11-04T21:31:16.614Z",
+      "sha256": "51bb3a67b9512a03974b374e7d3a7d35c32585a64e83c12d075eba8e5e6409f0"
+    },
+    {
+      "source": "CBR",
+      "url": "https://www.cbr.ru/scripts/XML_daily_eng.asp?date_req=03/11/2026",
+      "fetchedAt": "2026-11-04T21:31:16.614Z",
+      "sha256": "a57bc37ecb4b44b2a19f0f9fb0960520b8a8b9319b375c2b370a29536375e059"
+    }
+  ],
+  "checks": [
+    {
+      "subject": "USD/ILS BOI official",
+      "reference": "ECB cross via EUR (2026-11-04)",
+      "deviationPercent": "0.1994",
+      "tolerancePercent": "1.5",
+      "passed": true
+    }
+  ],
+  "digest": "78fc71e2ba628569e16f52f528e8fba864617f3e0cd8c5cb9fb9a2ccf016db4f"
+}
