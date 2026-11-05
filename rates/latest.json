@@ -1,62 +1,62 @@
 {
   "schema": 1,
-  "generatedAt": "2026-11-04T21:31:16.614Z",
+  "generatedAt": "2026-11-05T21:34:52.196Z",
   "quotes": [
     {
       "base": "USD",
       "quote": "UZS",
-      "rate": "11941.6500465",
-      "date": "2026-11-04",
+      "rate": "11935.3784329",
+      "date": "2026-11-06",
       "source": "CBR",
       "method": "cross",
       "legs": [
         {
           "pair": "USD/RUB",
-          "rate": "81.6699"
+          "rate": "81.7947"
         },
         {
           "pair": "UZS/RUB",
-          "rate": "0.00683908"
+          "rate": "0.00685313"
         }
       ],
       "previous": {
-        "rate": "12023.4549240",
-        "date": "2026-11-03"
+        "rate": "11941.6500465",
+        "date": "2026-11-04"
       }
     },
     {
       "base": "USD",
       "quote": "KRW",
-      "rate": "1338.58169877",
-      "date": "2026-11-04",
+      "rate": "1344.68995011",
+      "date": "2026-11-05",
       "source": "ECB",
       "method": "cross",
       "legs": [
         {
           "pair": "EUR/KRW",
-          "rate": "1508.18"
+          "rate": "1509.28"
         },
         {
           "pair": "EUR/USD",
-          "rate": "1.1267"
+          "rate": "1.1224"
         }
       ],
       "previous": {
-        "rate": "1344.59253958",
-        "date": "2026-11-03"
+        "rate": "1338.58169877",
+        "date": "2026-11-04"
       }
     },
     {
       "base": "USD",
       "quote": "ILS",
-      "rate": "3.157",
-      "date": "2026-11-04",
+      "rate": "3.167",
+      "date": "2026-11-05",
       "source": "BOI",
       "method": "official",
       "legs": null,
       "previous": {
         "rate": "3.157",
-        "date": "2026-11-03"
+        "date": "2026-11-04"
       }
     }
   ],
@@ -64,36 +64,36 @@
     {
       "source": "ECB",
       "url": "https://data-api.ecb.europa.eu/service/data/EXR/D.USD+KRW+ILS.EUR.SP00.A?lastNObservations=2&detail=dataonly&format=csvdata",
-      "fetchedAt": "2026-11-04T21:31:16.614Z",
-      "sha256": "244a28adec576b04b0688019896e32d2e83c74de4bc67a86f5104c97aa9b4fb7"
+      "fetchedAt": "2026-11-05T21:34:52.196Z",
+      "sha256": "6767e94f1a1829037bbf862a0ab0549283d0f46f1a9918bb27bb92432051170a"
     },
     {
       "source": "BOI",
       "url": "https://edge.boi.gov.il/FusionEdgeServer/sdmx/v2/data/dataflow/BOI.STATISTICS/EXR/1.0/RER_USD_ILS?lastNObservations=2&format=csv",
-      "fetchedAt": "2026-11-04T21:31:16.614Z",
-      "sha256": "d1b89b7641f6df47bab6bffce1278b347aac0a7f9de659e394f30353744f5394"
+      "fetchedAt": "2026-11-05T21:34:52.196Z",
+      "sha256": "74dda5bceabe92da515fc9323272a5eb598a201452414036c29f291de1c50a17"
     },
     {
       "source": "CBR",
       "url": "https://www.cbr.ru/scripts/XML_daily_eng.asp",
-      "fetchedAt": "2026-11-04T21:31:16.614Z",
-      "sha256": "51bb3a67b9512a03974b374e7d3a7d35c32585a64e83c12d075eba8e5e6409f0"
+      "fetchedAt": "2026-11-05T21:34:52.196Z",
+      "sha256": "134d0118a267c44dbe44a16768bafc83c6c6c457aea0cbded86fc570dd82e981"
     },
     {
       "source": "CBR",
-      "url": "https://www.cbr.ru/scripts/XML_daily_eng.asp?date_req=03/11/2026",
-      "fetchedAt": "2026-11-04T21:31:16.614Z",
-      "sha256": "a57bc37ecb4b44b2a19f0f9fb0960520b8a8b9319b375c2b370a29536375e059"
+      "url": "https://www.cbr.ru/scripts/XML_daily_eng.asp?date_req=05/11/2026",
+      "fetchedAt": "2026-11-05T21:34:52.196Z",
+      "sha256": "51bb3a67b9512a03974b374e7d3a7d35c32585a64e83c12d075eba8e5e6409f0"
     }
   ],
   "checks": [
     {
       "subject": "USD/ILS BOI official",
-      "reference": "ECB cross via EUR (2026-11-04)",
-      "deviationPercent": "0.1994",
+      "reference": "ECB cross via EUR (2026-11-05)",
+      "deviationPercent": "0.1449",
       "tolerancePercent": "1.5",
       "passed": true
     }
   ],
-  "digest": "78fc71e2ba628569e16f52f528e8fba864617f3e0cd8c5cb9fb9a2ccf016db4f"
+  "digest": "6fd35f617dace19ff85986944f4f0060878a5ecec316ecef34ba60ee52adcb50"
 }
