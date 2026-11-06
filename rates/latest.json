@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generatedAt": "2026-11-05T21:34:52.196Z",
+  "generatedAt": "2026-11-06T10:51:14.775Z",
   "quotes": [
     {
       "base": "USD",
@@ -49,14 +49,14 @@
     {
       "base": "USD",
       "quote": "ILS",
-      "rate": "3.167",
-      "date": "2026-11-05",
+      "rate": "3.194",
+      "date": "2026-11-06",
       "source": "BOI",
       "method": "official",
       "legs": null,
       "previous": {
-        "rate": "3.157",
-        "date": "2026-11-04"
+        "rate": "3.167",
+        "date": "2026-11-05"
       }
     }
   ],
@@ -64,25 +64,25 @@
     {
       "source": "ECB",
       "url": "https://data-api.ecb.europa.eu/service/data/EXR/D.USD+KRW+ILS.EUR.SP00.A?lastNObservations=2&detail=dataonly&format=csvdata",
-      "fetchedAt": "2026-11-05T21:34:52.196Z",
+      "fetchedAt": "2026-11-06T10:51:14.775Z",
       "sha256": "6767e94f1a1829037bbf862a0ab0549283d0f46f1a9918bb27bb92432051170a"
     },
     {
       "source": "BOI",
       "url": "https://edge.boi.gov.il/FusionEdgeServer/sdmx/v2/data/dataflow/BOI.STATISTICS/EXR/1.0/RER_USD_ILS?lastNObservations=2&format=csv",
-      "fetchedAt": "2026-11-05T21:34:52.196Z",
-      "sha256": "74dda5bceabe92da515fc9323272a5eb598a201452414036c29f291de1c50a17"
+      "fetchedAt": "2026-11-06T10:51:14.775Z",
+      "sha256": "33631066324fa6caf1b08c1aa237b0042203e9d44fcab09b17781f78b1e24ddc"
     },
     {
       "source": "CBR",
       "url": "https://www.cbr.ru/scripts/XML_daily_eng.asp",
-      "fetchedAt": "2026-11-05T21:34:52.196Z",
+      "fetchedAt": "2026-11-06T10:51:14.775Z",
       "sha256": "134d0118a267c44dbe44a16768bafc83c6c6c457aea0cbded86fc570dd82e981"
     },
     {
       "source": "CBR",
       "url": "https://www.cbr.ru/scripts/XML_daily_eng.asp?date_req=05/11/2026",
-      "fetchedAt": "2026-11-05T21:34:52.196Z",
+      "fetchedAt": "2026-11-06T10:51:14.775Z",
       "sha256": "51bb3a67b9512a03974b374e7d3a7d35c32585a64e83c12d075eba8e5e6409f0"
     }
   ],
@@ -90,10 +90,10 @@
     {
       "subject": "USD/ILS BOI official",
       "reference": "ECB cross via EUR (2026-11-05)",
-      "deviationPercent": "0.1449",
-      "tolerancePercent": "1.5",
+      "deviationPercent": "0.7064",
+      "tolerancePercent": "5",
       "passed": true
     }
   ],
-  "digest": "6fd35f617dace19ff85986944f4f0060878a5ecec316ecef34ba60ee52adcb50"
+  "digest": "32cfcffe0b74e041e00284741d6ba524a432b3c8043e4ee54c89e1dc76f7800f"
 }
