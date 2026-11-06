@@ -1,49 +1,40 @@
 {
   "schema": 1,
-  "generatedAt": "2026-11-06T10:51:14.775Z",
+  "generatedAt": "2026-11-06T21:05:26.729Z",
   "quotes": [
     {
       "base": "USD",
       "quote": "UZS",
-      "rate": "11935.3784329",
-      "date": "2026-11-06",
-      "source": "CBR",
-      "method": "cross",
-      "legs": [
-        {
-          "pair": "USD/RUB",
-          "rate": "81.7947"
-        },
-        {
-          "pair": "UZS/RUB",
-          "rate": "0.00685313"
-        }
-      ],
+      "rate": "11987.16",
+      "date": "2026-11-07",
+      "source": "CBU",
+      "method": "official",
+      "legs": null,
       "previous": {
-        "rate": "11941.6500465",
-        "date": "2026-11-04"
+        "rate": "11973.48",
+        "date": "2026-11-06"
       }
     },
     {
       "base": "USD",
       "quote": "KRW",
-      "rate": "1344.68995011",
-      "date": "2026-11-05",
+      "rate": "1358.72816838",
+      "date": "2026-11-06",
       "source": "ECB",
       "method": "cross",
       "legs": [
         {
           "pair": "EUR/KRW",
-          "rate": "1509.28"
+          "rate": "1517.02"
         },
         {
           "pair": "EUR/USD",
-          "rate": "1.1224"
+          "rate": "1.1165"
         }
       ],
       "previous": {
-        "rate": "1338.58169877",
-        "date": "2026-11-04"
+        "rate": "1344.68995011",
+        "date": "2026-11-05"
       }
     },
     {
@@ -62,38 +53,59 @@
   ],
   "fetches": [
     {
+      "source": "CBU",
+      "url": "https://cbu.uz/uz/arkhiv-kursov-valyut/json/",
+      "fetchedAt": "2026-11-06T21:05:26.729Z",
+      "sha256": "3bdb551b0cda230db8c61d1d8b67d3e1345db1631bf7644c858671f12c55726f"
+    },
+    {
+      "source": "CBU",
+      "url": "https://cbu.uz/uz/arkhiv-kursov-valyut/json/all/2026-11-06/",
+      "fetchedAt": "2026-11-06T21:05:26.729Z",
+      "sha256": "8b093b49e36dac39f8b310168e35ebfdac0a18660579242e3131109138b76ac2"
+    },
+    {
       "source": "ECB",
       "url": "https://data-api.ecb.europa.eu/service/data/EXR/D.USD+KRW+ILS.EUR.SP00.A?lastNObservations=2&detail=dataonly&format=csvdata",
-      "fetchedAt": "2026-11-06T10:51:14.775Z",
-      "sha256": "6767e94f1a1829037bbf862a0ab0549283d0f46f1a9918bb27bb92432051170a"
+      "fetchedAt": "2026-11-06T21:05:26.729Z",
+      "sha256": "98bc5bde31f4b3ea01d5e3af83a9ba4dc647e6cb5991f2b3a81abd92767d9427"
     },
     {
       "source": "BOI",
       "url": "https://edge.boi.gov.il/FusionEdgeServer/sdmx/v2/data/dataflow/BOI.STATISTICS/EXR/1.0/RER_USD_ILS?lastNObservations=2&format=csv",
-      "fetchedAt": "2026-11-06T10:51:14.775Z",
+      "fetchedAt": "2026-11-06T21:05:26.729Z",
       "sha256": "33631066324fa6caf1b08c1aa237b0042203e9d44fcab09b17781f78b1e24ddc"
-    },
-    {
-      "source": "CBR",
-      "url": "https://www.cbr.ru/scripts/XML_daily_eng.asp",
-      "fetchedAt": "2026-11-06T10:51:14.775Z",
-      "sha256": "134d0118a267c44dbe44a16768bafc83c6c6c457aea0cbded86fc570dd82e981"
-    },
-    {
-      "source": "CBR",
-      "url": "https://www.cbr.ru/scripts/XML_daily_eng.asp?date_req=05/11/2026",
-      "fetchedAt": "2026-11-06T10:51:14.775Z",
-      "sha256": "51bb3a67b9512a03974b374e7d3a7d35c32585a64e83c12d075eba8e5e6409f0"
     }
   ],
   "checks": [
     {
+      "subject": "EUR/USD implied by CBU",
+      "reference": "ECB EUR/USD (2026-11-06)",
+      "deviationPercent": "0.0716",
+      "tolerancePercent": "2",
+      "passed": true
+    },
+    {
+      "subject": "USD/KRW ECB cross via EUR",
+      "reference": "CBU cross via UZS (2026-11-07)",
+      "deviationPercent": "0.0868",
+      "tolerancePercent": "2",
+      "passed": true
+    },
+    {
       "subject": "USD/ILS BOI official",
-      "reference": "ECB cross via EUR (2026-11-05)",
-      "deviationPercent": "0.7064",
-      "tolerancePercent": "5",
+      "reference": "ECB cross via EUR (2026-11-06)",
+      "deviationPercent": "0.1568",
+      "tolerancePercent": "1.5",
+      "passed": true
+    },
+    {
+      "subject": "USD/ILS BOI official",
+      "reference": "CBU cross via UZS (2026-11-07)",
+      "deviationPercent": "0.1437",
+      "tolerancePercent": "2",
       "passed": true
     }
   ],
-  "digest": "32cfcffe0b74e041e00284741d6ba524a432b3c8043e4ee54c89e1dc76f7800f"
+  "digest": "78a54d0ca836bc8dfecf09602c4dc94fa5082f8544ea6e401369f909a19fd5d3"
 }
