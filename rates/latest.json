@@ -1,40 +1,40 @@
 {
   "schema": 1,
-  "generatedAt": "2026-11-20T11:37:10.813Z",
+  "generatedAt": "2026-11-20T22:21:53.615Z",
   "quotes": [
     {
       "base": "USD",
       "quote": "UZS",
-      "rate": "11971.64",
-      "date": "2026-11-20",
+      "rate": "12004.48",
+      "date": "2026-11-21",
       "source": "CBU",
       "method": "official",
       "legs": null,
       "previous": {
-        "rate": "11980.36",
-        "date": "2026-11-19"
+        "rate": "11971.64",
+        "date": "2026-11-20"
       }
     },
     {
       "base": "USD",
       "quote": "KRW",
-      "rate": "1328.44796215",
-      "date": "2026-11-19",
+      "rate": "1339.43585077",
+      "date": "2026-11-20",
       "source": "ECB",
       "method": "cross",
       "legs": [
         {
           "pair": "EUR/KRW",
-          "rate": "1460.23"
+          "rate": "1472.04"
         },
         {
           "pair": "EUR/USD",
-          "rate": "1.0992"
+          "rate": "1.099"
         }
       ],
       "previous": {
-        "rate": "1332.33041575",
-        "date": "2026-11-18"
+        "rate": "1328.44796215",
+        "date": "2026-11-19"
       }
     },
     {
@@ -55,57 +55,57 @@
     {
       "source": "CBU",
       "url": "https://cbu.uz/uz/arkhiv-kursov-valyut/json/",
-      "fetchedAt": "2026-11-20T11:37:10.813Z",
-      "sha256": "e57f242bcc3fbc7267aa4b2358f48c36e38e9696a164a8de5327eb9ba09594a7"
+      "fetchedAt": "2026-11-20T22:21:53.615Z",
+      "sha256": "292f1e36f3fc87e29008b86e9e1d957100ab5e2fd0a64d3cab43c341eec95155"
     },
     {
       "source": "CBU",
-      "url": "https://cbu.uz/uz/arkhiv-kursov-valyut/json/all/2026-11-19/",
-      "fetchedAt": "2026-11-20T11:37:10.813Z",
-      "sha256": "2edc05c35d845f7f6134a7d3a8be9f79adb24238d0790b582e23f6ed1ac0965a"
+      "url": "https://cbu.uz/uz/arkhiv-kursov-valyut/json/all/2026-11-20/",
+      "fetchedAt": "2026-11-20T22:21:53.615Z",
+      "sha256": "e57f242bcc3fbc7267aa4b2358f48c36e38e9696a164a8de5327eb9ba09594a7"
     },
     {
       "source": "ECB",
       "url": "https://data-api.ecb.europa.eu/service/data/EXR/D.USD+KRW+ILS.EUR.SP00.A?lastNObservations=2&detail=dataonly&format=csvdata",
-      "fetchedAt": "2026-11-20T11:37:10.813Z",
-      "sha256": "7b8bdde981db3b9eb50d06bc1c2a490fa206aa81467665058abbaa2901d532eb"
+      "fetchedAt": "2026-11-20T22:21:53.615Z",
+      "sha256": "b2aaa72a33b676e58c199411527eeb7c63d4bfdaa28f114df23696ed91f42d88"
     },
     {
       "source": "BOI",
       "url": "https://edge.boi.gov.il/FusionEdgeServer/sdmx/v2/data/dataflow/BOI.STATISTICS/EXR/1.0/RER_USD_ILS?lastNObservations=2&format=csv",
-      "fetchedAt": "2026-11-20T11:37:10.813Z",
+      "fetchedAt": "2026-11-20T22:21:53.615Z",
       "sha256": "c6ae100e7664d04833320c9f17fc95e35a2e1e3a9f776ea9fea36cab054fa115"
     }
   ],
   "checks": [
     {
       "subject": "EUR/USD implied by CBU",
-      "reference": "ECB EUR/USD (2026-11-19)",
-      "deviationPercent": "0.0091",
+      "reference": "ECB EUR/USD (2026-11-20)",
+      "deviationPercent": "0.2821",
       "tolerancePercent": "2",
       "passed": true
     },
     {
       "subject": "USD/KRW ECB cross via EUR",
-      "reference": "CBU cross via UZS (2026-11-20)",
-      "deviationPercent": "0.0916",
+      "reference": "CBU cross via UZS (2026-11-21)",
+      "deviationPercent": "0.0261",
       "tolerancePercent": "2",
       "passed": true
     },
     {
       "subject": "USD/ILS BOI official",
-      "reference": "ECB cross via EUR (2026-11-19)",
-      "deviationPercent": "1.1353",
-      "tolerancePercent": "5",
+      "reference": "ECB cross via EUR (2026-11-20)",
+      "deviationPercent": "0.5016",
+      "tolerancePercent": "1.5",
       "passed": true
     },
     {
       "subject": "USD/ILS BOI official",
-      "reference": "CBU cross via UZS (2026-11-20)",
-      "deviationPercent": "1.4085",
-      "tolerancePercent": "5",
+      "reference": "CBU cross via UZS (2026-11-21)",
+      "deviationPercent": "0.3863",
+      "tolerancePercent": "2",
       "passed": true
     }
   ],
-  "digest": "e031f798dbae619e0bb7854c873822515139927054c6d7bfe24a601209428f1e"
+  "digest": "93d99387020ea7ad0fc3097af34ecea0ed4d1250bc337c561df7afd5e34082fc"
 }
