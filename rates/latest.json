@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generatedAt": "2026-11-27T00:01:29.754Z",
+  "generatedAt": "2026-11-27T12:16:30.154Z",
   "quotes": [
     {
       "base": "USD",
@@ -40,14 +40,14 @@
     {
       "base": "USD",
       "quote": "ILS",
-      "rate": "3.334",
-      "date": "2026-11-26",
+      "rate": "3.293",
+      "date": "2026-11-27",
       "source": "BOI",
       "method": "official",
       "legs": null,
       "previous": {
-        "rate": "3.38",
-        "date": "2026-11-25"
+        "rate": "3.334",
+        "date": "2026-11-26"
       }
     }
   ],
@@ -55,26 +55,26 @@
     {
       "source": "CBU",
       "url": "https://cbu.uz/uz/arkhiv-kursov-valyut/json/",
-      "fetchedAt": "2026-11-27T00:01:29.754Z",
+      "fetchedAt": "2026-11-27T12:16:30.154Z",
       "sha256": "809f9e772b697316e629a4b1f9ff02003b2d6ce83c16ef8e396a1fd5d5a0472d"
     },
     {
       "source": "CBU",
       "url": "https://cbu.uz/uz/arkhiv-kursov-valyut/json/all/2026-11-26/",
-      "fetchedAt": "2026-11-27T00:01:29.754Z",
+      "fetchedAt": "2026-11-27T12:16:30.154Z",
       "sha256": "8e80ff6f092a472e7267dae12cfbd0068ae90487d8d5025cf8ae1db4a83e534d"
     },
     {
       "source": "ECB",
       "url": "https://data-api.ecb.europa.eu/service/data/EXR/D.USD+KRW+ILS.EUR.SP00.A?lastNObservations=2&detail=dataonly&format=csvdata",
-      "fetchedAt": "2026-11-27T00:01:29.754Z",
+      "fetchedAt": "2026-11-27T12:16:30.154Z",
       "sha256": "936d4facfca1ce841d7057ea5bdc5c1dda84df44dd3ef08fe9989bfba75ea111"
     },
     {
       "source": "BOI",
       "url": "https://edge.boi.gov.il/FusionEdgeServer/sdmx/v2/data/dataflow/BOI.STATISTICS/EXR/1.0/RER_USD_ILS?lastNObservations=2&format=csv",
-      "fetchedAt": "2026-11-27T00:01:29.754Z",
-      "sha256": "fcbdb56fa9ca29da52911a54eb736758d9f2b6e1dab516f295065368fb8ba5ad"
+      "fetchedAt": "2026-11-27T12:16:30.154Z",
+      "sha256": "783df53a50df0c6f079498603663d855ec1adc1cadc09f83e47d91028ba645c1"
     }
   ],
   "checks": [
@@ -95,17 +95,17 @@
     {
       "subject": "USD/ILS BOI official",
       "reference": "ECB cross via EUR (2026-11-26)",
-      "deviationPercent": "0.2017",
-      "tolerancePercent": "1.5",
+      "deviationPercent": "1.0305",
+      "tolerancePercent": "5",
       "passed": true
     },
     {
       "subject": "USD/ILS BOI official",
       "reference": "CBU cross via UZS (2026-11-27)",
-      "deviationPercent": "0.2900",
-      "tolerancePercent": "2",
+      "deviationPercent": "1.5162",
+      "tolerancePercent": "5",
       "passed": true
     }
   ],
-  "digest": "268c6b220701f51ede1cf864c50d994b9ac2ca2e44eccce9d0ef49d82709d5f7"
+  "digest": "5b82fe65b2e32679019762a88bb6a55a360c15e1bc1073c4ed1dbadcd3bb6cbd"
 }
